@@ -1,0 +1,20 @@
+# installed packages and build output
+node_modules/
+dist/
+web/dist/
+
+# personal data never lives in the repo: the data folder is ~/Library/Application Support/kestrel/
+data/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+.env
+.env.*
+
+# logs and raw eval answers: long, and kept out of git (the dated report in docs/eval/ is what gets committed)
+*.log
+evals/out/
+
+# macOS
+.DS_Store

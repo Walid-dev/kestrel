@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kestrel v0.1 runbook</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0e1318;
+    --surface: #141b22;
+    --surface-2: #1a232c;
+    --line: #26313d;
+    --text: #e2e7ec;
+    --muted: #93a1af;
+    --accent: #78bde0;
+    --accent-soft: rgba(120, 189, 224, 0.12);
+    --low: #5fb98c;
+    --med: #e0aa52;
+    --high: #ec6d62;
+    --low-soft: rgba(95, 185, 140, 0.14);
+    --med-soft: rgba(224, 170, 82, 0.14);
+    --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    --cond: "IBM Plex Sans Condensed", "Arial Narrow", "IBM Plex Sans", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --bg: #f4f6f8;
+      --surface: #ffffff;
+      --surface-2: #eef2f5;
+      --line: #d6dde4;
+      --text: #17212b;
+      --muted: #566473;
+      --accent: #1d6c96;
+      --accent-soft: rgba(29, 108, 150, 0.09);
+      --low: #2c8459;
+      --med: #a3670f;
+      --high: #bf3a2e;
+      --low-soft: rgba(44, 132, 89, 0.1);
+      --med-soft: rgba(163, 103, 15, 0.1);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 15px; line-height: 1.6; padding: 0 16px 64px; }
+  main { max-width: 860px; margin: 0 auto; }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+  code { font-family: var(--mono); font-size: 0.88em; background: var(--surface-2); border: 1px solid var(--line); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+  h1, h2, h3 { font-family: var(--cond); margin: 0; line-height: 1.2; text-wrap: balance; }
+  header.doc { padding-top: 36px; }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+  h1 { font-size: clamp(30px, 5vw, 40px); font-weight: 700; margin: 10px 0 8px; }
+  h1 span { color: var(--accent); }
+  .lede { color: var(--muted); margin: 0 0 20px; }
+  .now { border: 1px dashed var(--accent); border-radius: 10px; padding: 14px 18px; margin: 18px 0; background: var(--accent-soft); }
+  .now b { color: var(--accent); }
+  .stats { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; }
+  .chip { font-family: var(--mono); font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; background: var(--surface); color: var(--muted); }
+  nav.toc { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 14px 0; border-bottom: 1px solid var(--line); margin-top: 10px; }
+  nav.toc a { font-size: 13.5px; text-decoration: none; color: var(--muted); }
+  nav.toc a:hover { color: var(--accent); }
+  section { padding-top: 40px; scroll-margin-top: 16px; }
+  h2 { font-size: 26px; font-weight: 600; margin-bottom: 6px; }
+  h2 .tag { display: inline-block; font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--med); border: 1px solid var(--med); border-radius: 999px; padding: 4px 9px; vertical-align: 4px; margin-left: 8px; background: var(--med-soft); font-weight: 500; }
+  h3 { font-size: 18px; font-weight: 600; }
+  p, li { max-width: 72ch; }
+  .muted { color: var(--muted); }
+  figure { margin: 16px 0 6px; display: grid; gap: 10px; }
+  .diagram { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; color: var(--text); }
+  .diagram svg { display: block; width: 100%; min-width: 640px; height: auto; }
+  figcaption { font-size: 13.5px; color: var(--muted); max-width: 72ch; }
+  .gate { margin-top: 34px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .gate > p { margin: 6px 0 0; }
+  .step, .go { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 14px 16px; margin: 14px 0; }
+  .go { border-style: dashed; border-color: var(--accent); background: var(--accent-soft); }
+  .head { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+  .n { display: inline-grid; place-items: center; min-width: 30px; height: 24px; padding: 0 6px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); color: var(--accent); font-family: var(--cond); font-weight: 600; font-size: 15px; flex: none; }
+  .go .n { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+  .who { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .step p { margin: 8px 0; }
+  .field b { color: var(--text); }
+  .msg code { color: var(--low); }
+  .status { font-family: var(--mono); font-size: 12.5px; border-radius: 6px; padding: 4px 9px; display: inline-block; }
+  .todo { color: var(--muted); background: var(--surface-2); }
+  .doing { color: var(--med); background: var(--med-soft); }
+  .done { color: var(--low); background: var(--low-soft); }
+  ul.tight li, ol.tight li { margin: 4px 0; }
+  .tree { font-family: var(--mono); font-size: 13px; line-height: 1.7; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; }
+  .tree b { color: var(--accent); font-weight: 500; }
+  .tree span { color: var(--muted); }
+  @media (max-width: 560px) { body { font-size: 14.5px; } }
+</style>
+</head>
+<body>
+<main>
+  <header class="doc">
+    <p class="eyebrow">Runbook · v0.1 · 2026-11-16</p>
+    <h1>kestrel <span>v0.1</span></h1>
+    <p class="lede">The foundation and Notes, in 16 steps over three build gates, then a fourth gate where a second
+      model reviews it. Each step is one commit, with its files, a check written so it can fail, and its message. I
+      read each step's explanation and its changes, say GO, and the builder commits and pushes.</p>
+    <div class="now"><b>Now:</b> Codex reviews the plan (round 1 of <code>docs/review/brief.md</code>). Its findings
+      are fixed together in one commit on my GO, and Gate 2 starts on that GO.</div>
+    <div class="stats">
+      <span class="chip">1 of 16 steps committed</span>
+      <span class="chip">gate 1 of 4</span>
+      <span class="chip">plan review next</span>
+    </div>
+    <nav class="toc" aria-label="Contents">
+      <a href="#picture">The gates</a>
+      <a href="#structure">The structure</a>
+      <a href="#steps">The steps</a>
+      <a href="#waiting">Waiting on me</a>
+      <a href="#after">After v0.1</a>
+      <a href="#done">Done already</a>
+    </nav>
+  </header>
+
+  <section id="picture">
+    <h2>The gates</h2>
+    <p>Four gates, left to right. Gate 1 is committed on main; each build gate is one branch, merged into main with a
+      merge commit once I say GO. A gate starts only after the GO on the one before it. Every step is pushed after its
+      own GO, so the work is always saved.</p>
+    <figure>
+      <div class="diagram">
+      <svg viewBox="0 0 760 150" role="img" aria-labelledby="gates-title">
+        <title id="gates-title">The four gates of v0.1: Plan, Skeleton, Notes, Review</title>
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+        <g font-family="IBM Plex Sans, Arial, sans-serif" font-size="14" text-anchor="middle" fill="currentColor">
+          <rect x="14" y="26" width="158" height="64" rx="10" style="fill:var(--low-soft);stroke:var(--low)" stroke-width="1.5"/>
+          <text x="93" y="53" style="fill:var(--low)" font-weight="600">Gate 1 · Plan</text>
+          <text x="93" y="74" font-size="12.5" style="fill:var(--muted)">committed · in review</text>
+          <rect x="204" y="26" width="158" height="64" rx="10" style="fill:var(--surface-2)" stroke="currentColor" stroke-opacity="0.4"/>
+          <text x="283" y="53" font-weight="600">Gate 2 · Skeleton</text>
+          <text x="283" y="74" font-size="12.5" style="fill:var(--muted)">steps 2 to 7</text>
+          <rect x="394" y="26" width="158" height="64" rx="10" style="fill:var(--surface-2)" stroke="currentColor" stroke-opacity="0.4"/>
+          <text x="473" y="53" font-weight="600">Gate 3 · Notes</text>
+          <text x="473" y="74" font-size="12.5" style="fill:var(--muted)">steps 8 to 16</text>
+          <rect x="584" y="26" width="158" height="64" rx="10" fill="none" stroke="currentColor" stroke-opacity="0.4" stroke-dasharray="6 5"/>
+          <text x="663" y="53" font-weight="600">Gate 4 · Review</text>
+          <text x="663" y="74" font-size="12.5" style="fill:var(--muted)">a second model</text>
+          <line x1="174" y1="58" x2="201" y2="58" stroke="currentColor" stroke-opacity="0.6" stroke-width="1.5" marker-end="url(#arr)"/>
+          <line x1="364" y1="58" x2="391" y2="58" stroke="currentColor" stroke-opacity="0.6" stroke-width="1.5" marker-end="url(#arr)"/>
+          <line x1="554" y1="58" x2="581" y2="58" stroke="currentColor" stroke-opacity="0.6" stroke-width="1.5" marker-end="url(#arr)"/>
+          <text x="93" y="122" font-size="12.5" style="fill:var(--muted)">on main</text>
+          <text x="283" y="122" font-size="12.5" style="fill:var(--muted)">installed on the phone</text>
+          <text x="473" y="122" font-size="12.5" style="fill:var(--muted)">the first app</text>
+          <text x="663" y="122" font-size="12.5" style="fill:var(--muted)">fixes, then v0.1</text>
+        </g>
+      </svg>
+      </div>
+      <figcaption>The plan is reviewed before Gate 2 starts, and the finished version at Gate 4.</figcaption>
+    </figure>
+  </section>
+
+  <section id="structure">
+    <h2>The structure</h2>
+    <p>One Node process serves the app and runs the background work. Requests come in only through Tailscale Serve,
+      which adds my login. Inside, routes call the apps' rules, the rules call the database, and the AI part stays
+      self-contained: it talks to the model queue and to nothing else of kestrel's.</p>
+    <figure>
+      <div class="diagram">
+      <svg viewBox="0 0 860 470" role="img" aria-labelledby="struct-title">
+        <title id="struct-title">kestrel's structure: devices reach one Node process through Tailscale Serve; inside it, routes call the domain, the domain calls the SQLite database in the data folder; the AI module is self-contained and talks to the model queue and the local models; launchd runs committed main, and the guard stands between the repo and GitHub.</title>
+        <defs>
+          <marker id="sa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+        <g font-family="IBM Plex Sans, Arial, sans-serif" font-size="13" text-anchor="middle" fill="currentColor">
+          <!-- devices -->
+          <rect x="16" y="24" width="150" height="54" rx="8" style="fill:var(--surface-2)" stroke="currentColor" stroke-opacity="0.45"/>
+          <text x="91" y="47" font-weight="600">Phone</text>
+          <text x="91" y="65" font-size="11.5" style="fill:var(--muted)">installed web app</text>
+          <rect x="186" y="24" width="150" height="54" rx="8" style="fill:var(--surface-2)" stroke="currentColor" stroke-opacity="0.45"/>
+          <text x="261" y="47" font-weight="600">Computer's browser</text>
+          <text x="261" y="65" font-size="11.5" style="fill:var(--muted)">same address</text>
+          <!-- serve -->
+          <rect x="420" y="20" width="220" height="62" rx="8" style="fill:var(--med-soft);stroke:var(--med)" stroke-width="1.5"/>
+          <text x="530" y="45" font-weight="600">Tailscale Serve</text>
+          <text x="530" y="64" font-size="11.5" style="fill:var(--muted)">HTTPS · adds my login</text>
+          <line x1="166" y1="51" x2="418" y2="51" stroke="currentColor" stroke-opacity="0.6" stroke-width="1.5" marker-end="url(#sa)"/>
+          <line x1="336" y1="51" x2="418" y2="51" stroke="currentColor" stroke-opacity="0.6" stroke-width="1.5" marker-end="url(#sa)"/>
+          <line x1="530" y1="82" x2="530" y2="128" stroke="currentColor" stroke-opacity="0.6" stroke-width="1.5" marker-end="url(#sa)"/>
+          <!-- the process -->
+          <rect x="16" y="130" width="620" height="206" rx="12" fill="none" style="stroke:var(--accent)" stroke-width="1.5" stroke-dasharray="7 5"/>
+          <text x="36" y="152" font-family="IBM Plex Mono, monospace" font-size="11.5" style="fill:var(--accent)" text-anchor="start">KESTREL · ONE NODE PROCESS · 127.0.0.1:8790</text>
+          <rect x="36" y="166" width="170" height="56" rx="8" style="fill:var(--surface-2)" stroke="currentColor" stroke-opacity="0.45"/>
+          <text x="121" y="189" font-weight="600">web/ files</text>
+          <text x="121" y="207" font-size="11.5" style="fill:var(--muted)">React, built by Vite</text>
+          <rect x="246" y="166" width="170" height="56" rx="8" style="fill:var(--accent-soft);stroke:var(--accent)" stroke-width="1.5"/>
+          <text x="331" y="189" font-weight="600">src/server/ routes</text>
+          <text x="331" y="207" font-size="11.5" style="fill:var(--muted)">Hono · zod at every input</text>
+          <rect x="456" y="166" width="160" height="56" rx="8" style="fill:var(--surface-2)" stroke="currentColor" stroke-opacity="0.45"/>
+          <text x="536" y="189" font-weight="600">src/domain/</text>
+          <text x="536" y="207" font-size="11.5" style="fill:var(--muted)">the apps' rules</text>
+          <rect x="36" y="258" width="170" height="56" rx="8" style="fill:var(--surface-2)" stroke="currentColor" stroke-opacity="0.45"/>
+          <text x="121" y="281" font-weight="600">src/platform/</text>
+          <text x="121" y="299" font-size="11.5" style="fill:var(--muted)">settings · paths</text>
+          <rect x="246" y="258" width="170" height="56" rx="8" style="fill:var(--surface-2)" stroke="currentColor" stroke-opacity="0.45"/>
+          <text x="331" y="281" font-weight="600">src/ai/</text>
+          <text x="331" y="299" font-size="11.5" style="fill:var(--muted)">model client · self-contained</text>
+          <rect x="456" y="258" width="160" height="56" rx="8" style="fill:var(--low-soft);stroke:var(--low)" stroke-width="1.5"/>
+          <text x="536" y="281" font-weight="600">src/db/ · SQLite</text>
+          <text x="536" y="299" font-size="11.5" style="fill:var(--muted)">plain SQL · migrations</text>
+          <line x1="331" y1="166" x2="331" y2="142" stroke="currentColor" stroke-opacity="0" />
+          <line x1="246" y1="194" x2="208" y2="194" stroke="currentColor" stroke-opacity="0.6" stroke-width="1.5" marker-end="url(#sa)"/>
+          <line x1="416" y1="194" x2="454" y2="194" stroke="currentColor" stroke-opacity="0.6" stroke-width="1.5" marker-end="url(#sa)"/>
+          <line x1="536" y1="222" x2="536" y2="256" stroke="currentColor" stroke-opacity="0.6" stroke-width="1.5" marker-end="url(#sa)"/>
+          <line x1="456" y1="286" x2="418" y2="286" stroke="currentColor" stroke-opacity="0.6" stroke-width="1.5" marker-end="url(#sa)"/>
+          <text x="437" y="278" font-size="11" style="fill:var(--muted)">asks</text>
+          <!-- data folder -->
+          <rect x="672" y="152" width="172" height="78" rx="8" style="fill:var(--low-soft);stroke:var(--low)" stroke-width="1.5"/>
+          <text x="758" y="178" font-weight="600">The data folder</text>
+          <text x="758" y="196" font-size="11.5" style="fill:var(--muted)">database · uploads</text>
+          <text x="758" y="212" font-size="11.5" style="fill:var(--muted)">settings · outside the repo</text>
+          <line x1="616" y1="286" x2="650" y2="286" stroke="currentColor" stroke-opacity="0" />
+          <line x1="616" y1="282" x2="700" y2="232" stroke="currentColor" stroke-opacity="0.6" stroke-width="1.5" marker-end="url(#sa)"/>
+          <!-- model queue -->
+          <rect x="672" y="258" width="172" height="72" rx="8" style="fill:var(--surface-2)" stroke="currentColor" stroke-opacity="0.45"/>
+          <text x="758" y="283" font-weight="600">Model queue</text>
+          <text x="758" y="301" font-size="11.5" style="fill:var(--muted)">local models:</text>
+          <text x="758" y="317" font-size="11.5" style="fill:var(--muted)">Qwen · Ornith</text>
+          <line x1="416" y1="300" x2="670" y2="300" stroke="currentColor" stroke-opacity="0.6" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#sa)"/>
+          <!-- bottom row -->
+          <rect x="16" y="382" width="200" height="62" rx="8" style="fill:var(--surface-2)" stroke="currentColor" stroke-opacity="0.45"/>
+          <text x="116" y="407" font-weight="600">launchd</text>
+          <text x="116" y="425" font-size="11.5" style="fill:var(--muted)">runs committed main only</text>
+          <line x1="116" y1="382" x2="116" y2="340" stroke="currentColor" stroke-opacity="0.6" stroke-width="1.5" marker-end="url(#sa)"/>
+          <rect x="256" y="382" width="210" height="62" rx="8" style="fill:var(--med-soft);stroke:var(--med)" stroke-width="1.5"/>
+          <text x="361" y="407" font-weight="600">The guard · git hooks</text>
+          <text x="361" y="425" font-size="11.5" style="fill:var(--muted)">refuses keys and personal data</text>
+          <rect x="506" y="382" width="200" height="62" rx="8" style="fill:var(--surface-2)" stroke="currentColor" stroke-opacity="0.45"/>
+          <text x="606" y="407" font-weight="600">GitHub, public</text>
+          <text x="606" y="425" font-size="11.5" style="fill:var(--muted)">code and made-up data only</text>
+          <line x1="466" y1="413" x2="504" y2="413" stroke="currentColor" stroke-opacity="0.6" stroke-width="1.5" marker-end="url(#sa)"/>
+        </g>
+      </svg>
+      </div>
+      <figcaption>The dashed arrow is a model call: the AI part reaches the model queue and nothing else. Only the
+        deployed process touches the data folder; development and tests run on made-up data.</figcaption>
+    </figure>
+    <p>The folders, one job each:</p>
+    <div class="tree">src/server/ <span>— the routes (Hono); main.ts opens the database and passes it in</span>
+src/domain/ <span>— each app's rules; the only writer to the database</span>
+src/db/ <span>— SQLite, numbered migrations, a copy before each migration</span>
+src/ai/ <span>— the model client and prompts; imports neither db nor domain</span>
+src/platform/ <span>— the data folder's paths and the settings</span>
+src/shared/ <span>— the zod shapes the web app shares</span>
+web/ <span>— the React app; imports only src/shared/</span>
+evals/ <span>— labelled cases and scorers for each AI feature</span>
+scripts/ <span>— the guard, deploy, the launchd template, the model probe, made-up dev data</span>
+.githooks/ <span>— pre-commit and pre-push run the guard, then the check</span>
+docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
+  </section>
+
+  <section id="steps">
+    <h2>The steps</h2>
+    <p>One card per commit. <b>Files</b> lists what the commit adds or changes; each commit also updates this page's
+      status. <b>Check</b> is how we know it worked, written so it can fail. At each GO card I read the changes and say
+      GO.</p>
+
+    <article class="step" id="s0">
+      <div class="head"><span class="n">0</span><h3>Pre-flight</h3><span class="who">builder · no commit</span></div>
+      <p>Confirm the tools, then start fresh.</p>
+      <p class="field"><b>Check:</b> Node 26 and npm are installed, commits use GitHub's no-reply address, ports 8790
+        and 8791 are free, the model queue answers, and the old process is gone from the working tree.</p>
+      <p><span class="status done">Done.</span> Node 26.13.1 and npm 11.20.0; both ports free; the model queue answers
+        with Qwen and Ornith. The old branches stay local as <code>old/main</code> and <code>old/gate-0</code>, and a
+        fresh main was started.</p>
+    </article>
+
+    <div class="gate" id="gate1">
+      <h2>Gate 1 · Plan <span class="tag">on main</span></h2>
+    </div>
+
+    <article class="step" id="s1">
+      <div class="head"><span class="n">1</span><h3>Plan, decision log, rules and review brief</h3><span class="who">builder writes · checked at GO 1</span></div>
+      <p>The written plan, before any code: the problem, what is built, v0.1's acceptance criteria and how the plan
+        evolved; the decision log; the process; the rules for the agents; the brief for the reviewer; and this page.</p>
+      <p class="field"><b>Files:</b> <code>README.md</code> · <code>AGENTS.md</code> · <code>docs/PLAN.md</code> ·
+        <code>docs/decisions.md</code> · <code>docs/process.md</code> ·
+        <code>docs/tasks/kestrel-execution-plan.html</code> · <code>docs/review/brief.md</code> ·
+        <code>.gitignore</code></p>
+      <p class="field"><b>Check:</b> <code>git status --short --untracked-files=all</code> lists exactly those 8 files,
+        and a search for home paths, names, email addresses and key prefixes finds nothing. Before the push: gitleaks
+        over the whole history, and the same search again.</p>
+      <p class="msg"><code>docs(repo): add the plan, the decision log and the rules</code></p>
+      <p><span class="status done">Done.</span> Committed on main at GO 1, after a whole-history scan (gitleaks, plus
+        a search for names, home paths and addresses); pushed with the repo's first push.</p>
+    </article>
+
+    <div class="go" id="g1">
+      <div class="head"><span class="n">G1</span><h3>GO 1 · given</h3></div>
+      <p>The GO covered gitleaks and the packages listed under Installs in steps 2 and 6; any other package needs its
+        own yes. Next: Codex reviews the plan against round 1 of <code>docs/review/brief.md</code>; its findings are
+        fixed together in one commit, <code>docs(plan): apply the plan review</code>, on my GO. Gate 2 starts on that
+        GO.</p>
+    </div>
+
+    <div class="gate" id="gate2">
+      <h2>Gate 2 · The skeleton, on my phone <span class="tag">gate-2-skeleton</span></h2>
+      <p class="muted">At the end, kestrel runs from committed code, opens on my phone and on the computer at its
+        Tailscale address, and installs to the phone's home screen. It does nothing useful yet: every later step builds
+        on it.</p>
+    </div>
+
+    <article class="step" id="s2">
+      <div class="head"><span class="n">2</span><h3>Node, TypeScript, Biome and the check</h3><span class="who">builder</span></div>
+      <p>The project's tools and one real route. Node runs the TypeScript directly; npm installs exact versions and
+        waits 7 days before taking a new release. No feature yet.</p>
+      <p class="field"><b>Files:</b> <code>package.json</code> · <code>package-lock.json</code> · <code>.npmrc</code> ·
+        <code>tsconfig.json</code> · <code>biome.json</code> (which also reads <code>.gitignore</code>) ·
+        <code>src/server/app.ts</code> · <code>src/server/main.ts</code> · <code>src/server/app.test.ts</code></p>
+      <p class="field"><b>Installs:</b> hono, @hono/node-server, zod, @hono/zod-validator; for the checks: typescript,
+        @biomejs/biome, @types/node. Measured: 10 packages, about 127 MB, none with an install script.</p>
+      <p class="field"><b>Check:</b> <code>node --run check</code> passes (Biome, tsc, node --test) and fails when a test
+        is changed to fail, or when a file in <code>src/ai/</code> imports <code>src/db/</code>;
+        <code>GET /api/health</code> answers <code>{"ok":true}</code>.</p>
+      <p class="msg"><code>chore(repo): set up node, typescript, biome and the check</code></p>
+      <p><span class="status todo">Not started.</span></p>
+    </article>
+
+    <article class="step" id="s3">
+      <div class="head"><span class="n">3</span><h3>The data folder and the settings</h3><span class="who">builder</span></div>
+      <p>One folder for everything personal, outside the repo, used only by the deployed app: launchd's file names it.
+        Without that, kestrel uses a folder of made-up data outside the repo, filled from made-up files in the repo, so
+        development and tests never touch real data. One settings file, checked as it is read.</p>
+      <p class="field"><b>Files:</b> <code>src/platform/paths.ts</code> · <code>src/platform/paths.test.ts</code> ·
+        <code>src/platform/config.ts</code> · <code>src/platform/config.test.ts</code> ·
+        <code>scripts/dev-data/</code> (made-up settings and documents) · <code>package.json</code> (the dev
+        script)</p>
+      <p class="field"><b>Check:</b> tests prove that without launchd's setting the data folder is the made-up one, and
+        that a missing or wrong <code>settings.json</code> stops kestrel with an example; <code>node --run dev</code>
+        answers on port 8791.</p>
+      <p class="msg"><code>feat(platform): the data folder and the settings</code></p>
+      <p><span class="status todo">Not started.</span></p>
+    </article>
+
+    <article class="step" id="s4">
+      <div class="head"><span class="n">4</span><h3>The guard</h3><span class="who">builder</span></div>
+      <p>Before every commit, a short script refuses keys and passwords (through gitleaks), any staged file
+        <code>.gitignore</code> covers, home paths with a user name, and the account's own name, read when it runs
+        (nothing to write by hand); then the check runs. Before every push, it does the same for the commits pushed,
+        and refuses the <code>old/*</code> branches. It never prints what it found: only the file, and how to fix
+        it.</p>
+      <p class="field"><b>Files:</b> <code>.githooks/pre-commit</code> · <code>.githooks/pre-push</code> ·
+        <code>scripts/guard.ts</code> · <code>scripts/guard.test.ts</code> · <code>package.json</code> (a
+        <code>prepare</code> script that points git at <code>.githooks/</code>)</p>
+      <p class="field"><b>Check:</b> a real commit of a staged made-up key is refused, and so is one with a home path
+        holding a made-up user name; the clean repo passes.</p>
+      <p class="msg"><code>chore(guard): refuse keys, passwords and personal details in commits and pushes</code></p>
+      <p><span class="status todo">Not started.</span></p>
+    </article>
+
+    <article class="step" id="s5">
+      <div class="head"><span class="n">5</span><h3>The database</h3><span class="who">builder</span></div>
+      <p>The database file in the data folder. Migrations are numbered SQL files, and the database is copied just
+        before they run, the riskiest moment. <code>main.ts</code> opens it and passes it in.</p>
+      <p class="field"><b>Files:</b> <code>src/db/db.ts</code> · <code>src/db/migrate.ts</code> ·
+        <code>src/db/migrations/001-start.sql</code> · <code>src/db/db.test.ts</code> · <code>src/server/main.ts</code></p>
+      <p class="field"><b>Check:</b> tests prove that the migrations run once and a second run changes nothing, and that
+        the copy made before a migration opens and holds the rows.</p>
+      <p class="msg"><code>feat(db): open the database, with a copy before each migration</code></p>
+      <p><span class="status todo">Not started.</span></p>
+    </article>
+
+    <article class="step" id="s6">
+      <div class="head"><span class="n">6</span><h3>The app shell</h3><span class="who">builder</span></div>
+      <p>The app's frame: Home, the navigation, the design system's tokens in one file, an install manifest, and a
+        service worker that asks the computer first and shows the last copy only when it doesn't answer within 3
+        seconds. The builder proposes the look from the decided design tokens, and I judge it on my phone and on the
+        computer at GO 2.</p>
+      <p class="field"><b>Files:</b> <code>vite.config.ts</code> · <code>web/tsconfig.json</code> ·
+        <code>web/index.html</code> · <code>web/main.tsx</code> · <code>web/app.tsx</code> · <code>web/home.tsx</code> ·
+        <code>web/styles.css</code> · <code>web/public/manifest.webmanifest</code> · <code>web/public/sw.js</code> ·
+        <code>web/public/icons/</code> · <code>src/server/app.ts</code> · <code>package.json</code> ·
+        <code>package-lock.json</code></p>
+      <p class="field"><b>Installs:</b> react, react-dom, react-router, @tanstack/react-query, vite,
+        @vitejs/plugin-react, tailwindcss, @tailwindcss/vite, @types/react, @types/react-dom. Measured: about 50
+        packages and 65 MB more.</p>
+      <p class="field"><b>Check:</b> <code>node --run build</code> passes. At a phone size the shell loads and follows
+        light or dark; with the server stopped, it opens with the last copy and says "Computer asleep since …".</p>
+      <p class="msg"><code>feat(web): the app shell, installable on the phone</code></p>
+      <p><span class="status todo">Not started.</span></p>
+    </article>
+
+    <article class="step" id="s7">
+      <div class="head"><span class="n">7</span><h3>Running on the computer, reached from the phone</h3><span class="who">builder</span></div>
+      <p>launchd, macOS's service keeper, runs kestrel from a second checkout of committed main only, and restarts it
+        after a crash or a restart of the computer. <code>node --run deploy</code> refuses uncommitted changes and any
+        branch but main. Tailscale Serve publishes kestrel to my devices, and every request must carry my Tailscale
+        login, which deploy reads from Tailscale itself and writes into the settings.</p>
+      <p class="field"><b>Files:</b> <code>scripts/kestrel.plist</code> (a template deploy fills in) ·
+        <code>scripts/deploy.ts</code> · <code>src/server/identity.ts</code> · <code>src/server/identity.test.ts</code> ·
+        <code>src/server/app.ts</code> · <code>README.md</code></p>
+      <p class="field"><b>Check:</b> after <code>node --run deploy</code>, kestrel opens on my phone and on the computer
+        at its Tailscale address on port 8790 and installs to the phone's home screen; it comes back after a restart;
+        tests prove my login passes and another login or none gets 403.</p>
+      <p class="msg"><code>chore(ops): run committed main under launchd and open it on the phone</code></p>
+      <p><span class="status todo">Not started.</span></p>
+    </article>
+
+    <div class="go" id="g2">
+      <div class="head"><span class="n">G2</span><h3>GO 2: I open kestrel on my phone and the computer, install it, and judge the look</h3></div>
+      <p>On GO, the builder merges <code>gate-2-skeleton</code> into main.</p>
+    </div>
+
+    <div class="gate" id="gate3">
+      <h2>Gate 3 · Notes <span class="tag">gate-3-notes</span></h2>
+      <p class="muted">The first app. A document, my notes on it, the changes the computer's model proposes, and every
+        change shown before I save it. The eval's cases come before the feature, and a live run picks the models before
+        I use it.</p>
+    </div>
+
+    <article class="step" id="s8">
+      <div class="head"><span class="n">8</span><h3>Documents</h3><span class="who">builder</span></div>
+      <p>Open a text file from the folders listed in my settings, or upload one (its text is kept in the database).
+        Markdown, plain text and other text formats, up to 200 KB, shown as written and styled line by line. kestrel
+        remembers each file's encoding, line endings and final newline, so saving changes nothing else.</p>
+      <p class="field"><b>Files:</b> <code>src/db/migrations/002-documents.sql</code> ·
+        <code>src/domain/notes/documents.ts</code> · <code>src/domain/notes/documents.test.ts</code> ·
+        <code>src/server/notes.ts</code> · <code>src/shared/notes.ts</code> · <code>web/notes/list.tsx</code> ·
+        <code>web/notes/reader.tsx</code></p>
+      <p class="field"><b>Check:</b> a file in a listed folder opens; a path that leaves the folder is refused; a PDF is
+        refused with "PDF and Word come later".</p>
+      <p class="msg"><code>feat(notes): open a document from my folders or an upload</code></p>
+      <p><span class="status todo">Not started.</span></p>
+    </article>
+
+    <article class="step" id="s9">
+      <div class="head"><span class="n">9</span><h3>Notes on words, or on the whole document</h3><span class="who">builder</span></div>
+      <p>Select some words and add a note, or add a note on the whole document. A note is a range of the file's own
+        characters, kept with its words and a little text on each side, so it finds its place again. Notes show as
+        marks in the reader and in a list; the note sheet is a native dialog that Back closes.</p>
+      <p class="field"><b>Files:</b> <code>src/db/migrations/003-notes.sql</code> ·
+        <code>src/domain/notes/notes.ts</code> · <code>src/domain/notes/notes.test.ts</code> ·
+        <code>web/notes/marks.ts</code> · <code>web/notes/note-sheet.tsx</code> · <code>web/notes/notes-list.tsx</code></p>
+      <p class="field"><b>Check:</b> a note stays after a reload and shows on my other device; a note whose words are
+        gone is kept and shown as detached; Back closes the note sheet and keeps what I typed.</p>
+      <p class="msg"><code>feat(notes): leave notes on words or on the whole document</code></p>
+      <p><span class="status todo">Not started.</span></p>
+    </article>
+
+    <article class="step" id="s10">
+      <div class="head"><span class="n">10</span><h3>The model client</h3><span class="who">builder</span></div>
+      <p>One small client for the computer's models, through the setup's model queue. It asks for an answer in a set
+        shape (a JSON schema made from a zod shape), streams it, stops after a time limit that grows with the request,
+        and never throws. It refuses a model not listed in my settings, and a request too long for the model, before
+        calling. The domain records each call. A stand-in model answers in tests.</p>
+      <p class="field"><b>Files:</b> <code>src/ai/client.ts</code> · <code>src/ai/client.test.ts</code> ·
+        <code>src/ai/stand-in.ts</code> · <code>src/domain/calls.ts</code> ·
+        <code>src/db/migrations/004-model-calls.sql</code> · <code>src/platform/config.ts</code> ·
+        <code>scripts/probe-model.ts</code></p>
+      <p class="field"><b>Check:</b> tests against a stand-in server: an answer in the wrong shape and a timeout each
+        become a failure with its reason, and an unlisted model is refused before any call. The probe, run by hand with
+        made-up text, passes for Qwen and Ornith through the model queue.</p>
+      <p class="msg"><code>feat(ai): the model client, through the model queue</code></p>
+      <p><span class="status todo">Not started.</span></p>
+    </article>
+
+    <article class="step" id="s11">
+      <div class="head"><span class="n">11</span><h3>The answer's shape, and the eval's cases</h3><span class="who">builder writes · labels reviewed before the commit</span></div>
+      <p>Before the feature, what a good answer must do. The shape: an overview, and changes, each with its document,
+        the text to find, the new text and the notes it answers, plus any note left unanswered with a reason. Six to
+        eight made-up cases: two with two or three documents and a note on all of them, one with a phrase that repeats,
+        one near the size limit.</p>
+      <p class="field"><b>Files:</b> <code>src/ai/changes/shape.ts</code> · <code>evals/changes/cases.json</code> ·
+        <code>evals/changes/score.ts</code> · <code>evals/changes/score.test.ts</code></p>
+      <p class="field"><b>Check:</b> for each case, the scorer passes a hand-written good answer and fails a bad one with
+        the reason (a note not handled, a quote that doesn't exist, a change no note asked for, an overview missing a
+        document).</p>
+      <p class="msg"><code>test(eval): the answer's shape and labelled cases for changes from notes</code></p>
+      <p><span class="status todo">Not started.</span></p>
+    </article>
+
+    <article class="step" id="s12">
+      <div class="head"><span class="n">12</span><h3>Changes from the notes</h3><span class="who">builder</span></div>
+      <p>"Ask for changes" sends a set of one or more documents, and my notes, to the careful or the fast model. The code
+        places each change in the original text only: where its text appears exactly once (or, when it repeats, inside
+        or nearest its note's words); of two overlapping changes, the first. The rest are listed with the reason. The
+        draft is kept until I save or discard it, and the screen checks on it every 2 seconds while it is being made.
+        The review is a native dialog that Back closes.</p>
+      <p class="field"><b>Files:</b> <code>src/ai/changes/prompt.ts</code> · <code>src/domain/notes/place.ts</code> ·
+        <code>src/domain/notes/place.test.ts</code> · <code>src/domain/notes/drafts.ts</code> ·
+        <code>src/domain/notes/drafts.test.ts</code> · <code>src/db/migrations/005-drafts.sql</code> ·
+        <code>web/notes/review.tsx</code> · <code>web/notes/diff.ts</code> · <code>evals/run.ts</code></p>
+      <p class="field"><b>Check:</b> the eval passes on the stand-in model, inside the check; tests for the placing rules
+        (once, repeated, overlapping); the draft is still there after leaving and reopening the app.</p>
+      <p class="msg"><code>feat(notes): ask the model for changes from my notes</code></p>
+      <p><span class="status todo">Not started.</span></p>
+    </article>
+
+    <article class="step" id="s13">
+      <div class="head"><span class="n">13</span><h3>Save</h3><span class="who">builder</span></div>
+      <p>Save writes the real file, but only if its bytes haven't changed since the draft was made (another tool may have
+        added to it). It writes next to the real file and swaps it in, keeping its permissions, encoding and line
+        endings. The previous version is kept once, in the database, for Undo. The notes the draft answered move to
+        Done. The review says which file Save writes.</p>
+      <p class="field"><b>Files:</b> <code>src/domain/notes/save.ts</code> · <code>src/domain/notes/save.test.ts</code> ·
+        <code>web/notes/review.tsx</code></p>
+      <p class="field"><b>Check:</b> tests prove that save writes the file, a file changed after the draft was made is
+        refused with "changed since", and Undo brings back the previous text.</p>
+      <p class="msg"><code>feat(notes): save the changes to the file</code></p>
+      <p><span class="status todo">Not started.</span></p>
+    </article>
+
+    <article class="step" id="s14">
+      <div class="head"><span class="n">14</span><h3>Several documents together</h3><span class="who">builder</span></div>
+      <p>Pick several documents, leave notes on each and notes on all of them, and ask once. The overview covers each
+        document, and each document's changes save on their own.</p>
+      <p class="field"><b>Files:</b> <code>web/notes/set.tsx</code> · <code>src/domain/notes/drafts.ts</code> ·
+        <code>src/domain/notes/drafts.test.ts</code></p>
+      <p class="field"><b>Check:</b> the eval's cases with several documents pass on the stand-in model; each document
+        saves on its own; a set too long for the model is refused before any call, with what to do instead.</p>
+      <p class="msg"><code>feat(notes): review several documents together</code></p>
+      <p><span class="status todo">Not started.</span></p>
+    </article>
+
+    <article class="step" id="s15">
+      <div class="head"><span class="n">15</span><h3>Live eval on the local models</h3><span class="who">builder runs</span></div>
+      <p>Each case twice on Qwen (careful) and twice on Ornith (fast), before I first use Notes. The models run
+        locally, so it costs time, not money.</p>
+      <p class="field"><b>Files:</b> <code>docs/eval/&lt;date&gt;-changes.md</code> · <code>docs/decisions.md</code></p>
+      <p class="field"><b>Check:</b> the report has a row per case for each model, with pass or fail, time and tokens;
+        the default model for each speed is recorded with its numbers.</p>
+      <p class="msg"><code>docs(eval): the first live eval of changes from notes</code></p>
+      <p><span class="status todo">Not started.</span></p>
+    </article>
+
+    <article class="step" id="s16">
+      <div class="head"><span class="n">16</span><h3>README and process notes</h3><span class="who">builder</span></div>
+      <p>The front door: how to run kestrel, what v0.1 does, and the eval's headline.</p>
+      <p class="field"><b>Files:</b> <code>README.md</code> · <code>docs/process.md</code> · <code>docs/PLAN.md</code> ·
+        <code>docs/tasks/kestrel-execution-plan.html</code></p>
+      <p class="field"><b>Check:</b> the README's commands work from a fresh clone in a scratch folder:
+        <code>npm ci</code>, <code>node --run check</code>, <code>node --run build</code>.</p>
+      <p class="msg"><code>docs(repo): how to run kestrel, and what v0.1 does</code></p>
+      <p><span class="status todo">Not started.</span></p>
+    </article>
+
+    <div class="go" id="g3">
+      <div class="head"><span class="n">G3</span><h3>GO 3: I use Notes for real, on my phone and on the computer</h3></div>
+      <p>On GO, the builder merges <code>gate-3-notes</code> into main.</p>
+    </div>
+
+    <div class="gate" id="gate4">
+      <h2>Gate 4 · Review <span class="tag">gate-4-review</span></h2>
+    </div>
+
+    <article class="step" id="sr">
+      <div class="head"><span class="n">R</span><h3>A second model reviews v0.1</h3><span class="who">started by me · the builder fixes</span></div>
+      <p>Codex reviews the finished v0.1 against <code>docs/review/brief.md</code>, with a round 2 added for the code,
+        and writes <code>docs/review/round-2-v0.1.md</code>. Each finding is fixed in its own commit, with a test that
+        fails without the fix, or answered in writing. Then a confirmation pass.</p>
+      <p class="field"><b>Files:</b> <code>docs/review/brief.md</code> · <code>docs/review/round-2-v0.1.md</code> · the
+        fixes</p>
+      <p class="field"><b>Check:</b> every finding is closed in the round's file, and the check passes.</p>
+      <p class="msg"><code>fix(&lt;area&gt;): …</code> for each finding, and <code>docs(review): record round 2</code></p>
+      <p><span class="status todo">Not started.</span></p>
+    </article>
+
+    <div class="go" id="g4">
+      <div class="head"><span class="n">G4</span><h3>GO 4: I read the findings and their fixes</h3></div>
+      <p>One GO covers the batch. On GO, the builder merges <code>gate-4-review</code> into main, tags v0.1 and pushes.
+        v0.1 is done.</p>
+    </div>
+  </section>
+
+  <section id="waiting">
+    <h2>Waiting on me</h2>
+    <ol class="tight">
+      <li><b>The plan review:</b> start Codex on the repo with round 1 of <code>docs/review/brief.md</code>.</li>
+      <li><b>Before step 8:</b> tell the builder which folders Notes may open; it adds them to the settings. A folder in
+        Documents, Desktop, Downloads or iCloud Drive also needs kestrel's Node allowed in System Settings › Privacy
+        &amp; Security.</li>
+    </ol>
+  </section>
+
+  <section id="after">
+    <h2>After v0.1</h2>
+    <p>Searches, jobs first (v0.2), Applications (v0.3), Learn and Interview (v0.4), then the rest and the old setup
+      retired (v0.5): <code>docs/PLAN.md</code> outlines them. Each gets a runbook like this one, reviewed before its
+      first step.</p>
+  </section>
+
+  <section id="done">
+    <h2>Done already</h2>
+    <ul class="tight">
+      <li>The old process was removed from the working tree; the old branches stay local, never pushed.</li>
+      <li>The stack was installed and measured on this computer on 2026-11-15: <code>docs/decisions.md</code> has the
+        numbers.</li>
+      <li>Three independent reviews of the plan raised 74 findings, 6 serious; all are applied, and
+        <code>docs/decisions.md</code> lists the serious ones.</li>
+      <li>Step 1 was committed on main after a whole-history scan (gitleaks, plus a search for names, home paths and
+        addresses).</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
