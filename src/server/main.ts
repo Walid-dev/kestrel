@@ -1,6 +1,9 @@
 // The program: one Node process serving the app on the computer only; Tailscale Serve publishes it to my devices.
-import { join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { openDb } from "../db/db.ts";
 import { migrate } from "../db/migrate.ts";
 import { loadSettings } from "../platform/config.ts";
@@ -21,6 +24,15 @@ const dbFile = join(dataDir(), "kestrel.db");
 const db = openDb(dbFile);
 const { applied, copy } = migrate(db, dbFile);
 if (applied) console.log(`migrations: ${applied} applied${copy ? ", the database copied first" : ""}`);
+
+// the built app, served as plain files, with the page itself for any address that isn't the API (the router's)
+const dist = join(fileURLToPath(new URL("../../web/dist/", import.meta.url)), ".");
+if (existsSync(join(dist, "index.html"))) {
+  app.use("*", serveStatic({ root: relative(process.cwd(), dist) }));
+  app.get("*", (c) => c.html(readFileSync(join(dist, "index.html"), "utf8")));
+} else {
+  console.log("no web/dist yet: only the API answers (node --run build makes the app)");
+}
 
 const port = Number(process.env.PORT ?? 8790);
 serve({ fetch: app.fetch, port, hostname: "127.0.0.1" }, () => {

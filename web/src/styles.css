@@ -1,0 +1,55 @@
+/* The design system's tokens: the learning guides' palette and type, dark first, light with the system. Components
+   use the variables, so the look changes in one place. */
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  --bg: #0e1318;
+  --surface: #141b22;
+  --surface-2: #1a232c;
+  --line: #26313d;
+  --text: #e2e7ec;
+  --muted: #93a1af;
+  --accent: #78bde0;
+  --accent-soft: rgba(120, 189, 224, 0.12);
+  --ok: #5fb98c;
+  --warn: #e0aa52;
+  --warn-soft: rgba(224, 170, 82, 0.14);
+  --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --cond: "IBM Plex Sans Condensed", "Arial Narrow", var(--sans);
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #f4f6f8;
+    --surface: #ffffff;
+    --surface-2: #eef2f5;
+    --line: #d6dde4;
+    --text: #17212b;
+    --muted: #566473;
+    --accent: #1d6c96;
+    --accent-soft: rgba(29, 108, 150, 0.09);
+    --ok: #2c8459;
+    --warn: #a3670f;
+    --warn-soft: rgba(163, 103, 15, 0.1);
+  }
+}
+
+html {
+  background: var(--bg);
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15.5px;
+  line-height: 1.6;
+}
+.font-cond {
+  font-family: var(--cond);
+}
+.font-mono {
+  font-family: var(--mono);
+}

@@ -105,7 +105,7 @@
     <div class="now"><b>Now:</b> Gate 2 is being built on <code>gate-2-skeleton</code> (the GO of 2026-11-17 covers
       its steps); GO 2, the look on my phone and the computer, closes it.</div>
     <div class="stats">
-      <span class="chip">5 of 16 steps committed</span>
+      <span class="chip">6 of 16 steps committed</span>
       <span class="chip">gate 1 of 4</span>
       <span class="chip">plan review next</span>
     </div>
@@ -408,7 +408,11 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
       <p class="field"><b>Check:</b> <code>node --run build</code> passes. At a phone size the shell loads and follows
         light or dark; with the server stopped, it opens with the last copy and says "Computer asleep since …".</p>
       <p class="msg"><code>feat(web): the app shell, installable on the phone</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> React 19.3, Vite 8.3, Tailwind 4.3: about 50 more packages. Proven at a
+        phone size in a real browser: the shell in dark and light, and, with the server killed, the shell from the
+        worker with "Computer asleep since …" and the chip on asleep. Two worker lessons: the shell is warmed at
+        activation (the first visit isn't controlled yet), and the health probe is never cached, or a kept 200 would
+        hide a sleeping computer.</p>
     </article>
 
     <article class="step" id="s7">
