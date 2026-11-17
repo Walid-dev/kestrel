@@ -61,8 +61,10 @@ Planned step by step in `docs/tasks/kestrel-execution-plan.html`.
    keeper starts it; development, tests and evals use a folder of made-up data.
 4. No commit or push can carry a key, a password, my name or a path with my user name. The guard, a check that runs
    before every commit and push, refuses it without printing what it found.
-5. Notes opens a text file (Markdown, plain text or any other text format, shown as written) from the folders I allow
-   in my settings, or a file I upload, up to 200 KB. A PDF or a Word file is refused with the reason: they come later.
+5. Notes opens a UTF-8 text file (Markdown, plain text or any other text format, shown as written) from the folders
+   I allow in my settings, or a file I upload, up to 200 KB. A path is checked at its real place, symbolic links
+   resolved, so a link out of an allowed folder is refused. A PDF, a Word file or another encoding is refused with
+   the reason.
 6. I can leave a note on some words or on the whole document. Notes stay after a reload and show on my other device.
    A note is never dropped: after Save it moves to Done, and a note whose words are gone shows as detached.
 7. "Ask for changes" sends the documents and my notes to a local model, careful or fast. The model answers with an

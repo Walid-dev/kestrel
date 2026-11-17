@@ -29,8 +29,8 @@ Tailscale.
 
 ## Commands
 
-- From step 2: `node --run check` (lint, types, tests; the stand-in eval joins at step 12) and `node --run dev` (its
-  own port, 8791, and a folder of made-up data).
+- From step 3: `node --run check` (lint, types, tests; the stand-in eval joins at step 12). From step 4:
+  `node --run dev` (its own port, 8791, and a folder of made-up data).
 - From step 6: `node --run build`. From step 7: `node --run deploy`.
 
 ## Commit messages
@@ -73,7 +73,10 @@ repo, plan, platform, guard, db, web, ops, notes, ai, eval, review.
 - Logs hold no personal data: ids, counts, durations and kinds of error, never a file name, a path or the words of a
   document, a note or a model's answer.
 - Never read or print a secret. Secrets are in the Keychain, read by one module.
-- The git hooks run the guard on every commit and push. If it refuses, fix the cause; never go around it.
+- The git hooks run the guard on every commit and push (it is the first build step, so nothing lands unguarded). It
+  refuses the structured details by pattern: keys, email addresses, phone numbers, home paths, this computer's user
+  and host names. Free-form details (an employer, a search's words) have no pattern: keeping them out is this rule
+  and the reviews. If the guard refuses, fix the cause; never go around it.
 
 ## Models
 

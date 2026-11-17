@@ -102,8 +102,9 @@
     <p class="lede">The foundation and Notes, in 16 steps over three build gates, then a fourth gate where a second
       model reviews it. Each step is one commit, with its files, a check written so it can fail, and its message. I
       read each step's explanation and its changes, say GO, and the builder commits and pushes.</p>
-    <div class="now"><b>Now:</b> Codex reviews the plan (round 1 of <code>docs/review/brief.md</code>). Its findings
-      are fixed together in one commit on my GO, and Gate 2 starts on that GO.</div>
+    <div class="now"><b>Now:</b> round 1 found 10 problems, and all 10 fixes are applied
+      (<code>docs/review/round-1-plan.md</code>, Outcome). On my GO they are committed and pushed, and Gate 2
+      starts.</div>
     <div class="stats">
       <span class="chip">1 of 16 steps committed</span>
       <span class="chip">gate 1 of 4</span>
@@ -299,7 +300,7 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
 
     <div class="go" id="g1">
       <div class="head"><span class="n">G1</span><h3>GO 1 · given</h3></div>
-      <p>The GO covered gitleaks and the packages listed under Installs in steps 2 and 6; any other package needs its
+      <p>The GO covered gitleaks and the packages listed under Installs in steps 3 and 6; any other package needs its
         own yes. Next: Codex reviews the plan against round 1 of <code>docs/review/brief.md</code>; its findings are
         fixed together in one commit, <code>docs(plan): apply the plan review</code>, on my GO. Gate 2 starts on that
         GO.</p>
@@ -313,23 +314,47 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
     </div>
 
     <article class="step" id="s2">
-      <div class="head"><span class="n">2</span><h3>Node, TypeScript, Biome and the check</h3><span class="who">builder</span></div>
-      <p>The project's tools and one real route. Node runs the TypeScript directly; npm installs exact versions and
-        waits 7 days before taking a new release. No feature yet.</p>
-      <p class="field"><b>Files:</b> <code>package.json</code> · <code>package-lock.json</code> · <code>.npmrc</code> ·
-        <code>tsconfig.json</code> · <code>biome.json</code> (which also reads <code>.gitignore</code>) ·
-        <code>src/server/app.ts</code> · <code>src/server/main.ts</code> · <code>src/server/app.test.ts</code></p>
-      <p class="field"><b>Installs:</b> hono, @hono/node-server, zod, @hono/zod-validator; for the checks: typescript,
-        @biomejs/biome, @types/node. Measured: 10 packages, about 127 MB, none with an install script.</p>
-      <p class="field"><b>Check:</b> <code>node --run check</code> passes (Biome, tsc, node --test) and fails when a test
-        is changed to fail, or when a file in <code>src/ai/</code> imports <code>src/db/</code>;
-        <code>GET /api/health</code> answers <code>{"ok":true}</code>.</p>
-      <p class="msg"><code>chore(repo): set up node, typescript, biome and the check</code></p>
+      <div class="head"><span class="n">2</span><h3>The guard</h3><span class="who">builder</span></div>
+      <p>Before anything else can be committed, a short script runs on every commit: it refuses keys and passwords
+        (through gitleaks), any staged file <code>.gitignore</code> covers, home paths with a user name, email
+        addresses, phone-number shapes, and this computer's own user and host names, read when it runs (nothing
+        written by hand); free-form personal details (an employer, a search's words) have no pattern, so they stay a
+        rule for the builder and the reviews. Before every push, it does the same for the commits pushed, and refuses
+        the <code>old/*</code> branches. It never prints what it found: only the file, and how to fix it. It needs no
+        packages: Node runs the script directly, gitleaks is installed, and this step points git at
+        <code>.githooks</code> (the toolchain step moves that into npm's <code>prepare</code>).</p>
+      <p class="field"><b>Files:</b> <code>.githooks/pre-commit</code> · <code>.githooks/pre-push</code> ·
+        <code>scripts/guard.ts</code> · <code>scripts/guard.test.ts</code></p>
+      <p class="field"><b>Check:</b> <code>git config core.hooksPath</code> prints <code>.githooks</code>;
+        <code>node --test scripts/</code> passes with nothing installed; real commits are refused for a staged made-up
+        key, a made-up email address, a made-up phone number and a home path with a made-up user name; the clean repo
+        passes; a push of <code>old/*</code> is refused.</p>
+      <p class="msg"><code>chore(guard): refuse keys, passwords and personal details in commits and pushes</code></p>
       <p><span class="status todo">Not started.</span></p>
     </article>
 
     <article class="step" id="s3">
-      <div class="head"><span class="n">3</span><h3>The data folder and the settings</h3><span class="who">builder</span></div>
+      <div class="head"><span class="n">3</span><h3>Node, TypeScript, Biome and the check</h3><span class="who">builder</span></div>
+      <p>The project's tools and one real route. Node runs the TypeScript directly; npm installs exact versions and
+        takes only releases at least 7 days old (npm's age filter: a newer-only release fails the install, it doesn't
+        wait). The pre-commit hook starts running the check after the guard, and npm's <code>prepare</code> now sets
+        <code>core.hooksPath</code> for any fresh clone. No feature yet.</p>
+      <p class="field"><b>Files:</b> <code>package.json</code> · <code>package-lock.json</code> · <code>.npmrc</code> ·
+        <code>tsconfig.json</code> · <code>biome.json</code> (which also reads <code>.gitignore</code>) ·
+        <code>src/server/app.ts</code> · <code>src/server/main.ts</code> · <code>src/server/app.test.ts</code> ·
+        <code>.githooks/pre-commit</code></p>
+      <p class="field"><b>Installs:</b> hono, @hono/node-server, zod, @hono/zod-validator; for the checks: typescript,
+        @biomejs/biome, @types/node. Measured: 10 packages, about 127 MB, none with an install script.</p>
+      <p class="field"><b>Check:</b> <code>node --run check</code> passes (Biome, tsc, node --test) and fails when a test
+        is changed to fail, or when a file in <code>src/ai/</code> imports <code>src/db/</code>;
+        <code>GET /api/health</code> answers <code>{"ok":true}</code>; a commit with a failing check is refused by the
+        hook.</p>
+      <p class="msg"><code>chore(repo): set up node, typescript, biome and the check</code></p>
+      <p><span class="status todo">Not started.</span></p>
+    </article>
+
+    <article class="step" id="s4">
+      <div class="head"><span class="n">4</span><h3>The data folder and the settings</h3><span class="who">builder</span></div>
       <p>One folder for everything personal, outside the repo, used only by the deployed app: launchd's file names it.
         Without that, kestrel uses a folder of made-up data outside the repo, filled from made-up files in the repo, so
         development and tests never touch real data. One settings file, checked as it is read.</p>
@@ -344,30 +369,15 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
       <p><span class="status todo">Not started.</span></p>
     </article>
 
-    <article class="step" id="s4">
-      <div class="head"><span class="n">4</span><h3>The guard</h3><span class="who">builder</span></div>
-      <p>Before every commit, a short script refuses keys and passwords (through gitleaks), any staged file
-        <code>.gitignore</code> covers, home paths with a user name, and the account's own name, read when it runs
-        (nothing to write by hand); then the check runs. Before every push, it does the same for the commits pushed,
-        and refuses the <code>old/*</code> branches. It never prints what it found: only the file, and how to fix
-        it.</p>
-      <p class="field"><b>Files:</b> <code>.githooks/pre-commit</code> · <code>.githooks/pre-push</code> ·
-        <code>scripts/guard.ts</code> · <code>scripts/guard.test.ts</code> · <code>package.json</code> (a
-        <code>prepare</code> script that points git at <code>.githooks/</code>)</p>
-      <p class="field"><b>Check:</b> a real commit of a staged made-up key is refused, and so is one with a home path
-        holding a made-up user name; the clean repo passes.</p>
-      <p class="msg"><code>chore(guard): refuse keys, passwords and personal details in commits and pushes</code></p>
-      <p><span class="status todo">Not started.</span></p>
-    </article>
-
     <article class="step" id="s5">
       <div class="head"><span class="n">5</span><h3>The database</h3><span class="who">builder</span></div>
       <p>The database file in the data folder. Migrations are numbered SQL files, and the database is copied just
-        before they run, the riskiest moment. <code>main.ts</code> opens it and passes it in.</p>
+        before they run, the riskiest moment, with SQLite's own snapshot (<code>VACUUM INTO</code>), so WAL-mode
+        changes not yet in the main file are included. <code>main.ts</code> opens it and passes it in.</p>
       <p class="field"><b>Files:</b> <code>src/db/db.ts</code> · <code>src/db/migrate.ts</code> ·
         <code>src/db/migrations/001-start.sql</code> · <code>src/db/db.test.ts</code> · <code>src/server/main.ts</code></p>
       <p class="field"><b>Check:</b> tests prove that the migrations run once and a second run changes nothing, and that
-        the copy made before a migration opens and holds the rows.</p>
+        the copy, made while committed rows still sit in the WAL file, opens and holds them.</p>
       <p class="msg"><code>feat(db): open the database, with a copy before each migration</code></p>
       <p><span class="status todo">Not started.</span></p>
     </article>
@@ -376,7 +386,7 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
       <div class="head"><span class="n">6</span><h3>The app shell</h3><span class="who">builder</span></div>
       <p>The app's frame: Home, the navigation, the design system's tokens in one file, an install manifest, and a
         service worker that asks the computer first and shows the last copy only when it doesn't answer within 3
-        seconds. The builder proposes the look from the decided design tokens, and I judge it on my phone and on the
+        seconds; it keeps the last answer of each read it saw, so an opened screen survives the computer sleeping. The builder proposes the look from the decided design tokens, and I judge it on my phone and on the
         computer at GO 2.</p>
       <p class="field"><b>Files:</b> <code>vite.config.ts</code> · <code>web/tsconfig.json</code> ·
         <code>web/index.html</code> · <code>web/main.tsx</code> · <code>web/app.tsx</code> · <code>web/home.tsx</code> ·
@@ -423,14 +433,16 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
     <article class="step" id="s8">
       <div class="head"><span class="n">8</span><h3>Documents</h3><span class="who">builder</span></div>
       <p>Open a text file from the folders listed in my settings, or upload one (its text is kept in the database).
-        Markdown, plain text and other text formats, up to 200 KB, shown as written and styled line by line. kestrel
-        remembers each file's encoding, line endings and final newline, so saving changes nothing else.</p>
+        Markdown, plain text and other text formats, up to 200 KB, shown as written and styled line by line. A path is
+        checked at its real place: symbolic links are resolved before the folder rule. UTF-8 is the format, with or
+        without its byte-order mark; kestrel remembers it, the line endings and the final newline, so saving changes
+        nothing else.</p>
       <p class="field"><b>Files:</b> <code>src/db/migrations/002-documents.sql</code> ·
         <code>src/domain/notes/documents.ts</code> · <code>src/domain/notes/documents.test.ts</code> ·
         <code>src/server/notes.ts</code> · <code>src/shared/notes.ts</code> · <code>web/notes/list.tsx</code> ·
         <code>web/notes/reader.tsx</code></p>
-      <p class="field"><b>Check:</b> a file in a listed folder opens; a path that leaves the folder is refused; a PDF is
-        refused with "PDF and Word come later".</p>
+      <p class="field"><b>Check:</b> a file in a listed folder opens; a path that leaves the folder is refused, and so
+        is a symlink inside it that points outside; a non-UTF-8 file and a PDF are refused with the reason.</p>
       <p class="msg"><code>feat(notes): open a document from my folders or an upload</code></p>
       <p><span class="status todo">Not started.</span></p>
     </article>
@@ -439,12 +451,16 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
       <div class="head"><span class="n">9</span><h3>Notes on words, or on the whole document</h3><span class="who">builder</span></div>
       <p>Select some words and add a note, or add a note on the whole document. A note is a range of the file's own
         characters, kept with its words and a little text on each side, so it finds its place again. Notes show as
-        marks in the reader and in a list; the note sheet is a native dialog that Back closes.</p>
+        marks in the reader and in a list; the note sheet is a native dialog opened with <code>showModal()</code>,
+        which Android's Back closes. A note still being typed is kept on the device until it is saved or
+        discarded.</p>
       <p class="field"><b>Files:</b> <code>src/db/migrations/003-notes.sql</code> ·
         <code>src/domain/notes/notes.ts</code> · <code>src/domain/notes/notes.test.ts</code> ·
         <code>web/notes/marks.ts</code> · <code>web/notes/note-sheet.tsx</code> · <code>web/notes/notes-list.tsx</code></p>
       <p class="field"><b>Check:</b> a note stays after a reload and shows on my other device; a note whose words are
-        gone is kept and shown as detached; Back closes the note sheet and keeps what I typed.</p>
+        gone is kept and shown as detached; Back closes the note sheet, and closing and reopening the app mid-typing
+        brings the text back; with the server stopped, the opened document and its notes still show, with "Computer
+        asleep since …".</p>
       <p class="msg"><code>feat(notes): leave notes on words or on the whole document</code></p>
       <p><span class="status todo">Not started.</span></p>
     </article>
@@ -459,8 +475,9 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
         <code>src/ai/stand-in.ts</code> · <code>src/domain/calls.ts</code> ·
         <code>src/db/migrations/004-model-calls.sql</code> · <code>src/platform/config.ts</code> ·
         <code>scripts/probe-model.ts</code></p>
-      <p class="field"><b>Check:</b> tests against a stand-in server: an answer in the wrong shape and a timeout each
-        become a failure with its reason, and an unlisted model is refused before any call. The probe, run by hand with
+      <p class="field"><b>Check:</b> tests against a stand-in server: an answer in the wrong shape, a timeout and a
+        refusal (the model declines) each become a failure with its reason, and an unlisted model is refused before
+        any call. The probe, run by hand with
         made-up text, passes for Qwen and Ornith through the model queue.</p>
       <p class="msg"><code>feat(ai): the model client, through the model queue</code></p>
       <p><span class="status todo">Not started.</span></p>
@@ -487,7 +504,7 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
         places each change in the original text only: where its text appears exactly once (or, when it repeats, inside
         or nearest its note's words); of two overlapping changes, the first. The rest are listed with the reason. The
         draft is kept until I save or discard it, and the screen checks on it every 2 seconds while it is being made.
-        The review is a native dialog that Back closes.</p>
+        The review is a native dialog opened with <code>showModal()</code>, which Android's Back closes.</p>
       <p class="field"><b>Files:</b> <code>src/ai/changes/prompt.ts</code> · <code>src/domain/notes/place.ts</code> ·
         <code>src/domain/notes/place.test.ts</code> · <code>src/domain/notes/drafts.ts</code> ·
         <code>src/domain/notes/drafts.test.ts</code> · <code>src/db/migrations/005-drafts.sql</code> ·
@@ -599,6 +616,8 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
         numbers.</li>
       <li>Three independent reviews of the plan raised 74 findings, 6 serious; all are applied, and
         <code>docs/decisions.md</code> lists the serious ones.</li>
+      <li>Codex's round 1 raised 10 findings; all are applied (<code>docs/review/round-1-plan.md</code>, Outcome),
+        the guard moving to the first build step among them.</li>
       <li>Step 1 was committed on main after a whole-history scan (gitleaks, plus a search for names, home paths and
         addresses).</li>
     </ul>

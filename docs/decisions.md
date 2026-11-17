@@ -5,6 +5,14 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-16 · The review's round 1 is applied.**
+  Ten findings, all fixed in the plan: the guard moved to the first build step, so nothing is pushed unguarded; its
+  scope now covers email addresses, phone numbers and this computer's user and host names; Notes resolves symbolic
+  links before the folder rule and takes UTF-8 only; the pre-migration copy is SQLite's own snapshot (VACUUM INTO),
+  proven with WAL data; offline is checked on an opened document with notes; a note being typed survives closing the
+  app; a model refusal is a tested failure; npm's 7-day rule is described as the filter it is; dialogs open with
+  showModal(), which Android's Back closes. docs/review/round-1-plan.md has the findings and the outcome.
+
 - **2026-11-16 · Decision entries are short and technical.**
   What was decided and why, in a few lines; no quotes, no personal details.
 
@@ -61,13 +69,15 @@ technical; the plan and the runbook carry the detail.
   26.11 or later, for `node:sqlite`'s current class names. Only erasable TypeScript: no enum, namespace or parameter
   properties.
 
-- **2026-11-15 · npm, exact versions, a 7-day wait for new releases.**
-  npm comes with Node, and one package needs no workspace; `.npmrc` keeps the rules in the repo.
+- **2026-11-15 · npm, exact versions, releases at least 7 days old.**
+  npm comes with Node, and one package needs no workspace; `.npmrc` keeps the rules in the repo. The age rule is a
+  filter (min-release-age): npm picks an older qualifying version or fails, it does not wait.
   Rejected: pnpm workspaces.
 
 - **2026-11-15 · SQLite through `node:sqlite`, with plain SQL.**
   Numbered `.sql` migrations tracked with `PRAGMA user_version`; a small `tx()` helper; WAL mode and STRICT tables.
-  The database is copied before migrations run, and an applied migration is never edited: a fix is a new migration.
+  The database is copied before migrations run with SQLite's own snapshot (`VACUUM INTO`), which includes committed
+  WAL-mode changes; an applied migration is never edited: a fix is a new migration.
   `node:sqlite` is built in, and a few tables need no ORM; zod checks what comes in.
   Rejected: Drizzle 1.0 (its `node:sqlite` support is a release candidate). Fallback: Drizzle 0.45 with
   better-sqlite3.
@@ -80,7 +90,7 @@ technical; the plan and the runbook carry the detail.
 
 - **2026-11-15 · The app: React 19 and Vite 8, kept lean.**
   React Router in its simplest mode, TanStack Query for server data, Tailwind 4 with the tokens in one file, native
-  HTML elements first (a panel is a `<dialog>`, which Android's Back closes). Measured on this computer: the server's
+  HTML elements first (a panel is a `<dialog>` opened with `showModal()`, which Android's Back closes). Measured on this computer: the server's
   tools are 10 packages and 127 MB; the app adds about 50 packages and 65 MB.
   Rejected: htmx with server-rendered pages (lightest, but weaker offline and less app-like; the runner-up); Preact
   (no lighter on disk with Vite 8); Next.js (heaviest, and a poor fit for offline and background work).
@@ -109,10 +119,12 @@ technical; the plan and the runbook carry the detail.
   uses it; development, tests and evals run on a folder of made-up data. Logs hold ids, counts, durations and kinds
   of error, never words, names or paths.
 
-- **2026-11-15 · A guard in the git hooks.**
+- **2026-11-15 · A guard in the git hooks, as the first build step.**
   Before every commit and push: gitleaks for keys and passwords, any staged file `.gitignore` covers, home paths with
-  a user name, and the account's own name, read when the guard runs. It never prints what it found. The whole history
-  is scanned before the first push.
+  a user name, email addresses, phone-number shapes, and this computer's user and host names, read when the guard
+  runs. It never prints what it found. Free-form details (an employer, a search's words) have no pattern: they stay a
+  rule for the builder and the reviews. The whole history is scanned before the first push, and the guard is built
+  before any other commit.
   Rejected: a hand-written list of private terms (one more file to maintain); per-line fingerprints.
 
 - **2026-11-15 · Few tests, each for a behaviour that would be noticed if it broke.**
@@ -132,8 +144,9 @@ technical; the plan and the runbook carry the detail.
   never uses one.
 
 - **2026-11-15 · Notes edits text files where they are.**
-  Text files from settings-listed folders, or uploads, up to 200 KB; the reader shows the file as written, so a note
-  is a range of the file's own characters. The model answers with an overview and find-and-replace changes tied to
+  Text files from settings-listed folders, or uploads, up to 200 KB: UTF-8 only, paths resolved through symbolic
+  links before the folder rule. The reader shows the file as written, so a note is a range of the file's own
+  characters. The model answers with an overview and find-and-replace changes tied to
   the notes; code places each change only where its text matches once (or nearest its note), and lists the rest. A
   draft stays until saved or discarded; save requires the file unchanged since the draft, keeps encoding and line
   endings, and keeps one previous version for Undo.
