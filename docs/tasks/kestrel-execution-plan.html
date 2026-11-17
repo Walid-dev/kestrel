@@ -105,7 +105,7 @@
     <div class="now"><b>Now:</b> Gate 2 is being built on <code>gate-2-skeleton</code> (the GO of 2026-11-17 covers
       its steps); GO 2, the look on my phone and the computer, closes it.</div>
     <div class="stats">
-      <span class="chip">4 of 16 steps committed</span>
+      <span class="chip">5 of 16 steps committed</span>
       <span class="chip">gate 1 of 4</span>
       <span class="chip">plan review next</span>
     </div>
@@ -386,7 +386,9 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
       <p class="field"><b>Check:</b> tests prove that the migrations run once and a second run changes nothing, and that
         the copy, made while committed rows still sit in the WAL file, opens and holds them.</p>
       <p class="msg"><code>feat(db): open the database, with a copy before each migration</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> Proven in tests: migrations run once and stay idempotent, WAL and
+        foreign keys are on, tx() rolls back whole, and the pre-migration copy (VACUUM INTO) holds a row that was
+        still in the WAL file and nothing from the migration after it.</p>
     </article>
 
     <article class="step" id="s6">
