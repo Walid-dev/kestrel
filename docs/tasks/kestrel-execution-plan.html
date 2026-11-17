@@ -105,7 +105,7 @@
     <div class="now"><b>Now:</b> Gate 2 is being built on <code>gate-2-skeleton</code> (the GO of 2026-11-17 covers
       its steps); GO 2, the look on my phone and the computer, closes it.</div>
     <div class="stats">
-      <span class="chip">3 of 16 steps committed</span>
+      <span class="chip">4 of 16 steps committed</span>
       <span class="chip">gate 1 of 4</span>
       <span class="chip">plan review next</span>
     </div>
@@ -371,7 +371,9 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
         that a missing or wrong <code>settings.json</code> stops kestrel with an example; <code>node --run dev</code>
         answers on port 8791.</p>
       <p class="msg"><code>feat(platform): the data folder and the settings</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> Without launchd's setting, the data folder is a made-up one under the
+        temp dir, seeded from <code>scripts/dev-data/</code>; a missing or wrong settings file stops kestrel with a
+        filled example; <code>node --run dev</code> answered on 8791.</p>
     </article>
 
     <article class="step" id="s5">
