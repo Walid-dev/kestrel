@@ -4,7 +4,7 @@ My personal app: one Node process on my computer, opened on my phone and on the 
 It replaces my local AI setup one part at a time, starting with **Notes**: notes on a document, changes proposed by
 the computer's own model, and every change shown before it is saved.
 
-**Status:** planning. Nothing to run yet.
+**Status:** building v0.1. The skeleton runs; Notes is next.
 
 - What it is, and v0.1's acceptance criteria: [docs/PLAN.md](docs/PLAN.md)
 - Why it is built this way: [docs/decisions.md](docs/decisions.md)

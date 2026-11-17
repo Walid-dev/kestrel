@@ -11,7 +11,8 @@
     "prepare": "git config core.hooksPath .githooks",
     "dev": "PORT=8791 node --watch src/server/main.ts",
     "build": "vite build",
-    "web": "vite"
+    "web": "vite",
+    "deploy": "node scripts/deploy.ts"
   },
   "dependencies": {
     "@hono/node-server": "2.1.6",

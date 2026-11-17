@@ -5,6 +5,11 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-17 · Deploy takes main, or a gate branch being judged.**
+  A gate's GO is a judgment of the deployed app, which happens before the merge; so deploy accepts `gate-*` besides
+  main. Committed code only still holds: deploy refuses a dirty tree and checks out an exact commit.
+  Rejected: merging before the judgment, which would put unjudged work on main.
+
 - **2026-11-16 · The review's round 1 is applied.**
   Ten findings, all fixed in the plan: the guard moved to the first build step, so nothing is pushed unguarded; its
   scope now covers email addresses, phone numbers and this computer's user and host names; Notes resolves symbolic

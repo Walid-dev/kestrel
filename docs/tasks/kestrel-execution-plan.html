@@ -102,10 +102,10 @@
     <p class="lede">The foundation and Notes, in 16 steps over three build gates, then a fourth gate where a second
       model reviews it. Each step is one commit, with its files, a check written so it can fail, and its message. I
       read each step's explanation and its changes, say GO, and the builder commits and pushes.</p>
-    <div class="now"><b>Now:</b> Gate 2 is being built on <code>gate-2-skeleton</code> (the GO of 2026-11-17 covers
-      its steps); GO 2, the look on my phone and the computer, closes it.</div>
+    <div class="now"><b>Now:</b> Gate 2 is built on <code>gate-2-skeleton</code> and deployed. GO 2 closes it: I open
+      kestrel on my phone and the computer, install it, and judge the look; on GO it merges into main.</div>
     <div class="stats">
-      <span class="chip">6 of 16 steps committed</span>
+      <span class="chip">7 of 16 steps committed</span>
       <span class="chip">gate 1 of 4</span>
       <span class="chip">plan review next</span>
     </div>
@@ -419,16 +419,20 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
       <div class="head"><span class="n">7</span><h3>Running on the computer, reached from the phone</h3><span class="who">builder</span></div>
       <p>launchd, macOS's service keeper, runs kestrel from a second checkout of committed main only, and restarts it
         after a crash or a restart of the computer. <code>node --run deploy</code> refuses uncommitted changes and any
-        branch but main. Tailscale Serve publishes kestrel to my devices, and every request must carry my Tailscale
+        branch but main or the gate branch being judged (a gate's GO looks at the deployed app). Tailscale Serve publishes kestrel to my devices, and every request must carry my Tailscale
         login, which deploy reads from Tailscale itself and writes into the settings.</p>
       <p class="field"><b>Files:</b> <code>scripts/kestrel.plist</code> (a template deploy fills in) ·
         <code>scripts/deploy.ts</code> · <code>src/server/identity.ts</code> · <code>src/server/identity.test.ts</code> ·
-        <code>src/server/app.ts</code> · <code>README.md</code></p>
+        <code>src/server/main.ts</code> · <code>README.md</code></p>
       <p class="field"><b>Check:</b> after <code>node --run deploy</code>, kestrel opens on my phone and on the computer
         at its Tailscale address on port 8790 and installs to the phone's home screen; it comes back after a restart;
         tests prove my login passes and another login or none gets 403.</p>
-      <p class="msg"><code>chore(ops): run committed main under launchd and open it on the phone</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p class="msg"><code>chore(ops): run the committed app under launchd and open it on the phone</code></p>
+      <p><span class="status done">Done.</span> Deployed from the gate branch (the plan said main only; a gate's GO
+        judges the deployed app, so deploy takes main or a gate branch — docs/decisions.md, 2026-11-17). Proven on the
+        computer: health answers 200 with my Tailscale login and 403 without; the process killed came back by itself;
+        the shell opens at the tailnet address over HTTPS. The identity check runs only when deployed: development
+        holds made-up data.</p>
     </article>
 
     <div class="go" id="g2">

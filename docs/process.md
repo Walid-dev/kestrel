@@ -42,4 +42,5 @@ Both work on the repo only, with made-up data. Neither opens my data folder or t
 
 ## Plan changes during the build
 
-None yet.
+- **2026-11-17, step 7:** deploy takes main or a gate branch being judged, not main only. A gate's GO looks at the
+  deployed app, which exists before the merge. Recorded in `docs/decisions.md`.
