@@ -45,8 +45,8 @@ repo, plan, platform, guard, db, web, ops, notes, ai, eval, review.
   phone app shares; `web/` the phone app; `evals/` the evals; `scripts/` the guard, deploy, the launchd template, the
   model probe and the made-up data for development; `.githooks/` the git hooks; `docs/`.
 - Only `src/domain/` writes to the database; `src/server/main.ts` opens it and passes it in. `src/ai/` never imports
-  `src/db/` or `src/domain/`. `web/` never imports server code, only `src/shared/`. Biome enforces these, and step 2's
-  check proves a forbidden import fails.
+  `src/db/` or `src/domain/`. `web/` never imports server code, only `src/shared/`. `scripts/boundaries.ts`, inside the check, enforces these; step 3 proved a
+  forbidden import fails.
 
 ## Code rules
 

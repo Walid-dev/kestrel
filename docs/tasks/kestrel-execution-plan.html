@@ -105,7 +105,7 @@
     <div class="now"><b>Now:</b> Gate 2 is being built on <code>gate-2-skeleton</code> (the GO of 2026-11-17 covers
       its steps); GO 2, the look on my phone and the computer, closes it.</div>
     <div class="stats">
-      <span class="chip">2 of 16 steps committed</span>
+      <span class="chip">3 of 16 steps committed</span>
       <span class="chip">gate 1 of 4</span>
       <span class="chip">plan review next</span>
     </div>
@@ -353,7 +353,9 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
         <code>GET /api/health</code> answers <code>{"ok":true}</code>; a commit with a failing check is refused by the
         hook.</p>
       <p class="msg"><code>chore(repo): set up node, typescript, biome and the check</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> hono 4.13.17, zod 4.6.7, typescript 7.0.2, biome 2.6.6: 10 packages.
+        Proven: a broken test and a forbidden import (<code>scripts/boundaries.ts</code>, which the check runs) each
+        fail the check; the pre-commit hook now runs the guard, then the whole check.</p>
     </article>
 
     <article class="step" id="s4">

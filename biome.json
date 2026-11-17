@@ -1,0 +1,5 @@
+{
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "formatter": { "indentStyle": "space", "lineWidth": 120 },
+  "linter": { "rules": { "recommended": true } }
+}

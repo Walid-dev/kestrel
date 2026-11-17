@@ -94,6 +94,7 @@ Planned step by step in `docs/tasks/kestrel-execution-plan.html`.
 Each gets its own step-by-step plan, reviewed, before it starts.
 
 ### v0.2 · Searches, jobs first
+
 - The job searches move in: the sources I still use, the scores, each site's limits, and a page that comes back
   empty reported as a problem, never as "nothing new".
 - The list opens on All, and filters combine. A Priority list holds every great match and every job I star, in view
@@ -104,6 +105,7 @@ Each gets its own step-by-step plan, reviewed, before it starts.
 - Nightly copies of the database, 7 kept, arrive with the job data.
 
 ### v0.3 · Applications
+
 - One Applications page by state: queued, applying, needs me, sent, and not sent with its reason and a Retry. Every
   application that stopped is counted, whatever stage its job is in.
 - The apply agent starts from kestrel and reports back through `kestrel` commands (at first, the current agent in my
@@ -115,6 +117,7 @@ Each gets its own step-by-step plan, reviewed, before it starts.
   shows what needs me and what runs now, updated live.
 
 ### v0.4 · Learn and Interview
+
 - Guides: the guides my guide prompt makes, one lesson per page, read aloud by the computer's voice, with check
   questions and a way to ask about a lesson. (The current setup has had them since 2026-11-15.)
 - Packs of prompts and answers: one kind of content for prepared answers, lessons, demo scripts and the guides'
@@ -123,6 +126,7 @@ Each gets its own step-by-step plan, reviewed, before it starts.
   answer in large text).
 
 ### v0.5 · The rest, and the old setup retired
+
 - Tasks with commands for agents, deal searches (in Searches), the models and what they cost, a morning brief in
   plain words, small apps.
 - Each old part stops after two weeks without use; the last one closes the old setup.
