@@ -102,11 +102,10 @@
     <p class="lede">The foundation and Notes, in 16 steps over three build gates, then a fourth gate where a second
       model reviews it. Each step is one commit, with its files, a check written so it can fail, and its message. I
       read each step's explanation and its changes, say GO, and the builder commits and pushes.</p>
-    <div class="now"><b>Now:</b> round 1 found 10 problems, and all 10 fixes are applied
-      (<code>docs/review/round-1-plan.md</code>, Outcome). On my GO they are committed and pushed, and Gate 2
-      starts.</div>
+    <div class="now"><b>Now:</b> Gate 2 is being built on <code>gate-2-skeleton</code> (the GO of 2026-11-17 covers
+      its steps); GO 2, the look on my phone and the computer, closes it.</div>
     <div class="stats">
-      <span class="chip">1 of 16 steps committed</span>
+      <span class="chip">2 of 16 steps committed</span>
       <span class="chip">gate 1 of 4</span>
       <span class="chip">plan review next</span>
     </div>
@@ -330,7 +329,11 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
         key, a made-up email address, a made-up phone number and a home path with a made-up user name; the clean repo
         passes; a push of <code>old/*</code> is refused.</p>
       <p class="msg"><code>chore(guard): refuse keys, passwords and personal details in commits and pushes</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> Proven with real commits: a made-up key, email, phone number, home
+        path, the account's own name and a force-staged ignored file were each refused; the clean repo passes, and a
+        push of <code>old/*</code> is refused. Two lessons from building it: gitleaks allowlists the documented
+        EXAMPLE keys, so the key proof uses a random one; and the computer's names match as whole words of four or
+        more characters, or a MacBook Pro's "Pro" refuses the word "project".</p>
     </article>
 
     <article class="step" id="s3">

@@ -1,0 +1,5 @@
+#!/bin/sh
+# the guard first (keys, personal details, ignored files), then the check once the project has one
+set -e
+node scripts/guard.ts --staged
+if [ -f package.json ] && grep -q '"check"' package.json; then node --run check; fi
