@@ -105,3 +105,21 @@
 **Why it matters:** UTF-8 text files such as `.csv`, `.json`, or `.rst` in an allowed folder cannot be opened, despite meeting the stated size and encoding rules.
 
 **Suggested fix:** Decide text-versus-binary based on the content and UTF-8 validation rather than a four-extension allowlist, while continuing to reject known binary formats with a clear reason.
+
+## Outcome, 2026-11-21 (the builder)
+
+Every finding is closed in its own commit, each with a test that fails without the fix, or with the reworked flow
+named. The check after the batch: 68 tests, the eval 8 of 8 on the stand-in.
+
+| Finding                                  | Closed by | How                                                                                                         |
+| ---------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------- |
+| R2-1 model door could leave the computer | `4c4894a` | settings refuse a non-loopback models.url; remote models would need their own explicit opt-in               |
+| R2-2 changes unchecked against notes     | `08922c4` | note ids validated per document; a change with none is left out; a forgotten note is named under unanswered |
+| R2-3 basename collision across folders   | `a695ea8` | documents go to the model under their full path (uploads: unique name); matching uses the same label        |
+| R2-4 undo could overwrite newer edits    | `34ddf39` | undo compares the file with what the save wrote and refuses when it changed                                 |
+| R2-5 mixed line endings rewritten        | `7ab075a` | a mixed-endings file is refused with the reason instead of being made uniform                               |
+| R2-6 upload validation saw a rewrite     | `b1ed428` | the screen sends the file's raw bytes, base64; the server's fatal decoder judges the original               |
+| R2-7 failed note save lost the words     | `6e7a094` | the sheet clears and closes only after the save lands; a failure keeps it open with the reason              |
+| R2-8 diff could freeze the phone         | `4e5643f` | head/tail trim, then a bounded fallback past 4M cells; proven on 30,000 changed lines                       |
+| R2-9 settings error logged the home path | `aaf4032` | both messages name settings.json and the error code, path-free, with a test that the folder never appears   |
+| R2-10 four-extension allowlist           | `e6d0f59` | known binary endings refused by name; everything else judged by content (no NUL, strict UTF-8, the cap)     |

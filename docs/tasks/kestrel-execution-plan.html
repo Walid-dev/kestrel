@@ -102,13 +102,13 @@
     <p class="lede">The foundation and Notes, in 16 steps over three build gates, then a fourth gate where a second
       model reviews it. Each step is one commit, with its files, a check written so it can fail, and its message. I
       read each step's explanation and its changes, say GO, and the builder commits and pushes.</p>
-    <div class="now"><b>Now:</b> Gate 3 is closed (GO 3, 2026-11-21) and Notes runs from main. Next: Gate 4 — I start
-      Codex on the repo with round 2 of <code>docs/review/brief.md</code>; the builder fixes each finding with a test,
-      then v0.1 tags.</div>
+    <div class="now"><b>Now:</b> Gate 4 is built on <code>gate-4-review</code>: Codex's ten findings are each fixed in
+      their own commit with a test, and a hands-on round settled the design (docs/design.md). GO 4 closes v0.1: I read
+      the findings and their fixes; on GO the branch merges into main and v0.1 tags.</div>
     <div class="stats">
       <span class="chip">16 of 16 steps committed</span>
       <span class="chip">gate 3 of 4 closed</span>
-      <span class="chip">notes next</span>
+      <span class="chip">v0.1 tags at GO 4</span>
     </div>
     <nav class="toc" aria-label="Contents">
       <a href="#picture">The gates</a>
@@ -637,7 +637,12 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
         fixes</p>
       <p class="field"><b>Check:</b> every finding is closed in the round's file, and the check passes.</p>
       <p class="msg"><code>fix(&lt;area&gt;): …</code> for each finding, and <code>docs(review): record round 2</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> Codex raised ten findings (four high); each closed in its own commit
+        with a test that fails without the fix — docs/review/round-2-v0.1.md carries the outcome table. The notable
+        new rules: the model door must be loopback, a change must cite a real open note and no note is dropped
+        silently, documents travel under their full path, undo refuses a file changed since the save, mixed line
+        endings are refused, uploads send their raw bytes, the diff is bounded, settings errors are path-free, and
+        content decides what is text.</p>
     </article>
 
     <div class="go" id="g4">
