@@ -145,3 +145,27 @@ test("two files with the same name never receive each other's changes (R2-3)", a
   assert.equal(ready?.perDocument[b.id].placed.length, 0); // the same words in the other plan.md stay untouched
   assert.equal(ready?.perDocument[b.id].newText, "Beta line.");
 });
+
+test("an invented note id places nothing, and a forgotten note is named, never dropped (R2-2)", async () => {
+  const db = setup();
+  const doc = addUpload(db, "a.md", "Alpha line. Beta line.");
+  const real = addNote(db, doc.id, { text: "alpha to A", quote: "Alpha" });
+  const forgotten = addNote(db, doc.id, { text: "beta deserves a say", quote: "Beta" });
+  const s = await startStandIn(() => ({
+    content: JSON.stringify({
+      overview: "a.md: changes.",
+      changes: [
+        { document: "a.md", find: "Alpha", replace: "A", notes: [real.id] },
+        { document: "a.md", find: "line.", replace: "row.", notes: ["made-up-note-id"] },
+      ],
+      unanswered: [],
+    }),
+  }));
+  const made = startDraft(db, settings(s.url), { documentIds: [doc.id], speed: "careful" });
+  await made.done;
+  await s.close();
+  const ready = getDraft(db, made.id);
+  assert.equal(ready?.perDocument[doc.id].placed.length, 1); // only the asked-for change
+  assert.ok(ready?.perDocument[doc.id].leftOut.some((l) => l.reason.includes("no open note")));
+  assert.ok(ready?.unanswered.some((u) => u.note === forgotten.id && u.reason.includes("left unhandled")));
+});
