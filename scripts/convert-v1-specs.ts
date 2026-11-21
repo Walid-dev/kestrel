@@ -10,20 +10,24 @@ import { parseArgs } from "node:util";
 type OldHunt = {
   name?: string;
   titles?: string[];
-  skills?: string[];
+  mustHave?: string[];
+  niceToHave?: string[];
   minSalary?: number;
   dealBreakers?: string[];
-  cities?: string[];
+  area?: string;
+  level?: string;
+  archived?: boolean;
 };
 
 export function convertSpecs(from: string, out: string): string[] {
   const old = new DatabaseSync(from, { readOnly: true });
-  const rows = old.prepare("SELECT id, data FROM job_hunts").all() as { id: string; data: string }[];
+  const rows = old.prepare("SELECT id, doc FROM job_hunts").all() as { id: string; doc: string }[];
   old.close();
   mkdirSync(out, { recursive: true });
   const written: string[] = [];
   for (const r of rows) {
-    const h = JSON.parse(r.data) as OldHunt;
+    if ((JSON.parse(r.doc) as OldHunt).archived) continue;
+    const h = JSON.parse(r.doc) as OldHunt;
     const spec = {
       name: h.name ?? r.id,
       kind: "jobs",
@@ -33,10 +37,11 @@ export function convertSpecs(from: string, out: string): string[] {
       enabled: false,
       scoring: {
         title: { want: (h.titles ?? []).map((t) => t.toLowerCase()), avoid: h.dealBreakers ?? [] },
-        skills: h.skills ?? [],
+        skills: [...(h.mustHave ?? []), ...(h.niceToHave ?? [])],
         level: { want: [], avoid: [] },
         ...(h.minSalary ? { pay: { floor: h.minSalary } } : {}),
-        ...(h.cities?.length ? { places: { words: h.cities } } : {}),
+        ...(h.area ? { places: { words: [h.area] } } : {}),
+        ...(h.level ? { level: { want: [h.level] } } : {}),
         freshDays: 7,
       },
     };
