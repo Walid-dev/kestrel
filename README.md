@@ -1,10 +1,37 @@
 # kestrel
 
 My personal app: one Node process on my computer, opened on my phone and on the computer over my private network.
-It replaces my local AI setup one part at a time, starting with **Notes**: notes on a document, changes proposed by
-the computer's own model, and every change shown before it is saved.
+It replaces my local AI setup one part at a time, starting with **Notes**: a document from my folders or an upload,
+my notes on its words, and the changes the computer's own model proposes — every change shown, placed by code and
+saved only when I say so. Nothing leaves the computer.
 
-**Status:** building v0.1. The skeleton runs; Notes is next.
+**Status:** v0.1 is built and in my hands; the second model's review closes it.
+
+## Run it
+
+```
+npm ci
+node --run check                    # style, types, tests, boundaries, and the eval on a stand-in model
+PORT=8791 node src/server/main.ts   # the API, on made-up data
+node --run web                      # the screens at http://localhost:5199 (vite forwards /api)
+node --run deploy                   # committed code only: builds, installs the service, publishes on the tailnet
+```
+
+## What v0.1 does
+
+- **Documents**: a UTF-8 text file from the folders my settings allow (paths checked at their real place, symbolic
+  links resolved) or an upload, up to 200 KB, shown as written. How the bytes looked — BOM, line endings, the final
+  newline — is remembered, so saving changes nothing else.
+- **Notes**: on some words or on the whole document. A note finds its words again when the text moves, and is kept
+  as detached when they are gone. The sheet is a native dialog; words still being typed live on the device.
+- **Ask for changes**: the careful or the fast local model answers in a set shape; the code alone places each change
+  (once; repeats by the note's words; of two overlaps, the first), and the rest are listed with the reason.
+- **Review and Save**: every change as a word diff, the target file named. Save writes only if the file hasn't
+  changed since the draft, keeps its permissions and encoding, keeps one previous version for Undo, and moves the
+  answered notes to Done. Several documents review together and save one by one.
+- **Offline**: with the computer asleep, the phone shows the last copies and says so; nothing can be saved.
+- **The eval**: labelled, made-up cases written before the feature, run on a stand-in model inside every check, and
+  run live on both local models before first use (`docs/eval/`).
 
 - What it is, and v0.1's acceptance criteria: [docs/PLAN.md](docs/PLAN.md)
 - Why it is built this way: [docs/decisions.md](docs/decisions.md)

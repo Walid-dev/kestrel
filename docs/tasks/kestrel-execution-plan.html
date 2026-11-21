@@ -102,11 +102,11 @@
     <p class="lede">The foundation and Notes, in 16 steps over three build gates, then a fourth gate where a second
       model reviews it. Each step is one commit, with its files, a check written so it can fail, and its message. I
       read each step's explanation and its changes, say GO, and the builder commits and pushes.</p>
-    <div class="now"><b>Now:</b> Gate 2 is closed: GO 2 came on 2026-11-21, on the code-palette design (the editor's
-      colours on the hunt pages' ground, the wolf mark), and <code>gate-2-skeleton</code> merged into main. Next:
-      Gate 3 · Notes, step 8, Documents.</div>
+    <div class="now"><b>Now:</b> Gate 3 · Notes is built on <code>gate-3-notes</code> and deployed: documents, notes,
+      changes from the models (31 of 32 live-eval runs pass), save with undo. GO 3 closes it: I use Notes for real,
+      on my phone and the computer; on GO it merges into main, and the second model's review (gate 4) follows.</div>
     <div class="stats">
-      <span class="chip">15 of 16 steps committed</span>
+      <span class="chip">16 of 16 steps committed</span>
       <span class="chip">gate 2 of 4 closed</span>
       <span class="chip">notes next</span>
     </div>
@@ -611,7 +611,9 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
       <p class="field"><b>Check:</b> the README's commands work from a fresh clone in a scratch folder:
         <code>npm ci</code>, <code>node --run check</code>, <code>node --run build</code>.</p>
       <p class="msg"><code>docs(repo): how to run kestrel, and what v0.1 does</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> The README carries how to run it, what v0.1 does and the eval's
+        headline; the process notes carry gate 3's plan changes. The README's commands were run from a fresh clone in
+        a scratch folder: npm ci, the check, the build.</p>
     </article>
 
     <div class="go" id="g3">
