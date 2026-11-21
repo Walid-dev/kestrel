@@ -51,8 +51,9 @@ export async function callModel<T>(settings: ModelSettings, call: Call, shape: z
         model: call.model,
         stream: true,
         max_tokens: maxTokens,
+        // no response_format: the door's JSON grammar pushed these models into top-level arrays; the prompt asks for
+        // one object, the client parses the whole text and falls back to the brace slice (the old setup's lesson too)
         ...(call.thinking === undefined ? {} : { enable_thinking: call.thinking }),
-        response_format: { type: "json_object" },
         messages: [
           { role: "system", content: call.system },
           { role: "user", content: call.prompt },
@@ -106,9 +107,15 @@ export async function callModel<T>(settings: ModelSettings, call: Call, shape: z
     try {
       raw = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
     } catch {
-      return fail("shape", `not JSON: ${text.slice(0, 120)}`);
+      // the detail never carries the answer's words: a record of calls stays free of document content
+      return fail(
+        "shape",
+        `not JSON: the answer starts with ${JSON.stringify(text.trim().slice(0, 1))} and has ${text.length} characters`,
+      );
     }
   }
+  // some models wrap the one object in a one-element array: unwrap it, the shape still judges
+  if (Array.isArray(raw) && raw.length === 1 && typeof raw[0] === "object" && raw[0] !== null) raw = raw[0];
   const read = shape.safeParse(raw);
   if (!read.success)
     return fail("shape", read.error.issues.map((i) => `${i.path.join(".") || "answer"}: ${i.message}`).join("; "));

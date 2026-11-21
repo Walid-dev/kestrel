@@ -5,6 +5,16 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-21 · The models for Notes, and how they are asked.**
+  The first live eval (docs/eval/2026-11-21-changes.md): 31 of 32 runs pass. Qwen3.8-27B-oQ4e-mtp is the careful
+  model (16 of 16, 9–40 s) and Ornith-1.5-35B-A3B-MLX-4bit the fast one (15 of 16, 2–53 s; one empty answer on the
+  trickiest case, which the app turns into a failed draft). Asks run with thinking on — the fast model drifts from
+  the shape without it. The model door's JSON mode stays off for the big write: its grammar pushed both models into
+  top-level arrays; the prompt asks for one object, and the client parses the whole text, falls back to the brace
+  slice, and unwraps a one-object array. Defaults live in `src/platform/config.ts` (MODEL_DEFAULTS); settings.json
+  overrides them.
+  Rejected: the door's JSON mode; thinking off for the fast model.
+
 - **2026-11-21 · The palette is the code palette; the mark is a wolf's face.**
   The second look judgment: the copper palette didn't fit either. The ground is now the hunt pages' dark
   (`#11141b` family) and light; the colours are the editor's code palette, the same shades `/hub/code.js` uses —

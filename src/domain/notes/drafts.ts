@@ -3,7 +3,7 @@
 // queue is serial anyway), and a set too long for the model is refused before any call, with what to do instead.
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import { changesPrompt } from "../../ai/changes/prompt.ts";
+import { changesPrompt, PROMPT_VERSION } from "../../ai/changes/prompt.ts";
 import { Answer } from "../../ai/changes/shape.ts";
 import { callModel } from "../../ai/client.ts";
 import type { Settings } from "../../platform/config.ts";
@@ -112,7 +112,7 @@ export function startDraft(
   );
   const done = (async () => {
     const got = await callModel(settings.models, { model, system, prompt, thinking: true, maxTokens: 8000 }, Answer);
-    recordCall(db, "changes", got);
+    recordCall(db, `changes:v${PROMPT_VERSION}`, got);
     if (!got.ok) {
       db.prepare("UPDATE drafts SET status = 'failed', error = ? WHERE id = ?").run(
         `the model didn't answer well: ${got.why} — ${got.detail}`,

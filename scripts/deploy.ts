@@ -29,13 +29,17 @@ if (branch !== "main" && !branch.startsWith("gate-"))
 const sha = sh("git", ["rev-parse", "HEAD"]).trim();
 
 // the live checkout, detached at exactly this commit
+console.log("deploy: the live checkout");
 if (!existsSync(live)) sh("git", ["worktree", "add", "--detach", live, sha]);
 else sh("git", ["-C", live, "checkout", "--detach", sha]);
 console.log(`live checkout at ${sha.slice(0, 7)} (${branch})`);
+console.log("deploy: npm ci in the live checkout");
 sh("npm", ["ci", "--no-audit", "--no-fund"], live);
+console.log("deploy: the web build");
 sh("node", ["--run", "build"], live);
 
 // the real folders, and my login from Tailscale itself
+console.log("deploy: the real folders and settings");
 const data = join(homedir(), "Library", "Application Support", "kestrel");
 const logs = join(homedir(), "Library", "Logs", "kestrel");
 mkdirSync(data, { recursive: true });
@@ -63,6 +67,7 @@ const plist = readFileSync(join(repo, "scripts", "kestrel.plist"), "utf8")
   .replaceAll("__DIR__", live)
   .replaceAll("__DATA__", data)
   .replaceAll("__LOGS__", logs);
+console.log("deploy: the launchd service");
 const plistFile = join(homedir(), "Library", "LaunchAgents", "local.kestrel.plist");
 writeFileSync(plistFile, plist);
 const uid = sh("id", ["-u"]).trim();
@@ -74,6 +79,7 @@ try {
 sh("launchctl", ["bootstrap", `gui/${uid}`, plistFile]);
 
 // on the tailnet, never public
+console.log("deploy: tailscale serve");
 try {
   sh(TAILSCALE, ["serve", "--bg", "--https=8790", "http://127.0.0.1:8790"]);
 } catch {
@@ -82,6 +88,7 @@ try {
 
 // alive, with my login
 const login = String(settings.tailscaleLogin);
+console.log("deploy: waiting for health");
 const until = Date.now() + 15_000;
 let up = false;
 while (Date.now() < until && !up) {
