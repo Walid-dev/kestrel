@@ -123,3 +123,12 @@ named. The check after the batch: 68 tests, the eval 8 of 8 on the stand-in.
 | R2-8 diff could freeze the phone         | `4e5643f` | head/tail trim, then a bounded fallback past 4M cells; proven on 30,000 changed lines                       |
 | R2-9 settings error logged the home path | `aaf4032` | both messages name settings.json and the error code, path-free, with a test that the folder never appears   |
 | R2-10 four-extension allowlist           | `e6d0f59` | known binary endings refused by name; everything else judged by content (no NUL, strict UTF-8, the cap)     |
+
+## Confirmation pass, 2026-11-21
+
+Two gaps found and closed:
+
+| Gap                                                                                                    | Closed by | How                                                                                                                     |
+| ------------------------------------------------------------------------------------------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------- |
+| R2-10 half-closed: the picker named four endings, and addUpload skipped the binary-name and NUL judges | `685136c` | an upload faces exactly the judges a folder file faces; the picker accepts any text kind and the server stays the judge |
+| The R2-7 fix left a race: Save, Discard and Delete live while a save was in flight                     | `eeabb73` | a busy flag guards the submit, disables the buttons, and holds Esc, Back and the backdrop until the save lands          |
