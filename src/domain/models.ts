@@ -10,12 +10,15 @@ export const USES: { use: Use; what: string }[] = [
   { use: "learn-ask", what: "Learn's Ask: a question on the open lesson" },
 ];
 
+// learn-ask falls back to careful: the live eval (docs/eval/2026-11-21-learn-ask.md) showed the fast model
+// breaking the one-breath line rule 3 runs in 8, while the careful one passed 8 of 8.
+export const fallbackFor = (settings: Settings, use: Use): string =>
+  use === "notes-fast" ? settings.models.fast : settings.models.careful;
+
 export function modelFor(db: DatabaseSync, settings: Settings, use: Use): string {
   const row = db.prepare("SELECT model FROM model_settings WHERE use = ?").get(use) as { model: string } | undefined;
   if (row?.model) return row.model;
-  // learn-ask falls back to careful: the live eval (docs/eval/2026-11-21-learn-ask.md) showed the fast model
-  // breaking the one-breath line rule 3 runs in 8, while the careful one passed 8 of 8.
-  return use === "notes-fast" ? settings.models.fast : settings.models.careful;
+  return fallbackFor(settings, use);
 }
 
 export function setModelFor(db: DatabaseSync, use: Use, model: string): void {
@@ -33,7 +36,7 @@ export function listUses(
     use,
     what,
     model: modelFor(db, settings, use),
-    fallback: use === "notes-careful" ? settings.models.careful : settings.models.fast,
+    fallback: fallbackFor(settings, use),
   }));
 }
 

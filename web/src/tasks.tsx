@@ -92,15 +92,15 @@ export function Tasks() {
       {open.map((t) => (
         <section key={t.id} className="card grid gap-2">
           <div className="flex items-baseline gap-3">
-            <p className="font-cond font-bold">{t.text}</p>
+            <p className="font-cond min-w-0 flex-1 font-bold">{t.text}</p>
             {t.who && (
-              <span className="font-mono text-[11px]" style={{ color: "var(--muted)" }}>
+              <span className="font-mono shrink-0 text-[11px]" style={{ color: "var(--muted)" }}>
                 for {t.who}
               </span>
             )}
             <button
               type="button"
-              className="btn btn-quiet ml-auto shrink-0"
+              className="btn btn-quiet shrink-0"
               onClick={() => {
                 setClosing((v) => (v === t.id ? "" : t.id));
                 setNote("");
