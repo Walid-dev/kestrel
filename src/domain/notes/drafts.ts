@@ -79,14 +79,15 @@ export function startDraft(
   if (documents.length === 0) throw new Refused("pick at least one document");
   const notes = documents.flatMap((d) => listNotes(db, d.id).filter((n) => n.state === "open"));
   if (notes.length === 0) throw new Refused("no open notes here: leave a note first, then ask");
+  // each document goes to the model under a label that cannot collide: the full path for a file, the name for an
+  // upload (unique since same-name uploads save over). Two folders may both hold a plan.md (review R2-3).
+  const labelOf = (d: DocumentFull) => d.path ?? d.name;
   const { system, prompt } = changesPrompt(
-    documents.map((d) => ({ name: d.name, text: d.text })),
-    notes.map((n) => ({
-      id: n.id,
-      document: documents.find((d) => d.id === n.documentId)?.name ?? "",
-      quote: n.quote,
-      text: n.text,
-    })),
+    documents.map((d) => ({ name: labelOf(d), text: d.text })),
+    notes.map((n) => {
+      const doc = documents.find((d) => d.id === n.documentId);
+      return { id: n.id, document: doc ? labelOf(doc) : "", quote: n.quote, text: n.text };
+    }),
   );
   const chars = system.length + prompt.length;
   if (chars > settings.models.contextChars)
@@ -122,13 +123,13 @@ export function startDraft(
     }
     const perDocument: DraftView["perDocument"] = {};
     for (const d of documents) {
-      const mine = got.value.changes.filter((c) => c.document === d.name);
+      const mine = got.value.changes.filter((c) => c.document === labelOf(d));
       const anchors = new Map(listNotes(db, d.id).map((n) => [n.id, n.at]));
       const placedHere = place(d.text, mine, anchors);
       perDocument[d.id] = { ...placedHere, oldText: d.text, newText: apply(d.text, placedHere.placed) };
     }
     // a change naming a document that isn't in the set is left out with its reason, on the first document's list
-    const known = new Set(documents.map((d) => d.name));
+    const known = new Set(documents.map((d) => labelOf(d)));
     const strays = got.value.changes.filter((c) => !known.has(c.document));
     if (strays.length && documents[0])
       perDocument[documents[0].id].leftOut.push(

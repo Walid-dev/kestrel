@@ -40,10 +40,11 @@ async function draftOn(fileBytes: Buffer) {
   const note = addNote(db, doc.id, { text: "two, not three", quote: "three parts" });
   // the stand-in can't know the real note id: answer with it
   await s.close();
+  const label = realpathSync(file); // documents go to the model under their full path (R2-3)
   const s2 = await startStandIn(() => ({
     content: JSON.stringify({
       overview: "a.md: one change.",
-      changes: [{ document: "a.md", find: "three parts", replace: "two parts", notes: [note.id] }],
+      changes: [{ document: label, find: "three parts", replace: "two parts", notes: [note.id] }],
       unanswered: [],
     }),
   }));
