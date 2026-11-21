@@ -163,21 +163,15 @@ export function Searches() {
           </button>
         </section>
       ))}
-      {(searches.data?.mirrored ?? []).map((m) => (
-        <section key={m.id} className="card flex items-baseline gap-3">
-          <h3 className="font-cond text-lg font-bold">{m.id}</h3>
-          <button
-            type="button"
-            className="btn btn-quiet ml-auto"
-            onClick={() => setInSearch((v) => (v === m.id ? "" : m.id))}
-          >
-            {m.listings} listing{m.listings === 1 ? "" : "s"}
-          </button>
-          <span className="font-mono text-[11px]" style={{ color: "var(--muted)" }}>
-            mirrored · no spec yet
+      {(searches.data?.mirrored ?? []).length > 0 && (
+        <section className="card flex flex-wrap items-baseline gap-3">
+          <h3 className="font-cond text-lg font-bold">Mirrored from the old setup</h3>
+          <span className="font-mono ml-auto text-[11px]" style={{ color: "var(--muted)" }}>
+            {searches.data?.mirrored.length} searches · {searches.data?.mirrored.reduce((n, m) => n + m.listings, 0)}{" "}
+            listings · no specs yet — the Search filter picks one
           </span>
         </section>
-      ))}
+      )}
       {searches.data?.mirror && (
         <p
           className="font-mono text-xs"
