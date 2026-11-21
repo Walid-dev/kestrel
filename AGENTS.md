@@ -81,7 +81,7 @@ repo, plan, platform, guard, db, web, ops, notes, ai, eval, review.
 ## Models
 
 - The app's AI runs on the computer's own models (served locally: Qwen for careful work, Ornith for fast work),
-  through the setup's model queue. The client refuses any model not listed in my settings. A cloud model only for a
+  through the setup's model queue. Only picked models run: a pick must be one the loopback door offers (the Models screen checks), and the door's address must stay on this computer. A cloud model only for a
   feature where I pick it, and that feature says on screen what it sends; Notes never uses one.
 
 ## Docs

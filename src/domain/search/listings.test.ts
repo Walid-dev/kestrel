@@ -30,6 +30,7 @@ const item = (o: Partial<Item> = {}): Item => ({
   salaryMin: null,
   salaryMax: null,
   salaryCurrency: null,
+  salaryPeriod: null,
   usOnly: false,
   excerpt: "TypeScript React AWS Node.",
   ...o,

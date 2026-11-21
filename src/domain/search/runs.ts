@@ -1,6 +1,7 @@
 // One run of one search: the collector speaks, the engine keeps and scores, and the run lands in the record with its
 // problem in plain words — an empty page is a problem, never "nothing new".
 import { randomUUID } from "node:crypto";
+import { dirname } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { runCollector } from "./collect.ts";
 import { keepItems } from "./listings.ts";
@@ -17,9 +18,25 @@ export type Run = {
   problem: string;
 };
 
-export async function runSearch(db: DatabaseSync, spec: Spec, now: Date): Promise<Run> {
+// one run at a time, whoever asks: the collectors share one computer and one browser tab, so the tick and Run now
+// join the same line instead of interleaving on the page
+let line: Promise<unknown> = Promise.resolve();
+
+export function runSearch(db: DatabaseSync, spec: Spec, now: Date): Promise<Run> {
+  const next = line.then(() => runSearchNow(db, spec, now));
+  line = next.catch(() => {});
+  return next;
+}
+
+async function runSearchNow(db: DatabaseSync, spec: Spec, now: Date): Promise<Run> {
   const t0 = Date.now();
-  const collected = await runCollector(collectorPath(spec), spec.args);
+  const script = collectorPath(spec);
+  const collected = await runCollector(script, spec.args, {
+    timeoutMs: spec.limits.timeoutMs,
+    maxBytes: spec.limits.maxBytes,
+    cwd: dirname(script),
+    env: spec.env,
+  });
   const { found, kept } = keepItems(
     db,
     spec.id,

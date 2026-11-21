@@ -35,3 +35,21 @@ test("the settings answer until a pick is made; the pick wins and survives a reo
     ],
   );
 });
+
+test("a pick must be one the door offers; a down door refuses the switch (PF-1)", async () => {
+  const { createServer } = await import("node:http");
+  const { once } = await import("node:events");
+  const server = createServer((_req, res) => {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ data: [{ id: "careful-model" }, { id: "third-model" }] }));
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const { port } = server.address() as { port: number };
+  const { doorModels } = await import("./models.ts");
+  const up = await doorModels({ ...settings, models: { ...settings.models, url: `http://127.0.0.1:${port}/v1` } });
+  assert.deepEqual(up, ["careful-model", "third-model"]);
+  server.close();
+  const down = await doorModels(settings); // port 1: nothing listens
+  assert.deepEqual(down, []);
+});

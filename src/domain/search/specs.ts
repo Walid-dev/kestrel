@@ -11,7 +11,14 @@ export const Spec = z.object({
   collector: z.string().min(1), // a path, relative to the data folder unless absolute
   args: z.array(z.string()).default([]),
   everyMinutes: z.number().int().positive().default(360),
-  limits: z.object({ perRun: z.number().int().positive().default(200) }).default({ perRun: 200 }),
+  env: z.record(z.string(), z.string()).default({}), // the old convention's knobs (terms, pages) travel here
+  limits: z
+    .object({
+      perRun: z.number().int().positive().default(200),
+      timeoutMs: z.number().int().positive().default(180_000),
+      maxBytes: z.number().int().positive().default(20_000_000),
+    })
+    .default({ perRun: 200, timeoutMs: 180_000, maxBytes: 20_000_000 }),
   scoring: z.unknown(), // score.ts reads it; kept loose here so a spec file edit never bricks the list
   enabled: z.boolean().default(true),
 });

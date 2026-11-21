@@ -5,6 +5,17 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-21 · The v0.2 plan review's three findings are in the contract.**
+  (1) The collector door's whole contract is stated and built: a script runs in its own folder with the spec's env
+  and budgets, browser-down is its own problem kind, and runs go one at a time whoever asks — the collectors share
+  one browser tab. (2) The import is idempotent with the old database as the status authority until cutover; its dry
+  run proves stars and scores, not just row counts; a converter turns the old hunt specs into data-folder files; pay
+  carries its period and an hourly wage annualizes before the floor. (3) The side-by-side week never double-drives
+  the browser: the old setup keeps the browser scripts, kestrel mirrors nightly through the import and runs only its
+  generic jobspy wrapper until cutover. Also from the review: a Models pick must be one the loopback door offers (the
+  switch is refused when the door is down), and the old "refuses a model not listed in my settings" line in AGENTS.md
+  now states the real rule.
+
 - **2026-11-21 · Auto mode for v0.2–v0.5; the search engine is generic, the sites are data.**
   The builder builds the remaining versions without per-step GOs, pushing continuously to this repo only; reviews
   run per version by orchestrated agents and at the end by a second model over the whole repo. For Searches, the

@@ -16,6 +16,7 @@ export type ScoredJob = {
   salaryMin?: number | null;
   salaryMax?: number | null;
   salaryCurrency?: string | null;
+  salaryPeriod?: string | null;
   posted?: string; // ISO date
   usOnly?: boolean;
   excerpt?: string;
@@ -54,7 +55,8 @@ export function scoreJob(scoring: Scoring, job: ScoredJob, now: Date): Score {
 
   if (scoring.pay?.floor) {
     const toCad = job.salaryCurrency === "USD" ? (scoring.pay.usdToCad ?? 1.35) : 1;
-    const top = (job.salaryMax ?? job.salaryMin ?? 0) * toCad;
+    const yearly = /hour/i.test(job.salaryPeriod ?? "") ? 2080 : 1; // $45/hour is a year of hours, not a number under the floor
+    const top = (job.salaryMax ?? job.salaryMin ?? 0) * toCad * yearly;
     parts.pay = top === 0 ? Math.round(WEIGHTS.pay * 0.6) : top >= scoring.pay.floor ? WEIGHTS.pay : 0;
     if (top !== 0 && top < scoring.pay.floor) why.push("the pay sits under the floor");
   } else parts.pay = Math.round(WEIGHTS.pay * 0.6);

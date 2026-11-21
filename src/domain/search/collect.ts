@@ -16,6 +16,7 @@ export const Item = z.object({
   salaryMin: z.number().nullable().default(null),
   salaryMax: z.number().nullable().default(null),
   salaryCurrency: z.string().nullable().default(null),
+  salaryPeriod: z.string().nullable().default(null), // yearly unless said; hourly pay is annualized for the floor
   usOnly: z.boolean().default(false),
   excerpt: z.string().default(""),
 });
@@ -26,38 +27,52 @@ export type Collected = { items: Item[]; problem: string };
 export function runCollector(
   script: string,
   args: string[],
-  opts: { timeoutMs?: number; maxBytes?: number } = {},
+  opts: { timeoutMs?: number; maxBytes?: number; cwd?: string; env?: Record<string, string> } = {},
 ): Promise<Collected> {
   const timeoutMs = opts.timeoutMs ?? 180_000;
   const maxBytes = opts.maxBytes ?? 20_000_000;
   return new Promise((resolve) => {
-    execFile(script, args, { timeout: timeoutMs, maxBuffer: maxBytes, encoding: "utf8" }, (error, stdout, stderr) => {
-      const hint = (stderr || "").trim().split("\n")[0]?.slice(0, 120) ?? "";
-      if (error) {
-        const e = error as { code?: number | string; killed?: boolean; signal?: string | null };
-        if (e.code === 3)
-          return resolve({ items: [], problem: `the site wants a login again${hint ? `: ${hint}` : ""}` });
-        if (e.killed || e.signal === "SIGTERM")
+    execFile(
+      script,
+      args,
+      {
+        timeout: timeoutMs,
+        maxBuffer: maxBytes,
+        encoding: "utf8",
+        cwd: opts.cwd,
+        env: { ...process.env, ...opts.env },
+      },
+      (error, stdout, stderr) => {
+        const hint = (stderr || "").trim().split("\n")[0]?.slice(0, 120) ?? "";
+        // a browser collector with no browser: its own problem kind, so the runs view never cries wolf at boot
+        if (error && /ECONNREFUSED[\s\S]*9222|connectOverCDP|browserType\.connect/i.test(stderr || ""))
+          return resolve({ items: [], problem: "the agent's browser isn't running: the run will catch up once it is" });
+        if (error) {
+          const e = error as { code?: number | string; killed?: boolean; signal?: string | null };
+          if (e.code === 3)
+            return resolve({ items: [], problem: `the site wants a login again${hint ? `: ${hint}` : ""}` });
+          if (e.killed || e.signal === "SIGTERM")
+            return resolve({
+              items: [],
+              problem: `the collector ran past ${Math.round(timeoutMs / 1000)}s and was stopped`,
+            });
+          if (e.code === "ENOENT") return resolve({ items: [], problem: "the collector script is not there" });
+          return resolve({ items: [], problem: `the collector failed (exit ${e.code})${hint ? `: ${hint}` : ""}` });
+        }
+        let raw: unknown;
+        try {
+          raw = JSON.parse(stdout);
+        } catch {
+          return resolve({ items: [], problem: "the collector answered something that isn't JSON" });
+        }
+        const read = z.array(Item).safeParse(raw);
+        if (!read.success)
           return resolve({
             items: [],
-            problem: `the collector ran past ${Math.round(timeoutMs / 1000)}s and was stopped`,
+            problem: `the collector's items miss the shape: ${read.error.issues[0]?.message ?? ""}`,
           });
-        if (e.code === "ENOENT") return resolve({ items: [], problem: "the collector script is not there" });
-        return resolve({ items: [], problem: `the collector failed (exit ${e.code})${hint ? `: ${hint}` : ""}` });
-      }
-      let raw: unknown;
-      try {
-        raw = JSON.parse(stdout);
-      } catch {
-        return resolve({ items: [], problem: "the collector answered something that isn't JSON" });
-      }
-      const read = z.array(Item).safeParse(raw);
-      if (!read.success)
-        return resolve({
-          items: [],
-          problem: `the collector's items miss the shape: ${read.error.issues[0]?.message ?? ""}`,
-        });
-      resolve({ items: read.data, problem: "" });
-    });
+        resolve({ items: read.data, problem: "" });
+      },
+    );
   });
 }

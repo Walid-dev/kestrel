@@ -34,8 +34,12 @@ export function mountNotes(app: Hono, db: DatabaseSync, settings: Settings) {
       "json",
       z.object({ use: z.enum(USES.map((u) => u.use) as [string, ...string[]]), model: z.string().min(1).max(200) }),
     ),
-    (c) => {
+    async (c) => {
       const { use, model } = c.req.valid("json");
+      // a pick must be a model the door offers right now; a down door refuses the switch rather than guessing
+      const door = await doorModels(settings);
+      if (door.length === 0) return c.json({ error: "the model door isn't answering: try again when it's up" }, 400);
+      if (!door.includes(model)) return c.json({ error: "the door doesn't offer that model" }, 400);
       setModelFor(db, use as (typeof USES)[number]["use"], model);
       return c.json({ ok: true });
     },

@@ -24,7 +24,8 @@ function setup(items: string) {
     collector: script,
     args: [],
     everyMinutes: 360,
-    limits: { perRun: 200 },
+    limits: { perRun: 200, timeoutMs: 180_000, maxBytes: 20_000_000 },
+    env: {},
     scoring: { title: { want: ["engineer"] } },
     enabled: true,
   };
