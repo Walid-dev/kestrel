@@ -113,11 +113,21 @@ export function mountNotes(app: Hono, db: DatabaseSync, settings: Settings) {
   });
   app.post(
     "/api/notes/upload",
-    zValidator("json", z.object({ name: z.string().min(1).max(200), text: z.string().max(MAX_BYTES * 2) })),
+    // the file's own bytes, base64: the server judges the original encoding (review R2-6)
+    zValidator(
+      "json",
+      z.object({
+        name: z.string().min(1).max(200),
+        bytes: z
+          .string()
+          .base64()
+          .max(MAX_BYTES * 2),
+      }),
+    ),
     (c) => {
       try {
-        const { name, text } = c.req.valid("json");
-        return c.json(addUpload(db, name, text));
+        const { name, bytes } = c.req.valid("json");
+        return c.json(addUpload(db, name, Buffer.from(bytes, "base64")));
       } catch (e) {
         return refusing(c, e);
       }

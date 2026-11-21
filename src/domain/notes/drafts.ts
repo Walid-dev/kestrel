@@ -4,7 +4,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { changesPrompt, PROMPT_VERSION } from "../../ai/changes/prompt.ts";
-import { Answer } from "../../ai/changes/shape.ts";
+import { Answer, type Change } from "../../ai/changes/shape.ts";
 import { callModel } from "../../ai/client.ts";
 import type { Settings } from "../../platform/config.ts";
 import type { DocumentFull } from "../../shared/notes.ts";
@@ -79,14 +79,15 @@ export function startDraft(
   if (documents.length === 0) throw new Refused("pick at least one document");
   const notes = documents.flatMap((d) => listNotes(db, d.id).filter((n) => n.state === "open"));
   if (notes.length === 0) throw new Refused("no open notes here: leave a note first, then ask");
+  // each document goes to the model under a label that cannot collide: the full path for a file, the name for an
+  // upload (unique since same-name uploads save over). Two folders may both hold a plan.md (review R2-3).
+  const labelOf = (d: DocumentFull) => d.path ?? d.name;
   const { system, prompt } = changesPrompt(
-    documents.map((d) => ({ name: d.name, text: d.text })),
-    notes.map((n) => ({
-      id: n.id,
-      document: documents.find((d) => d.id === n.documentId)?.name ?? "",
-      quote: n.quote,
-      text: n.text,
-    })),
+    documents.map((d) => ({ name: labelOf(d), text: d.text })),
+    notes.map((n) => {
+      const doc = documents.find((d) => d.id === n.documentId);
+      return { id: n.id, document: doc ? labelOf(doc) : "", quote: n.quote, text: n.text };
+    }),
   );
   const chars = system.length + prompt.length;
   if (chars > settings.models.contextChars)
@@ -121,14 +122,29 @@ export function startDraft(
       return;
     }
     const perDocument: DraftView["perDocument"] = {};
+    // a change counts only when an open note on that document really asked for it (review R2-2): invented or
+    // misplaced note ids are filtered; a change left with none is listed, never placed
+    const idsByDoc = new Map(
+      documents.map((d) => [d.id, new Set(notes.filter((n) => n.documentId === d.id).map((n) => n.id))]),
+    );
     for (const d of documents) {
-      const mine = got.value.changes.filter((c) => c.document === d.name);
+      const mine = got.value.changes.filter((c) => c.document === labelOf(d));
+      const valid: Change[] = [];
+      const unasked: Change[] = [];
+      for (const c of mine) {
+        const good = c.notes.filter((id) => idsByDoc.get(d.id)?.has(id));
+        if (good.length === 0) unasked.push(c);
+        else valid.push({ ...c, notes: good });
+      }
       const anchors = new Map(listNotes(db, d.id).map((n) => [n.id, n.at]));
-      const placedHere = place(d.text, mine, anchors);
+      const placedHere = place(d.text, valid, anchors);
+      placedHere.leftOut.push(
+        ...unasked.map((change) => ({ change, reason: "no open note on this document asked for it" })),
+      );
       perDocument[d.id] = { ...placedHere, oldText: d.text, newText: apply(d.text, placedHere.placed) };
     }
     // a change naming a document that isn't in the set is left out with its reason, on the first document's list
-    const known = new Set(documents.map((d) => d.name));
+    const known = new Set(documents.map((d) => labelOf(d)));
     const strays = got.value.changes.filter((c) => !known.has(c.document));
     if (strays.length && documents[0])
       perDocument[documents[0].id].leftOut.push(
@@ -137,8 +153,17 @@ export function startDraft(
           reason: `it names a document that isn't in this set: ${change.document}`,
         })),
       );
+    // every open note is accounted for: answered by a placed change, excused by the model, or named here as
+    // left unhandled — a note is never silently dropped (review R2-2)
+    const openIds = new Set(notes.map((n) => n.id));
+    const answered = new Set(Object.values(perDocument).flatMap((r) => r.placed.flatMap((pl) => pl.change.notes)));
+    const excused = got.value.unanswered.filter((u) => openIds.has(u.note));
+    const excusedIds = new Set(excused.map((u) => u.note));
+    const forgotten = notes
+      .filter((n) => !answered.has(n.id) && !excusedIds.has(n.id))
+      .map((n) => ({ note: n.id, reason: `a note was left unhandled: "${n.text.slice(0, 60)}"` }));
     db.prepare("UPDATE drafts SET status = 'ready', answer = ?, placed = ? WHERE id = ?").run(
-      JSON.stringify(got.value),
+      JSON.stringify({ ...got.value, unanswered: [...excused, ...forgotten] }),
       JSON.stringify(perDocument),
       id,
     );

@@ -47,14 +47,30 @@ test("a path that leaves the folder is refused, and so is a symlink that points 
   assert.throws(() => openFile(db, settings, join(inside, "looks-inside.md")), /outside the folders/);
 });
 
+test("any UTF-8 text format opens: csv, json, an ending of its own (R2-10)", () => {
+  const { inside, db, settings } = setup();
+  writeFileSync(join(inside, "rows.csv"), "name,age\nmade-up,7\n");
+  writeFileSync(join(inside, "data.json"), '{"made": "up"}');
+  writeFileSync(join(inside, "notes.rst"), "A made-up heading\n=================\n");
+  for (const n of ["rows.csv", "data.json", "notes.rst"]) assert.equal(openFile(db, settings, join(inside, n)).name, n);
+  writeFileSync(join(inside, "blob.bin"), Buffer.from([0x61, 0x00, 0x62]));
+  assert.throws(() => openFile(db, settings, join(inside, "blob.bin")), /binary content/);
+});
+
 test("a PDF and a non-UTF-8 file are refused with the reason; too big is refused", () => {
   const { inside, db, settings } = setup();
   writeFileSync(join(inside, "paper.pdf"), "%PDF-1.4 made up");
   assert.throws(() => openFile(db, settings, join(inside, "paper.pdf")), /not a text format/);
-  writeFileSync(join(inside, "bad.md"), Buffer.from([0x68, 0x69, 0xff, 0xfe, 0x00]));
+  writeFileSync(join(inside, "bad.md"), Buffer.from([0x68, 0x69, 0xff, 0xfe]));
   assert.throws(() => openFile(db, settings, join(inside, "bad.md")), /UTF-8/);
   writeFileSync(join(inside, "big.md"), Buffer.alloc(201 * 1024, 0x61));
   assert.throws(() => openFile(db, settings, join(inside, "big.md")), /bigger than/);
+});
+
+test("a file with mixed line endings is refused with the reason (R2-5)", () => {
+  const { inside, db, settings } = setup();
+  writeFileSync(join(inside, "mixed.md"), "one\r\ntwo\nthree\r\n");
+  assert.throws(() => openFile(db, settings, join(inside, "mixed.md")), /mixed line endings/);
 });
 
 test("BOM, CRLF and a missing final newline are remembered; the kept text is plain LF", () => {
@@ -68,6 +84,27 @@ test("BOM, CRLF and a missing final newline are remembered; the kept text is pla
     final_newline: number;
   };
   assert.deepEqual({ ...row }, { bom: 1, eol: "crlf", final_newline: 0 });
+});
+
+test("an upload's own bytes are judged: invalid UTF-8 is refused as the file, not as a rewrite (R2-6)", () => {
+  const { db } = setup();
+  assert.throws(() => addUpload(db, "bad.md", Buffer.from([0x68, 0x69, 0xff, 0xfe])), /UTF-8/);
+});
+
+test("an upload faces the same judges as a folder file: binary names and NUL bytes refused (R2-10)", () => {
+  const { db } = setup();
+  assert.throws(() => addUpload(db, "photo.png", Buffer.from("not really a photo")), /not a text format/);
+  assert.throws(() => addUpload(db, "blob.md", Buffer.from([0x61, 0x00, 0x62])), /binary content/);
+  assert.equal(addUpload(db, "rows.csv", "name,age\nmade-up,7\n").name, "rows.csv");
+});
+
+test("an upload with the same name saves over the earlier one, never a duplicate", () => {
+  const { db } = setup();
+  const first = addUpload(db, "cover-letter.txt", "Dear team, version one.");
+  const again = addUpload(db, "cover-letter.txt", "Dear team, version two.");
+  assert.equal(again.id, first.id);
+  assert.equal(listDocuments(db).filter((d) => d.name === "cover-letter.txt").length, 1);
+  assert.equal(getDocument(db, first.id)?.text, "Dear team, version two.");
 });
 
 test("an upload is kept as given, and the folder list shows only text files", () => {

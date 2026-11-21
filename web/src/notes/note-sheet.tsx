@@ -1,6 +1,6 @@
 // The note sheet: a native dialog (showModal), which Esc and Android's Back close. The words being typed live on the
 // device until Save or Discard, so closing the app mid-note loses nothing.
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PlacedNote } from "../../../src/shared/notes.ts";
 
 export type SheetTarget =
@@ -20,12 +20,14 @@ export function NoteSheet({
 }: {
   docId: string;
   target: SheetTarget;
-  onSave: (text: string) => void;
+  onSave: (text: string) => Promise<void>;
   onDelete: () => void;
   onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);
+  const [why, setWhy] = useState("");
+  const [busy, setBusy] = useState(false); // one save at a time: no double submits, no closing mid-flight
   const key = draftKey(docId, target);
   useEffect(() => {
     dialog.current?.showModal();
@@ -57,20 +59,33 @@ export function NoteSheet({
     <dialog
       ref={dialog}
       onClose={onClose}
+      onCancel={(e) => {
+        if (busy) e.preventDefault(); // Esc and Back wait for the save in flight
+      }}
       onClick={(e) => {
         // clicking outside the box closes it, like Esc and Back (the words typed stay kept)
-        if (e.target === dialog.current) dialog.current?.close();
+        if (e.target === dialog.current && !busy) dialog.current?.close();
       }}
       className="m-auto w-[min(92vw,480px)] rounded-2xl border p-0 backdrop:bg-black/50"
       style={{ borderColor: "var(--line)", background: "var(--surface)", color: "var(--text)" }}
     >
       <form
         className="grid gap-3 p-5"
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
+          if (busy) return;
           const text = box.current?.value ?? "";
-          clear();
-          onSave(text);
+          setBusy(true);
+          try {
+            // the kept words clear only after the save lands; a failure keeps the sheet open with the reason (R2-7)
+            await onSave(text);
+            clear();
+            dialog.current?.close();
+          } catch (err) {
+            setWhy((err as Error).message || "the save didn't land: try again");
+          } finally {
+            setBusy(false);
+          }
         }}
       >
         <h2 className="font-cond text-lg font-bold">Your note</h2>
@@ -100,16 +115,22 @@ export function NoteSheet({
             }
           }}
         />
+        {why && (
+          <p className="rounded-xl px-3 py-2 text-sm" style={{ background: "var(--warn-soft)" }}>
+            {why} — your words are kept right here.
+          </p>
+        )}
         <p className="font-mono text-[11px]" style={{ color: "var(--muted)" }}>
           Enter saves · Shift+Enter for a new line
         </p>
         <div className="flex gap-2">
-          <button type="submit" className="btn btn-primary">
-            Save
+          <button type="submit" className="btn btn-primary" disabled={busy}>
+            {busy ? "Saving…" : "Save"}
           </button>
           <button
             type="button"
             className="btn btn-quiet"
+            disabled={busy}
             onClick={() => {
               clear();
               dialog.current?.close();
@@ -121,6 +142,7 @@ export function NoteSheet({
             <button
               type="button"
               className="btn btn-danger ml-auto"
+              disabled={busy}
               onClick={() => {
                 clear();
                 onDelete();

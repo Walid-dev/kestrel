@@ -5,6 +5,14 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-21 · Round 2 is applied: ten findings, ten commits, each with its test.**
+  The rules it added: the model door must be loopback — documents never leave the computer; a change must cite a
+  real open note on its own document, and a note the model forgets is named, never dropped; documents travel to the
+  model under their full path, so same-named files cannot cross; undo refuses a file changed since the save; a
+  mixed-line-endings file is refused rather than rewritten; uploads send their raw bytes for the server to judge;
+  the review diff is bounded; settings errors are path-free; content decides what is text. The outcome table:
+  docs/review/round-2-v0.1.md.
+
 - **2026-11-21 · Darker ground, the neon working colours, pink kept; Enter submits; the review opens itself.**
   The One Dark structure stays, on a darker ground (`#15171c`) with brighter text, and the working colours step up to
   the editor-neon shades the code palette uses — pink comes back for the note marks. Enter submits in any box

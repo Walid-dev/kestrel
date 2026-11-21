@@ -11,7 +11,51 @@ import type { Settings } from "../../platform/config.ts";
 import type { DocumentFull, DocumentMeta } from "../../shared/notes.ts";
 
 export const MAX_BYTES = 200 * 1024;
-const TEXT_EXT = new Set([".md", ".markdown", ".txt", ".text"]);
+// the content decides what is text (UTF-8, no NUL bytes); known binary endings are refused by name so the reason
+// reads well (review R2-10)
+const BINARY_EXT = new Set([
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".xls",
+  ".xlsx",
+  ".ppt",
+  ".pptx",
+  ".pages",
+  ".key",
+  ".numbers",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".heic",
+  ".svgz",
+  ".ico",
+  ".icns",
+  ".mp3",
+  ".mp4",
+  ".mov",
+  ".m4a",
+  ".wav",
+  ".avi",
+  ".zip",
+  ".gz",
+  ".tar",
+  ".7z",
+  ".rar",
+  ".dmg",
+  ".pkg",
+  ".app",
+  ".exe",
+  ".wasm",
+  ".sqlite",
+  ".db",
+  ".woff",
+  ".woff2",
+  ".ttf",
+  ".otf",
+]);
 
 // a refusal whose message is meant for the screen, with what to do
 export class Refused extends Error {}
@@ -52,7 +96,7 @@ export function listFiles(settings: Settings): { path: string; name: string }[] 
         continue;
       }
       if (st.isDirectory()) walk(p, depth + 1);
-      else if (TEXT_EXT.has(extname(n).toLowerCase()) && st.size <= MAX_BYTES) out.push({ path: p, name: n });
+      else if (!BINARY_EXT.has(extname(n).toLowerCase()) && st.size <= MAX_BYTES) out.push({ path: p, name: n });
     }
   };
   for (const d of folders(settings)) walk(d, 1);
@@ -68,6 +112,11 @@ function decode(bytes: Buffer): { text: string; bom: boolean; eol: "lf" | "crlf"
     throw new Refused("not UTF-8 text: Notes takes UTF-8, with or without its byte-order mark");
   }
   const eol = text.includes("\r\n") ? "crlf" : "lf";
+  // a file that mixes endings would come back uniform after a save; refusing keeps the keep-it-as-it-was promise
+  // honest (review R2-5)
+  const stripped = text.replaceAll("\r\n", "");
+  if (stripped.includes("\r") || (eol === "crlf" && stripped.includes("\n")))
+    throw new Refused("mixed line endings: a save would make them uniform, so Notes leaves this file alone");
   const lf = text.replaceAll("\r\n", "\n");
   const finalNewline = lf.endsWith("\n");
   return { text: finalNewline ? lf.slice(0, -1) : lf, bom, eol, finalNewline };
@@ -95,12 +144,10 @@ export function openFile(db: DatabaseSync, settings: Settings, path: string): Do
   if (!dirs.some((d) => real === d || real.startsWith(d + sep)))
     throw new Refused("outside the folders Notes may open: list its folder in settings.json under notes.folders");
   const ext = extname(real).toLowerCase();
-  if (!TEXT_EXT.has(ext))
-    throw new Refused(
-      `${ext || "a file without an ending"} is not a text format Notes opens (${[...TEXT_EXT].join(", ")})`,
-    );
+  if (BINARY_EXT.has(ext)) throw new Refused(`${ext} is not a text format`);
   if (statSync(real).size > MAX_BYTES) throw new Refused(`bigger than ${MAX_BYTES / 1024} KB`);
   const bytes = readFileSync(real);
+  if (bytes.includes(0)) throw new Refused("not text: the file carries binary content");
   const d = decode(bytes);
   const sha = createHash("sha256").update(bytes).digest("hex");
   const have = db.prepare("SELECT id FROM documents WHERE path = ?").get(real) as { id: string } | undefined;
@@ -114,15 +161,27 @@ export function openFile(db: DatabaseSync, settings: Settings, path: string): Do
   return meta(db.prepare("SELECT * FROM documents WHERE id = ?").get(id) as Record<string, unknown>);
 }
 
-// keep an uploaded text: the database holds the original
-export function addUpload(db: DatabaseSync, name: string, text: string): DocumentMeta {
-  if (Buffer.byteLength(text, "utf8") > MAX_BYTES) throw new Refused(`bigger than ${MAX_BYTES / 1024} KB`);
-  const d = decode(Buffer.from(text, "utf8"));
-  const id = randomUUID();
+// keep an uploaded text: the database holds the original. The same name saves over the earlier upload — never a
+// duplicate — and its notes find their places again or show as detached.
+export function addUpload(db: DatabaseSync, name: string, given: string | Buffer): DocumentMeta {
+  // the screen sends the file's own bytes, so the fatal UTF-8 check judges the original, not a browser rewrite
+  // (review R2-6); a plain string stays welcome for the tests
+  const bytes = Buffer.isBuffer(given) ? given : Buffer.from(given, "utf8");
+  if (bytes.length > MAX_BYTES) throw new Refused(`bigger than ${MAX_BYTES / 1024} KB`);
+  const uploadExt = extname(name).toLowerCase();
+  if (BINARY_EXT.has(uploadExt)) throw new Refused(`${uploadExt} is not a text format`);
+  if (bytes.includes(0)) throw new Refused("not text: the file carries binary content");
+  const d = decode(bytes);
   const clean = basename(name).trim() || "untitled.md";
+  const have = db.prepare("SELECT id FROM documents WHERE source = 'upload' AND name = ?").get(clean) as
+    | { id: string }
+    | undefined;
+  const id = have?.id ?? randomUUID();
   db.prepare(
     `INSERT INTO documents (id, source, name, path, text, bom, eol, final_newline, sha256, added_at)
-     VALUES (?, 'upload', ?, NULL, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, 'upload', ?, NULL, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (id) DO UPDATE SET text = excluded.text, bom = excluded.bom, eol = excluded.eol,
+       final_newline = excluded.final_newline, sha256 = excluded.sha256, previous_text = NULL`,
   ).run(
     id,
     clean,
@@ -130,7 +189,7 @@ export function addUpload(db: DatabaseSync, name: string, text: string): Documen
     d.bom ? 1 : 0,
     d.eol,
     d.finalNewline ? 1 : 0,
-    createHash("sha256").update(text, "utf8").digest("hex"),
+    createHash("sha256").update(bytes).digest("hex"),
     new Date().toISOString(),
   );
   return meta(db.prepare("SELECT * FROM documents WHERE id = ?").get(id) as Record<string, unknown>);

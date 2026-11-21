@@ -22,7 +22,25 @@ export const Settings = z.object({
   // the computer's own models (oMLX's OpenAI door); only these two may be called, and the guard below the context
   models: z
     .object({
-      url: z.string().default(MODEL_DEFAULTS.url),
+      // the door must stay on this computer: a remote URL would send documents and notes off it (review R2-1).
+      // Remote models, if ever wanted, are a separate decision with its own explicit opt-in.
+      url: z
+        .string()
+        .default(MODEL_DEFAULTS.url)
+        .refine(
+          (u) => {
+            try {
+              const { hostname, protocol } = new URL(u);
+              return (
+                (protocol === "http:" || protocol === "https:") &&
+                ["127.0.0.1", "localhost", "::1", "[::1]"].includes(hostname)
+              );
+            } catch {
+              return false;
+            }
+          },
+          { message: "models.url must stay on this computer (http://127.0.0.1:…): kestrel never sends documents away" },
+        ),
       careful: z.string().default(MODEL_DEFAULTS.careful),
       fast: z.string().default(MODEL_DEFAULTS.fast),
       contextChars: z.number().int().positive().default(MODEL_DEFAULTS.contextChars),
@@ -39,17 +57,18 @@ export function loadSettings(dir: string = dataDir()): Settings {
     2,
   );
   let raw: unknown;
+  // the message names settings.json, never its absolute path: launchd keeps stderr in a log, and the log must not
+  // carry a home path (review R2-9)
   try {
     raw = JSON.parse(readFileSync(file, "utf8"));
   } catch (e) {
-    throw new Error(
-      `kestrel needs its settings at ${file} (${e instanceof Error ? e.message : e}). An example:\n${example}`,
-    );
+    const why = (e as NodeJS.ErrnoException).code ?? (e instanceof SyntaxError ? "not JSON" : "unreadable");
+    throw new Error(`kestrel needs its settings: settings.json in its data folder (${why}). An example:\n${example}`);
   }
   const parsed = Settings.safeParse(raw);
   if (!parsed.success)
     throw new Error(
-      `${file} is wrong: ${parsed.error.issues.map((i) => `${i.path.join(".")} ${i.message}`).join("; ")}. An example:\n${example}`,
+      `settings.json is wrong: ${parsed.error.issues.map((i) => `${i.path.join(".")} ${i.message}`).join("; ")}. An example:\n${example}`,
     );
   return parsed.data;
 }

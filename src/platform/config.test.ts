@@ -25,3 +25,34 @@ test("a good settings file answers the settings, defaults filled", () => {
     models: MODEL_DEFAULTS,
   });
 });
+
+test("a model door off this computer is refused: documents never leave (R2-1)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "kestrel-cfg-"));
+  writeFileSync(
+    join(dir, "settings.json"),
+    JSON.stringify({ tailscaleLogin: "made-up-login", models: { url: "https://models.example.com/v1" } }),
+  );
+  assert.throws(() => loadSettings(dir), /must stay on this computer/);
+  writeFileSync(
+    join(dir, "settings.json"),
+    JSON.stringify({ tailscaleLogin: "made-up-login", models: { url: "http://localhost:8000/v1" } }),
+  );
+  assert.equal(loadSettings(dir).models.url, "http://localhost:8000/v1");
+});
+
+test("a settings error never carries the folder's path: the service log must stay clean (R2-9)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "kestrel-cfg-"));
+  try {
+    loadSettings(dir);
+    assert.fail("should have thrown");
+  } catch (e) {
+    assert.ok(!(e as Error).message.includes(dir), "the message must not name the folder");
+  }
+  writeFileSync(join(dir, "settings.json"), JSON.stringify({}));
+  try {
+    loadSettings(dir);
+    assert.fail("should have thrown");
+  } catch (e) {
+    assert.ok(!(e as Error).message.includes(dir));
+  }
+});

@@ -68,11 +68,17 @@ export function NotesList() {
         <input
           ref={file}
           type="file"
-          accept=".md,.markdown,.txt,.text"
+          accept="text/*,.md,.markdown,.txt,.text,.csv,.json,.rst,.org,.yaml,.yml,.toml,.ini,.log"
           hidden
           onChange={async (e) => {
             const f = e.target.files?.[0];
-            if (f) open.mutate({ kind: "upload", payload: { name: f.name, text: await f.text() } });
+            if (f) {
+              // the raw bytes go up, base64, so the server judges the file's own encoding
+              const raw = new Uint8Array(await f.arrayBuffer());
+              let bin = "";
+              for (let i = 0; i < raw.length; i += 0x8000) bin += String.fromCharCode(...raw.subarray(i, i + 0x8000));
+              open.mutate({ kind: "upload", payload: { name: f.name, bytes: btoa(bin) } });
+            }
             e.target.value = "";
           }}
         />

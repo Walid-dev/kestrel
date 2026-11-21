@@ -107,3 +107,65 @@ test("a set of two: one ask, each document saves on its own, the draft leaves af
   saveDraft(db, made.id, b.id);
   assert.equal(getDraft(db, made.id), null);
 });
+
+test("two files with the same name never receive each other's changes (R2-3)", async () => {
+  const { mkdirSync, writeFileSync } = await import("node:fs");
+  const base = mkdtempSync(join(tmpdir(), "kestrel-samename-"));
+  const one = join(base, "one");
+  const two = join(base, "two");
+  mkdirSync(one);
+  mkdirSync(two);
+  writeFileSync(join(one, "plan.md"), "Alpha line.");
+  writeFileSync(join(two, "plan.md"), "Beta line.");
+  const db = setup();
+  const { openFile } = await import("./documents.ts");
+  const makeSettings = (url: string): Settings => ({ ...settings(url), notes: { folders: [one, two] } });
+  const a = openFile(db, makeSettings("http://127.0.0.1:1/v1"), join(one, "plan.md"));
+  const b = openFile(db, makeSettings("http://127.0.0.1:1/v1"), join(two, "plan.md"));
+  const na = addNote(db, a.id, { text: "alpha to A", quote: "Alpha" });
+  addNote(db, b.id, { text: "nothing here is asked", quote: "" });
+  const s = await startStandIn((body) => {
+    // the stand-in answers with the labels the prompt carries: the full paths
+    const asked = body.messages.map((m) => m.content).join("\n");
+    const labelA = asked.match(/DOCUMENT (\S*one\S*plan\.md):/)?.[1] ?? "plan.md";
+    return {
+      content: JSON.stringify({
+        overview: "both plan.md files looked at; only the first changes.",
+        changes: [{ document: labelA, find: "Alpha", replace: "A", notes: [na.id] }],
+        unanswered: [],
+      }),
+    };
+  });
+  const made = startDraft(db, makeSettings(s.url), { documentIds: [a.id, b.id], speed: "careful" });
+  await made.done;
+  await s.close();
+  const ready = getDraft(db, made.id);
+  assert.equal(ready?.status, "ready");
+  assert.equal(ready?.perDocument[a.id].placed.length, 1);
+  assert.equal(ready?.perDocument[b.id].placed.length, 0); // the same words in the other plan.md stay untouched
+  assert.equal(ready?.perDocument[b.id].newText, "Beta line.");
+});
+
+test("an invented note id places nothing, and a forgotten note is named, never dropped (R2-2)", async () => {
+  const db = setup();
+  const doc = addUpload(db, "a.md", "Alpha line. Beta line.");
+  const real = addNote(db, doc.id, { text: "alpha to A", quote: "Alpha" });
+  const forgotten = addNote(db, doc.id, { text: "beta deserves a say", quote: "Beta" });
+  const s = await startStandIn(() => ({
+    content: JSON.stringify({
+      overview: "a.md: changes.",
+      changes: [
+        { document: "a.md", find: "Alpha", replace: "A", notes: [real.id] },
+        { document: "a.md", find: "line.", replace: "row.", notes: ["made-up-note-id"] },
+      ],
+      unanswered: [],
+    }),
+  }));
+  const made = startDraft(db, settings(s.url), { documentIds: [doc.id], speed: "careful" });
+  await made.done;
+  await s.close();
+  const ready = getDraft(db, made.id);
+  assert.equal(ready?.perDocument[doc.id].placed.length, 1); // only the asked-for change
+  assert.ok(ready?.perDocument[doc.id].leftOut.some((l) => l.reason.includes("no open note")));
+  assert.ok(ready?.unanswered.some((u) => u.note === forgotten.id && u.reason.includes("left unhandled")));
+});

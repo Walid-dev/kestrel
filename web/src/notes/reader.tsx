@@ -189,7 +189,7 @@ export function Reader() {
   if (!doc.data) return null;
   return (
     <main className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6">
-      <div className="mb-3 flex flex-wrap items-center gap-3 lg:col-start-1">
+      <div className="mb-1 flex flex-wrap items-center gap-3 lg:col-start-1">
         <Link
           to="/notes"
           className="font-mono text-[11px] uppercase tracking-[0.18em]"
@@ -223,7 +223,12 @@ export function Reader() {
           {noteMode ? "Notes on" : "Notes off"}
         </button>
       </div>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+      {doc.data.path && (
+        <p className="font-mono mb-3 break-all text-[11px] lg:col-start-1" style={{ color: "var(--muted)" }}>
+          {doc.data.path}
+        </p>
+      )}
+      <div className="mb-3 flex flex-wrap items-center gap-2 lg:col-start-1">
         {(!current || current.status === "failed") && (
           <>
             <button type="button" className="btn btn-primary" disabled={ask.isPending} onClick={() => ask.mutate()}>
@@ -322,11 +327,11 @@ export function Reader() {
                   type="button"
                   className="inline cursor-pointer rounded px-0.5 text-left"
                   style={{
-                    background: "var(--blue-soft)",
+                    background: "var(--pink-soft)",
                     color: "inherit",
                     font: "inherit",
                     border: "none",
-                    boxShadow: "inset 0 -2px var(--blue)",
+                    boxShadow: "inset 0 -2px var(--pink)",
                   }}
                   onClick={open}
                 >
@@ -363,9 +368,8 @@ export function Reader() {
         <NoteSheet
           docId={id}
           target={sheet}
-          onSave={(text) => {
-            save.mutate({ target: sheet, text });
-            setSheet(null);
+          onSave={async (text) => {
+            await save.mutateAsync({ target: sheet, text });
             getSelection()?.removeAllRanges();
           }}
           onDelete={() => {
