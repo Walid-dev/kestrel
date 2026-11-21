@@ -13,7 +13,9 @@ export const USES: { use: Use; what: string }[] = [
 export function modelFor(db: DatabaseSync, settings: Settings, use: Use): string {
   const row = db.prepare("SELECT model FROM model_settings WHERE use = ?").get(use) as { model: string } | undefined;
   if (row?.model) return row.model;
-  return use === "notes-careful" ? settings.models.careful : settings.models.fast; // learn-ask falls back to fast
+  // learn-ask falls back to careful: the live eval (docs/eval/2026-11-21-learn-ask.md) showed the fast model
+  // breaking the one-breath line rule 3 runs in 8, while the careful one passed 8 of 8.
+  return use === "notes-fast" ? settings.models.fast : settings.models.careful;
 }
 
 export function setModelFor(db: DatabaseSync, use: Use, model: string): void {

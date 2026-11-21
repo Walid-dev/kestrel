@@ -32,7 +32,7 @@ test("the settings answer until a pick is made; the pick wins and survives a reo
     [
       ["notes-careful", "careful-model"],
       ["notes-fast", "another-made-up"],
-      ["learn-ask", "fast-model"],
+      ["learn-ask", "careful-model"], // the live eval moved Ask's fallback to the careful model
     ],
   );
 });

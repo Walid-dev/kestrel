@@ -5,6 +5,23 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-21 · Ask's fallback is the careful model; the second live eval is on record.**
+  The Ask eval ran live, 13 of 16 (docs/eval/2026-11-21-learn-ask.md): the careful model 8 of 8, the fast one 5 of
+  8, every failure a line too long to say in one breath. Ask is awaited and Listen speaks it, so the fallback in
+  `modelFor` moves to the careful model; the Models screen still switches it per use. Rejected: loosening the
+  one-breath rule to fit the fast model — the rule serves the ear, not the model.
+
+- **2026-11-21 · The v0.2 sweep's eleven findings are fixed in two rounds.**
+  An orchestrated sweep (finders per lens, adversarial verifiers) confirmed eleven distinct findings; all are
+  closed with tests: filters moved into SQL before the window (a starred row can never vanish behind newer rows);
+  dedupe scoped to its own search, so two searches sharing a link each keep their own score; the scheduler takes one
+  tick at a time, lands a crash as a run row, and one broken spec no longer stops the rest; pay annualizes its
+  period before the floor and the card shows the honest range; the nightly mirror reports on the Searches page;
+  the Models screen shows load failures and refused switches; phone form controls hold 16px so the keyboard never
+  zooms; run-now refuses a switched-off search; the service log carries one-line errors, never stacks; and the
+  fixtures went fictional, so the public tests read as fixtures, not as anyone's hunt. Two reported findings were
+  checked and found false (the importer dying mid-loop; the backward clock).
+
 - **2026-11-21 · The v0.2 plan review's three findings are in the contract.**
   (1) The collector door's whole contract is stated and built: a script runs in its own folder with the spec's env
   and budgets, browser-down is its own problem kind, and runs go one at a time whoever asks — the collectors share
