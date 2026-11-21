@@ -1,29 +1,12 @@
-// The reader: the document as written, styled line by line (headings, bullets, fenced code), the text kept exact.
-import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+// The reader: the document as written, styled line by line, my notes as marks in the text and as a list below.
+// Selecting words offers a note on them; a button takes a note on the whole document; the sheet is a native dialog.
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
-import type { DocumentFull } from "../../../src/shared/notes.ts";
-
-type Line = { n: number; text: string; kind: "h1" | "h2" | "h3" | "bullet" | "fence" | "code" | "blank" | "plain" };
-
-export function lineKinds(text: string): Line[] {
-  const out: Line[] = [];
-  let inFence = false;
-  const push = (text: string, kind: Line["kind"]) => out.push({ n: out.length, text, kind });
-  for (const raw of text.split("\n")) {
-    if (/^\s*```/.test(raw)) {
-      push(raw, "fence");
-      inFence = !inFence;
-    } else if (inFence) push(raw, "code");
-    else if (raw.startsWith("# ")) push(raw, "h1");
-    else if (raw.startsWith("## ")) push(raw, "h2");
-    else if (raw.startsWith("### ")) push(raw, "h3");
-    else if (/^\s*[-*] /.test(raw)) push(raw, "bullet");
-    else if (raw.trim() === "") push(raw, "blank");
-    else push(raw, "plain");
-  }
-  return out;
-}
+import { type Line, lineKinds, segments } from "../../../src/shared/marks.ts";
+import type { DocumentFull, PlacedNote } from "../../../src/shared/notes.ts";
+import { NoteSheet, type SheetTarget } from "./note-sheet.tsx";
+import { NotesList } from "./notes-list.tsx";
 
 const LOOK: Record<Line["kind"], string> = {
   h1: "font-cond text-2xl font-bold mt-4",
@@ -36,8 +19,27 @@ const LOOK: Record<Line["kind"], string> = {
   plain: "",
 };
 
+// where the selection sits in the whole text: the line div's offset, plus the text before the node inside it
+function offsetIn(article: HTMLElement, node: Node, offset: number): number | null {
+  const el = node instanceof HTMLElement ? node : node.parentElement;
+  const lineEl = el?.closest("[data-at]") as HTMLElement | null;
+  if (!lineEl || !article.contains(lineEl)) return null;
+  let before = 0;
+  const walker = document.createTreeWalker(lineEl, NodeFilter.SHOW_TEXT);
+  for (let t = walker.nextNode(); t; t = walker.nextNode()) {
+    if (t === node) return Number(lineEl.dataset.at) + before + offset;
+    before += (t.textContent ?? "").length;
+  }
+  return Number(lineEl.dataset.at) + before; // the selection edge sits at the line's end
+}
+
 export function Reader() {
-  const { id } = useParams();
+  const { id = "" } = useParams();
+  const queryClient = useQueryClient();
+  const article = useRef<HTMLDivElement>(null);
+  const [sheet, setSheet] = useState<SheetTarget | null>(null);
+  const [pending, setPending] = useState<{ quote: string; start: number } | null>(null);
+
   const doc = useQuery({
     queryKey: ["doc", id],
     queryFn: async () => {
@@ -46,7 +48,58 @@ export function Reader() {
       return (await res.json()) as DocumentFull;
     },
   });
+  const notes = useQuery({
+    queryKey: ["notes", id],
+    queryFn: async () => {
+      const res = await fetch(`/api/notes/documents/${id}/notes`);
+      if (!res.ok) throw new Error(`notes: ${res.status}`);
+      return (await res.json()) as { notes: PlacedNote[] };
+    },
+  });
+  const changed = () => queryClient.invalidateQueries({ queryKey: ["notes", id] });
+  const save = useMutation({
+    mutationFn: async (input: { target: SheetTarget; text: string }) => {
+      const { target, text } = input;
+      const [url, body] =
+        target.kind === "edit"
+          ? [`/api/notes/note/${target.note.id}`, { text }]
+          : [
+              `/api/notes/documents/${id}/notes`,
+              target.kind === "whole" ? { text } : { text, quote: target.quote, start: target.start },
+            ];
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
+    },
+    onSettled: changed,
+  });
+  const remove = useMutation({
+    mutationFn: async (noteId: string) => {
+      await fetch(`/api/notes/note/${noteId}`, { method: "DELETE" });
+    },
+    onSettled: changed,
+  });
+
   const lines = useMemo(() => (doc.data ? lineKinds(doc.data.text) : []), [doc.data]);
+  const placed = notes.data?.notes ?? [];
+
+  const onSelect = () => {
+    const sel = getSelection();
+    const el = article.current;
+    if (!sel || sel.isCollapsed || !el || !doc.data) return setPending(null);
+    const r = sel.getRangeAt(0);
+    const a = offsetIn(el, r.startContainer, r.startOffset);
+    const b = offsetIn(el, r.endContainer, r.endOffset);
+    if (a === null || b === null || a === b) return setPending(null);
+    const [s, e] = a < b ? [a, b] : [b, a];
+    const quote = doc.data.text.slice(s, e);
+    if (quote.trim() === "") return setPending(null);
+    setPending({ quote, start: s });
+  };
+
   if (doc.isError)
     return (
       <p
@@ -59,23 +112,92 @@ export function Reader() {
   if (!doc.data) return null;
   return (
     <main>
-      <p className="font-mono mb-3 text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--muted)" }}>
-        {doc.data.name}
-      </p>
+      <div className="mb-3 flex items-baseline gap-3">
+        <p className="font-mono text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--muted)" }}>
+          {doc.data.name}
+        </p>
+        <button
+          type="button"
+          className="font-mono ml-auto cursor-pointer rounded-full border px-3 py-1 text-xs"
+          style={{ borderColor: "var(--line)", color: "var(--accent)" }}
+          onClick={() => setSheet({ kind: "whole" })}
+        >
+          Note on the document
+        </button>
+      </div>
       <article
+        ref={article}
+        onMouseUp={onSelect}
+        onTouchEnd={onSelect}
         className="rounded-2xl border p-5 leading-relaxed"
         style={{ borderColor: "var(--line)", background: "var(--surface)" }}
       >
         {lines.map((ln) => (
           <div
             key={ln.n}
+            data-at={ln.at}
             className={LOOK[ln.kind]}
             style={ln.kind === "code" || ln.kind === "fence" ? { color: "var(--muted)" } : undefined}
           >
-            {ln.text || " "}
+            {segments(ln, placed).map((seg) => {
+              const open = () => {
+                const n = placed.find((x) => x.id === seg.noteId);
+                if (n) setSheet({ kind: "edit", note: n });
+              };
+              return seg.noteId ? (
+                <button
+                  key={seg.at}
+                  type="button"
+                  className="inline cursor-pointer rounded px-0.5 text-left"
+                  style={{
+                    background: "var(--accent-soft)",
+                    color: "inherit",
+                    font: "inherit",
+                    border: "none",
+                    boxShadow: "inset 0 -2px var(--accent)",
+                  }}
+                  onClick={open}
+                >
+                  {seg.text}
+                </button>
+              ) : (
+                seg.text
+              );
+            })}
+            {ln.text === "" && " "}
           </div>
         ))}
       </article>
+      {pending && !sheet && (
+        <div className="fixed inset-x-0 bottom-6 z-10 flex justify-center">
+          <button
+            type="button"
+            className="font-cond cursor-pointer rounded-full px-5 py-2.5 font-bold shadow-lg"
+            style={{ background: "var(--accent)", color: "var(--bg)" }}
+            onClick={() => setSheet({ kind: "new", ...pending })}
+          >
+            Note on the selection
+          </button>
+        </div>
+      )}
+      <NotesList notes={placed} onOpen={(n) => setSheet({ kind: "edit", note: n })} />
+      {sheet && (
+        <NoteSheet
+          docId={id}
+          target={sheet}
+          onSave={(text) => {
+            save.mutate({ target: sheet, text });
+            setSheet(null);
+            setPending(null);
+            getSelection()?.removeAllRanges();
+          }}
+          onDelete={() => {
+            if (sheet.kind === "edit") remove.mutate(sheet.note.id);
+            setSheet(null);
+          }}
+          onClose={() => setSheet(null)}
+        />
+      )}
     </main>
   );
 }

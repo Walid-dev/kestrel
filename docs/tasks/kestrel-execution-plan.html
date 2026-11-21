@@ -106,7 +106,7 @@
       colours on the hunt pages' ground, the wolf mark), and <code>gate-2-skeleton</code> merged into main. Next:
       Gate 3 · Notes, step 8, Documents.</div>
     <div class="stats">
-      <span class="chip">8 of 16 steps committed</span>
+      <span class="chip">9 of 16 steps committed</span>
       <span class="chip">gate 2 of 4 closed</span>
       <span class="chip">notes next</span>
     </div>
@@ -487,7 +487,11 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
         brings the text back; with the server stopped, the opened document and its notes still show, with "Computer
         asleep since …".</p>
       <p class="msg"><code>feat(notes): leave notes on words or on the whole document</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> Proven in the browser: the mark in the text and the list below; the
+        noted line removed from the file left the note kept and shown as "detached: its words are gone"; with the
+        server stopped, the document and its notes still render with the asleep banner; Escape (the Back of a native
+        dialog) closed the sheet mid-note and reopening brought the words back. The anchor picks between repeated
+        phrases by the kept context, nearest first (src/domain/notes/notes.ts).</p>
     </article>
 
     <article class="step" id="s10">

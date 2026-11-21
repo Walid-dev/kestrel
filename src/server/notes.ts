@@ -14,6 +14,7 @@ import {
   openFile,
   Refused,
 } from "../domain/notes/documents.ts";
+import { addNote, deleteNote, editNote, listNotes } from "../domain/notes/notes.ts";
 import type { Settings } from "../platform/config.ts";
 
 export function mountNotes(app: Hono, db: DatabaseSync, settings: Settings) {
@@ -34,6 +35,37 @@ export function mountNotes(app: Hono, db: DatabaseSync, settings: Settings) {
     } catch (e) {
       return refusing(c, e);
     }
+  });
+  app.get("/api/notes/documents/:id/notes", (c) => c.json({ notes: listNotes(db, c.req.param("id")) }));
+  app.post(
+    "/api/notes/documents/:id/notes",
+    zValidator(
+      "json",
+      z.object({
+        text: z.string().max(4000),
+        quote: z.string().max(2000).optional(),
+        start: z.number().int().min(0).optional(),
+      }),
+    ),
+    (c) => {
+      try {
+        return c.json(addNote(db, c.req.param("id"), c.req.valid("json")));
+      } catch (e) {
+        return refusing(c, e);
+      }
+    },
+  );
+  app.post("/api/notes/note/:id", zValidator("json", z.object({ text: z.string().max(4000) })), (c) => {
+    try {
+      editNote(db, c.req.param("id"), c.req.valid("json").text);
+      return c.json({ ok: true });
+    } catch (e) {
+      return refusing(c, e);
+    }
+  });
+  app.delete("/api/notes/note/:id", (c) => {
+    deleteNote(db, c.req.param("id"));
+    return c.json({ ok: true });
   });
   app.post(
     "/api/notes/upload",
