@@ -1,7 +1,7 @@
 // Several documents reviewed together: notes on each, one ask, one overview that covers them all — and each
 // document's changes save on their own (the review's Save buttons, one per document).
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import type { DocumentMeta, Draft, PlacedNote } from "../../../src/shared/notes.ts";
 import { Review } from "./review.tsx";
@@ -91,6 +91,12 @@ export function NotesSet() {
 
   const picked = (docs.data?.documents ?? []).filter((d) => ids.includes(d.id));
   const current = draft.data?.draft ?? null;
+  // when the ask finishes while I watch, the changes open by themselves
+  const wasMaking = useRef(false);
+  useEffect(() => {
+    if (current?.status === "ready" && wasMaking.current) setReview(true);
+    wasMaking.current = current?.status === "making";
+  }, [current?.status]);
   const setDraft = current && ids.every((id) => current.documents.some((d) => d.id === id)) ? current : null;
   return (
     <main className="grid gap-3.5">

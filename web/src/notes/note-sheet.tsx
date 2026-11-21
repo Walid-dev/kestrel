@@ -80,6 +80,13 @@ export function NoteSheet({
           placeholder="What should change here?"
           className="w-full rounded-xl border p-3 text-[15px]"
           style={{ borderColor: "var(--line)", background: "var(--bg)", color: "var(--text)" }}
+          onKeyDown={(e) => {
+            // Enter submits, the app's rule; Shift+Enter makes the line
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              (e.target as HTMLTextAreaElement).form?.requestSubmit();
+            }
+          }}
           onInput={(e) => {
             try {
               localStorage.setItem(key, (e.target as HTMLTextAreaElement).value);
@@ -88,6 +95,9 @@ export function NoteSheet({
             }
           }}
         />
+        <p className="font-mono text-[11px]" style={{ color: "var(--muted)" }}>
+          Enter saves · Shift+Enter for a new line
+        </p>
         <div className="flex gap-2">
           <button type="submit" className="btn btn-primary">
             Save

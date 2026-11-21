@@ -1,7 +1,7 @@
 // The reader: the document as written, styled line by line, my notes as marks in the text and as a list below.
 // Selecting words offers a note on them; a button takes a note on the whole document; the sheet is a native dialog.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { type Line, lineKinds, segments } from "../../../src/shared/marks.ts";
 import type { DocumentFull, Draft, PlacedNote } from "../../../src/shared/notes.ts";
@@ -154,6 +154,12 @@ export function Reader() {
   const lines = useMemo(() => (doc.data ? lineKinds(doc.data.text) : []), [doc.data]);
   const placed = notes.data?.notes ?? [];
   const current = draft.data?.draft ?? null;
+  // when the ask finishes while I watch, the changes open by themselves
+  const wasMaking = useRef(false);
+  useEffect(() => {
+    if (current?.status === "ready" && wasMaking.current) setReview(true);
+    wasMaking.current = current?.status === "making";
+  }, [current?.status]);
 
   const onSelect = () => {
     if (!noteMode) return;
@@ -316,11 +322,11 @@ export function Reader() {
                   type="button"
                   className="inline cursor-pointer rounded px-0.5 text-left"
                   style={{
-                    background: "var(--accent-soft)",
+                    background: "var(--pink-soft)",
                     color: "inherit",
                     font: "inherit",
                     border: "none",
-                    boxShadow: "inset 0 -2px var(--accent)",
+                    boxShadow: "inset 0 -2px var(--pink)",
                   }}
                   onClick={open}
                 >

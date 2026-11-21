@@ -1,7 +1,7 @@
 // The service worker: network first, always. It asks the computer, keeps the answer, and serves the last copy only
 // when the computer doesn't answer within 3 seconds or answers as down (the 502 the tailnet proxy sends while the
 // server is off). Nothing is precached, so a deploy needs no new worker: an ordinary reload shows the new version.
-const CACHE = "kestrel-v5";
+const CACHE = "kestrel-v6";
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) =>

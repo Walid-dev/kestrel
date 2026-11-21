@@ -5,6 +5,12 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-21 · Darker ground, the neon working colours, pink kept; Enter submits; the review opens itself.**
+  The One Dark structure stays, on a darker ground (`#15171c`) with brighter text, and the working colours step up to
+  the editor-neon shades the code palette uses — pink comes back for the note marks. Enter submits in any box
+  (Shift+Enter makes the line), the app's rule from here on. When an ask finishes while the screen is open, the
+  review opens by itself.
+
 - **2026-11-21 · The colours are the editor's own theme; noting is a mode.**
   The palette is Atom One Dark, read from the editor's theme file (and One Light for light mode): blue `#61afef`
   leads, with the theme's purple, green, orange, yellow and red as the working colours; the pink accent is retired.
