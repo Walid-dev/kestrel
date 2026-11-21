@@ -12,6 +12,8 @@ import { dataDir, isDeployed } from "../platform/paths.ts";
 import { app } from "./app.ts";
 import { identity } from "./identity.ts";
 import { mountNotes } from "./notes.ts";
+import { startScheduler } from "./scheduler.ts";
+import { mountSearch } from "./search.ts";
 
 // the settings first: a missing or wrong file stops here, with the example in the message
 let settings: ReturnType<typeof loadSettings>;
@@ -29,6 +31,8 @@ const db = openDb(dbFile);
 const { applied, copy } = migrate(db, dbFile);
 if (applied) console.log(`migrations: ${applied} applied${copy ? ", the database copied first" : ""}`);
 mountNotes(app, db, settings);
+mountSearch(app, db);
+startScheduler(db, { specsDir: join(dataDir(), "searches"), backupsDir: join(dataDir(), "backups") });
 
 // every request through the identity check: enforced when deployed, open on made-up data (identity.ts says why).
 // The root is composed after every route is mounted: route() copies what exists when it is called.

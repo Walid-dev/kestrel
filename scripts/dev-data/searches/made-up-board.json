@@ -1,0 +1,13 @@
+{
+  "name": "Made-up board",
+  "collector": "collectors/made-up-board.mjs",
+  "everyMinutes": 360,
+  "scoring": {
+    "title": { "want": ["engineer", "developer"], "avoid": ["intern"] },
+    "skills": ["TypeScript", "React", "AWS", "Node"],
+    "level": { "want": ["senior"], "avoid": ["junior"] },
+    "pay": { "floor": 100000 },
+    "places": { "words": ["Toronto"] },
+    "freshDays": 7
+  }
+}
