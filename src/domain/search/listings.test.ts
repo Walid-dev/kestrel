@@ -8,10 +8,9 @@ import { test } from "node:test";
 import { migrate } from "../../db/migrate.ts";
 import type { Item } from "./collect.ts";
 import { isPriority, keepItems, listListings, normalizeDedupe, setListingStar, setListingStatus } from "./listings.ts";
-import type { Scoring } from "./score.ts";
 
 const NOW = new Date("2026-11-21T12:00:00Z");
-const scoring: Scoring = {
+const scoring = {
   title: { want: ["engineer"] },
   skills: ["TypeScript", "React", "AWS", "Node"],
   level: { want: ["senior"] },

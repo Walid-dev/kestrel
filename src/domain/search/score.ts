@@ -1,13 +1,36 @@
 // The scoring engine: generic rules a spec configures — nothing about me or any site lives here. Every part answers
 // a number and a plain reason; the score is their sum, the match a tier, the why readable on the card.
-export type Scoring = {
-  title: { want: string[]; avoid?: string[] };
-  skills?: string[];
-  level?: { want?: string[]; avoid?: string[] };
-  pay?: { floor: number; usdToCad?: number };
-  places?: { words: string[]; remoteOk?: boolean };
-  freshDays?: number; // full freshness points inside this window
-};
+import { z } from "zod";
+
+// a spec file is written by hand: a lone string where a list belongs still reads (split on commas or semicolons),
+// and anything unreadable falls back to a harmless default instead of a crash
+const words = z.preprocess(
+  (v) =>
+    typeof v === "string"
+      ? v
+          .split(/[;,]/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : v,
+  z.array(z.string()).catch([]),
+);
+export const ScoringShape = z
+  .object({
+    title: z.object({ want: words.default([]), avoid: words.default([]) }).catch({ want: [], avoid: [] }),
+    skills: words.default([]),
+    level: z.object({ want: words.default([]), avoid: words.default([]) }).catch({ want: [], avoid: [] }),
+    pay: z
+      .object({ floor: z.number().catch(0), usdToCad: z.number().optional() })
+      .optional()
+      .catch(undefined),
+    places: z
+      .object({ words: words.default([]), remoteOk: z.boolean().default(true) })
+      .optional()
+      .catch(undefined),
+    freshDays: z.number().catch(7),
+  })
+  .catch({ title: { want: [], avoid: [] }, skills: [], level: { want: [], avoid: [] }, freshDays: 7 });
+export type Scoring = z.infer<typeof ScoringShape>;
 export type ScoredJob = {
   title: string;
   location?: string;
@@ -31,25 +54,26 @@ export type Score = {
 const WEIGHTS = { title: 25, skills: 25, level: 15, pay: 10, place: 15, fresh: 10 };
 const has = (text: string, word: string) => text.toLowerCase().includes(word.toLowerCase());
 
-export function scoreJob(scoring: Scoring, job: ScoredJob, now: Date): Score {
+export function scoreJob(raw: unknown, job: ScoredJob, now: Date): Score {
+  const scoring = ScoringShape.parse(raw ?? {});
   const parts: Record<string, number> = {};
   const why: string[] = [];
   const text = `${job.title} ${job.excerpt ?? ""}`;
 
   const titleHits = scoring.title.want.filter((w) => has(job.title, w));
-  const titleMiss = (scoring.title.avoid ?? []).filter((w) => has(job.title, w));
+  const titleMiss = scoring.title.avoid.filter((w) => has(job.title, w));
   parts.title = titleMiss.length ? 0 : Math.round((WEIGHTS.title * Math.min(titleHits.length, 2)) / 2);
   if (titleMiss.length) why.push(`the title says ${titleMiss[0]}`);
   else if (titleHits.length) why.push(`title matches ${titleHits.join(", ")}`);
 
-  const skills = scoring.skills ?? [];
+  const skills = scoring.skills;
   const skillHits = skills.filter((s) => has(text, s));
   parts.skills = skills.length ? Math.round((WEIGHTS.skills * Math.min(skillHits.length, 4)) / 4) : 0;
   if (skillHits.length) why.push(`${skillHits.length} of ${skills.length} skills named`);
 
   const levelText = `${job.seniority ?? ""} ${job.title}`;
-  const levelBad = (scoring.level?.avoid ?? []).some((w) => has(levelText, w));
-  const levelGood = (scoring.level?.want ?? []).some((w) => has(levelText, w));
+  const levelBad = scoring.level.avoid.some((w) => has(levelText, w));
+  const levelGood = scoring.level.want.some((w) => has(levelText, w));
   parts.level = levelBad ? 0 : levelGood ? WEIGHTS.level : Math.round(WEIGHTS.level / 2);
   if (levelBad) why.push("another level");
 
@@ -68,7 +92,7 @@ export function scoreJob(scoring: Scoring, job: ScoredJob, now: Date): Score {
   if (job.usOnly) why.push("US only");
 
   const days = job.posted ? (now.getTime() - new Date(job.posted).getTime()) / 86_400_000 : 999;
-  const window = scoring.freshDays ?? 7;
+  const window = scoring.freshDays;
   parts.fresh = days <= window ? WEIGHTS.fresh : days <= window * 4 ? Math.round(WEIGHTS.fresh / 2) : 0;
 
   const score = Object.values(parts).reduce((a, b) => a + b, 0);

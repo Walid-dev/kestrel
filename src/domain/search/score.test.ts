@@ -1,10 +1,10 @@
 // A table of made-up jobs scores as labelled: the engine is rules, so the labels are exact.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { type Scoring, scoreJob } from "./score.ts";
+import { scoreJob } from "./score.ts";
 
 const NOW = new Date("2026-11-21T12:00:00Z");
-const scoring: Scoring = {
+const scoring = {
   title: { want: ["engineer", "developer"], avoid: ["intern"] },
   skills: ["TypeScript", "React", "AWS", "Node"],
   level: { want: ["senior"], avoid: ["junior"] },
@@ -64,4 +64,19 @@ test("freshness fades: full inside the window, half after, nothing when stale", 
   const older = scoreJob(scoring, { title: "Engineer", posted: "2026-11-01" }, NOW);
   const stale = scoreJob(scoring, { title: "Engineer", posted: "2026-08-01" }, NOW);
   assert.deepEqual([fresh.parts.fresh, older.parts.fresh, stale.parts.fresh], [10, 5, 0]);
+});
+
+test("a hand-written spec with lone strings still scores: commas split, junk falls to defaults", () => {
+  const got = scoreJob(
+    {
+      title: { want: "engineer, developer", avoid: "clearance required, unpaid trial" },
+      skills: "TypeScript; React",
+      level: { want: "senior" },
+      freshDays: "not a number",
+    },
+    { title: "Senior Engineer", posted: "2026-11-20", excerpt: "TypeScript and React." },
+    NOW,
+  );
+  assert.ok(got.score > 0);
+  assert.match(got.why, /title matches engineer/);
 });

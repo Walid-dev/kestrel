@@ -15,20 +15,29 @@ const py = `
 import json, sys
 from jobspy import scrape_jobs
 rows = scrape_jobs(site_name=["linkedin", "indeed"], search_term=sys.argv[1], location=sys.argv[2], hours_old=int(sys.argv[3]), results_wanted=60)
+def num(v):
+    if v is None or v != v:  # None, or pandas NaN
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+def txt(v):
+    return "" if v is None or v != v else str(v)
 out = []
 for _, r in rows.iterrows():
     out.append({
-        "source": str(r.get("site") or "jobspy"),
-        "url": str(r.get("job_url") or ""),
-        "title": str(r.get("title") or ""),
-        "org": str(r.get("company") or ""),
-        "location": str(r.get("location") or ""),
-        "posted": str(r.get("date_posted") or ""),
-        "salaryMin": None if r.get("min_amount") != r.get("min_amount") else float(r.get("min_amount")),
-        "salaryMax": None if r.get("max_amount") != r.get("max_amount") else float(r.get("max_amount")),
-        "salaryCurrency": None if not r.get("currency") else str(r.get("currency")),
-        "salaryPeriod": None if not r.get("interval") else str(r.get("interval")),
-        "excerpt": str(r.get("description") or "")[:800],
+        "source": txt(r.get("site")) or "jobspy",
+        "url": txt(r.get("job_url")),
+        "title": txt(r.get("title")),
+        "org": txt(r.get("company")),
+        "location": txt(r.get("location")),
+        "posted": txt(r.get("date_posted")),
+        "salaryMin": num(r.get("min_amount")),
+        "salaryMax": num(r.get("max_amount")),
+        "salaryCurrency": txt(r.get("currency")) or None,
+        "salaryPeriod": txt(r.get("interval")) or None,
+        "excerpt": txt(r.get("description"))[:800],
     })
 print(json.dumps([o for o in out if o["url"] and o["title"]]))
 `;

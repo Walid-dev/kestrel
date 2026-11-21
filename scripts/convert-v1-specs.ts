@@ -13,7 +13,7 @@ type OldHunt = {
   mustHave?: string[];
   niceToHave?: string[];
   minSalary?: number;
-  dealBreakers?: string[];
+  dealBreakers?: string[] | string;
   area?: string;
   level?: string;
   archived?: boolean;
@@ -36,11 +36,29 @@ export function convertSpecs(from: string, out: string): string[] {
       everyMinutes: 360,
       enabled: false,
       scoring: {
-        title: { want: (h.titles ?? []).map((t) => t.toLowerCase()), avoid: h.dealBreakers ?? [] },
+        title: {
+          want: (h.titles ?? [])
+            .flatMap((x) => String(x).split(/[;,]/))
+            .map((x) => x.trim().toLowerCase())
+            .filter(Boolean),
+          avoid: (Array.isArray(h.dealBreakers) ? h.dealBreakers : [h.dealBreakers ?? ""])
+            .flatMap((x) => String(x).split(/[;,]/))
+            .map((x) => x.trim())
+            .filter(Boolean),
+        },
         skills: [...(h.mustHave ?? []), ...(h.niceToHave ?? [])],
         level: { want: [], avoid: [] },
         ...(h.minSalary ? { pay: { floor: h.minSalary } } : {}),
-        ...(h.area ? { places: { words: [h.area] } } : {}),
+        ...(h.area
+          ? {
+              places: {
+                words: String(h.area)
+                  .split(/[;,]/)
+                  .map((x) => x.trim())
+                  .filter(Boolean),
+              },
+            }
+          : {}),
         ...(h.level ? { level: { want: [h.level] } } : {}),
         freshDays: 7,
       },

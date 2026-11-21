@@ -26,7 +26,7 @@ function setup(items: string) {
     everyMinutes: 360,
     limits: { perRun: 200, timeoutMs: 180_000, maxBytes: 20_000_000 },
     env: {},
-    scoring: { title: { want: ["engineer"] } },
+    scoring: { title: { want: ["engineer"] } } as unknown,
     enabled: true,
   };
   return { base, db, spec };

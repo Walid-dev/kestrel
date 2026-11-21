@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import type { Item } from "./collect.ts";
-import { type Score, type Scoring, scoreJob } from "./score.ts";
+import { type Score, scoreJob } from "./score.ts";
 
 export type ListingRow = {
   id: string;
@@ -55,7 +55,7 @@ export function keepItems(
   db: DatabaseSync,
   searchId: string,
   items: Item[],
-  scoring: Scoring,
+  scoring: unknown, // ScoringShape reads it tolerantly
   now: Date,
   perRun = 200,
 ): { found: number; kept: number } {
