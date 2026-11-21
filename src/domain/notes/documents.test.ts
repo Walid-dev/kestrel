@@ -47,11 +47,21 @@ test("a path that leaves the folder is refused, and so is a symlink that points 
   assert.throws(() => openFile(db, settings, join(inside, "looks-inside.md")), /outside the folders/);
 });
 
+test("any UTF-8 text format opens: csv, json, an ending of its own (R2-10)", () => {
+  const { inside, db, settings } = setup();
+  writeFileSync(join(inside, "rows.csv"), "name,age\nmade-up,7\n");
+  writeFileSync(join(inside, "data.json"), '{"made": "up"}');
+  writeFileSync(join(inside, "notes.rst"), "A made-up heading\n=================\n");
+  for (const n of ["rows.csv", "data.json", "notes.rst"]) assert.equal(openFile(db, settings, join(inside, n)).name, n);
+  writeFileSync(join(inside, "blob.bin"), Buffer.from([0x61, 0x00, 0x62]));
+  assert.throws(() => openFile(db, settings, join(inside, "blob.bin")), /binary content/);
+});
+
 test("a PDF and a non-UTF-8 file are refused with the reason; too big is refused", () => {
   const { inside, db, settings } = setup();
   writeFileSync(join(inside, "paper.pdf"), "%PDF-1.4 made up");
   assert.throws(() => openFile(db, settings, join(inside, "paper.pdf")), /not a text format/);
-  writeFileSync(join(inside, "bad.md"), Buffer.from([0x68, 0x69, 0xff, 0xfe, 0x00]));
+  writeFileSync(join(inside, "bad.md"), Buffer.from([0x68, 0x69, 0xff, 0xfe]));
   assert.throws(() => openFile(db, settings, join(inside, "bad.md")), /UTF-8/);
   writeFileSync(join(inside, "big.md"), Buffer.alloc(201 * 1024, 0x61));
   assert.throws(() => openFile(db, settings, join(inside, "big.md")), /bigger than/);

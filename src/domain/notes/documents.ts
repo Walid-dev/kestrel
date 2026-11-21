@@ -11,7 +11,51 @@ import type { Settings } from "../../platform/config.ts";
 import type { DocumentFull, DocumentMeta } from "../../shared/notes.ts";
 
 export const MAX_BYTES = 200 * 1024;
-const TEXT_EXT = new Set([".md", ".markdown", ".txt", ".text"]);
+// the content decides what is text (UTF-8, no NUL bytes); known binary endings are refused by name so the reason
+// reads well (review R2-10)
+const BINARY_EXT = new Set([
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".xls",
+  ".xlsx",
+  ".ppt",
+  ".pptx",
+  ".pages",
+  ".key",
+  ".numbers",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".heic",
+  ".svgz",
+  ".ico",
+  ".icns",
+  ".mp3",
+  ".mp4",
+  ".mov",
+  ".m4a",
+  ".wav",
+  ".avi",
+  ".zip",
+  ".gz",
+  ".tar",
+  ".7z",
+  ".rar",
+  ".dmg",
+  ".pkg",
+  ".app",
+  ".exe",
+  ".wasm",
+  ".sqlite",
+  ".db",
+  ".woff",
+  ".woff2",
+  ".ttf",
+  ".otf",
+]);
 
 // a refusal whose message is meant for the screen, with what to do
 export class Refused extends Error {}
@@ -52,7 +96,7 @@ export function listFiles(settings: Settings): { path: string; name: string }[] 
         continue;
       }
       if (st.isDirectory()) walk(p, depth + 1);
-      else if (TEXT_EXT.has(extname(n).toLowerCase()) && st.size <= MAX_BYTES) out.push({ path: p, name: n });
+      else if (!BINARY_EXT.has(extname(n).toLowerCase()) && st.size <= MAX_BYTES) out.push({ path: p, name: n });
     }
   };
   for (const d of folders(settings)) walk(d, 1);
@@ -100,12 +144,10 @@ export function openFile(db: DatabaseSync, settings: Settings, path: string): Do
   if (!dirs.some((d) => real === d || real.startsWith(d + sep)))
     throw new Refused("outside the folders Notes may open: list its folder in settings.json under notes.folders");
   const ext = extname(real).toLowerCase();
-  if (!TEXT_EXT.has(ext))
-    throw new Refused(
-      `${ext || "a file without an ending"} is not a text format Notes opens (${[...TEXT_EXT].join(", ")})`,
-    );
+  if (BINARY_EXT.has(ext)) throw new Refused(`${ext} is not a text format`);
   if (statSync(real).size > MAX_BYTES) throw new Refused(`bigger than ${MAX_BYTES / 1024} KB`);
   const bytes = readFileSync(real);
+  if (bytes.includes(0)) throw new Refused("not text: the file carries binary content");
   const d = decode(bytes);
   const sha = createHash("sha256").update(bytes).digest("hex");
   const have = db.prepare("SELECT id FROM documents WHERE path = ?").get(real) as { id: string } | undefined;
