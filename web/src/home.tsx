@@ -118,6 +118,21 @@ export function Home() {
           </Link>
         );
       })}
+      <Link
+        to="/models"
+        className="card flex items-center gap-3 transition-all duration-200 hover:-translate-y-px md:col-span-2"
+      >
+        <span style={{ color: "var(--yellow)" }}>
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M12 7.5v4.5l3 2" />
+          </svg>
+        </span>
+        <span className="font-cond text-lg font-bold">Models</span>
+        <span className="ml-auto text-sm" style={{ color: "var(--muted)" }}>
+          which model runs each job
+        </span>
+      </Link>
     </main>
   );
 }

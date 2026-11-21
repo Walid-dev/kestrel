@@ -5,6 +5,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import { z } from "zod";
+import { doorModels, listUses, setModelFor, USES } from "../domain/models.ts";
 import {
   addUpload,
   deleteDocument,
@@ -26,6 +27,19 @@ export function mountNotes(app: Hono, db: DatabaseSync, settings: Settings) {
     throw e;
   };
 
+  app.get("/api/models", async (c) => c.json({ door: await doorModels(settings), uses: listUses(db, settings) }));
+  app.post(
+    "/api/models",
+    zValidator(
+      "json",
+      z.object({ use: z.enum(USES.map((u) => u.use) as [string, ...string[]]), model: z.string().min(1).max(200) }),
+    ),
+    (c) => {
+      const { use, model } = c.req.valid("json");
+      setModelFor(db, use as (typeof USES)[number]["use"], model);
+      return c.json({ ok: true });
+    },
+  );
   app.get("/api/notes/documents", (c) => c.json({ documents: listDocuments(db) }));
   app.get("/api/notes/files", (c) => c.json({ files: listFiles(settings) }));
   app.delete("/api/notes/documents/:id", (c) => {

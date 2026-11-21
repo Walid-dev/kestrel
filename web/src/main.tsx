@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
 import { App } from "./app.tsx";
 import { Home } from "./home.tsx";
+import { Models } from "./models.tsx";
 import { NotesList } from "./notes/list.tsx";
 import { Reader } from "./notes/reader.tsx";
 import { NotesSet } from "./notes/set.tsx";
@@ -23,6 +24,7 @@ if (rootEl)
             <Route element={<App />}>
               <Route index element={<Home />} />
               <Route path="notes" element={<NotesList />} />
+              <Route path="models" element={<Models />} />
               <Route path="notes/set" element={<NotesSet />} />
               <Route path="notes/:id" element={<Reader />} />
             </Route>

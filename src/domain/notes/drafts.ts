@@ -9,6 +9,7 @@ import { callModel } from "../../ai/client.ts";
 import type { Settings } from "../../platform/config.ts";
 import type { DocumentFull } from "../../shared/notes.ts";
 import { recordCall } from "../calls.ts";
+import { modelFor } from "../models.ts";
 import { getDocument, Refused } from "./documents.ts";
 import { listNotes } from "./notes.ts";
 import { apply, type Placed, place } from "./place.ts";
@@ -95,7 +96,13 @@ export function startDraft(
       `this set is too long for the model (${chars} characters, the limit is ${settings.models.contextChars}): ask with fewer documents at once`,
     );
   const id = randomUUID();
-  const model = input.speed === "careful" ? settings.models.careful : settings.models.fast;
+  // the Models screen's picks make the effective pair: the client's listed-models rule follows the picks too
+  const effective = {
+    ...settings.models,
+    careful: modelFor(db, settings, "notes-careful"),
+    fast: modelFor(db, settings, "notes-fast"),
+  };
+  const model = input.speed === "careful" ? effective.careful : effective.fast;
   const shaOf = db.prepare("SELECT sha256 FROM documents WHERE id = ?");
   const request: Request = {
     documents: documents.map((d) => ({
@@ -112,7 +119,7 @@ export function startDraft(
     JSON.stringify(request),
   );
   const done = (async () => {
-    const got = await callModel(settings.models, { model, system, prompt, thinking: true, maxTokens: 8000 }, Answer);
+    const got = await callModel(effective, { model, system, prompt, thinking: true, maxTokens: 8000 }, Answer);
     recordCall(db, `changes:v${PROMPT_VERSION}`, got);
     if (!got.ok) {
       db.prepare("UPDATE drafts SET status = 'failed', error = ? WHERE id = ?").run(
