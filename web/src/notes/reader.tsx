@@ -4,9 +4,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { type Line, lineKinds, segments } from "../../../src/shared/marks.ts";
-import type { DocumentFull, PlacedNote } from "../../../src/shared/notes.ts";
+import type { DocumentFull, Draft, PlacedNote } from "../../../src/shared/notes.ts";
 import { NoteSheet, type SheetTarget } from "./note-sheet.tsx";
 import { NotesList } from "./notes-list.tsx";
+import { Review } from "./review.tsx";
 
 const LOOK: Record<Line["kind"], string> = {
   h1: "font-cond text-2xl font-bold mt-4",
@@ -39,6 +40,9 @@ export function Reader() {
   const article = useRef<HTMLDivElement>(null);
   const [sheet, setSheet] = useState<SheetTarget | null>(null);
   const [pending, setPending] = useState<{ quote: string; start: number } | null>(null);
+  const [speed, setSpeed] = useState<"careful" | "fast">("careful");
+  const [review, setReview] = useState(false);
+  const [askWhy, setAskWhy] = useState("");
 
   const doc = useQuery({
     queryKey: ["doc", id],
@@ -83,8 +87,42 @@ export function Reader() {
     onSettled: changed,
   });
 
+  const draft = useQuery({
+    queryKey: ["draft", id],
+    queryFn: async () => {
+      const res = await fetch(`/api/notes/documents/${id}/draft`);
+      if (!res.ok) throw new Error(`draft: ${res.status}`);
+      return (await res.json()) as { draft: Draft | null };
+    },
+    // while the model writes, the screen checks on it every 2 seconds
+    refetchInterval: (q) => (q.state.data?.draft?.status === "making" ? 2000 : false),
+  });
+  const ask = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/notes/ask", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ documents: [id], speed }),
+      });
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
+    },
+    onSuccess: () => setAskWhy(""),
+    onError: (e) => setAskWhy(e.message),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["draft", id] }),
+  });
+  const discard = useMutation({
+    mutationFn: async (draftId: string) => {
+      await fetch(`/api/notes/drafts/${draftId}/discard`, { method: "POST" });
+    },
+    onSettled: () => {
+      setReview(false);
+      queryClient.invalidateQueries({ queryKey: ["draft", id] });
+    },
+  });
+
   const lines = useMemo(() => (doc.data ? lineKinds(doc.data.text) : []), [doc.data]);
   const placed = notes.data?.notes ?? [];
+  const current = draft.data?.draft ?? null;
 
   const onSelect = () => {
     const sel = getSelection();
@@ -125,6 +163,77 @@ export function Reader() {
           Note on the document
         </button>
       </div>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        {(!current || current.status === "failed") && (
+          <>
+            <button
+              type="button"
+              className="font-cond cursor-pointer rounded-xl px-4 py-2 font-bold"
+              style={{ background: "var(--accent)", color: "var(--bg)" }}
+              disabled={ask.isPending}
+              onClick={() => ask.mutate()}
+            >
+              Ask for changes
+            </button>
+            <div
+              className="font-mono flex overflow-hidden rounded-full border text-xs"
+              style={{ borderColor: "var(--line)" }}
+            >
+              {(["careful", "fast"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className="cursor-pointer px-3 py-1.5"
+                  style={
+                    speed === s
+                      ? { background: "var(--accent-soft)", color: "var(--accent)" }
+                      : { color: "var(--muted)" }
+                  }
+                  onClick={() => setSpeed(s)}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        {current?.status === "making" && (
+          <span className="font-mono flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
+            <span className="block h-2 w-2 animate-pulse rounded-full" style={{ background: "var(--accent)" }} />
+            the {current.model.includes("Qwen") || current.model.includes("careful") ? "careful" : "fast"} model is
+            writing…
+          </span>
+        )}
+        {current?.status === "ready" && (
+          <button
+            type="button"
+            className="font-cond cursor-pointer rounded-xl px-4 py-2 font-bold"
+            style={{ background: "var(--accent)", color: "var(--bg)" }}
+            onClick={() => setReview(true)}
+          >
+            Review the changes
+          </button>
+        )}
+        {current?.status === "failed" && (
+          <button
+            type="button"
+            className="cursor-pointer rounded-full border px-3 py-1 text-xs"
+            style={{ borderColor: "var(--line)", color: "var(--warn)" }}
+            onClick={() => discard.mutate(current.id)}
+            title={current.error}
+          >
+            the ask failed — clear it
+          </button>
+        )}
+      </div>
+      {(askWhy || current?.status === "failed") && (
+        <p
+          className="mb-3 rounded-xl border px-4 py-3 text-sm"
+          style={{ borderColor: "var(--line)", background: "var(--warn-soft)" }}
+        >
+          {askWhy || current?.error}
+        </p>
+      )}
       <article
         ref={article}
         onMouseUp={onSelect}
@@ -181,6 +290,9 @@ export function Reader() {
         </div>
       )}
       <NotesList notes={placed} onOpen={(n) => setSheet({ kind: "edit", note: n })} />
+      {review && current?.status === "ready" && (
+        <Review draft={current} onDiscard={() => discard.mutate(current.id)} onClose={() => setReview(false)} />
+      )}
       {sheet && (
         <NoteSheet
           docId={id}

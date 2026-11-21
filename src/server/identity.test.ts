@@ -31,9 +31,15 @@ test("a write from another page's address gets 403; from kestrel's own, 200", as
   assert.equal(own.status, 200);
 });
 
-test("off (development, made-up data), requests pass without the header", async () => {
+test("off (development, made-up data), requests pass without the header, writes from any page too", async () => {
   const dev = new Hono();
   dev.use("*", identity("made-up-login", false));
   dev.get("/x", (c) => c.json({ ok: true }));
+  dev.post("/x", (c) => c.json({ ok: true }));
   assert.equal((await dev.request("/x")).status, 200);
+  const write = await dev.request("/x", {
+    method: "POST",
+    headers: { origin: "http://localhost:5199", host: "127.0.0.1:8791" },
+  });
+  assert.equal(write.status, 200);
 });

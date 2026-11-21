@@ -8,8 +8,9 @@ export function identity(login: string, enforced: boolean): MiddlewareHandler {
   return async (c, next) => {
     if (enforced && c.req.header("tailscale-user-login") !== login)
       return c.json({ error: "kestrel answers its own devices only: open it at its tailnet address" }, 403);
-    // a write must come from the app's own address, so a page elsewhere can't post here from a browser
-    if (c.req.method !== "GET" && c.req.method !== "HEAD") {
+    // a write must come from the app's own address, so a page elsewhere can't post here from a browser; only when
+    // deployed — in development the vite door forwards with its own address, and the data is made up anyway
+    if (enforced && c.req.method !== "GET" && c.req.method !== "HEAD") {
       const origin = c.req.header("origin");
       if (origin) {
         let host = "";

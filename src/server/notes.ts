@@ -14,6 +14,7 @@ import {
   openFile,
   Refused,
 } from "../domain/notes/documents.ts";
+import { discardDraft, draftFor, getDraft, startDraft } from "../domain/notes/drafts.ts";
 import { addNote, deleteNote, editNote, listNotes } from "../domain/notes/notes.ts";
 import type { Settings } from "../platform/config.ts";
 
@@ -67,6 +68,29 @@ export function mountNotes(app: Hono, db: DatabaseSync, settings: Settings) {
     deleteNote(db, c.req.param("id"));
     return c.json({ ok: true });
   });
+  app.post(
+    "/api/notes/ask",
+    zValidator("json", z.object({ documents: z.array(z.string()).min(1).max(10), speed: z.enum(["careful", "fast"]) })),
+    (c) => {
+      try {
+        const { documents, speed } = c.req.valid("json");
+        const made = startDraft(db, settings, { documentIds: documents, speed });
+        made.done.catch(() => {}); // the draft row carries any failure; nothing to throw here
+        return c.json({ id: made.id });
+      } catch (e) {
+        return refusing(c, e);
+      }
+    },
+  );
+  app.get("/api/notes/drafts/:id", (c) => {
+    const draft = getDraft(db, c.req.param("id"));
+    return draft ? c.json(draft) : c.json({ error: "no such draft" }, 404);
+  });
+  app.post("/api/notes/drafts/:id/discard", (c) => {
+    discardDraft(db, c.req.param("id"));
+    return c.json({ ok: true });
+  });
+  app.get("/api/notes/documents/:id/draft", (c) => c.json({ draft: draftFor(db, c.req.param("id")) }));
   app.post(
     "/api/notes/upload",
     zValidator("json", z.object({ name: z.string().min(1).max(200), text: z.string().max(MAX_BYTES * 2) })),

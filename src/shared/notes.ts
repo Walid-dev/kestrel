@@ -20,3 +20,21 @@ export type Note = {
 };
 // where the note's words are in the document as it is now; detached when they are gone
 export type PlacedNote = Note & { at: number | null; end: number | null; detached: boolean };
+
+export type DraftChange = { document: string; find: string; replace: string; notes: string[] };
+export type DraftDocumentResult = {
+  placed: { change: DraftChange; at: number }[];
+  leftOut: { change: DraftChange; reason: string }[];
+  newText: string;
+};
+export type Draft = {
+  id: string;
+  createdAt: string;
+  status: "making" | "ready" | "failed";
+  model: string;
+  documents: { id: string; name: string }[];
+  overview: string;
+  unanswered: { note: string; reason: string }[];
+  perDocument: Record<string, DraftDocumentResult>;
+  error: string;
+};

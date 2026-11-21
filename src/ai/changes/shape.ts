@@ -12,7 +12,12 @@ export const Change = z.object({
 export type Change = z.infer<typeof Change>;
 
 export const Answer = z.object({
-  overview: z.string().min(1),
+  // a small model sometimes writes the overview as one line per document: an array is read, joined, and held to the
+  // same rule
+  overview: z
+    .union([z.string(), z.array(z.string())])
+    .transform((v) => (Array.isArray(v) ? v.join(" ") : v))
+    .pipe(z.string().min(1)),
   changes: z.array(Change),
   unanswered: z.array(z.object({ note: z.string().min(1), reason: z.string().min(1) })).default([]),
 });
