@@ -64,8 +64,10 @@ export function keepItems(
   for (const item of items.slice(0, perRun)) {
     const scored: Score = scoreJob(scoring, item, now);
     const dedupe = normalizeDedupe(item.org, item.title);
+    // the lookup stays inside this search: another search's row keeps its own spec's score (the sweep's finding —
+    // the first live run had re-scored imported rows that belonged to the old hunts)
     const have = db
-      .prepare("SELECT id, data FROM listings WHERE (search = ? AND dedupe = ?) OR link = ?")
+      .prepare("SELECT id, data FROM listings WHERE search = ? AND (dedupe = ? OR link = ?)")
       .get(searchId, dedupe, item.url) as { id: string; data: string } | undefined;
     if (have) {
       const data = JSON.parse(have.data) as Record<string, unknown>;
@@ -122,16 +124,17 @@ export function listListings(db: DatabaseSync, filters: ListingFilters = {}, lim
     where.push("source = ?");
     params.push(filters.source);
   }
+  // every filter lives in the SQL, before the limit — an old starred listing must never fall off the Priority view
+  if (filters.priority)
+    where.push("(starred = 1 OR (starred IS NULL AND match = 'great' AND status NOT IN ('passed', 'fake')))");
+  if (filters.q) {
+    where.push("lower(data) LIKE ?");
+    params.push(`%${filters.q.toLowerCase().replaceAll("%", "").replaceAll("_", " ")}%`);
+  }
   const rows = db
     .prepare(`SELECT * FROM listings ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY found DESC LIMIT ?`)
     .all(...params, limit) as Record<string, unknown>[];
-  let out = rows.map(row);
-  if (filters.priority) out = out.filter((r) => r.priority);
-  if (filters.q) {
-    const q = filters.q.toLowerCase();
-    out = out.filter((r) => JSON.stringify(r.data).toLowerCase().includes(q));
-  }
-  return out;
+  return rows.map(row);
 }
 
 export function setListingStatus(db: DatabaseSync, id: string, status: string): void {

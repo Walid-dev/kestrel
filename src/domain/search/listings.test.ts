@@ -96,3 +96,46 @@ test("status and star stick, and the filters combine", () => {
   assert.equal(listListings(db, { q: "clerk" }).length, 1);
   assert.equal(normalizeDedupe("Made-up Co", "Senior  Engineer!"), "madeup co|senior engineer");
 });
+
+test("Priority and the word search see past the window: an old starred row never vanishes (sweep F1)", () => {
+  const db = setup();
+  // an old starred listing, found long ago
+  db.prepare(
+    `INSERT INTO listings (id, search, source, link, dedupe, status, starred, found, updated, score, match, data)
+     VALUES ('old-star', 's1', 'made-up-board', 'https://example.com/old', 'ancient co|keeper', 'applied', 1,
+       '2026-01-01', '2026-01-01', 61, 'good', '{"title":"Keeper of the Hive"}')`,
+  ).run();
+  // six hundred newer rows push it far outside any window
+  const put = db.prepare(
+    `INSERT INTO listings (id, search, source, link, dedupe, status, starred, found, updated, score, match, data)
+     VALUES (?, 's1', 'made-up-board', ?, ?, 'new', NULL, '2026-11-21', '2026-11-21', 10, 'poor', '{}')`,
+  );
+  for (let i = 0; i < 600; i++) put.run(`n${i}`, `https://example.com/n${i}`, `co${i}|role${i}`);
+  const priority = listListings(db, { priority: true });
+  assert.deepEqual(
+    priority.map((r) => r.id),
+    ["old-star"],
+  );
+  const found = listListings(db, { q: "keeper of the hive" });
+  assert.deepEqual(
+    found.map((r) => r.id),
+    ["old-star"],
+  );
+});
+
+test("two searches sharing one link each keep their own row and their own score (sweep F2)", () => {
+  const db = setup();
+  keepItems(
+    db,
+    "search-a",
+    [item()],
+    { title: { want: ["engineer"] }, skills: ["TypeScript", "React", "AWS", "Node"] },
+    NOW,
+  );
+  const b = keepItems(db, "search-b", [item()], { title: { want: ["nothing-here"] } }, NOW);
+  assert.equal(b.kept, 1); // its own row, not a swallow
+  const rows = listListings(db).filter((r) => r.link === "https://example.com/job/1");
+  assert.equal(rows.length, 2);
+  const scores = new Set(rows.map((r) => r.score));
+  assert.equal(scores.size, 2); // each scored by its own spec
+});
