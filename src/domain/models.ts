@@ -3,16 +3,17 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { Settings } from "../platform/config.ts";
 
-export type Use = "notes-careful" | "notes-fast";
+export type Use = "notes-careful" | "notes-fast" | "learn-ask";
 export const USES: { use: Use; what: string }[] = [
   { use: "notes-careful", what: "Notes' careful asks: changes written with time to think" },
   { use: "notes-fast", what: "Notes' fast asks: changes in seconds" },
+  { use: "learn-ask", what: "Learn's Ask: a question on the open lesson" },
 ];
 
 export function modelFor(db: DatabaseSync, settings: Settings, use: Use): string {
   const row = db.prepare("SELECT model FROM model_settings WHERE use = ?").get(use) as { model: string } | undefined;
   if (row?.model) return row.model;
-  return use === "notes-careful" ? settings.models.careful : settings.models.fast;
+  return use === "notes-careful" ? settings.models.careful : settings.models.fast; // learn-ask falls back to fast
 }
 
 export function setModelFor(db: DatabaseSync, use: Use, model: string): void {
