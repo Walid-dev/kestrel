@@ -111,13 +111,7 @@ export function NotesSet() {
       <div className="flex flex-wrap items-center gap-2">
         {(!setDraft || setDraft.status === "failed") && (
           <>
-            <button
-              type="button"
-              className="font-cond cursor-pointer rounded-xl px-4 py-2 font-bold"
-              style={{ background: "var(--accent)", color: "var(--bg)" }}
-              disabled={ask.isPending}
-              onClick={() => ask.mutate()}
-            >
+            <button type="button" className="btn btn-primary" disabled={ask.isPending} onClick={() => ask.mutate()}>
               Ask for changes on {ids.length} documents
             </button>
             <div
@@ -149,22 +143,12 @@ export function NotesSet() {
           </span>
         )}
         {setDraft?.status === "ready" && (
-          <button
-            type="button"
-            className="font-cond cursor-pointer rounded-xl px-4 py-2 font-bold"
-            style={{ background: "var(--accent)", color: "var(--bg)" }}
-            onClick={() => setReview(true)}
-          >
+          <button type="button" className="btn btn-primary" onClick={() => setReview(true)}>
             Review the changes
           </button>
         )}
         {setDraft?.status === "failed" && (
-          <button
-            type="button"
-            className="cursor-pointer rounded-full border px-3 py-1 text-xs"
-            style={{ borderColor: "var(--line)", color: "var(--warn)" }}
-            onClick={() => discard.mutate(setDraft.id)}
-          >
+          <button type="button" className="btn btn-danger" onClick={() => discard.mutate(setDraft.id)}>
             the ask failed — clear it
           </button>
         )}
@@ -181,6 +165,7 @@ export function NotesSet() {
         <Review
           draft={setDraft}
           targets={Object.fromEntries(picked.map((d) => [d.id, d.path ?? "the upload, kept in kestrel"]))}
+          texts={Object.fromEntries(Object.entries(setDraft.perDocument).map(([k, v]) => [k, v.oldText]))}
           onSave={(documentId) => saveDoc.mutate(documentId)}
           saving={saveDoc.isPending}
           saveWhy={saveWhy}

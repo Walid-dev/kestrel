@@ -5,6 +5,16 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-21 · The colours are the editor's own theme; noting is a mode.**
+  The palette is Atom One Dark, read from the editor's theme file (and One Light for light mode): blue `#61afef`
+  leads, with the theme's purple, green, orange, yellow and red as the working colours; the pink accent is retired.
+  Buttons speak with one voice (`.btn` in styles.css, the hunt pages' size), headings use `--strong`. The review
+  reads as a code diff: minus lines red, plus lines green, the whole document when it is small, the changed parts
+  with context when it is big; a draft keeps the text it was made from for that. Noting is off by default: a switch
+  turns it on, and then selecting words or tapping a line asks for the note at once; each note in the rail carries
+  its own delete.
+  Replaces: the pink-led palette of the same day. Rejected: pink as the main colour; the two-colour inline word diff.
+
 - **2026-11-21 · The models for Notes, and how they are asked.**
   The first live eval (docs/eval/2026-11-21-changes.md): 31 of 32 runs pass. Qwen3.8-27B-oQ4e-mtp is the careful
   model (16 of 16, 9–40 s) and Ornith-1.5-35B-A3B-MLX-4bit the fast one (15 of 16, 2–53 s; one empty answer on the

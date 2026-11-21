@@ -47,9 +47,9 @@ function png(size: number, draw: (x: number, y: number) => [number, number, numb
   ]);
 }
 
-const BG: [number, number, number] = [0x11, 0x14, 0x1b];
-const PINK: [number, number, number] = [0xff, 0x75, 0x7f];
-const VIOLET: [number, number, number] = [0xc0, 0x99, 0xff];
+const BG: [number, number, number] = [0x28, 0x2c, 0x34];
+const BLUE: [number, number, number] = [0x61, 0xaf, 0xef];
+const MOONY: [number, number, number] = [0xe5, 0xc0, 0x7b];
 // the mark: a wolf howling at the moon, the same geometry as web/src/mark.tsx and favicon.svg (a 100-unit box);
 // the wolf is one polygon filled by ray casting, sampled 3x3 per pixel so the edges stay smooth
 const WOLF: [number, number][] = [
@@ -104,7 +104,7 @@ for (const size of [192, 512]) {
         if (inPolygon(px, py, WOLF)) wolf++;
         else if (Math.hypot(px - MOON.x, py - MOON.y) < MOON.r) moon++;
       }
-    return mix(mix(BG, VIOLET, moon / 9), PINK, wolf / 9);
+    return mix(mix(BG, MOONY, moon / 9), BLUE, wolf / 9);
   });
   writeFileSync(`web/public/icons/icon-${size}.png`, icon);
   console.log(`icon-${size}.png: ${icon.length} bytes`);

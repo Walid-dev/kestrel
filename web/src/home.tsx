@@ -50,7 +50,7 @@ const APPS: { name: string; what: string; when: string | null; color: string }[]
     name: "Searches",
     what: "Saved searches that run on their own: jobs first, deals later.",
     when: "v0.2",
-    color: "var(--violet)",
+    color: "var(--purple)",
   },
   {
     name: "Applications",

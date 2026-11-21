@@ -6,7 +6,7 @@ export const WOLF =
 export function Mark({ size = 26, moon = false }: { size?: number; moon?: boolean }) {
   return (
     <svg viewBox="0 0 100 100" width={size} height={size} aria-hidden="true">
-      {moon && <circle cx="80" cy="16" r="8" fill="var(--violet)" />}
+      {moon && <circle cx="80" cy="16" r="8" fill="var(--yellow)" />}
       <polygon points={WOLF} fill="var(--accent)" />
     </svg>
   );

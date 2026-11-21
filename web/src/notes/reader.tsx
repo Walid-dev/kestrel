@@ -39,8 +39,8 @@ export function Reader() {
   const queryClient = useQueryClient();
   const article = useRef<HTMLDivElement>(null);
   const [sheet, setSheet] = useState<SheetTarget | null>(null);
-  const [pending, setPending] = useState<{ quote: string; start: number } | null>(null);
   const [speed, setSpeed] = useState<"careful" | "fast">("careful");
+  const [noteMode, setNoteMode] = useState(false);
   const [review, setReview] = useState(false);
   const [askWhy, setAskWhy] = useState("");
 
@@ -156,17 +156,19 @@ export function Reader() {
   const current = draft.data?.draft ?? null;
 
   const onSelect = () => {
+    if (!noteMode) return;
     const sel = getSelection();
     const el = article.current;
-    if (!sel || sel.isCollapsed || !el || !doc.data) return setPending(null);
+    if (!sel || sel.isCollapsed || !el || !doc.data) return;
     const r = sel.getRangeAt(0);
     const a = offsetIn(el, r.startContainer, r.startOffset);
     const b = offsetIn(el, r.endContainer, r.endOffset);
-    if (a === null || b === null || a === b) return setPending(null);
+    if (a === null || b === null || a === b) return;
     const [s, e] = a < b ? [a, b] : [b, a];
     const quote = doc.data.text.slice(s, e);
-    if (quote.trim() === "") return setPending(null);
-    setPending({ quote, start: s });
+    if (quote.trim() === "") return;
+    // note mode is on: selecting words asks for the note at once
+    setSheet({ kind: "new", quote, start: s });
   };
 
   if (doc.isError)
@@ -181,7 +183,7 @@ export function Reader() {
   if (!doc.data) return null;
   return (
     <main className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6">
-      <div className="mb-3 flex items-baseline gap-3 lg:col-start-1">
+      <div className="mb-3 flex flex-wrap items-center gap-3 lg:col-start-1">
         <Link
           to="/notes"
           className="font-mono text-[11px] uppercase tracking-[0.18em]"
@@ -189,28 +191,36 @@ export function Reader() {
         >
           ← Notes
         </Link>
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--muted)" }}>
+        <p
+          className="font-mono min-w-0 flex-1 truncate text-[11px] uppercase tracking-[0.18em]"
+          style={{ color: "var(--muted)" }}
+        >
           {doc.data.name}
         </p>
+        {noteMode && (
+          <button type="button" className="btn" onClick={() => setSheet({ kind: "whole" })}>
+            Note on the document
+          </button>
+        )}
         <button
           type="button"
-          className="font-mono ml-auto cursor-pointer rounded-full border px-3 py-1 text-xs"
-          style={{ borderColor: "var(--line)", color: "var(--accent)" }}
-          onClick={() => setSheet({ kind: "whole" })}
+          role="switch"
+          aria-checked={noteMode}
+          className="btn"
+          style={
+            noteMode
+              ? { background: "var(--accent-soft)", borderColor: "var(--accent)", color: "var(--accent)" }
+              : undefined
+          }
+          onClick={() => setNoteMode((v) => !v)}
         >
-          Note on the document
+          {noteMode ? "Notes on" : "Notes off"}
         </button>
       </div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
         {(!current || current.status === "failed") && (
           <>
-            <button
-              type="button"
-              className="font-cond cursor-pointer rounded-xl px-4 py-2 font-bold"
-              style={{ background: "var(--accent)", color: "var(--bg)" }}
-              disabled={ask.isPending}
-              onClick={() => ask.mutate()}
-            >
+            <button type="button" className="btn btn-primary" disabled={ask.isPending} onClick={() => ask.mutate()}>
               Ask for changes
             </button>
             <div
@@ -243,30 +253,19 @@ export function Reader() {
           </span>
         )}
         {current?.status === "ready" && (
-          <button
-            type="button"
-            className="font-cond cursor-pointer rounded-xl px-4 py-2 font-bold"
-            style={{ background: "var(--accent)", color: "var(--bg)" }}
-            onClick={() => setReview(true)}
-          >
+          <button type="button" className="btn btn-primary" onClick={() => setReview(true)}>
             Review the changes
           </button>
         )}
         {doc.data?.previous && (
-          <button
-            type="button"
-            className="font-mono cursor-pointer rounded-full border px-3 py-1 text-xs"
-            style={{ borderColor: "var(--line)", color: "var(--muted)" }}
-            onClick={() => undo.mutate()}
-          >
+          <button type="button" className="btn btn-quiet" onClick={() => undo.mutate()}>
             Undo the last save
           </button>
         )}
         {current?.status === "failed" && (
           <button
             type="button"
-            className="cursor-pointer rounded-full border px-3 py-1 text-xs"
-            style={{ borderColor: "var(--line)", color: "var(--warn)" }}
+            className="btn btn-danger"
             onClick={() => discard.mutate(current.id)}
             title={current.error}
           >
@@ -298,7 +297,8 @@ export function Reader() {
             className={LOOK[ln.kind]}
             style={ln.kind === "code" || ln.kind === "fence" ? { color: "var(--muted)" } : undefined}
             onClick={(e) => {
-              // a tap on plain words notes the line; a mark (a button) and a real selection keep their own ways
+              // in note mode, a tap on plain words notes the line; a mark (a button) and a selection keep their ways
+              if (!noteMode) return;
               if ((e.target as HTMLElement).closest("button")) return;
               if (!getSelection()?.isCollapsed) return;
               if (ln.text.trim() === "") return;
@@ -334,25 +334,18 @@ export function Reader() {
           </div>
         ))}
       </article>
-      {pending && !sheet && (
-        <div className="fixed inset-x-0 bottom-6 z-10 flex justify-center">
-          <button
-            type="button"
-            className="font-cond cursor-pointer rounded-full px-5 py-2.5 font-bold shadow-lg"
-            style={{ background: "var(--accent)", color: "var(--bg)" }}
-            onClick={() => setSheet({ kind: "new", ...pending })}
-          >
-            Note on the selection
-          </button>
-        </div>
-      )}
       <div className="lg:col-start-2 lg:row-start-1 lg:row-span-4 lg:sticky lg:top-6">
-        <NotesList notes={placed} onOpen={(n) => setSheet({ kind: "edit", note: n })} />
+        <NotesList
+          notes={placed}
+          onOpen={(n) => setSheet({ kind: "edit", note: n })}
+          onDelete={(n) => remove.mutate(n.id)}
+        />
       </div>
       {review && current?.status === "ready" && (
         <Review
           draft={current}
           targets={{ [id]: doc.data.path ?? "the upload, kept in kestrel" }}
+          texts={{ [id]: current.perDocument[id]?.oldText ?? doc.data.text }}
           onSave={(documentId) => saveDoc.mutate(documentId)}
           saving={saveDoc.isPending}
           saveWhy={saveWhy}
@@ -367,7 +360,6 @@ export function Reader() {
           onSave={(text) => {
             save.mutate({ target: sheet, text });
             setSheet(null);
-            setPending(null);
             getSelection()?.removeAllRanges();
           }}
           onDelete={() => {

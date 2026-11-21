@@ -25,6 +25,7 @@ export type DraftChange = { document: string; find: string; replace: string; not
 export type DraftDocumentResult = {
   placed: { change: DraftChange; at: number }[];
   leftOut: { change: DraftChange; reason: string }[];
+  oldText: string;
   newText: string;
   savedAt?: string;
 };

@@ -21,7 +21,7 @@ export type DraftView = {
   documents: { id: string; name: string }[];
   overview: string;
   unanswered: { note: string; reason: string }[];
-  perDocument: Record<string, Placed & { newText: string; savedAt?: string }>;
+  perDocument: Record<string, Placed & { oldText: string; newText: string; savedAt?: string }>;
   error: string;
 };
 
@@ -125,7 +125,7 @@ export function startDraft(
       const mine = got.value.changes.filter((c) => c.document === d.name);
       const anchors = new Map(listNotes(db, d.id).map((n) => [n.id, n.at]));
       const placedHere = place(d.text, mine, anchors);
-      perDocument[d.id] = { ...placedHere, newText: apply(d.text, placedHere.placed) };
+      perDocument[d.id] = { ...placedHere, oldText: d.text, newText: apply(d.text, placedHere.placed) };
     }
     // a change naming a document that isn't in the set is left out with its reason, on the first document's list
     const known = new Set(documents.map((d) => d.name));

@@ -62,12 +62,7 @@ export function NotesList() {
     <main className="grid gap-3.5">
       <div className="flex items-baseline">
         <h2 className="font-cond text-xl font-bold">Notes</h2>
-        <button
-          type="button"
-          className="font-mono ml-auto cursor-pointer rounded-full border px-3 py-1 text-xs"
-          style={{ borderColor: "var(--line)", color: "var(--accent)" }}
-          onClick={() => file.current?.click()}
-        >
+        <button type="button" className="btn ml-auto" onClick={() => file.current?.click()}>
           Upload a text
         </button>
         <input
@@ -122,11 +117,7 @@ export function NotesList() {
         </div>
       ))}
       {picked.length >= 2 && (
-        <Link
-          to={`/notes/set?ids=${picked.join(",")}`}
-          className="font-cond rounded-xl px-4 py-2 text-center font-bold"
-          style={{ background: "var(--accent)", color: "var(--bg)" }}
-        >
+        <Link to={`/notes/set?ids=${picked.join(",")}`} className="btn btn-primary text-center">
           Review {picked.length} together →
         </Link>
       )}

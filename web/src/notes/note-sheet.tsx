@@ -89,17 +89,12 @@ export function NoteSheet({
           }}
         />
         <div className="flex gap-2">
-          <button
-            type="submit"
-            className="font-cond cursor-pointer rounded-xl px-4 py-2 font-bold"
-            style={{ background: "var(--accent)", color: "var(--bg)" }}
-          >
+          <button type="submit" className="btn btn-primary">
             Save
           </button>
           <button
             type="button"
-            className="cursor-pointer rounded-xl border px-4 py-2"
-            style={{ borderColor: "var(--line)", color: "var(--muted)" }}
+            className="btn btn-quiet"
             onClick={() => {
               clear();
               dialog.current?.close();
@@ -110,8 +105,7 @@ export function NoteSheet({
           {target.kind === "edit" && (
             <button
               type="button"
-              className="ml-auto cursor-pointer rounded-xl border px-4 py-2"
-              style={{ borderColor: "var(--line)", color: "var(--warn)" }}
+              className="btn btn-danger ml-auto"
               onClick={() => {
                 clear();
                 onDelete();
