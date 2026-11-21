@@ -5,6 +5,27 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-21 · A deal is its link; a job is its org and title.**
+  The real deal items broke UNIQUE (search, dedupe): second-hand posts share titles and carry no seller name, so
+  org|title is the wrong identity there. The engine's dedupe now follows the spec's kind — jobs keep org|title (a
+  repost under a new link is the same job), deals use the link (two same-titled chairs are two chairs). The v1
+  import carries the old deals the same way: 426 landed, the vocabulary mapped onto the one status set
+  (contacted→applied, not→passed, sold→closed), the 0–10 score onto the 0–100 card. Rejected: widening the status
+  vocabulary for deals — one set keeps every screen and filter shared.
+
+- **2026-11-21 · The Learn import maps each old shape to the one lesson shape.**
+  The old lessons land as packs by topic, their one-line short opening the explanation. A guide contributes its
+  term entries as lessons (the {like} analogy lines read plain) and its glossary as a closing Words lesson; the
+  prose stays on the old page until retirement. An interview answer file becomes an answer-pack: the A lines are
+  the say lines, M/P/W the explanation, the K points the example, and the question itself a check — so Practice
+  can quiz prepared answers and Live can find them. Stable ids everywhere: a rerun updates, never doubles. The
+  real run: 12 packs, 325 lessons.
+
+- **2026-11-21 · The door's ear is not a chat model.**
+  Live transcribes through the door's own ear, found by name (EAR in src/ai/asr.ts), and the Models screen's picks
+  filter ears out — a switch to one is refused. The ear's files fail to load in oMLX right now ("not supported for
+  stt"); kestrel's side relays that in plain words and works unchanged once the door reloads it.
+
 - **2026-11-21 · Ask's fallback is the careful model; the second live eval is on record.**
   The Ask eval ran live, 13 of 16 (docs/eval/2026-11-21-learn-ask.md): the careful model 8 of 8, the fast one 5 of
   8, every failure a line too long to say in one breath. Ask is awaited and Listen speaks it, so the fallback in

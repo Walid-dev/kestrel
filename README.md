@@ -5,7 +5,7 @@ It replaces my local AI setup one part at a time, starting with **Notes**: a doc
 my notes on its words, and the changes the computer's own model proposes — every change shown, placed by code and
 saved only when I say so. Nothing leaves the computer.
 
-**Status:** v0.1 is done and tagged — the foundation and Notes. v0.2 · Searches is next.
+**Status:** every planned version is built — Notes (v0.1, tagged), Searches with the side-by-side mirror (v0.2), Applications with the agent commands (v0.3), Learn with Ask, Practice and Live (v0.4), and the rest — Tasks, deal searches, the models' costs, the morning brief (v0.5). The old setup retires by the map in [docs/retirement.md](docs/retirement.md); the final review round is in flight.
 
 ## Run it
 
