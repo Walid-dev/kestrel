@@ -43,7 +43,7 @@ const APPS: { name: string; what: string; when: string | null; color: string }[]
   {
     name: "Notes",
     what: "A document, my notes on its words, and the changes the computer's model proposes.",
-    when: "this version",
+    when: "v0.1",
     color: "var(--accent)",
   },
   {
@@ -76,7 +76,7 @@ export function Home() {
         One app · one computer · my own models
       </p>
       {APPS.map((app) => {
-        const soon = app.when !== "this version";
+        const soon = !["v0.1", "here since v0.2"].includes(app.when ?? "");
         const card = (
           <section
             key={app.name}
@@ -110,10 +110,11 @@ export function Home() {
             </p>
           </section>
         );
-        return soon ? (
+        const to = app.name === "Notes" ? "/notes" : app.name === "Searches" ? "/searches" : null;
+        return soon || !to ? (
           card
         ) : (
-          <Link key={app.name} to="/notes" aria-label="Open Notes">
+          <Link key={app.name} to={to} aria-label={`Open ${app.name}`}>
             {card}
           </Link>
         );

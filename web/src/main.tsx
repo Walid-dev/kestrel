@@ -10,6 +10,7 @@ import { Models } from "./models.tsx";
 import { NotesList } from "./notes/list.tsx";
 import { Reader } from "./notes/reader.tsx";
 import { NotesSet } from "./notes/set.tsx";
+import { Searches } from "./search/searches.tsx";
 import "./styles.css";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ if (rootEl)
               <Route index element={<Home />} />
               <Route path="notes" element={<NotesList />} />
               <Route path="models" element={<Models />} />
+              <Route path="searches" element={<Searches />} />
               <Route path="notes/set" element={<NotesSet />} />
               <Route path="notes/:id" element={<Reader />} />
             </Route>
