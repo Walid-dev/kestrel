@@ -37,21 +37,28 @@
 
 :root {
   color-scheme: dark;
-  --bg: #11141b;
-  --surface: #191d27;
-  --surface-2: #222733;
-  --line: #2c3240;
-  --text: #e4e8f0;
-  --muted: #99a2b4;
+  --bg: #15171c;
+  --surface: #1c1f26;
+  --surface-2: #242831;
+  --line: #333845;
+  --text: #c6ccd7;
+  --strong: #e9edf4;
+  --muted: #8a919e;
   --accent: #ff757f;
-  --accent-soft: rgba(255, 117, 127, 0.14);
-  --glow: rgba(255, 117, 127, 0.05);
-  --violet: #c099ff;
+  --accent-soft: rgba(255, 117, 127, 0.15);
+  --glow: rgba(255, 117, 127, 0.06);
+  --blue: #61afef;
+  --blue-soft: rgba(97, 175, 239, 0.16);
+  --purple: #c099ff;
   --green: #c3e88d;
   --orange: #ff966c;
+  --yellow: #ffc777;
+  --red: #e06c75;
   --ok: #c3e88d;
   --warn: #ff966c;
-  --warn-soft: rgba(255, 150, 108, 0.13);
+  --warn-soft: rgba(255, 150, 108, 0.14);
+  --add-soft: rgba(195, 232, 141, 0.14);
+  --del-soft: rgba(224, 108, 117, 0.15);
   --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
   --cond: "IBM Plex Sans Condensed", "Arial Narrow", sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -59,26 +66,64 @@
 @media (prefers-color-scheme: light) {
   :root {
     color-scheme: light;
-    --bg: #f1f3f7;
+    --bg: #fafafa;
     --surface: #ffffff;
-    --surface-2: #e8ebf0;
-    --line: #d7dce4;
-    --text: #181d2b;
-    --muted: #5b6472;
+    --surface-2: #f0f0f1;
+    --line: #dcdce0;
+    --text: #383a42;
+    --strong: #1c1e24;
+    --muted: #696c77;
     --accent: #c7324f;
     --accent-soft: rgba(199, 50, 79, 0.1);
     --glow: rgba(199, 50, 79, 0.04);
-    --violet: #8250df;
+    --blue: #3d74f0;
+    --blue-soft: rgba(61, 116, 240, 0.1);
+    --purple: #8250df;
     --green: #1a7f37;
     --orange: #b35900;
+    --yellow: #b78108;
+    --red: #e45649;
     --ok: #1a7f37;
     --warn: #b35900;
     --warn-soft: rgba(179, 89, 0, 0.1);
+    --add-soft: rgba(26, 127, 55, 0.1);
+    --del-soft: rgba(228, 86, 73, 0.1);
   }
 }
 
 html {
   background: var(--bg);
+}
+h1,
+h2,
+h3 {
+  color: var(--strong);
+}
+/* one button voice everywhere: the hunt pages' size, quiet by default */
+.btn {
+  font: 500 13.5px / 1.2 var(--sans);
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+}
+.btn-quiet {
+  color: var(--muted);
+}
+.btn-danger {
+  color: var(--red);
+}
+.btn[disabled] {
+  opacity: 0.55;
+  cursor: default;
 }
 body {
   margin: 0;

@@ -42,6 +42,10 @@ Both work on the repo only, with made-up data. Neither opens my data folder or t
 
 ## Plan changes during the build
 
+- **2026-11-21, gate 3:** the Notes screens live under `web/src/notes/` (the runbook wrote `web/notes/`). Asks run
+  with thinking on, and the model door's JSON mode is off for the big write: it pushed both local models into
+  top-level arrays — the prompt asks for one object, and the client reads tolerantly (a one-object array unwraps).
+  The dev door's origin check applies only when deployed. Each lesson sits in its step's status in the runbook.
 - **2026-11-21, gate 2:** the second look judgment chose the editor's code palette on the hunt pages' ground and a
   wolf-howling mark; GO 2 was given on it and the gate closed.
 - **2026-11-20, gate 2:** the look judgment failed the guides' palette; the design system became kestrel's own, and

@@ -1,6 +1,7 @@
 // Home: the launcher. Each app is a card; the ones still being built say which version brings them (docs/PLAN.md)
 // and stay quiet until then.
 import type { ReactNode } from "react";
+import { Link } from "react-router";
 
 const STROKE = {
   fill: "none",
@@ -49,7 +50,7 @@ const APPS: { name: string; what: string; when: string | null; color: string }[]
     name: "Searches",
     what: "Saved searches that run on their own: jobs first, deals later.",
     when: "v0.2",
-    color: "var(--violet)",
+    color: "var(--purple)",
   },
   {
     name: "Applications",
@@ -67,13 +68,16 @@ const APPS: { name: string; what: string; when: string | null; color: string }[]
 
 export function Home() {
   return (
-    <main className="grid gap-3.5">
-      <p className="font-mono mt-1 mb-1 text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--muted)" }}>
+    <main className="grid gap-3.5 md:grid-cols-2">
+      <p
+        className="font-mono mt-1 mb-1 text-[11px] uppercase tracking-[0.18em] md:col-span-2"
+        style={{ color: "var(--muted)" }}
+      >
         One app · one computer · my own models
       </p>
       {APPS.map((app) => {
         const soon = app.when !== "this version";
-        return (
+        const card = (
           <section
             key={app.name}
             className="rounded-2xl border p-5 transition-all duration-200 hover:-translate-y-px"
@@ -105,6 +109,13 @@ export function Home() {
               {app.what}
             </p>
           </section>
+        );
+        return soon ? (
+          card
+        ) : (
+          <Link key={app.name} to="/notes" aria-label="Open Notes">
+            {card}
+          </Link>
         );
       })}
     </main>

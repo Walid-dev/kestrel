@@ -5,6 +5,33 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-21 · Darker ground, the neon working colours, pink kept; Enter submits; the review opens itself.**
+  The One Dark structure stays, on a darker ground (`#15171c`) with brighter text, and the working colours step up to
+  the editor-neon shades the code palette uses — pink comes back for the note marks. Enter submits in any box
+  (Shift+Enter makes the line), the app's rule from here on. When an ask finishes while the screen is open, the
+  review opens by itself. Clicking outside a box closes it, like Esc and Android's Back — the common flows hold
+  everywhere.
+
+- **2026-11-21 · The colours are the editor's own theme; noting is a mode.**
+  The palette is Atom One Dark, read from the editor's theme file (and One Light for light mode): blue `#61afef`
+  leads, with the theme's purple, green, orange, yellow and red as the working colours; the pink accent is retired.
+  Buttons speak with one voice (`.btn` in styles.css, the hunt pages' size), headings use `--strong`. The review
+  reads as a code diff: minus lines red, plus lines green, the whole document when it is small, the changed parts
+  with context when it is big; a draft keeps the text it was made from for that. Noting is off by default: a switch
+  turns it on, and then selecting words or tapping a line asks for the note at once; each note in the rail carries
+  its own delete.
+  Replaces: the pink-led palette of the same day. Rejected: pink as the main colour; the two-colour inline word diff.
+
+- **2026-11-21 · The models for Notes, and how they are asked.**
+  The first live eval (docs/eval/2026-11-21-changes.md): 31 of 32 runs pass. Qwen3.8-27B-oQ4e-mtp is the careful
+  model (16 of 16, 9–40 s) and Ornith-1.5-35B-A3B-MLX-4bit the fast one (15 of 16, 2–53 s; one empty answer on the
+  trickiest case, which the app turns into a failed draft). Asks run with thinking on — the fast model drifts from
+  the shape without it. The model door's JSON mode stays off for the big write: its grammar pushed both models into
+  top-level arrays; the prompt asks for one object, and the client parses the whole text, falls back to the brace
+  slice, and unwraps a one-object array. Defaults live in `src/platform/config.ts` (MODEL_DEFAULTS); settings.json
+  overrides them.
+  Rejected: the door's JSON mode; thinking off for the fast model.
+
 - **2026-11-21 · The palette is the code palette; the mark is a wolf's face.**
   The second look judgment: the copper palette didn't fit either. The ground is now the hunt pages' dark
   (`#11141b` family) and light; the colours are the editor's code palette, the same shades `/hub/code.js` uses —

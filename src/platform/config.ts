@@ -6,11 +6,28 @@ import { join } from "node:path";
 import { z } from "zod";
 import { dataDir } from "./paths.ts";
 
+// this computer's model door and its two models (docs/decisions.md, 2026-11-21); settings.json overrides any of it
+export const MODEL_DEFAULTS = {
+  url: "http://127.0.0.1:8000/v1",
+  careful: "Qwen3.8-27B-oQ4e-mtp",
+  fast: "Ornith-1.5-35B-A3B-MLX-4bit",
+  contextChars: 160_000,
+};
+
 export const Settings = z.object({
   // who may reach kestrel: my Tailscale login, which Serve stamps on every request (step 7 enforces it)
   tailscaleLogin: z.string().min(1),
   // the folders Notes may open (step 8 reads it)
   notes: z.object({ folders: z.array(z.string()) }).default({ folders: [] }),
+  // the computer's own models (oMLX's OpenAI door); only these two may be called, and the guard below the context
+  models: z
+    .object({
+      url: z.string().default(MODEL_DEFAULTS.url),
+      careful: z.string().default(MODEL_DEFAULTS.careful),
+      fast: z.string().default(MODEL_DEFAULTS.fast),
+      contextChars: z.number().int().positive().default(MODEL_DEFAULTS.contextChars),
+    })
+    .default(MODEL_DEFAULTS),
 });
 export type Settings = z.infer<typeof Settings>;
 

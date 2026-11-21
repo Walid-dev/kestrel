@@ -1,0 +1,430 @@
+[
+  {
+    "name": "one-doc-two-notes",
+    "documents": [
+      {
+        "name": "plan.md",
+        "text": "# A made-up plan\n\nThe plan has three parts that we think about.\n\nThe second part waits for the first.\n\nThe end."
+      }
+    ],
+    "notes": [
+      {
+        "id": "n1",
+        "document": "plan.md",
+        "quote": "three parts that we think about",
+        "text": "Plainer: just say three parts."
+      },
+      {
+        "id": "n2",
+        "document": "plan.md",
+        "quote": "waits for the first",
+        "text": "Say how long it waits."
+      }
+    ],
+    "good": {
+      "overview": "plan.md: two small wording changes from the two notes.",
+      "changes": [
+        {
+          "document": "plan.md",
+          "find": "three parts that we think about",
+          "replace": "three parts",
+          "notes": ["n1"]
+        },
+        {
+          "document": "plan.md",
+          "find": "waits for the first",
+          "replace": "waits one week for the first",
+          "notes": ["n2"]
+        }
+      ],
+      "unanswered": []
+    },
+    "bad": {
+      "overview": "plan.md: changes.",
+      "changes": [
+        {
+          "document": "plan.md",
+          "find": "three sections that we think about",
+          "replace": "three parts",
+          "notes": ["n1"]
+        },
+        {
+          "document": "plan.md",
+          "find": "waits for the first",
+          "replace": "waits one week for the first",
+          "notes": ["n2"]
+        }
+      ],
+      "unanswered": []
+    },
+    "badWhy": "a quote that doesn't exist"
+  },
+  {
+    "name": "whole-document-note",
+    "documents": [
+      {
+        "name": "letter.md",
+        "text": "# A very long and winding made-up letter title\n\nDear team, the letter says hello.\n"
+      }
+    ],
+    "notes": [
+      {
+        "id": "n1",
+        "document": "letter.md",
+        "quote": "",
+        "text": "The title is too long: five words at most."
+      }
+    ],
+    "good": {
+      "overview": "letter.md: the title cut to five words.",
+      "changes": [
+        {
+          "document": "letter.md",
+          "find": "# A very long and winding made-up letter title",
+          "replace": "# A made-up letter",
+          "notes": ["n1"]
+        }
+      ],
+      "unanswered": []
+    },
+    "bad": {
+      "overview": "letter.md: nothing to do.",
+      "changes": [],
+      "unanswered": []
+    },
+    "badWhy": "note not handled"
+  },
+  {
+    "name": "two-docs-noted",
+    "documents": [
+      {
+        "name": "intro.md",
+        "text": "# Intro\n\nThe intro greets the made-up reader warmly and at length.\n"
+      },
+      {
+        "name": "outro.md",
+        "text": "# Outro\n\nThe outro says goodbye twice. Goodbye, goodbye.\n"
+      }
+    ],
+    "notes": [
+      {
+        "id": "n1",
+        "document": "intro.md",
+        "quote": "warmly and at length",
+        "text": "Shorter."
+      },
+      {
+        "id": "n2",
+        "document": "outro.md",
+        "quote": "Goodbye, goodbye.",
+        "text": "Once is enough."
+      }
+    ],
+    "good": {
+      "overview": "intro.md greets shorter; outro.md says goodbye once.",
+      "changes": [
+        {
+          "document": "intro.md",
+          "find": "warmly and at length",
+          "replace": "warmly",
+          "notes": ["n1"]
+        },
+        {
+          "document": "outro.md",
+          "find": " Goodbye, goodbye.",
+          "replace": "",
+          "notes": ["n2"]
+        }
+      ],
+      "unanswered": []
+    },
+    "bad": {
+      "overview": "intro.md greets shorter.",
+      "changes": [
+        {
+          "document": "intro.md",
+          "find": "warmly and at length",
+          "replace": "warmly",
+          "notes": ["n1"]
+        },
+        {
+          "document": "outro.md",
+          "find": " Goodbye, goodbye.",
+          "replace": "",
+          "notes": ["n2"]
+        }
+      ],
+      "unanswered": []
+    },
+    "badWhy": "overview missing a document"
+  },
+  {
+    "name": "three-docs-noted",
+    "documents": [
+      {
+        "name": "a.md",
+        "text": "Alpha file. The made-up alpha line stands here.\n"
+      },
+      {
+        "name": "b.md",
+        "text": "Beta file. The made-up beta line stands here.\n"
+      },
+      {
+        "name": "c.md",
+        "text": "Gamma file. The made-up gamma line stands here.\n"
+      }
+    ],
+    "notes": [
+      {
+        "id": "n1",
+        "document": "a.md",
+        "quote": "alpha line",
+        "text": "Call it the first line."
+      },
+      {
+        "id": "n2",
+        "document": "b.md",
+        "quote": "beta line",
+        "text": "Call it the second line."
+      },
+      {
+        "id": "n3",
+        "document": "c.md",
+        "quote": "gamma line",
+        "text": "Call it the third line."
+      }
+    ],
+    "good": {
+      "overview": "a.md, b.md and c.md each rename their line.",
+      "changes": [
+        {
+          "document": "a.md",
+          "find": "alpha line",
+          "replace": "first line",
+          "notes": ["n1"]
+        },
+        {
+          "document": "b.md",
+          "find": "beta line",
+          "replace": "second line",
+          "notes": ["n2"]
+        },
+        {
+          "document": "c.md",
+          "find": "gamma line",
+          "replace": "third line",
+          "notes": ["n3"]
+        }
+      ],
+      "unanswered": []
+    },
+    "bad": {
+      "overview": "a.md, b.md and c.md each rename their line.",
+      "changes": [
+        {
+          "document": "a.md",
+          "find": "alpha line",
+          "replace": "first line",
+          "notes": ["n1"]
+        },
+        {
+          "document": "b.md",
+          "find": "beta line",
+          "replace": "second line",
+          "notes": ["n2"]
+        },
+        {
+          "document": "c.md",
+          "find": "gamma line",
+          "replace": "third line",
+          "notes": ["n9"]
+        }
+      ],
+      "unanswered": [
+        {
+          "note": "n3",
+          "reason": "covered elsewhere"
+        }
+      ]
+    },
+    "badWhy": "a change no note asked for"
+  },
+  {
+    "name": "repeating-phrase",
+    "documents": [
+      {
+        "name": "fable.md",
+        "text": "The wolf waits. The night is long. The wolf waits. The morning comes.\n"
+      }
+    ],
+    "notes": [
+      {
+        "id": "n1",
+        "document": "fable.md",
+        "quote": "The wolf waits.",
+        "text": "The second one: make it 'The wolf still waits.'"
+      }
+    ],
+    "good": {
+      "overview": "fable.md: the second repeat marked as still waiting.",
+      "changes": [
+        {
+          "document": "fable.md",
+          "find": "The night is long. The wolf waits.",
+          "replace": "The night is long. The wolf still waits.",
+          "notes": ["n1"]
+        }
+      ],
+      "unanswered": []
+    },
+    "bad": {
+      "overview": "fable.md: changed.",
+      "changes": [
+        {
+          "document": "fable.md",
+          "find": "The wolf sleeps.",
+          "replace": "The wolf still waits.",
+          "notes": ["n1"]
+        }
+      ],
+      "unanswered": []
+    },
+    "badWhy": "a quote that doesn't exist"
+  },
+  {
+    "name": "near-the-size-limit",
+    "documents": [
+      {
+        "name": "big.md",
+        "text": "# A big made-up report\n\nThe made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. \nThe needle sentence stands here once.\nThe made-up report continues with another plain paragraph that says nothing new but takes its space. The made-up report continues with another plain paragraph that says nothing new but takes its space. "
+      }
+    ],
+    "notes": [
+      {
+        "id": "n1",
+        "document": "big.md",
+        "quote": "The needle sentence stands here once.",
+        "text": "Make the needle say 'found'."
+      }
+    ],
+    "good": {
+      "overview": "big.md: the needle sentence now says found.",
+      "changes": [
+        {
+          "document": "big.md",
+          "find": "The needle sentence stands here once.",
+          "replace": "The needle sentence says found.",
+          "notes": ["n1"]
+        }
+      ],
+      "unanswered": []
+    },
+    "bad": {
+      "overview": "big.md: done.",
+      "changes": [],
+      "unanswered": []
+    },
+    "badWhy": "note not handled"
+  },
+  {
+    "name": "a-removal",
+    "documents": [
+      {
+        "name": "about.md",
+        "text": "About the made-up team. We love filler sentences. We ship on Fridays.\n"
+      }
+    ],
+    "notes": [
+      {
+        "id": "n1",
+        "document": "about.md",
+        "quote": "We love filler sentences.",
+        "text": "Drop this sentence."
+      }
+    ],
+    "good": {
+      "overview": "about.md: the filler sentence removed.",
+      "changes": [
+        {
+          "document": "about.md",
+          "find": " We love filler sentences.",
+          "replace": "",
+          "notes": ["n1"]
+        }
+      ],
+      "unanswered": []
+    },
+    "bad": {
+      "overview": "about.md: the filler sentence removed.",
+      "changes": [
+        {
+          "document": "about.md",
+          "find": " We love filler sentences.",
+          "replace": "",
+          "notes": []
+        }
+      ],
+      "unanswered": []
+    },
+    "badWhy": "changes.0.notes"
+  },
+  {
+    "name": "unanswerable-note",
+    "documents": [
+      {
+        "name": "spec.md",
+        "text": "# A made-up spec\n\nThe spec lists two states: on and off.\n"
+      }
+    ],
+    "notes": [
+      {
+        "id": "n1",
+        "document": "spec.md",
+        "quote": "",
+        "text": "Add the diagram from the whiteboard photo."
+      },
+      {
+        "id": "n2",
+        "document": "spec.md",
+        "quote": "two states",
+        "text": "Name them in the same sentence."
+      }
+    ],
+    "good": {
+      "overview": "spec.md: the states named; the diagram can't come from text alone.",
+      "changes": [
+        {
+          "document": "spec.md",
+          "find": "The spec lists two states: on and off.",
+          "replace": "The spec lists two states, named on and off.",
+          "notes": ["n2"]
+        }
+      ],
+      "unanswered": [
+        {
+          "note": "n1",
+          "reason": "a photo isn't in the text; add the diagram by hand"
+        }
+      ]
+    },
+    "bad": {
+      "overview": "spec.md: everything done.",
+      "changes": [
+        {
+          "document": "spec.md",
+          "find": "The spec lists two states: on and off.",
+          "replace": "The spec lists two states, named on and off.",
+          "notes": ["n2"]
+        },
+        {
+          "document": "spec.md",
+          "find": "the diagram from the whiteboard",
+          "replace": "a diagram",
+          "notes": ["n1"]
+        }
+      ],
+      "unanswered": []
+    },
+    "badWhy": "a quote that doesn't exist"
+  }
+]

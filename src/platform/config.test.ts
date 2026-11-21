@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { loadSettings } from "./config.ts";
+import { loadSettings, MODEL_DEFAULTS } from "./config.ts";
 
 test("a missing settings file stops kestrel with a filled example", () => {
   const dir = mkdtempSync(join(tmpdir(), "kestrel-cfg-"));
@@ -19,5 +19,9 @@ test("a wrong settings file says which field, with the example", () => {
 test("a good settings file answers the settings, defaults filled", () => {
   const dir = mkdtempSync(join(tmpdir(), "kestrel-cfg-"));
   writeFileSync(join(dir, "settings.json"), JSON.stringify({ tailscaleLogin: "made-up-login" }));
-  assert.deepEqual(loadSettings(dir), { tailscaleLogin: "made-up-login", notes: { folders: [] } });
+  assert.deepEqual(loadSettings(dir), {
+    tailscaleLogin: "made-up-login",
+    notes: { folders: [] },
+    models: MODEL_DEFAULTS,
+  });
 });

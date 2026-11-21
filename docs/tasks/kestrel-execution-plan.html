@@ -102,12 +102,12 @@
     <p class="lede">The foundation and Notes, in 16 steps over three build gates, then a fourth gate where a second
       model reviews it. Each step is one commit, with its files, a check written so it can fail, and its message. I
       read each step's explanation and its changes, say GO, and the builder commits and pushes.</p>
-    <div class="now"><b>Now:</b> Gate 2 is closed: GO 2 came on 2026-11-21, on the code-palette design (the editor's
-      colours on the hunt pages' ground, the wolf mark), and <code>gate-2-skeleton</code> merged into main. Next:
-      Gate 3 · Notes, step 8, Documents.</div>
+    <div class="now"><b>Now:</b> Gate 3 is closed (GO 3, 2026-11-21) and Notes runs from main. Next: Gate 4 — I start
+      Codex on the repo with round 2 of <code>docs/review/brief.md</code>; the builder fixes each finding with a test,
+      then v0.1 tags.</div>
     <div class="stats">
-      <span class="chip">7 of 16 steps committed</span>
-      <span class="chip">gate 2 of 4 closed</span>
+      <span class="chip">16 of 16 steps committed</span>
+      <span class="chip">gate 3 of 4 closed</span>
       <span class="chip">notes next</span>
     </div>
     <nav class="toc" aria-label="Contents">
@@ -465,7 +465,11 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
       <p class="field"><b>Check:</b> a file in a listed folder opens; a path that leaves the folder is refused, and so
         is a symlink inside it that points outside; a non-UTF-8 file and a PDF are refused with the reason.</p>
       <p class="msg"><code>feat(notes): open a document from my folders or an upload</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> The screens live in <code>web/src/notes/</code>. Proven: the folder
+        rule at the real path (a symlink pointing outside refused), PDF, non-UTF-8 and over-200-KB refused with
+        reasons, BOM/CRLF/final-newline remembered, upload kept as given; the list and the reader in a real browser.
+        One lesson: Hono's <code>route()</code> copies routes when called, so the root is composed after every mount
+        (a route added later never answered).</p>
     </article>
 
     <article class="step" id="s9">
@@ -483,7 +487,11 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
         brings the text back; with the server stopped, the opened document and its notes still show, with "Computer
         asleep since …".</p>
       <p class="msg"><code>feat(notes): leave notes on words or on the whole document</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> Proven in the browser: the mark in the text and the list below; the
+        noted line removed from the file left the note kept and shown as "detached: its words are gone"; with the
+        server stopped, the document and its notes still render with the asleep banner; Escape (the Back of a native
+        dialog) closed the sheet mid-note and reopening brought the words back. The anchor picks between repeated
+        phrases by the kept context, nearest first (src/domain/notes/notes.ts).</p>
     </article>
 
     <article class="step" id="s10">
@@ -501,7 +509,11 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
         any call. The probe, run by hand with
         made-up text, passes for Qwen and Ornith through the model queue.</p>
       <p class="msg"><code>feat(ai): the model client, through the model queue</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> Tests against the stand-in: wrong shape, timeout, refusal and a down
+        door each answer as a value with the reason; an unlisted model and a too-long request are refused with zero
+        calls reaching the door. The live probe passed: Qwen ok in 8.8 s, Ornith ok in 7.1 s, through the queue
+        (oMLX doesn't report token counts in the stream, so those stay empty). The model defaults live in one place,
+        config.ts's MODEL_DEFAULTS; settings.json overrides them.</p>
     </article>
 
     <article class="step" id="s11">
@@ -516,7 +528,10 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
         the reason (a note not handled, a quote that doesn't exist, a change no note asked for, an overview missing a
         document).</p>
       <p class="msg"><code>test(eval): the answer's shape and labelled cases for changes from notes</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> Eight made-up cases: two with several documents all noted, one with a
+        repeating phrase, one big one (about 30 K characters — sized so the live eval's four runs stay minutes, not
+        hours; the 200 KB document limit is proven separately in step 8's tests). For each, the scorer passes the
+        hand-written good answer and fails the bad one with the named reason.</p>
     </article>
 
     <article class="step" id="s12">
@@ -533,7 +548,12 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
       <p class="field"><b>Check:</b> the eval passes on the stand-in model, inside the check; tests for the placing rules
         (once, repeated, overlapping); the draft is still there after leaving and reopening the app.</p>
       <p class="msg"><code>feat(notes): ask the model for changes from my notes</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> The eval runs inside the check (8 of 8 on the stand-in, through the
+        real prompt, shape, scorer and placing rules). Proven live on the fast model in the browser: ask, the
+        2-second watch, then the review — one change placed and shown as a word diff, one left out with its reason.
+        Two live lessons: the identity middleware's origin check now runs only when deployed (the dev door forwards
+        with its own address and blocked every write); and a small model may write the overview as an array — the
+        shape reads it, joins it, and the prompt now says ONE string.</p>
     </article>
 
     <article class="step" id="s13">
@@ -547,7 +567,11 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
       <p class="field"><b>Check:</b> tests prove that save writes the file, a file changed after the draft was made is
         refused with "changed since", and Undo brings back the previous text.</p>
       <p class="msg"><code>feat(notes): save the changes to the file</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> Proven in tests and live in the browser: Save wrote the real file with
+        its BOM, CRLF and final newline back on, the answered notes moved to Done, Undo brought the previous text
+        back once, and a file touched after the draft was refused with "changed since". A draft now pins the bytes it
+        was made from, so a stale draft can never write. From the live run: the fast model asks now go with thinking
+        on (without it, Ornith drifted from the shape — the old setup learned the same, 2026-11-14).</p>
     </article>
 
     <article class="step" id="s14">
@@ -559,7 +583,10 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
       <p class="field"><b>Check:</b> the eval's cases with several documents pass on the stand-in model; each document
         saves on its own; a set too long for the model is refused before any call, with what to do instead.</p>
       <p class="msg"><code>feat(notes): review several documents together</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> Proven live: two documents picked on the list, one ask, one overview
+        naming both, and each document saved on its own Save naming its own file; the draft left after the last. A
+        too-long set is refused before any call with "ask with fewer documents at once" (tested). The eval's
+        several-document cases pass on the stand-in inside the check.</p>
     </article>
 
     <article class="step" id="s15">
@@ -570,7 +597,10 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
       <p class="field"><b>Check:</b> the report has a row per case for each model, with pass or fail, time and tokens;
         the default model for each speed is recorded with its numbers.</p>
       <p class="msg"><code>docs(eval): the first live eval of changes from notes</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> 31 of 32 runs pass (docs/eval/2026-11-21-changes.md). Qwen 16 of 16
+        (9–40 s), Ornith 15 of 16 (2–53 s; one empty answer on the trickiest case). The defaults stand, with the two
+        asking lessons recorded: thinking on, the door's JSON mode off. The first attempt failed across the board on
+        that JSON mode — the eval caught it before I ever used Notes, which is exactly its job.</p>
     </article>
 
     <article class="step" id="s16">
@@ -581,12 +611,17 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
       <p class="field"><b>Check:</b> the README's commands work from a fresh clone in a scratch folder:
         <code>npm ci</code>, <code>node --run check</code>, <code>node --run build</code>.</p>
       <p class="msg"><code>docs(repo): how to run kestrel, and what v0.1 does</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> The README carries how to run it, what v0.1 does and the eval's
+        headline; the process notes carry gate 3's plan changes. The README's commands were run from a fresh clone in
+        a scratch folder: npm ci, the check, the build.</p>
     </article>
 
     <div class="go" id="g3">
       <div class="head"><span class="n">G3</span><h3>GO 3: I use Notes for real, on my phone and on the computer</h3></div>
       <p>On GO, the builder merges <code>gate-3-notes</code> into main.</p>
+      <p><span class="status done">Done, 2026-11-21.</span> Three hands-on rounds shaped it: tap-to-note behind a
+        Notes switch, the review as a code diff that opens itself, Enter submits, boxes close from outside, the
+        editor's own palette on a darker ground — pink leading, blue on the marks. Merged into main.</p>
     </div>
 
     <div class="gate" id="gate4">
@@ -616,9 +651,9 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
     <h2>Waiting on me</h2>
     <ol class="tight">
       <li><b>The plan review:</b> start Codex on the repo with round 1 of <code>docs/review/brief.md</code>.</li>
-      <li><b>Before step 8:</b> tell the builder which folders Notes may open; it adds them to the settings. A folder in
-        Documents, Desktop, Downloads or iCloud Drive also needs kestrel's Node allowed in System Settings › Privacy
-        &amp; Security.</li>
+      <li><b>At GO 3:</b> name the folders Notes may open; the builder writes them into the real settings. Until
+        then, Upload is the way in on the deployed app. A folder in Documents, Desktop, Downloads or iCloud Drive
+        also needs kestrel's Node allowed in System Settings › Privacy &amp; Security.</li>
     </ol>
   </section>
 

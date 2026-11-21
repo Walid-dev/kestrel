@@ -1,16 +1,13 @@
-// The kestrel mark: a wolf's face, one polygon with the eyes cut out in the ground's colour. The favicon
-// (web/public/favicon.svg) and the app icons (scripts/make-icons.ts) carry the same geometry.
+// The kestrel mark: a wolf howling, one polygon, with the moon when asked. The favicon (web/public/favicon.svg) and
+// the app icons (scripts/make-icons.ts) carry the same geometry.
 export const WOLF =
-  "22,4 36,15 50,15 64,15 78,4 72,20 82,30 87,42 75,50 79,61 64,75 50,87 36,75 21,61 25,50 13,42 18,30 28,20";
-export const EYES = ["56,36 70,33 62,44", "44,36 30,33 38,44"];
+  "66,2 61,10 57,13 52,24 50,40 48,56 46,84 39,84 41,64 35,65 31,84 23,84 22,74 15,66 2,72 12,58 14,49 29,40 38,32 46,24 40,16 47,14 51,8";
 
-export function Mark({ size = 26 }: { size?: number }) {
+export function Mark({ size = 26, moon = false }: { size?: number; moon?: boolean }) {
   return (
     <svg viewBox="0 0 100 100" width={size} height={size} aria-hidden="true">
+      {moon && <circle cx="80" cy="16" r="8" fill="var(--yellow)" />}
       <polygon points={WOLF} fill="var(--accent)" />
-      {EYES.map((e) => (
-        <polygon key={e} points={e} fill="var(--bg)" />
-      ))}
     </svg>
   );
 }
