@@ -57,17 +57,18 @@ export function loadSettings(dir: string = dataDir()): Settings {
     2,
   );
   let raw: unknown;
+  // the message names settings.json, never its absolute path: launchd keeps stderr in a log, and the log must not
+  // carry a home path (review R2-9)
   try {
     raw = JSON.parse(readFileSync(file, "utf8"));
   } catch (e) {
-    throw new Error(
-      `kestrel needs its settings at ${file} (${e instanceof Error ? e.message : e}). An example:\n${example}`,
-    );
+    const why = (e as NodeJS.ErrnoException).code ?? (e instanceof SyntaxError ? "not JSON" : "unreadable");
+    throw new Error(`kestrel needs its settings: settings.json in its data folder (${why}). An example:\n${example}`);
   }
   const parsed = Settings.safeParse(raw);
   if (!parsed.success)
     throw new Error(
-      `${file} is wrong: ${parsed.error.issues.map((i) => `${i.path.join(".")} ${i.message}`).join("; ")}. An example:\n${example}`,
+      `settings.json is wrong: ${parsed.error.issues.map((i) => `${i.path.join(".")} ${i.message}`).join("; ")}. An example:\n${example}`,
     );
   return parsed.data;
 }
