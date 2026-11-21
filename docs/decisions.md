@@ -5,6 +5,16 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-21 · The palette is the code palette; the mark is a wolf howling.**
+  The second look judgment: the copper palette didn't fit either. The ground is now the hunt pages' dark
+  (`#11141b` family) and light; the colours are the editor's code palette, the same shades `/hub/code.js` uses —
+  pink `#ff757f` as the accent, violet, green and orange, each app card's glyph in its own one. The type is the
+  hunt's: IBM Plex Sans for text, Sans Condensed for headings and the wordmark, Mono for data, all served from
+  `web/public/fonts`. The mark is one wolf-howling-at-the-moon polygon, the same points in `web/src/mark.tsx`,
+  `favicon.svg` and `scripts/make-icons.ts` (a ray-cast polygon fill, sampled 3×3). GO 2 was given on this design.
+  Replaces: the 2026-11-20 palette and feather mark; the entry below keeps that day's other fix (the fonts are
+  really served).
+
 - **2026-11-20 · The design system is kestrel's own.**
   The gate-2 look judgment failed the guides' palette: flat, not polished. Two causes fixed. The palette is now
   kestrel's (warm graphite, cream, copper — the bird's colours), dark and light, all tokens in `web/src/styles.css`.

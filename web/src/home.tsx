@@ -38,15 +38,31 @@ const ICONS: Record<string, ReactNode> = {
   ),
 };
 
-const APPS: { name: string; what: string; when: string | null }[] = [
+const APPS: { name: string; what: string; when: string | null; color: string }[] = [
   {
     name: "Notes",
     what: "A document, my notes on its words, and the changes the computer's model proposes.",
     when: "this version",
+    color: "var(--accent)",
   },
-  { name: "Searches", what: "Saved searches that run on their own: jobs first, deals later.", when: "v0.2" },
-  { name: "Applications", what: "One page by state; what needs me waits here and nothing gets lost.", when: "v0.3" },
-  { name: "Learn", what: "One lesson per page, read aloud, with practice and Ask.", when: "v0.4" },
+  {
+    name: "Searches",
+    what: "Saved searches that run on their own: jobs first, deals later.",
+    when: "v0.2",
+    color: "var(--violet)",
+  },
+  {
+    name: "Applications",
+    what: "One page by state; what needs me waits here and nothing gets lost.",
+    when: "v0.3",
+    color: "var(--orange)",
+  },
+  {
+    name: "Learn",
+    what: "One lesson per page, read aloud, with practice and Ask.",
+    when: "v0.4",
+    color: "var(--green)",
+  },
 ];
 
 export function Home() {
@@ -68,8 +84,8 @@ export function Home() {
             }}
           >
             <div className="flex items-center gap-3">
-              <span style={{ color: soon ? "var(--muted)" : "var(--accent)" }}>{ICONS[app.name]}</span>
-              <h2 className="font-display text-xl" style={{ color: soon ? "var(--muted)" : "var(--text)" }}>
+              <span style={{ color: app.color, opacity: soon ? 0.75 : 1 }}>{ICONS[app.name]}</span>
+              <h2 className="font-cond text-xl font-bold" style={{ color: soon ? "var(--muted)" : "var(--text)" }}>
                 {app.name}
               </h2>
               {app.when && (

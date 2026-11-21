@@ -40,7 +40,7 @@ export function App() {
     <div className="mx-auto min-h-dvh w-full max-w-xl px-5 pb-16">
       <header className="flex items-center gap-2.5 py-5">
         <Mark size={26} />
-        <h1 className="font-display text-[23px] tracking-tight">kestrel</h1>
+        <h1 className="font-cond text-2xl font-bold tracking-tight">kestrel</h1>
         <span className="font-mono ml-auto flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
           <span
             aria-hidden="true"
