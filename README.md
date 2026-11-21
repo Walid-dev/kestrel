@@ -5,7 +5,7 @@ It replaces my local AI setup one part at a time, starting with **Notes**: a doc
 my notes on its words, and the changes the computer's own model proposes — every change shown, placed by code and
 saved only when I say so. Nothing leaves the computer.
 
-**Status:** v0.1 is built and in my hands; the second model's review closes it.
+**Status:** v0.1 is done and tagged — the foundation and Notes. v0.2 · Searches is next.
 
 ## Run it
 
