@@ -17,7 +17,11 @@ function setup() {
   mkdirSync(outside);
   const db = new DatabaseSync(join(base, "t.db"));
   migrate(db, join(base, "t.db"));
-  const settings: Settings = { tailscaleLogin: "made-up", notes: { folders: [inside] } };
+  const settings: Settings = {
+    tailscaleLogin: "made-up",
+    notes: { folders: [inside] },
+    models: { url: "http://127.0.0.1:1/v1", careful: "c", fast: "f", contextChars: 1000 },
+  };
   return { base, inside, outside, db, settings };
 }
 

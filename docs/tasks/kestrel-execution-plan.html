@@ -106,7 +106,7 @@
       colours on the hunt pages' ground, the wolf mark), and <code>gate-2-skeleton</code> merged into main. Next:
       Gate 3 · Notes, step 8, Documents.</div>
     <div class="stats">
-      <span class="chip">9 of 16 steps committed</span>
+      <span class="chip">10 of 16 steps committed</span>
       <span class="chip">gate 2 of 4 closed</span>
       <span class="chip">notes next</span>
     </div>
@@ -509,7 +509,11 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
         any call. The probe, run by hand with
         made-up text, passes for Qwen and Ornith through the model queue.</p>
       <p class="msg"><code>feat(ai): the model client, through the model queue</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> Tests against the stand-in: wrong shape, timeout, refusal and a down
+        door each answer as a value with the reason; an unlisted model and a too-long request are refused with zero
+        calls reaching the door. The live probe passed: Qwen ok in 8.8 s, Ornith ok in 7.1 s, through the queue
+        (oMLX doesn't report token counts in the stream, so those stay empty). The model defaults live in one place,
+        config.ts's MODEL_DEFAULTS; settings.json overrides them.</p>
     </article>
 
     <article class="step" id="s11">
