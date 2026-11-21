@@ -79,3 +79,31 @@ test("a failed answer leaves a failed draft with the reason, and a new ask may s
   assert.equal(failed?.status, "failed");
   assert.match(failed?.error ?? "", /shape/);
 });
+
+test("a set of two: one ask, each document saves on its own, the draft leaves after the last", async () => {
+  const db = setup();
+  const a = addUpload(db, "a.md", "Alpha line one.");
+  const b = addUpload(db, "b.md", "Beta line one.");
+  const na = addNote(db, a.id, { text: "two", quote: "one" });
+  const nb = addNote(db, b.id, { text: "two", quote: "one" });
+  const s = await startStandIn(() => ({
+    content: JSON.stringify({
+      overview: "a.md and b.md: one each.",
+      changes: [
+        { document: "a.md", find: "one", replace: "two", notes: [na.id] },
+        { document: "b.md", find: "one", replace: "two", notes: [nb.id] },
+      ],
+      unanswered: [],
+    }),
+  }));
+  const made = startDraft(db, settings(s.url), { documentIds: [a.id, b.id], speed: "careful" });
+  await made.done;
+  await s.close();
+  const { saveDraft } = await import("./save.ts");
+  saveDraft(db, made.id, a.id);
+  const half = getDraft(db, made.id);
+  assert.equal(half?.perDocument[a.id].savedAt !== undefined, true);
+  assert.equal(half?.perDocument[b.id].savedAt, undefined);
+  saveDraft(db, made.id, b.id);
+  assert.equal(getDraft(db, made.id), null);
+});

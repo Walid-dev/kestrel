@@ -8,6 +8,7 @@ import { App } from "./app.tsx";
 import { Home } from "./home.tsx";
 import { NotesList } from "./notes/list.tsx";
 import { Reader } from "./notes/reader.tsx";
+import { NotesSet } from "./notes/set.tsx";
 import "./styles.css";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ if (rootEl)
             <Route element={<App />}>
               <Route index element={<Home />} />
               <Route path="notes" element={<NotesList />} />
+              <Route path="notes/set" element={<NotesSet />} />
               <Route path="notes/:id" element={<Reader />} />
             </Route>
           </Routes>
