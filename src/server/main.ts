@@ -10,6 +10,8 @@ import { migrate } from "../db/migrate.ts";
 import { loadSettings } from "../platform/config.ts";
 import { dataDir, isDeployed } from "../platform/paths.ts";
 import { app } from "./app.ts";
+import { mountApply } from "./apply.ts";
+import { mountEvents } from "./events.ts";
 import { identity } from "./identity.ts";
 import { mountNotes } from "./notes.ts";
 import { startScheduler } from "./scheduler.ts";
@@ -32,6 +34,8 @@ const { applied, copy } = migrate(db, dbFile);
 if (applied) console.log(`migrations: ${applied} applied${copy ? ", the database copied first" : ""}`);
 mountNotes(app, db, settings);
 mountSearch(app, db);
+mountApply(app, db);
+mountEvents(app);
 startScheduler(db, {
   specsDir: join(dataDir(), "searches"),
   backupsDir: join(dataDir(), "backups"),
