@@ -121,9 +121,12 @@ export function openFile(db: DatabaseSync, settings: Settings, path: string): Do
 
 // keep an uploaded text: the database holds the original. The same name saves over the earlier upload — never a
 // duplicate — and its notes find their places again or show as detached.
-export function addUpload(db: DatabaseSync, name: string, text: string): DocumentMeta {
-  if (Buffer.byteLength(text, "utf8") > MAX_BYTES) throw new Refused(`bigger than ${MAX_BYTES / 1024} KB`);
-  const d = decode(Buffer.from(text, "utf8"));
+export function addUpload(db: DatabaseSync, name: string, given: string | Buffer): DocumentMeta {
+  // the screen sends the file's own bytes, so the fatal UTF-8 check judges the original, not a browser rewrite
+  // (review R2-6); a plain string stays welcome for the tests
+  const bytes = Buffer.isBuffer(given) ? given : Buffer.from(given, "utf8");
+  if (bytes.length > MAX_BYTES) throw new Refused(`bigger than ${MAX_BYTES / 1024} KB`);
+  const d = decode(bytes);
   const clean = basename(name).trim() || "untitled.md";
   const have = db.prepare("SELECT id FROM documents WHERE source = 'upload' AND name = ?").get(clean) as
     | { id: string }
@@ -141,7 +144,7 @@ export function addUpload(db: DatabaseSync, name: string, text: string): Documen
     d.bom ? 1 : 0,
     d.eol,
     d.finalNewline ? 1 : 0,
-    createHash("sha256").update(text, "utf8").digest("hex"),
+    createHash("sha256").update(bytes).digest("hex"),
     new Date().toISOString(),
   );
   return meta(db.prepare("SELECT * FROM documents WHERE id = ?").get(id) as Record<string, unknown>);

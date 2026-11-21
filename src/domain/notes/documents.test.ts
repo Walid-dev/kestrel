@@ -76,6 +76,11 @@ test("BOM, CRLF and a missing final newline are remembered; the kept text is pla
   assert.deepEqual({ ...row }, { bom: 1, eol: "crlf", final_newline: 0 });
 });
 
+test("an upload's own bytes are judged: invalid UTF-8 is refused as the file, not as a rewrite (R2-6)", () => {
+  const { db } = setup();
+  assert.throws(() => addUpload(db, "bad.md", Buffer.from([0x68, 0x69, 0xff, 0xfe, 0x00])), /UTF-8/);
+});
+
 test("an upload with the same name saves over the earlier one, never a duplicate", () => {
   const { db } = setup();
   const first = addUpload(db, "cover-letter.txt", "Dear team, version one.");
