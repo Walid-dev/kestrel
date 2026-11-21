@@ -88,7 +88,14 @@ test("BOM, CRLF and a missing final newline are remembered; the kept text is pla
 
 test("an upload's own bytes are judged: invalid UTF-8 is refused as the file, not as a rewrite (R2-6)", () => {
   const { db } = setup();
-  assert.throws(() => addUpload(db, "bad.md", Buffer.from([0x68, 0x69, 0xff, 0xfe, 0x00])), /UTF-8/);
+  assert.throws(() => addUpload(db, "bad.md", Buffer.from([0x68, 0x69, 0xff, 0xfe])), /UTF-8/);
+});
+
+test("an upload faces the same judges as a folder file: binary names and NUL bytes refused (R2-10)", () => {
+  const { db } = setup();
+  assert.throws(() => addUpload(db, "photo.png", Buffer.from("not really a photo")), /not a text format/);
+  assert.throws(() => addUpload(db, "blob.md", Buffer.from([0x61, 0x00, 0x62])), /binary content/);
+  assert.equal(addUpload(db, "rows.csv", "name,age\nmade-up,7\n").name, "rows.csv");
 });
 
 test("an upload with the same name saves over the earlier one, never a duplicate", () => {

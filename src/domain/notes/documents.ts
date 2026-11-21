@@ -168,6 +168,9 @@ export function addUpload(db: DatabaseSync, name: string, given: string | Buffer
   // (review R2-6); a plain string stays welcome for the tests
   const bytes = Buffer.isBuffer(given) ? given : Buffer.from(given, "utf8");
   if (bytes.length > MAX_BYTES) throw new Refused(`bigger than ${MAX_BYTES / 1024} KB`);
+  const uploadExt = extname(name).toLowerCase();
+  if (BINARY_EXT.has(uploadExt)) throw new Refused(`${uploadExt} is not a text format`);
+  if (bytes.includes(0)) throw new Refused("not text: the file carries binary content");
   const d = decode(bytes);
   const clean = basename(name).trim() || "untitled.md";
   const have = db.prepare("SELECT id FROM documents WHERE source = 'upload' AND name = ?").get(clean) as

@@ -68,7 +68,7 @@ export function NotesList() {
         <input
           ref={file}
           type="file"
-          accept=".md,.markdown,.txt,.text"
+          accept="text/*,.md,.markdown,.txt,.text,.csv,.json,.rst,.org,.yaml,.yml,.toml,.ini,.log"
           hidden
           onChange={async (e) => {
             const f = e.target.files?.[0];
