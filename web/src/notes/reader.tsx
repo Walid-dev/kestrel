@@ -322,11 +322,11 @@ export function Reader() {
                   type="button"
                   className="inline cursor-pointer rounded px-0.5 text-left"
                   style={{
-                    background: "var(--pink-soft)",
+                    background: "var(--blue-soft)",
                     color: "inherit",
                     font: "inherit",
                     border: "none",
-                    boxShadow: "inset 0 -2px var(--pink)",
+                    boxShadow: "inset 0 -2px var(--blue)",
                   }}
                   onClick={open}
                 >
