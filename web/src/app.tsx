@@ -2,6 +2,7 @@
 // computer doesn't answer (the service worker then serves the last copies).
 import { useQuery } from "@tanstack/react-query";
 import { Outlet } from "react-router";
+import { Mark } from "./mark.tsx";
 
 const LAST_SEEN = "kestrel-last-seen";
 
@@ -36,31 +37,23 @@ function asleepSince(): string {
 export function App() {
   const health = useHealth();
   return (
-    <div className="mx-auto min-h-dvh w-full max-w-3xl px-4 pb-16">
-      <header className="flex items-center gap-3 py-4">
-        <span
-          aria-hidden="true"
-          className="grid h-9 w-9 place-items-center rounded-xl border"
-          style={{ borderColor: "var(--line)", background: "var(--surface)" }}
-        >
-          <span className="block h-3.5 w-3.5 rounded-full border-4" style={{ borderColor: "var(--accent)" }} />
-        </span>
-        <h1 className="font-cond text-2xl font-bold tracking-tight">kestrel</h1>
-        <span
-          className="font-mono ml-auto rounded-full border px-3 py-1 text-xs"
-          style={{
-            borderColor: "var(--line)",
-            background: "var(--surface)",
-            color: health.isError ? "var(--warn)" : "var(--ok)",
-          }}
-        >
+    <div className="mx-auto min-h-dvh w-full max-w-xl px-5 pb-16">
+      <header className="flex items-center gap-2.5 py-5">
+        <Mark size={26} />
+        <h1 className="font-display text-[23px] tracking-tight">kestrel</h1>
+        <span className="font-mono ml-auto flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
+          <span
+            aria-hidden="true"
+            className="block h-2 w-2 rounded-full"
+            style={{ background: health.isError ? "var(--warn)" : "var(--ok)" }}
+          />
           {health.isError ? "asleep" : "up"}
         </span>
       </header>
       {health.isError && (
         <p
-          className="mb-4 rounded-lg border border-dashed px-4 py-3 text-sm"
-          style={{ borderColor: "var(--warn)", background: "var(--warn-soft)" }}
+          className="mb-4 rounded-xl border px-4 py-3 text-sm"
+          style={{ borderColor: "var(--line)", background: "var(--warn-soft)", color: "var(--text)" }}
         >
           Computer asleep since {asleepSince()}. You are reading the last copies; nothing can be saved right now.
         </p>

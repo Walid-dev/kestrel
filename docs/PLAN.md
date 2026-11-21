@@ -118,8 +118,10 @@ Each gets its own step-by-step plan, reviewed, before it starts.
 
 ### v0.4 · Learn and Interview
 
-- Guides: the guides my guide prompt makes, one lesson per page, read aloud by the computer's voice, with check
-  questions and a way to ask about a lesson. (The current setup has had them since 2026-11-15.)
+- One Learn app absorbs the old setup's two (Guides and Learn, decided 2026-11-20): Learn's lesson shape (say,
+  explain, example, words, check — built from research on how people learn), written in the plain style, with Ask on
+  every lesson, simple hand-drawn diagrams, and richer lessons. One lesson per page, read aloud by the computer's
+  voice.
 - Packs of prompts and answers: one kind of content for prepared answers, lessons, demo scripts and the guides'
   check questions.
 - One reader with Listen, Follow, notes and search; Practice with spaced review; Live (the question heard, the best

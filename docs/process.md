@@ -42,5 +42,7 @@ Both work on the repo only, with made-up data. Neither opens my data folder or t
 
 ## Plan changes during the build
 
+- **2026-11-20, gate 2:** the look judgment failed the guides' palette; the design system became kestrel's own, and
+  the fonts are now really served (`docs/decisions.md`). The gate's GO repeats on the new look.
 - **2026-11-17, step 7:** deploy takes main or a gate branch being judged, not main only. A gate's GO looks at the
   deployed app, which exists before the merge. Recorded in `docs/decisions.md`.

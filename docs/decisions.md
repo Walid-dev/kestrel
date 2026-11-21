@@ -5,6 +5,19 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-20 · The design system is kestrel's own.**
+  The gate-2 look judgment failed the guides' palette: flat, not polished. Two causes fixed. The palette is now
+  kestrel's (warm graphite, cream, copper — the bird's colours), dark and light, all tokens in `web/src/styles.css`.
+  And the IBM Plex fonts were named but never served, so every screen fell back to system fonts; they are now served
+  from `web/public/fonts` (Sans variable, Serif for the wordmark and headings, Mono for data), never from the
+  internet. One feather mark, drawn once and reused (`web/src/mark.tsx`, `favicon.svg`, `scripts/make-icons.ts`).
+  Rejected: keeping the guides' palette; loading fonts from a CDN.
+
+- **2026-11-20 · Navigation: a launcher, then one app at a time.**
+  Home is the launcher. An app takes the whole screen, on the phone and on the computer; the top bar's mark returns
+  home; the browser's Back always works (real routes, no overlays that trap it). Built from the Notes screens on.
+  Rejected: apps beside each other on one page, as the old setup's hub does.
+
 - **2026-11-17 · Deploy takes main, or a gate branch being judged.**
   A gate's GO is a judgment of the deployed app, which happens before the merge; so deploy accepts `gate-*` besides
   main. Committed code only still holds: deploy refuses a dirty tree and checks out an exact commit.
