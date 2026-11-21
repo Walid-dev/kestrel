@@ -1,0 +1,3 @@
+#!/bin/sh
+# the pushed commits through the guard: gitleaks, the personal patterns, and never an old/* branch
+exec node scripts/guard.ts --push

@@ -102,13 +102,13 @@
     <p class="lede">The foundation and Notes, in 16 steps over three build gates, then a fourth gate where a second
       model reviews it. Each step is one commit, with its files, a check written so it can fail, and its message. I
       read each step's explanation and its changes, say GO, and the builder commits and pushes.</p>
-    <div class="now"><b>Now:</b> round 1 found 10 problems, and all 10 fixes are applied
-      (<code>docs/review/round-1-plan.md</code>, Outcome). On my GO they are committed and pushed, and Gate 2
-      starts.</div>
+    <div class="now"><b>Now:</b> Gate 2 is closed: GO 2 came on 2026-11-21, on the code-palette design (the editor's
+      colours on the hunt pages' ground, the wolf mark), and <code>gate-2-skeleton</code> merged into main. Next:
+      Gate 3 · Notes, step 8, Documents.</div>
     <div class="stats">
-      <span class="chip">1 of 16 steps committed</span>
-      <span class="chip">gate 1 of 4</span>
-      <span class="chip">plan review next</span>
+      <span class="chip">7 of 16 steps committed</span>
+      <span class="chip">gate 2 of 4 closed</span>
+      <span class="chip">notes next</span>
     </div>
     <nav class="toc" aria-label="Contents">
       <a href="#picture">The gates</a>
@@ -330,7 +330,11 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
         key, a made-up email address, a made-up phone number and a home path with a made-up user name; the clean repo
         passes; a push of <code>old/*</code> is refused.</p>
       <p class="msg"><code>chore(guard): refuse keys, passwords and personal details in commits and pushes</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> Proven with real commits: a made-up key, email, phone number, home
+        path, the account's own name and a force-staged ignored file were each refused; the clean repo passes, and a
+        push of <code>old/*</code> is refused. Two lessons from building it: gitleaks allowlists the documented
+        EXAMPLE keys, so the key proof uses a random one; and the computer's names match as whole words of four or
+        more characters, or a MacBook Pro's "Pro" refuses the word "project".</p>
     </article>
 
     <article class="step" id="s3">
@@ -350,7 +354,9 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
         <code>GET /api/health</code> answers <code>{"ok":true}</code>; a commit with a failing check is refused by the
         hook.</p>
       <p class="msg"><code>chore(repo): set up node, typescript, biome and the check</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> hono 4.13.17, zod 4.6.7, typescript 7.0.2, biome 2.6.6: 10 packages.
+        Proven: a broken test and a forbidden import (<code>scripts/boundaries.ts</code>, which the check runs) each
+        fail the check; the pre-commit hook now runs the guard, then the whole check.</p>
     </article>
 
     <article class="step" id="s4">
@@ -366,7 +372,9 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
         that a missing or wrong <code>settings.json</code> stops kestrel with an example; <code>node --run dev</code>
         answers on port 8791.</p>
       <p class="msg"><code>feat(platform): the data folder and the settings</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> Without launchd's setting, the data folder is a made-up one under the
+        temp dir, seeded from <code>scripts/dev-data/</code>; a missing or wrong settings file stops kestrel with a
+        filled example; <code>node --run dev</code> answered on 8791.</p>
     </article>
 
     <article class="step" id="s5">
@@ -379,7 +387,9 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
       <p class="field"><b>Check:</b> tests prove that the migrations run once and a second run changes nothing, and that
         the copy, made while committed rows still sit in the WAL file, opens and holds them.</p>
       <p class="msg"><code>feat(db): open the database, with a copy before each migration</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> Proven in tests: migrations run once and stay idempotent, WAL and
+        foreign keys are on, tx() rolls back whole, and the pre-migration copy (VACUUM INTO) holds a row that was
+        still in the WAL file and nothing from the migration after it.</p>
     </article>
 
     <article class="step" id="s6">
@@ -399,28 +409,39 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
       <p class="field"><b>Check:</b> <code>node --run build</code> passes. At a phone size the shell loads and follows
         light or dark; with the server stopped, it opens with the last copy and says "Computer asleep since …".</p>
       <p class="msg"><code>feat(web): the app shell, installable on the phone</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> React 19.3, Vite 8.3, Tailwind 4.3: about 50 more packages. Proven at a
+        phone size in a real browser: the shell in dark and light, and, with the server killed, the shell from the
+        worker with "Computer asleep since …" and the chip on asleep. Two worker lessons: the shell is warmed at
+        activation (the first visit isn't controlled yet), and the health probe is never cached, or a kept 200 would
+        hide a sleeping computer.</p>
     </article>
 
     <article class="step" id="s7">
       <div class="head"><span class="n">7</span><h3>Running on the computer, reached from the phone</h3><span class="who">builder</span></div>
       <p>launchd, macOS's service keeper, runs kestrel from a second checkout of committed main only, and restarts it
         after a crash or a restart of the computer. <code>node --run deploy</code> refuses uncommitted changes and any
-        branch but main. Tailscale Serve publishes kestrel to my devices, and every request must carry my Tailscale
+        branch but main or the gate branch being judged (a gate's GO looks at the deployed app). Tailscale Serve publishes kestrel to my devices, and every request must carry my Tailscale
         login, which deploy reads from Tailscale itself and writes into the settings.</p>
       <p class="field"><b>Files:</b> <code>scripts/kestrel.plist</code> (a template deploy fills in) ·
         <code>scripts/deploy.ts</code> · <code>src/server/identity.ts</code> · <code>src/server/identity.test.ts</code> ·
-        <code>src/server/app.ts</code> · <code>README.md</code></p>
+        <code>src/server/main.ts</code> · <code>README.md</code></p>
       <p class="field"><b>Check:</b> after <code>node --run deploy</code>, kestrel opens on my phone and on the computer
         at its Tailscale address on port 8790 and installs to the phone's home screen; it comes back after a restart;
         tests prove my login passes and another login or none gets 403.</p>
-      <p class="msg"><code>chore(ops): run committed main under launchd and open it on the phone</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p class="msg"><code>chore(ops): run the committed app under launchd and open it on the phone</code></p>
+      <p><span class="status done">Done.</span> Deployed from the gate branch (the plan said main only; a gate's GO
+        judges the deployed app, so deploy takes main or a gate branch — docs/decisions.md, 2026-11-17). Proven on the
+        computer: health answers 200 with my Tailscale login and 403 without; the process killed came back by itself;
+        the shell opens at the tailnet address over HTTPS. The identity check runs only when deployed: development
+        holds made-up data.</p>
     </article>
 
     <div class="go" id="g2">
       <div class="head"><span class="n">G2</span><h3>GO 2: I open kestrel on my phone and the computer, install it, and judge the look</h3></div>
       <p>On GO, the builder merges <code>gate-2-skeleton</code> into main.</p>
+      <p><span class="status done">Done, 2026-11-21.</span> Judged twice: the guides' palette failed, then the copper
+        one; GO 2 came on the third — the editor's code palette on the hunt pages' ground, the hunt's type, and the
+        wolf-howling mark. Merged into main.</p>
     </div>
 
     <div class="gate" id="gate3">

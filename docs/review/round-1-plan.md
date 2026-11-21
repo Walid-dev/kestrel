@@ -114,15 +114,15 @@
 
 All ten findings are applied in this commit.
 
-| Finding | Applied |
-| --- | --- |
-| P1 | The guard is now step 2, the first build commit: nothing is pushed before the hooks exist. It needs no packages (Node runs it directly; gitleaks is installed; `core.hooksPath` is set in the step, then by npm's `prepare`). |
-| P2 | The guard also refuses email addresses, phone-number shapes, and this computer's user and host names, read when it runs. Free-form details (employers, search words) are documented as a rule for the builder and the reviews, not a pattern. |
-| P3 | Notes resolves a path to its real place before the folder rule; step 8's check includes an in-folder symlink pointing outside. |
-| P4 | The pre-migration copy is SQLite's own snapshot (`VACUUM INTO`); step 5's check proves it on a database with committed, uncheckpointed WAL rows. |
-| P5 | UTF-8 (with or without a byte-order mark) is the defined format; anything else is refused with the reason, and step 13 keeps its round-trip of line endings, final newline and permissions. |
-| P6 | The service worker keeps the last answer of each read it saw; step 9's check opens a document with notes, stops the server, and expects the view plus "Computer asleep since …". |
-| P7 | A note still being typed is kept on the device; step 9's check closes and reopens the app mid-typing. |
-| P8 | A model refusal joins the stand-in-server check as a failure with its reason. |
-| P9 | The 7-day rule is described as npm's age filter: an older qualifying version is picked, or the install fails; it never waits. |
-| P10 | The note sheet and the review open with `showModal()`, so Android's Back closes them. |
+| Finding | Applied                                                                                                                                                                                                                                       |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P1      | The guard is now step 2, the first build commit: nothing is pushed before the hooks exist. It needs no packages (Node runs it directly; gitleaks is installed; `core.hooksPath` is set in the step, then by npm's `prepare`).                 |
+| P2      | The guard also refuses email addresses, phone-number shapes, and this computer's user and host names, read when it runs. Free-form details (employers, search words) are documented as a rule for the builder and the reviews, not a pattern. |
+| P3      | Notes resolves a path to its real place before the folder rule; step 8's check includes an in-folder symlink pointing outside.                                                                                                                |
+| P4      | The pre-migration copy is SQLite's own snapshot (`VACUUM INTO`); step 5's check proves it on a database with committed, uncheckpointed WAL rows.                                                                                              |
+| P5      | UTF-8 (with or without a byte-order mark) is the defined format; anything else is refused with the reason, and step 13 keeps its round-trip of line endings, final newline and permissions.                                                   |
+| P6      | The service worker keeps the last answer of each read it saw; step 9's check opens a document with notes, stops the server, and expects the view plus "Computer asleep since …".                                                              |
+| P7      | A note still being typed is kept on the device; step 9's check closes and reopens the app mid-typing.                                                                                                                                         |
+| P8      | A model refusal joins the stand-in-server check as a failure with its reason.                                                                                                                                                                 |
+| P9      | The 7-day rule is described as npm's age filter: an older qualifying version is picked, or the install fails; it never waits.                                                                                                                 |
+| P10     | The note sheet and the review open with `showModal()`, so Android's Back closes them.                                                                                                                                                         |

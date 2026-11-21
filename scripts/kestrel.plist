@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- the template deploy.ts fills in and writes to ~/Library/LaunchAgents/local.kestrel.plist: launchd keeps kestrel
+     running from the live checkout of committed code, with the real data folder, and brings it back after a crash or
+     a restart of the computer -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>local.kestrel</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__NODE__</string>
+    <string>src/server/main.ts</string>
+  </array>
+  <key>WorkingDirectory</key><string>__DIR__</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>KESTREL_DATA_DIR</key><string>__DATA__</string>
+    <key>PORT</key><string>8790</string>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>StandardOutPath</key><string>__LOGS__/kestrel.log</string>
+  <key>StandardErrorPath</key><string>__LOGS__/kestrel.log</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ProcessType</key><string>Background</string>
+</dict>
+</plist>

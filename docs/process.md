@@ -42,4 +42,9 @@ Both work on the repo only, with made-up data. Neither opens my data folder or t
 
 ## Plan changes during the build
 
-None yet.
+- **2026-11-21, gate 2:** the second look judgment chose the editor's code palette on the hunt pages' ground and a
+  wolf-howling mark; GO 2 was given on it and the gate closed.
+- **2026-11-20, gate 2:** the look judgment failed the guides' palette; the design system became kestrel's own, and
+  the fonts are now really served (`docs/decisions.md`). The gate's GO repeats on the new look.
+- **2026-11-17, step 7:** deploy takes main or a gate branch being judged, not main only. A gate's GO looks at the
+  deployed app, which exists before the merge. Recorded in `docs/decisions.md`.

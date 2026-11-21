@@ -5,6 +5,34 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-21 · The palette is the code palette; the mark is a wolf howling.**
+  The second look judgment: the copper palette didn't fit either. The ground is now the hunt pages' dark
+  (`#11141b` family) and light; the colours are the editor's code palette, the same shades `/hub/code.js` uses —
+  pink `#ff757f` as the accent, violet, green and orange, each app card's glyph in its own one. The type is the
+  hunt's: IBM Plex Sans for text, Sans Condensed for headings and the wordmark, Mono for data, all served from
+  `web/public/fonts`. The mark is one wolf-howling-at-the-moon polygon, the same points in `web/src/mark.tsx`,
+  `favicon.svg` and `scripts/make-icons.ts` (a ray-cast polygon fill, sampled 3×3). GO 2 was given on this design.
+  Replaces: the 2026-11-20 palette and feather mark; the entry below keeps that day's other fix (the fonts are
+  really served).
+
+- **2026-11-20 · The design system is kestrel's own.**
+  The gate-2 look judgment failed the guides' palette: flat, not polished. Two causes fixed. The palette is now
+  kestrel's (warm graphite, cream, copper — the bird's colours), dark and light, all tokens in `web/src/styles.css`.
+  And the IBM Plex fonts were named but never served, so every screen fell back to system fonts; they are now served
+  from `web/public/fonts` (Sans variable, Serif for the wordmark and headings, Mono for data), never from the
+  internet. One feather mark, drawn once and reused (`web/src/mark.tsx`, `favicon.svg`, `scripts/make-icons.ts`).
+  Rejected: keeping the guides' palette; loading fonts from a CDN.
+
+- **2026-11-20 · Navigation: a launcher, then one app at a time.**
+  Home is the launcher. An app takes the whole screen, on the phone and on the computer; the top bar's mark returns
+  home; the browser's Back always works (real routes, no overlays that trap it). Built from the Notes screens on.
+  Rejected: apps beside each other on one page, as the old setup's hub does.
+
+- **2026-11-17 · Deploy takes main, or a gate branch being judged.**
+  A gate's GO is a judgment of the deployed app, which happens before the merge; so deploy accepts `gate-*` besides
+  main. Committed code only still holds: deploy refuses a dirty tree and checks out an exact commit.
+  Rejected: merging before the judgment, which would put unjudged work on main.
+
 - **2026-11-16 · The review's round 1 is applied.**
   Ten findings, all fixed in the plan: the guard moved to the first build step, so nothing is pushed unguarded; its
   scope now covers email addresses, phone numbers and this computer's user and host names; Notes resolves symbolic
