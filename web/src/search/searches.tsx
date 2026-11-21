@@ -4,6 +4,23 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 type Run = { started: string; found: number; kept: number; problem: string } | null;
+
+// pay, read honestly: a range when both ends exist, the period named when it isn't a year
+const payLine = (d: {
+  salaryMin?: number | null;
+  salaryMax?: number | null;
+  salaryCurrency?: string | null;
+  salaryPeriod?: string | null;
+}): string => {
+  const lo = d.salaryMin ?? null;
+  const hi = d.salaryMax ?? null;
+  if (lo === null && hi === null) return "";
+  const n = (v: number) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v));
+  const range = lo !== null && hi !== null && lo !== hi ? `${n(lo)}–${n(hi)}` : n(hi ?? lo ?? 0);
+  const period = (d.salaryPeriod ?? "").toLowerCase();
+  const per = period && !period.includes("year") ? `/${period.replace("ly", "")}` : "";
+  return `${range} ${d.salaryCurrency ?? ""}${per}`.trim();
+};
 type Search = { id: string; name: string; enabled: boolean; everyMinutes: number; lastRun: Run };
 type Listing = {
   id: string;
@@ -22,6 +39,7 @@ type Listing = {
     salaryMin?: number | null;
     salaryMax?: number | null;
     salaryCurrency?: string | null;
+    salaryPeriod?: string | null;
     posted?: string;
     why?: string;
   };
@@ -64,7 +82,8 @@ export function Searches() {
 
   const searches = useQuery({
     queryKey: ["searches"],
-    queryFn: async () => (await (await fetch("/api/search")).json()) as { searches: Search[]; problems: string[] },
+    queryFn: async () =>
+      (await (await fetch("/api/search")).json()) as { searches: Search[]; problems: string[]; mirror: Run },
     refetchInterval: 60_000,
   });
   const listings = useQuery({
@@ -136,6 +155,15 @@ export function Searches() {
           </button>
         </section>
       ))}
+      {searches.data?.mirror && (
+        <p
+          className="font-mono text-xs"
+          style={{ color: searches.data.mirror.problem ? "var(--warn)" : "var(--muted)" }}
+        >
+          mirror from the old setup: {ago(searches.data.mirror.started)} · {searches.data.mirror.kept} refreshed
+          {searches.data.mirror.problem && ` · ${searches.data.mirror.problem}`}
+        </p>
+      )}
       {(searches.data?.problems ?? []).map((p) => (
         <p key={p} className="rounded-xl px-3 py-2 text-sm" style={{ background: "var(--warn-soft)" }}>
           a search file can't be read — {p}
@@ -192,7 +220,7 @@ export function Searches() {
             <button
               type="button"
               aria-label={r.priority ? "Leave Priority" : "Star into Priority"}
-              className="shrink-0 cursor-pointer text-lg"
+              className="-m-2 shrink-0 cursor-pointer p-2 text-xl"
               style={{ color: r.priority ? "var(--yellow)" : "var(--muted)" }}
               onClick={() => act.mutate({ id: r.id, body: { starred: r.priority ? 0 : 1 } })}
             >
@@ -200,7 +228,7 @@ export function Searches() {
             </button>
           </div>
           <p className="text-sm" style={{ color: "var(--muted)" }}>
-            {[r.data.org, r.data.location, r.data.salaryMax ? `${r.data.salaryMax} ${r.data.salaryCurrency ?? ""}` : ""]
+            {[r.data.org, r.data.location, payLine(r.data), r.data.posted ? `posted ${r.data.posted}` : ""]
               .filter(Boolean)
               .join(" · ")}
           </p>

@@ -79,7 +79,17 @@ export function scoreJob(raw: unknown, job: ScoredJob, now: Date): Score {
 
   if (scoring.pay?.floor) {
     const toCad = job.salaryCurrency === "USD" ? (scoring.pay.usdToCad ?? 1.35) : 1;
-    const yearly = /hour/i.test(job.salaryPeriod ?? "") ? 2080 : 1; // $45/hour is a year of hours, not a number under the floor
+    // every period annualizes before the floor: an hourly wage is a year of hours, a monthly one twelve months
+    const period = (job.salaryPeriod ?? "").toLowerCase();
+    const yearly = period.includes("hour")
+      ? 2080
+      : period.includes("day")
+        ? 260
+        : period.includes("week")
+          ? 52
+          : period.includes("month")
+            ? 12
+            : 1;
     const top = (job.salaryMax ?? job.salaryMin ?? 0) * toCad * yearly;
     parts.pay = top === 0 ? Math.round(WEIGHTS.pay * 0.6) : top >= scoring.pay.floor ? WEIGHTS.pay : 0;
     if (top !== 0 && top < scoring.pay.floor) why.push("the pay sits under the floor");

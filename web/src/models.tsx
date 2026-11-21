@@ -25,8 +25,20 @@ export function Models() {
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["models"] }),
   });
+  if (state.isError)
+    return (
+      <main className="grid gap-3.5">
+        <h2 className="font-cond text-xl font-bold">Models</h2>
+        <section className="card">
+          <p className="text-sm" style={{ color: "var(--red)" }}>
+            the screen could not load the picks: {String((state.error as Error).message)}
+          </p>
+        </section>
+      </main>
+    );
   if (!state.data) return null;
   const { door, uses } = state.data;
+  const switchWhy = set.isError ? String((set.error as Error).message) : "";
   return (
     <main className="grid gap-3.5">
       <h2 className="font-cond text-xl font-bold">Models</h2>
@@ -34,6 +46,11 @@ export function Models() {
         Which model runs each job. The choices are what the computer's model door offers right now
         {door.length === 0 && " — the door isn't answering, so only the current picks show"}.
       </p>
+      {switchWhy && (
+        <p className="text-sm" style={{ color: "var(--red)" }}>
+          the switch was refused: {switchWhy}
+        </p>
+      )}
       {uses.map((u) => (
         <section key={u.use} className="card grid gap-2">
           <div className="flex items-baseline gap-3">

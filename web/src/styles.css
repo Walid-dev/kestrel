@@ -121,6 +121,14 @@ h3 {
 .btn-danger {
   color: var(--red);
 }
+/* a phone keyboard must not zoom the page: form controls stay at 16px under a coarse pointer */
+@media (pointer: coarse) {
+  input.btn,
+  select.btn {
+    font-size: 16px;
+  }
+}
+
 .btn[disabled] {
   opacity: 0.55;
   cursor: default;

@@ -11,27 +11,27 @@ import { isPriority, keepItems, listListings, normalizeDedupe, setListingStar, s
 
 const NOW = new Date("2026-11-21T12:00:00Z");
 const scoring = {
-  title: { want: ["engineer"] },
-  skills: ["TypeScript", "React", "AWS", "Node"],
-  level: { want: ["senior"] },
-  places: { words: ["Toronto"] },
+  title: { want: ["keeper"] },
+  skills: ["Apiary", "Smoker", "Hive", "Wax"],
+  level: { want: ["head"] },
+  places: { words: ["Hiveton"] },
   freshDays: 7,
 };
 const item = (o: Partial<Item> = {}): Item => ({
   source: "made-up-board",
   url: "https://example.com/job/1",
-  title: "Senior Engineer",
+  title: "Head Keeper",
   org: "Made-up Co",
-  location: "Toronto",
+  location: "Hiveton",
   posted: "2026-11-20",
   workMode: "",
-  seniority: "Senior",
+  seniority: "Head",
   salaryMin: null,
   salaryMax: null,
   salaryCurrency: null,
   salaryPeriod: null,
   usOnly: false,
-  excerpt: "TypeScript React AWS Node.",
+  excerpt: "Apiary Smoker Hive Wax.",
   ...o,
 });
 
@@ -49,7 +49,7 @@ test("a job seen twice updates lastSeen and never double-lists; a punctuation tw
   const again = keepItems(
     db,
     "s1",
-    [item({ url: "https://example.com/job/other", title: "Senior  Engineer!" })],
+    [item({ url: "https://example.com/job/other", title: "Head  Keeper!" })],
     scoring,
     NOW,
   );
@@ -61,7 +61,7 @@ test("an imported row with the old dedupe key still blocks the double-list by li
   const db = setup();
   db.prepare(
     `INSERT INTO listings (id, search, source, link, dedupe, status, starred, found, updated, score, match, data)
-     VALUES ('old-1', 's1', 'made-up-board', 'https://example.com/job/1', 'old|key|senior|gta', 'applied', NULL,
+     VALUES ('old-1', 's1', 'made-up-board', 'https://example.com/job/1', 'old|key|head|meadow', 'applied', NULL,
        '2026-11-01', '2026-11-01', 61, 'good', '{}')`,
   ).run();
   const run = keepItems(db, "s1", [item()], scoring, NOW);
@@ -94,7 +94,7 @@ test("status and star stick, and the filters combine", () => {
   assert.equal(listListings(db, { status: "passed" }).length, 1);
   assert.equal(listListings(db, { priority: true }).length, 1);
   assert.equal(listListings(db, { q: "clerk" }).length, 1);
-  assert.equal(normalizeDedupe("Made-up Co", "Senior  Engineer!"), "madeup co|senior engineer");
+  assert.equal(normalizeDedupe("Made-up Co", "Head  Keeper!"), "madeup co|head keeper");
 });
 
 test("Priority and the word search see past the window: an old starred row never vanishes (sweep F1)", () => {
@@ -129,7 +129,7 @@ test("two searches sharing one link each keep their own row and their own score 
     db,
     "search-a",
     [item()],
-    { title: { want: ["engineer"] }, skills: ["TypeScript", "React", "AWS", "Node"] },
+    { title: { want: ["keeper"] }, skills: ["Apiary", "Smoker", "Hive", "Wax"] },
     NOW,
   );
   const b = keepItems(db, "search-b", [item()], { title: { want: ["nothing-here"] } }, NOW);
