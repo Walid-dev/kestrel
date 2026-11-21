@@ -114,15 +114,21 @@ export function openFile(db: DatabaseSync, settings: Settings, path: string): Do
   return meta(db.prepare("SELECT * FROM documents WHERE id = ?").get(id) as Record<string, unknown>);
 }
 
-// keep an uploaded text: the database holds the original
+// keep an uploaded text: the database holds the original. The same name saves over the earlier upload — never a
+// duplicate — and its notes find their places again or show as detached.
 export function addUpload(db: DatabaseSync, name: string, text: string): DocumentMeta {
   if (Buffer.byteLength(text, "utf8") > MAX_BYTES) throw new Refused(`bigger than ${MAX_BYTES / 1024} KB`);
   const d = decode(Buffer.from(text, "utf8"));
-  const id = randomUUID();
   const clean = basename(name).trim() || "untitled.md";
+  const have = db.prepare("SELECT id FROM documents WHERE source = 'upload' AND name = ?").get(clean) as
+    | { id: string }
+    | undefined;
+  const id = have?.id ?? randomUUID();
   db.prepare(
     `INSERT INTO documents (id, source, name, path, text, bom, eol, final_newline, sha256, added_at)
-     VALUES (?, 'upload', ?, NULL, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, 'upload', ?, NULL, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (id) DO UPDATE SET text = excluded.text, bom = excluded.bom, eol = excluded.eol,
+       final_newline = excluded.final_newline, sha256 = excluded.sha256, previous_text = NULL`,
   ).run(
     id,
     clean,

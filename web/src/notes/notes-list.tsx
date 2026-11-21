@@ -13,18 +13,14 @@ export function NotesList({
 }) {
   if (notes.length === 0) return null;
   return (
-    <section className="mt-4 grid gap-2 lg:mt-0">
+    <section className="mt-5 grid gap-3 lg:mt-0">
       <h3 className="font-mono text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--muted)" }}>
         Your notes
       </h3>
       {notes.map((n) => (
-        <div
-          key={n.id}
-          className="flex items-start gap-2 rounded-xl border p-3"
-          style={{ borderColor: "var(--line)", background: "var(--surface)" }}
-        >
+        <div key={n.id} className="card flex items-start gap-3">
           <button type="button" onClick={() => onOpen(n)} className="min-w-0 flex-1 cursor-pointer text-left">
-            <span className="font-mono block break-words text-xs" style={{ color: "var(--muted)" }}>
+            <span className="font-mono block break-words text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
               {n.quote === ""
                 ? "the whole document"
                 : `“${n.quote.length > 80 ? `${n.quote.slice(0, 80)}…` : n.quote}”`}
@@ -45,7 +41,7 @@ export function NotesList({
                 </span>
               )}
             </span>
-            <span className="mt-1 block text-sm">{n.text}</span>
+            <span className="mt-2 block text-[15px] leading-relaxed">{n.text}</span>
           </button>
           <button
             type="button"

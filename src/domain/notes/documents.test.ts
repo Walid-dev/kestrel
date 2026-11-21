@@ -70,6 +70,15 @@ test("BOM, CRLF and a missing final newline are remembered; the kept text is pla
   assert.deepEqual({ ...row }, { bom: 1, eol: "crlf", final_newline: 0 });
 });
 
+test("an upload with the same name saves over the earlier one, never a duplicate", () => {
+  const { db } = setup();
+  const first = addUpload(db, "cover-letter.txt", "Dear team, version one.");
+  const again = addUpload(db, "cover-letter.txt", "Dear team, version two.");
+  assert.equal(again.id, first.id);
+  assert.equal(listDocuments(db).filter((d) => d.name === "cover-letter.txt").length, 1);
+  assert.equal(getDocument(db, first.id)?.text, "Dear team, version two.");
+});
+
 test("an upload is kept as given, and the folder list shows only text files", () => {
   const { inside, db, settings } = setup();
   const up = addUpload(db, "notes.txt", "hello\n");
