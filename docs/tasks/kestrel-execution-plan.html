@@ -106,7 +106,7 @@
       colours on the hunt pages' ground, the wolf mark), and <code>gate-2-skeleton</code> merged into main. Next:
       Gate 3 · Notes, step 8, Documents.</div>
     <div class="stats">
-      <span class="chip">12 of 16 steps committed</span>
+      <span class="chip">13 of 16 steps committed</span>
       <span class="chip">gate 2 of 4 closed</span>
       <span class="chip">notes next</span>
     </div>
@@ -567,7 +567,11 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
       <p class="field"><b>Check:</b> tests prove that save writes the file, a file changed after the draft was made is
         refused with "changed since", and Undo brings back the previous text.</p>
       <p class="msg"><code>feat(notes): save the changes to the file</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> Proven in tests and live in the browser: Save wrote the real file with
+        its BOM, CRLF and final newline back on, the answered notes moved to Done, Undo brought the previous text
+        back once, and a file touched after the draft was refused with "changed since". A draft now pins the bytes it
+        was made from, so a stale draft can never write. From the live run: the fast model asks now go with thinking
+        on (without it, Ornith drifted from the shape — the old setup learned the same, 2026-11-14).</p>
     </article>
 
     <article class="step" id="s14">

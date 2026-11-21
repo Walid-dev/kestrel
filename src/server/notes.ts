@@ -16,6 +16,7 @@ import {
 } from "../domain/notes/documents.ts";
 import { discardDraft, draftFor, getDraft, startDraft } from "../domain/notes/drafts.ts";
 import { addNote, deleteNote, editNote, listNotes } from "../domain/notes/notes.ts";
+import { saveDraft, undoSave } from "../domain/notes/save.ts";
 import type { Settings } from "../platform/config.ts";
 
 export function mountNotes(app: Hono, db: DatabaseSync, settings: Settings) {
@@ -91,6 +92,20 @@ export function mountNotes(app: Hono, db: DatabaseSync, settings: Settings) {
     return c.json({ ok: true });
   });
   app.get("/api/notes/documents/:id/draft", (c) => c.json({ draft: draftFor(db, c.req.param("id")) }));
+  app.post("/api/notes/drafts/:id/save", zValidator("json", z.object({ document: z.string().min(1) })), (c) => {
+    try {
+      return c.json(saveDraft(db, c.req.param("id"), c.req.valid("json").document));
+    } catch (e) {
+      return refusing(c, e);
+    }
+  });
+  app.post("/api/notes/documents/:id/undo", (c) => {
+    try {
+      return c.json(undoSave(db, c.req.param("id")));
+    } catch (e) {
+      return refusing(c, e);
+    }
+  });
   app.post(
     "/api/notes/upload",
     zValidator("json", z.object({ name: z.string().min(1).max(200), text: z.string().max(MAX_BYTES * 2) })),

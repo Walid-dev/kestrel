@@ -14,6 +14,7 @@ for (const model of [settings.careful, settings.fast]) {
       system: 'Answer JSON only: {"ok": true}',
       prompt: "A made-up probe: answer ok true.",
       maxTokens: 600,
+      thinking: true,
     },
     Shape,
   );

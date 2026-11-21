@@ -26,7 +26,7 @@ type RowResult = { name: string; model: string; run: number; pass: boolean; why:
 
 async function runCase(c: Case, settings: ModelSettings, model: string, run: number): Promise<RowResult> {
   const { system, prompt } = changesPrompt(c.documents, c.notes);
-  const got = await callModel(settings, { model, system, prompt, maxTokens: 6000 }, Answer);
+  const got = await callModel(settings, { model, system, prompt, maxTokens: 8000, thinking: true }, Answer);
   if (!got.ok)
     return {
       name: c.name,

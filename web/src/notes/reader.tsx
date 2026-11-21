@@ -110,6 +110,37 @@ export function Reader() {
     onError: (e) => setAskWhy(e.message),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["draft", id] }),
   });
+  const [saveWhy, setSaveWhy] = useState("");
+  const saveDoc = useMutation({
+    mutationFn: async (documentId: string) => {
+      const res = await fetch(`/api/notes/drafts/${current?.id}/save`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ document: documentId }),
+      });
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
+    },
+    onSuccess: () => {
+      setSaveWhy("");
+      setReview(false);
+    },
+    onError: (e) => setSaveWhy(e.message),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["doc", id] });
+      queryClient.invalidateQueries({ queryKey: ["notes", id] });
+      queryClient.invalidateQueries({ queryKey: ["draft", id] });
+    },
+  });
+  const undo = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/notes/documents/${id}/undo`, { method: "POST" });
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["doc", id] });
+      queryClient.invalidateQueries({ queryKey: ["notes", id] });
+    },
+  });
   const discard = useMutation({
     mutationFn: async (draftId: string) => {
       await fetch(`/api/notes/drafts/${draftId}/discard`, { method: "POST" });
@@ -214,6 +245,16 @@ export function Reader() {
             Review the changes
           </button>
         )}
+        {doc.data?.previous && (
+          <button
+            type="button"
+            className="font-mono cursor-pointer rounded-full border px-3 py-1 text-xs"
+            style={{ borderColor: "var(--line)", color: "var(--muted)" }}
+            onClick={() => undo.mutate()}
+          >
+            Undo the last save
+          </button>
+        )}
         {current?.status === "failed" && (
           <button
             type="button"
@@ -291,7 +332,15 @@ export function Reader() {
       )}
       <NotesList notes={placed} onOpen={(n) => setSheet({ kind: "edit", note: n })} />
       {review && current?.status === "ready" && (
-        <Review draft={current} onDiscard={() => discard.mutate(current.id)} onClose={() => setReview(false)} />
+        <Review
+          draft={current}
+          targets={{ [id]: doc.data.path ?? "the upload, kept in kestrel" }}
+          onSave={(documentId) => saveDoc.mutate(documentId)}
+          saving={saveDoc.isPending}
+          saveWhy={saveWhy}
+          onDiscard={() => discard.mutate(current.id)}
+          onClose={() => setReview(false)}
+        />
       )}
       {sheet && (
         <NoteSheet

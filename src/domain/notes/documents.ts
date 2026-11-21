@@ -143,5 +143,5 @@ export function listDocuments(db: DatabaseSync): DocumentMeta[] {
 
 export function getDocument(db: DatabaseSync, id: string): DocumentFull | null {
   const r = db.prepare("SELECT * FROM documents WHERE id = ?").get(id) as Record<string, unknown> | undefined;
-  return r ? { ...meta(r), text: String(r.text) } : null;
+  return r ? { ...meta(r), text: String(r.text), previous: r.previous_text != null } : null;
 }

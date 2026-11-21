@@ -21,7 +21,7 @@ export type DraftView = {
   documents: { id: string; name: string }[];
   overview: string;
   unanswered: { note: string; reason: string }[];
-  perDocument: Record<string, Placed & { newText: string }>;
+  perDocument: Record<string, Placed & { newText: string; savedAt?: string }>;
   error: string;
 };
 
@@ -95,8 +95,13 @@ export function startDraft(
     );
   const id = randomUUID();
   const model = input.speed === "careful" ? settings.models.careful : settings.models.fast;
+  const shaOf = db.prepare("SELECT sha256 FROM documents WHERE id = ?");
   const request: Request = {
-    documents: documents.map((d) => ({ id: d.id, name: d.name, sha256: "" })),
+    documents: documents.map((d) => ({
+      id: d.id,
+      name: d.name,
+      sha256: String((shaOf.get(d.id) as { sha256: string }).sha256),
+    })),
     notes: notes.map((n) => n.id),
   };
   db.prepare("INSERT INTO drafts (id, created_at, status, model, request) VALUES (?, ?, 'making', ?, ?)").run(
@@ -106,7 +111,7 @@ export function startDraft(
     JSON.stringify(request),
   );
   const done = (async () => {
-    const got = await callModel(settings.models, { model, system, prompt }, Answer);
+    const got = await callModel(settings.models, { model, system, prompt, thinking: true, maxTokens: 8000 }, Answer);
     recordCall(db, "changes", got);
     if (!got.ok) {
       db.prepare("UPDATE drafts SET status = 'failed', error = ? WHERE id = ?").run(

@@ -11,7 +11,23 @@ const COLORS = {
   same: {},
 } as const;
 
-export function Review({ draft, onDiscard, onClose }: { draft: Draft; onDiscard: () => void; onClose: () => void }) {
+export function Review({
+  draft,
+  targets,
+  onSave,
+  saving,
+  saveWhy,
+  onDiscard,
+  onClose,
+}: {
+  draft: Draft;
+  targets: Record<string, string>;
+  onSave: (documentId: string) => void;
+  saving: boolean;
+  saveWhy: string;
+  onDiscard: () => void;
+  onClose: () => void;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     dialog.current?.showModal();
@@ -55,6 +71,24 @@ export function Review({ draft, onDiscard, onClose }: { draft: Draft; onDiscard:
                   )}
                 </div>
               ))}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  className="font-cond cursor-pointer rounded-xl px-4 py-2 font-bold"
+                  style={
+                    result.savedAt
+                      ? { background: "var(--surface-2)", color: "var(--muted)" }
+                      : { background: "var(--accent)", color: "var(--bg)" }
+                  }
+                  disabled={saving || Boolean(result.savedAt) || result.placed.length === 0}
+                  onClick={() => onSave(d.id)}
+                >
+                  {result.savedAt ? "Saved" : "Save"}
+                </button>
+                <span className="font-mono break-all text-xs" style={{ color: "var(--muted)" }}>
+                  writes {targets[d.id] ?? d.name}
+                </span>
+              </div>
               {result.leftOut.map((lost) => (
                 <p
                   key={lost.change.find}
@@ -78,6 +112,11 @@ export function Review({ draft, onDiscard, onClose }: { draft: Draft; onDiscard:
               </p>
             ))}
           </section>
+        )}
+        {saveWhy && (
+          <p className="rounded-xl px-3 py-2 text-sm" style={{ background: "var(--warn-soft)" }}>
+            {saveWhy}
+          </p>
         )}
         <div className="flex gap-2">
           <button

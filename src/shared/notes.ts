@@ -8,7 +8,7 @@ export type DocumentMeta = {
   chars: number;
   addedAt: string;
 };
-export type DocumentFull = DocumentMeta & { text: string };
+export type DocumentFull = DocumentMeta & { text: string; previous: boolean };
 
 export type Note = {
   id: string;
@@ -26,6 +26,7 @@ export type DraftDocumentResult = {
   placed: { change: DraftChange; at: number }[];
   leftOut: { change: DraftChange; reason: string }[];
   newText: string;
+  savedAt?: string;
 };
 export type Draft = {
   id: string;

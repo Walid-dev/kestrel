@@ -16,6 +16,7 @@ export type Call = {
   system: string;
   prompt: string;
   maxTokens?: number;
+  thinking?: boolean; // oMLX's enable_thinking: the fast model follows shapes poorly without it
   timeoutMs?: number; // tests set it; otherwise the limit grows with the request
 };
 
@@ -50,6 +51,7 @@ export async function callModel<T>(settings: ModelSettings, call: Call, shape: z
         model: call.model,
         stream: true,
         max_tokens: maxTokens,
+        ...(call.thinking === undefined ? {} : { enable_thinking: call.thinking }),
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: call.system },
@@ -99,9 +101,13 @@ export async function callModel<T>(settings: ModelSettings, call: Call, shape: z
   if (text.trim() === "") return fail("refusal", "the model answered nothing");
   let raw: unknown;
   try {
-    raw = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    raw = JSON.parse(text.trim());
   } catch {
-    return fail("shape", `not JSON: ${text.slice(0, 120)}`);
+    try {
+      raw = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    } catch {
+      return fail("shape", `not JSON: ${text.slice(0, 120)}`);
+    }
   }
   const read = shape.safeParse(raw);
   if (!read.success)
