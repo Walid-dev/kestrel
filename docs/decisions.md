@@ -5,13 +5,14 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
-- **2026-11-21 · The palette is the code palette; the mark is a wolf howling.**
+- **2026-11-21 · The palette is the code palette; the mark is a wolf's face.**
   The second look judgment: the copper palette didn't fit either. The ground is now the hunt pages' dark
   (`#11141b` family) and light; the colours are the editor's code palette, the same shades `/hub/code.js` uses —
   pink `#ff757f` as the accent, violet, green and orange, each app card's glyph in its own one. The type is the
   hunt's: IBM Plex Sans for text, Sans Condensed for headings and the wordmark, Mono for data, all served from
-  `web/public/fonts`. The mark is one wolf-howling-at-the-moon polygon, the same points in `web/src/mark.tsx`,
-  `favicon.svg` and `scripts/make-icons.ts` (a ray-cast polygon fill, sampled 3×3). GO 2 was given on this design.
+  `web/public/fonts`. The mark is one wolf-face polygon, the eyes cut back to the ground, the same points in
+  `web/src/mark.tsx`, `favicon.svg` and `scripts/make-icons.ts` (a ray-cast polygon fill, sampled 3×3; first a
+  howling silhouette, swapped for the face on the same day's ask). GO 2 was given on this design.
   Replaces: the 2026-11-20 palette and feather mark; the entry below keeps that day's other fix (the fonts are
   really served).
 
