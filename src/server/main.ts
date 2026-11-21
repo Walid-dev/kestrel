@@ -11,6 +11,7 @@ import { loadSettings } from "../platform/config.ts";
 import { dataDir, isDeployed } from "../platform/paths.ts";
 import { app } from "./app.ts";
 import { identity } from "./identity.ts";
+import { mountNotes } from "./notes.ts";
 
 // the settings first: a missing or wrong file stops here, with the example in the message
 let settings: ReturnType<typeof loadSettings>;
@@ -22,16 +23,18 @@ try {
 }
 console.log(isDeployed() ? "deployed: the data folder is launchd's" : `made-up data folder: ${dataDir()}`);
 
-// every request through the identity check: enforced when deployed, open on made-up data (identity.ts says why)
-const root = new Hono();
-root.use("*", identity(settings.tailscaleLogin, isDeployed()));
-root.route("/", app);
-
 // the database, migrated before anything serves (a copy is made first when tables already exist: migrate.ts)
 const dbFile = join(dataDir(), "kestrel.db");
 const db = openDb(dbFile);
 const { applied, copy } = migrate(db, dbFile);
 if (applied) console.log(`migrations: ${applied} applied${copy ? ", the database copied first" : ""}`);
+mountNotes(app, db, settings);
+
+// every request through the identity check: enforced when deployed, open on made-up data (identity.ts says why).
+// The root is composed after every route is mounted: route() copies what exists when it is called.
+const root = new Hono();
+root.use("*", identity(settings.tailscaleLogin, isDeployed()));
+root.route("/", app);
 
 // the built app, served as plain files, with the page itself for any address that isn't the API (the router's)
 const dist = join(fileURLToPath(new URL("../../web/dist/", import.meta.url)), ".");

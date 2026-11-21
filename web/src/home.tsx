@@ -1,6 +1,7 @@
 // Home: the launcher. Each app is a card; the ones still being built say which version brings them (docs/PLAN.md)
 // and stay quiet until then.
 import type { ReactNode } from "react";
+import { Link } from "react-router";
 
 const STROKE = {
   fill: "none",
@@ -73,7 +74,7 @@ export function Home() {
       </p>
       {APPS.map((app) => {
         const soon = app.when !== "this version";
-        return (
+        const card = (
           <section
             key={app.name}
             className="rounded-2xl border p-5 transition-all duration-200 hover:-translate-y-px"
@@ -105,6 +106,13 @@ export function Home() {
               {app.what}
             </p>
           </section>
+        );
+        return soon ? (
+          card
+        ) : (
+          <Link key={app.name} to="/notes" aria-label="Open Notes">
+            {card}
+          </Link>
         );
       })}
     </main>

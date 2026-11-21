@@ -1,7 +1,7 @@
 // The frame every screen sits in: the bar with the app's name and the health chip, and the asleep banner when the
 // computer doesn't answer (the service worker then serves the last copies).
 import { useQuery } from "@tanstack/react-query";
-import { Outlet } from "react-router";
+import { Link, Outlet } from "react-router";
 import { Mark } from "./mark.tsx";
 
 const LAST_SEEN = "kestrel-last-seen";
@@ -39,8 +39,10 @@ export function App() {
   return (
     <div className="mx-auto min-h-dvh w-full max-w-xl px-5 pb-16">
       <header className="flex items-center gap-2.5 py-5">
-        <Mark size={26} />
-        <h1 className="font-cond text-2xl font-bold tracking-tight">kestrel</h1>
+        <Link to="/" className="flex items-center gap-2.5" aria-label="Home">
+          <Mark size={26} />
+          <h1 className="font-cond text-2xl font-bold tracking-tight">kestrel</h1>
+        </Link>
         <span className="font-mono ml-auto flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
           <span
             aria-hidden="true"

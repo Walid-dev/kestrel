@@ -6,6 +6,8 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
 import { App } from "./app.tsx";
 import { Home } from "./home.tsx";
+import { NotesList } from "./notes/list.tsx";
+import { Reader } from "./notes/reader.tsx";
 import "./styles.css";
 
 const queryClient = new QueryClient();
@@ -19,6 +21,8 @@ if (rootEl)
           <Routes>
             <Route element={<App />}>
               <Route index element={<Home />} />
+              <Route path="notes" element={<NotesList />} />
+              <Route path="notes/:id" element={<Reader />} />
             </Route>
           </Routes>
         </BrowserRouter>

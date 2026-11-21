@@ -106,7 +106,7 @@
       colours on the hunt pages' ground, the wolf mark), and <code>gate-2-skeleton</code> merged into main. Next:
       Gate 3 · Notes, step 8, Documents.</div>
     <div class="stats">
-      <span class="chip">7 of 16 steps committed</span>
+      <span class="chip">8 of 16 steps committed</span>
       <span class="chip">gate 2 of 4 closed</span>
       <span class="chip">notes next</span>
     </div>
@@ -465,7 +465,11 @@ docs/ <span>— the plan, this runbook, decisions, process, reviews</span></div>
       <p class="field"><b>Check:</b> a file in a listed folder opens; a path that leaves the folder is refused, and so
         is a symlink inside it that points outside; a non-UTF-8 file and a PDF are refused with the reason.</p>
       <p class="msg"><code>feat(notes): open a document from my folders or an upload</code></p>
-      <p><span class="status todo">Not started.</span></p>
+      <p><span class="status done">Done.</span> The screens live in <code>web/src/notes/</code>. Proven: the folder
+        rule at the real path (a symlink pointing outside refused), PDF, non-UTF-8 and over-200-KB refused with
+        reasons, BOM/CRLF/final-newline remembered, upload kept as given; the list and the reader in a real browser.
+        One lesson: Hono's <code>route()</code> copies routes when called, so the root is composed after every mount
+        (a route added later never answered).</p>
     </article>
 
     <article class="step" id="s9">
