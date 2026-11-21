@@ -1,0 +1,80 @@
+// Practice: what is due, one check at a time — say your answer, show the real one, grade yourself honestly.
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Link } from "react-router";
+
+type Lesson = { id: string; title: string; body: { check: { q: string; a: string }[] } };
+
+export function LearnPractice() {
+  const queryClient = useQueryClient();
+  const [shown, setShown] = useState(false);
+  const due = useQuery({
+    queryKey: ["due"],
+    queryFn: async () => (await (await fetch("/api/learn/due")).json()) as { lessons: Lesson[] },
+  });
+  const grade = useMutation({
+    mutationFn: async (input: { lesson: string; grade: "again" | "good" }) => {
+      await fetch("/api/learn/grade", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(input),
+      });
+    },
+    onSettled: () => {
+      setShown(false);
+      queryClient.invalidateQueries({ queryKey: ["due"] });
+    },
+  });
+  const next = (due.data?.lessons ?? []).find((l) => l.body.check.length > 0);
+  if (due.data && !next)
+    return (
+      <main className="grid gap-3">
+        <h2 className="font-cond text-xl font-bold">Practice</h2>
+        <p className="text-sm" style={{ color: "var(--muted)" }}>
+          Nothing due. Come back tomorrow.
+        </p>
+        <Link to="/learn" className="btn justify-self-start">
+          ← Learn
+        </Link>
+      </main>
+    );
+  if (!next) return null;
+  const check = next.body.check[0];
+  return (
+    <main className="grid max-w-2xl gap-4">
+      <div className="flex items-center gap-3">
+        <h2 className="font-cond text-xl font-bold">Practice</h2>
+        <span className="font-mono ml-auto text-xs" style={{ color: "var(--muted)" }}>
+          {due.data?.lessons.length} due
+        </span>
+      </div>
+      <section className="card grid gap-3">
+        <p className="font-mono text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--muted)" }}>
+          {next.title}
+        </p>
+        <p className="font-cond text-lg font-bold">{check.q}</p>
+        {shown ? (
+          <>
+            <p className="text-[15px] leading-relaxed">{check.a}</p>
+            <div className="flex gap-2">
+              <button type="button" className="btn" onClick={() => grade.mutate({ lesson: next.id, grade: "again" })}>
+                Again tomorrow
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => grade.mutate({ lesson: next.id, grade: "good" })}
+              >
+                I had it
+              </button>
+            </div>
+          </>
+        ) : (
+          <button type="button" className="btn justify-self-start" onClick={() => setShown(true)}>
+            Show the answer
+          </button>
+        )}
+      </section>
+    </main>
+  );
+}

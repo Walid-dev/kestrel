@@ -33,6 +33,37 @@ const db = openDb(dbFile);
 const { applied, copy } = migrate(db, dbFile);
 if (applied) console.log(`migrations: ${applied} applied${copy ? ", the database copied first" : ""}`);
 mountNotes(app, db, settings);
+// development gets one made-up pack, so Learn's screens have something honest to show
+if (!isDeployed() && (db.prepare("SELECT COUNT(*) AS n FROM packs").get() as { n: number }).n === 0) {
+  const { addLesson, addPack } = await import("../domain/learn/lessons.ts");
+  const pack = addPack(db, "A made-up pack");
+  addLesson(
+    db,
+    pack,
+    "What a queue is",
+    {
+      say: ["A queue holds work until a worker is free.", "The sender never waits on the receiver."],
+      explain: ["A burst piles up in the queue, not on the worker."],
+      example: "Sixty letters arrive at once; the mailbox holds them while one clerk works.",
+      words: [{ w: "queue", m: "a waiting line for work" }],
+      check: [{ q: "Where does a burst pile up?", a: "In the queue, never on the worker." }],
+    },
+    1,
+  );
+  addLesson(
+    db,
+    pack,
+    "What a cache is",
+    {
+      say: ["A cache keeps a copy close, so the next read is fast."],
+      explain: ["It trades freshness for speed."],
+      example: "The kettle stays on the counter because tea happens daily.",
+      words: [{ w: "cache", m: "a close copy for speed" }],
+      check: [{ q: "What does a cache trade?", a: "Freshness for speed." }],
+    },
+    2,
+  );
+}
 mountSearch(app, db);
 mountApply(app, db);
 mountEvents(app);

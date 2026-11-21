@@ -66,7 +66,7 @@ const APPS: { name: string; what: string; when: string; to: string | null; color
     name: "Learn",
     what: "One lesson per page, read aloud, with practice and Ask.",
     when: "v0.4",
-    to: null, // not built yet
+    to: "/learn",
     color: "var(--green)",
   },
 ];
