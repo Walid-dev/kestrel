@@ -57,6 +57,12 @@ test("a PDF and a non-UTF-8 file are refused with the reason; too big is refused
   assert.throws(() => openFile(db, settings, join(inside, "big.md")), /bigger than/);
 });
 
+test("a file with mixed line endings is refused with the reason (R2-5)", () => {
+  const { inside, db, settings } = setup();
+  writeFileSync(join(inside, "mixed.md"), "one\r\ntwo\nthree\r\n");
+  assert.throws(() => openFile(db, settings, join(inside, "mixed.md")), /mixed line endings/);
+});
+
 test("BOM, CRLF and a missing final newline are remembered; the kept text is plain LF", () => {
   const { inside, db, settings } = setup();
   writeFileSync(join(inside, "w.md"), Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from("a\r\nb")]));

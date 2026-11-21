@@ -68,6 +68,11 @@ function decode(bytes: Buffer): { text: string; bom: boolean; eol: "lf" | "crlf"
     throw new Refused("not UTF-8 text: Notes takes UTF-8, with or without its byte-order mark");
   }
   const eol = text.includes("\r\n") ? "crlf" : "lf";
+  // a file that mixes endings would come back uniform after a save; refusing keeps the keep-it-as-it-was promise
+  // honest (review R2-5)
+  const stripped = text.replaceAll("\r\n", "");
+  if (stripped.includes("\r") || (eol === "crlf" && stripped.includes("\n")))
+    throw new Refused("mixed line endings: a save would make them uniform, so Notes leaves this file alone");
   const lf = text.replaceAll("\r\n", "\n");
   const finalNewline = lf.endsWith("\n");
   return { text: finalNewline ? lf.slice(0, -1) : lf, bom, eol, finalNewline };
