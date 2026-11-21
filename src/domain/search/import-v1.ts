@@ -2,7 +2,6 @@
 // cutover, so re-running refreshes and never double-lists. The nightly mirror runs this during the side-by-side
 // week; scripts/import-v1.ts is the by-hand door.
 import { DatabaseSync } from "node:sqlite";
-import { normalizeDedupe } from "./listings.ts";
 
 type OldRow = {
   id: string;
@@ -95,20 +94,7 @@ function importDeals(db: DatabaseSync, old: DatabaseSync, write: boolean): Impor
     const have = get.get(r.id, r.spec, r.url) as { id: string; status: string; score: number | null } | undefined;
     if (!have) {
       counts.landed.new++;
-      if (write)
-        insert.run(
-          r.id,
-          r.spec,
-          r.source,
-          r.url,
-          normalizeDedupe(r.org ?? "", r.title),
-          status,
-          r.first_seen,
-          updatedAt,
-          score,
-          match,
-          data,
-        );
+      if (write) insert.run(r.id, r.spec, r.source, r.url, r.url, status, r.first_seen, updatedAt, score, match, data);
       continue;
     }
     if (have.status === status && have.score === score) {

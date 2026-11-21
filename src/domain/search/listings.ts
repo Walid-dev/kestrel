@@ -58,12 +58,15 @@ export function keepItems(
   scoring: unknown, // ScoringShape reads it tolerantly
   now: Date,
   perRun = 200,
+  kind: "jobs" | "deals" = "jobs",
 ): { found: number; kept: number } {
   let kept = 0;
   const iso = now.toISOString();
   for (const item of items.slice(0, perRun)) {
     const scored: Score = scoreJob(scoring, item, now);
-    const dedupe = normalizeDedupe(item.org, item.title);
+    // a job reposted under a new link is the same job (org|title); a deal is its link — two
+    // same-titled chairs from sellers with no name are two chairs
+    const dedupe = kind === "deals" ? item.url : normalizeDedupe(item.org, item.title);
     // the lookup stays inside this search: another search's row keeps its own spec's score (the sweep's finding —
     // the first live run had re-scored imported rows that belonged to the old hunts)
     const have = db

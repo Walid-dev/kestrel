@@ -136,7 +136,7 @@ test("the old deals carry over: the vocabulary maps, the 0-10 score walks onto t
   assert.equal(d1.status, "applied");
   assert.equal(d1.score, 85);
   assert.equal(d1.match, "great");
-  assert.equal(d1.dedupe, "someone|a fine chair");
+  assert.equal(d1.dedupe, "https://example.com/deal/1"); // a deal is its link
   const data = JSON.parse(String(d1.data)) as { price: number; note: string };
   assert.equal(data.price, 120);
   assert.equal(data.note, "asked about the arms");
