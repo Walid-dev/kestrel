@@ -50,3 +50,41 @@ Write the findings to `docs/review/round-1-plan.md`, one entry per finding:
 - **Suggested fix:** one or two sentences.
 
 Skip style comments unless they hide a real problem. If an area has no findings, say so in one line.
+
+## Round 3: the whole project, v0.2 to v0.5
+
+Every planned version is built. This round reviews the finished repo as one piece — the first round read the plan,
+the second the Notes code; this one reads everything, with the whole context in one pass.
+
+Read, in this order:
+
+1. `README.md`, `docs/PLAN.md`, `docs/retirement.md`: what was promised, what stands, how the old setup retires.
+2. `docs/tasks/v0.2-searches.md` to `v0.5-rest.md`: each version's build plan with its status.
+3. `docs/decisions.md` and `docs/eval/`: every decision with its reason; the two live eval records.
+4. The code, by room: `src/domain/` (notes, search, apply, learn, tasks, models, brief), `src/server/`, `src/ai/`,
+   `src/db/migrations/`, `scripts/` (the imports and the kestrel CLI), `web/src/`, `evals/`.
+
+### What to review
+
+1. **Promises kept:** does each version's task page say true things about the code? Does the retirement map cover
+   every old part the plan named?
+2. **The seams:** the places two versions meet — the search engine carrying deals, Learn's packs feeding Live, the
+   brief counting other rooms' tables, the one status vocabulary. Anything one room assumes that another doesn't keep.
+3. **Honesty:** every error path answers in plain words; no silent drops; counts and statuses shown match the
+   database; the dry runs write nothing.
+4. **Privacy:** any path by which personal data could reach git, a log, a cloud model or another device. The repo's
+   fixtures, seeds and evals must stay made-up; the imports must land real content only in the data folder.
+5. **Simplicity:** what is heavier than it needs to be, duplicated across rooms, or dead since the route split.
+6. **Facts:** claims about Node 26, node:sqlite STRICT, Hono, zod 4, React 19, MediaRecorder on phones, Web Speech,
+   oMLX's OpenAI-shaped doors — against official sources where they decide a behaviour.
+
+### How to report
+
+As before: one finding per heading with where, what is wrong, why it matters, and a suggested fix, ordered by
+severity, in `docs/review/round-3-whole.md`. Confirmed-good areas get one line each, so the next round knows what
+was already read closely.
+
+### Out of scope
+
+The look of the screens (set in docs/design.md and settled per version); the old setup's own code; anything under
+the data folder; the door's own models (oMLX is outside the repo).
