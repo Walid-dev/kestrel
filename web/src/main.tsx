@@ -8,6 +8,7 @@ import { App } from "./app.tsx";
 import { Applications } from "./apply/applications.tsx";
 import { Home } from "./home.tsx";
 import { LearnLesson } from "./learn/lesson.tsx";
+import { LearnLive } from "./learn/live.tsx";
 import { LearnPack, LearnPacks } from "./learn/packs.tsx";
 import { LearnPractice } from "./learn/practice.tsx";
 import { Models } from "./models.tsx";
@@ -36,6 +37,7 @@ if (rootEl)
               <Route path="learn/pack/:id" element={<LearnPack />} />
               <Route path="learn/lesson/:id" element={<LearnLesson />} />
               <Route path="learn/practice" element={<LearnPractice />} />
+              <Route path="learn/live" element={<LearnLive />} />
               <Route path="notes/set" element={<NotesSet />} />
               <Route path="notes/:id" element={<Reader />} />
             </Route>

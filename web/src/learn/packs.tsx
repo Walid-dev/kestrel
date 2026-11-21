@@ -26,8 +26,11 @@ export function LearnPacks() {
     <main className="grid gap-3.5">
       <div className="flex items-center gap-3">
         <h2 className="font-cond text-xl font-bold">Learn</h2>
+        <Link to="/learn/live" className="btn ml-auto">
+          Live
+        </Link>
         {(due.data?.lessons.length ?? 0) > 0 && (
-          <Link to="/learn/practice" className="btn btn-primary ml-auto">
+          <Link to="/learn/practice" className="btn btn-primary">
             Practice · {due.data?.lessons.length} due
           </Link>
         )}

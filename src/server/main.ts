@@ -13,6 +13,8 @@ import { app } from "./app.ts";
 import { mountApply } from "./apply.ts";
 import { mountEvents } from "./events.ts";
 import { identity } from "./identity.ts";
+import { mountLearn } from "./learn.ts";
+import { mountModels } from "./models.ts";
 import { mountNotes } from "./notes.ts";
 import { startScheduler } from "./scheduler.ts";
 import { mountSearch } from "./search.ts";
@@ -33,6 +35,8 @@ const db = openDb(dbFile);
 const { applied, copy } = migrate(db, dbFile);
 if (applied) console.log(`migrations: ${applied} applied${copy ? ", the database copied first" : ""}`);
 mountNotes(app, db, settings);
+mountModels(app, db, settings);
+mountLearn(app, db, settings);
 // development gets one made-up pack, so Learn's screens have something honest to show
 if (!isDeployed() && (db.prepare("SELECT COUNT(*) AS n FROM packs").get() as { n: number }).n === 0) {
   const { addLesson, addPack } = await import("../domain/learn/lessons.ts");
@@ -47,6 +51,19 @@ if (!isDeployed() && (db.prepare("SELECT COUNT(*) AS n FROM packs").get() as { n
       example: "Sixty letters arrive at once; the mailbox holds them while one clerk works.",
       words: [{ w: "queue", m: "a waiting line for work" }],
       check: [{ q: "Where does a burst pile up?", a: "In the queue, never on the worker." }],
+    },
+    1,
+  );
+  // and one made-up answer-pack, so Live has something to find
+  const answers = addPack(db, "A made-up interview", "answer-pack");
+  addLesson(
+    db,
+    answers,
+    "Why did you pick cedar for the boxes?",
+    {
+      say: ["Cedar stays light when the box is full.", "And it shrugs off rain without paint."],
+      explain: ["They want to know why you chose this wood."],
+      check: [{ q: "Why did you pick cedar for the boxes?", a: "Cedar stays light when the box is full." }],
     },
     1,
   );

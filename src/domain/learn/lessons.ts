@@ -16,7 +16,12 @@ export type LessonBody = z.infer<typeof LessonBody>;
 export type Lesson = { id: string; pack: string; position: number; title: string; body: LessonBody };
 export type Pack = { id: string; name: string; kind: "lesson-pack" | "answer-pack"; lessons: number };
 
-export function addPack(db: DatabaseSync, name: string, kind: Pack["kind"] = "lesson-pack", id = randomUUID()): string {
+export function addPack(
+  db: DatabaseSync,
+  name: string,
+  kind: Pack["kind"] = "lesson-pack",
+  id: string = randomUUID(),
+): string {
   db.prepare("INSERT INTO packs (id, name, kind, added_at) VALUES (?, ?, ?, ?)").run(
     id,
     name,
@@ -32,7 +37,7 @@ export function addLesson(
   title: string,
   body: unknown,
   position = 0,
-  id = randomUUID(),
+  id: string = randomUUID(),
 ): Lesson {
   const read = LessonBody.safeParse(body ?? {});
   if (!read.success) throw new Refused(`the lesson's shape is wrong: ${read.error.issues[0]?.message ?? ""}`);
