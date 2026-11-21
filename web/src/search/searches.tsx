@@ -93,6 +93,17 @@ export function Searches() {
     },
     onSettled: refresh,
   });
+  const queue = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch("/api/apply/queue", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ listing: id }),
+      });
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
+    },
+    onSettled: refresh,
+  });
   const runNow = useMutation({
     mutationFn: async (id: string) => {
       await fetch(`/api/search/run/${id}`, { method: "POST" });
@@ -229,6 +240,16 @@ export function Searches() {
             >
               {r.status === "passed" ? "Back in" : "Aside"}
             </button>
+            {!["applied", "interviewing", "offer", "passed", "fake", "closed"].includes(r.status) && (
+              <button
+                type="button"
+                className="btn"
+                title={queue.isError ? queue.error.message : "Queue this job for the apply agent"}
+                onClick={() => queue.mutate(r.id)}
+              >
+                Queue to apply
+              </button>
+            )}
           </div>
         </section>
       ))}

@@ -5,6 +5,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
 import { App } from "./app.tsx";
+import { Applications } from "./apply/applications.tsx";
 import { Home } from "./home.tsx";
 import { Models } from "./models.tsx";
 import { NotesList } from "./notes/list.tsx";
@@ -27,6 +28,7 @@ if (rootEl)
               <Route path="notes" element={<NotesList />} />
               <Route path="models" element={<Models />} />
               <Route path="searches" element={<Searches />} />
+              <Route path="applications" element={<Applications />} />
               <Route path="notes/set" element={<NotesSet />} />
               <Route path="notes/:id" element={<Reader />} />
             </Route>

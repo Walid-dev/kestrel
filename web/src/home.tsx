@@ -2,6 +2,7 @@
 // and stay quiet until then.
 import type { ReactNode } from "react";
 import { Link } from "react-router";
+import { LiveStrip } from "./live-strip.tsx";
 
 const STROKE = {
   fill: "none",
@@ -39,29 +40,33 @@ const ICONS: Record<string, ReactNode> = {
   ),
 };
 
-const APPS: { name: string; what: string; when: string | null; color: string }[] = [
+const APPS: { name: string; what: string; when: string; to: string | null; color: string }[] = [
   {
     name: "Notes",
     what: "A document, my notes on its words, and the changes the computer's model proposes.",
     when: "v0.1",
+    to: "/notes",
     color: "var(--accent)",
   },
   {
     name: "Searches",
     what: "Saved searches that run on their own: jobs first, deals later.",
     when: "v0.2",
+    to: "/searches",
     color: "var(--purple)",
   },
   {
     name: "Applications",
     what: "One page by state; what needs me waits here and nothing gets lost.",
     when: "v0.3",
+    to: "/applications",
     color: "var(--orange)",
   },
   {
     name: "Learn",
     what: "One lesson per page, read aloud, with practice and Ask.",
     when: "v0.4",
+    to: null, // not built yet
     color: "var(--green)",
   },
 ];
@@ -69,6 +74,7 @@ const APPS: { name: string; what: string; when: string | null; color: string }[]
 export function Home() {
   return (
     <main className="grid gap-3.5 md:grid-cols-2">
+      <LiveStrip />
       <p
         className="font-mono mt-1 mb-1 text-[11px] uppercase tracking-[0.18em] md:col-span-2"
         style={{ color: "var(--muted)" }}
@@ -76,7 +82,7 @@ export function Home() {
         One app · one computer · my own models
       </p>
       {APPS.map((app) => {
-        const soon = !["v0.1", "here since v0.2"].includes(app.when ?? "");
+        const soon = app.to === null; // a card without a door isn't here yet
         const card = (
           <section
             key={app.name}
@@ -110,11 +116,10 @@ export function Home() {
             </p>
           </section>
         );
-        const to = app.name === "Notes" ? "/notes" : app.name === "Searches" ? "/searches" : null;
-        return soon || !to ? (
+        return app.to === null ? (
           card
         ) : (
-          <Link key={app.name} to={to} aria-label={`Open ${app.name}`}>
+          <Link key={app.name} to={app.to} aria-label={`Open ${app.name}`}>
             {card}
           </Link>
         );
