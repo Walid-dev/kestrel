@@ -38,6 +38,7 @@ export function mountSearch(app: Hono, db: DatabaseSync) {
         lastRun: lastRun(db, s.id),
       })),
       problems,
+      mirror: lastRun(db, "mirror:v1"), // the side-by-side's nightly import, with its problem when it failed
     });
   });
   app.get("/api/search/listings", (c) => {
@@ -71,6 +72,7 @@ export function mountSearch(app: Hono, db: DatabaseSync) {
   app.post("/api/search/run/:id", async (c) => {
     const spec = loadSpecs(specsDir()).specs.find((s) => s.id === c.req.param("id"));
     if (!spec) return c.json({ error: "no such search" }, 404);
+    if (!spec.enabled) return c.json({ error: "this search is switched off until the cutover" }, 400);
     return c.json(await runSearch(db, spec, new Date()));
   });
 }

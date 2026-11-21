@@ -76,6 +76,11 @@ startScheduler(db, {
 // every request through the identity check: enforced when deployed, open on made-up data (identity.ts says why).
 // The root is composed after every route is mounted: route() copies what exists when it is called.
 const root = new Hono();
+// a failed request logs one plain line, never a stack: the service log must stay free of paths and content
+root.onError((e, c) => {
+  console.error(`a request failed: ${e.name}: ${e.message.slice(0, 120)}`);
+  return c.json({ error: "something went wrong on the computer's side" }, 500);
+});
 root.use("*", identity(settings.tailscaleLogin, isDeployed()));
 root.route("/", app);
 

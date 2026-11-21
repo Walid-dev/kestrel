@@ -89,3 +89,29 @@ test("the mirror runs nightly while mirror-v1.json points at the old database (s
   const nextNight = await tick(db, dirs, new Date("2026-11-22T03:05:00Z"));
   assert.ok(nextNight.includes("mirror:v1"));
 });
+
+test("a crashing spec still lands a run row, the tick carries on, and two ticks never overlap (sweep F3)", async () => {
+  const { base, db } = setup(ITEM);
+  const specsDir = join(base, "crash-searches");
+  mkdirSync(specsDir);
+  // a spec whose scoring is unreadable enough to crash keepItems? the collector itself crashing is covered by the
+  // door; here the run throws inside by pointing the collector at a directory
+  writeFileSync(
+    join(specsDir, "crashy.json"),
+    JSON.stringify({ name: "Crashy", collector: base, everyMinutes: 360, scoring: {} }),
+  );
+  const dirs = { specsDir, backupsDir: join(base, "crash-backups") };
+  const did = await tick(db, dirs, new Date("2026-11-21T03:00:00Z"));
+  assert.ok(did.includes("search:crashy"));
+  assert.ok(did.includes("backup")); // the crash never stops the backup
+  const last = lastRun(db, "crashy");
+  assert.ok(last, "the crash landed a run row");
+  const again = await tick(db, dirs, new Date("2026-11-21T03:05:00Z"));
+  assert.ok(!again.includes("search:crashy"), "a crashed spec is not due again every minute");
+  // overlap: two ticks at once — the second yields at the door
+  const [a, b] = await Promise.all([
+    tick(db, dirs, new Date("2026-11-22T03:00:00Z")),
+    tick(db, dirs, new Date("2026-11-22T03:00:01Z")),
+  ]);
+  assert.ok(a.length === 0 || b.length === 0, "one of the overlapping ticks stood down");
+});

@@ -13,14 +13,33 @@ import { loadSpecs } from "../domain/search/specs.ts";
 
 export type SchedulerDirs = { specsDir: string; backupsDir: string; mirrorFile?: string };
 
+let ticking = false; // one tick at a time: a slow collector must never stack duplicate runs behind itself
+
 export async function tick(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promise<string[]> {
+  if (ticking) return [];
+  ticking = true;
+  try {
+    return await tickNow(db, dirs, now);
+  } finally {
+    ticking = false;
+  }
+}
+
+async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promise<string[]> {
   const did: string[] = [];
   for (const spec of loadSpecs(dirs.specsDir).specs) {
     if (!spec.enabled) continue;
     const last = lastRun(db, spec.id);
     const due = !last || now.getTime() - new Date(last.started).getTime() >= spec.everyMinutes * 60_000;
     if (!due) continue;
-    await runSearch(db, spec, now); // one at a time: the collectors share one computer and one browser
+    try {
+      await runSearch(db, spec, now); // one at a time: the collectors share one computer and one browser
+    } catch (e) {
+      // a crash still lands a run row, so the spec isn't due again every minute and the screen says what happened
+      db.prepare(
+        "INSERT INTO search_runs (id, search, started, ms, found, kept, problem) VALUES (?, ?, ?, 0, 0, 0, ?)",
+      ).run(randomUUID(), spec.id, now.toISOString(), `the run crashed: ${(e as Error).message.slice(0, 120)}`);
+    }
     did.push(`search:${spec.id}`);
   }
   // the side-by-side week's mirror: while mirror-v1.json names the old database, its statuses flow in nightly
