@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { migrate } from "../src/db/migrate.ts";
-import { importV1 } from "./import-v1.ts";
+import { importV1 } from "../src/domain/search/import-v1.ts";
 
 function oldDb(base: string): string {
   const p = join(base, "old.db");

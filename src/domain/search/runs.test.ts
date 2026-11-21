@@ -62,3 +62,30 @@ test("the tick runs what is overdue, spaces out what isn't, and catches up after
   assert.ok(afterSleep.includes("search:made-up")); // the slept-through run happens on wake
   assert.equal(lastRun(db, "made-up")?.started, "2026-11-23T09:00:00.000Z");
 });
+
+test("the mirror runs nightly while mirror-v1.json points at the old database (side by side)", async () => {
+  const { base, db } = setup(ITEM);
+  const old = join(base, "old.db");
+  const oldDb = new DatabaseSync(old);
+  oldDb.exec(
+    "CREATE TABLE job_listings (id TEXT, hunt TEXT, link TEXT, dedupe_key TEXT, status TEXT, found TEXT, data TEXT)",
+  );
+  oldDb
+    .prepare(
+      "INSERT INTO job_listings VALUES ('o1', 'made-up-hunt', 'https://example.com/9', 'made co|role', 'new', '2026-11-01', ?)",
+    )
+    .run(JSON.stringify({ source: "made-up-board", title: "Role", company: "Made Co", score: 50, match: "weak" }));
+  oldDb.close();
+  const { writeFileSync: write, mkdirSync: mk } = await import("node:fs");
+  const mirrorFile = join(base, "mirror-v1.json");
+  write(mirrorFile, JSON.stringify({ from: old, everyMinutes: 1440 }));
+  mk(join(base, "empty-searches"));
+  const dirs = { specsDir: join(base, "empty-searches"), backupsDir: join(base, "backups"), mirrorFile };
+  const first = await tick(db, dirs, new Date("2026-11-21T03:00:00Z"));
+  assert.ok(first.includes("mirror:v1"));
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM listings").get()?.n, 1);
+  const soon = await tick(db, dirs, new Date("2026-11-21T09:00:00Z"));
+  assert.ok(!soon.includes("mirror:v1")); // not due again the same day
+  const nextNight = await tick(db, dirs, new Date("2026-11-22T03:05:00Z"));
+  assert.ok(nextNight.includes("mirror:v1"));
+});

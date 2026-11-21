@@ -32,7 +32,11 @@ const { applied, copy } = migrate(db, dbFile);
 if (applied) console.log(`migrations: ${applied} applied${copy ? ", the database copied first" : ""}`);
 mountNotes(app, db, settings);
 mountSearch(app, db);
-startScheduler(db, { specsDir: join(dataDir(), "searches"), backupsDir: join(dataDir(), "backups") });
+startScheduler(db, {
+  specsDir: join(dataDir(), "searches"),
+  backupsDir: join(dataDir(), "backups"),
+  mirrorFile: join(dataDir(), "mirror-v1.json"),
+});
 
 // every request through the identity check: enforced when deployed, open on made-up data (identity.ts says why).
 // The root is composed after every route is mounted: route() copies what exists when it is called.
