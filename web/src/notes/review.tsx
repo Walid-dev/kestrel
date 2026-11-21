@@ -37,9 +37,14 @@ export function Review({
   const one = draft.documents.length === 1 ? draft.documents[0] : null;
   const oneResult = one ? draft.perDocument[one.id] : null;
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: the dialog already closes from the keyboard (Esc) and Back
     <dialog
       ref={dialog}
       onClose={onClose}
+      onClick={(e) => {
+        // clicking outside the box closes it, like Esc and Back (the draft stays)
+        if (e.target === dialog.current) dialog.current?.close();
+      }}
       className="m-auto max-h-[88dvh] w-[min(94vw,760px)] overflow-y-auto rounded-2xl border p-0 backdrop:bg-black/50"
       style={{ borderColor: "var(--line)", background: "var(--surface)", color: "var(--text)" }}
     >

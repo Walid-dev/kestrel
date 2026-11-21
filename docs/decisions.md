@@ -9,7 +9,8 @@ technical; the plan and the runbook carry the detail.
   The One Dark structure stays, on a darker ground (`#15171c`) with brighter text, and the working colours step up to
   the editor-neon shades the code palette uses — pink comes back for the note marks. Enter submits in any box
   (Shift+Enter makes the line), the app's rule from here on. When an ask finishes while the screen is open, the
-  review opens by itself.
+  review opens by itself. Clicking outside a box closes it, like Esc and Android's Back — the common flows hold
+  everywhere.
 
 - **2026-11-21 · The colours are the editor's own theme; noting is a mode.**
   The palette is Atom One Dark, read from the editor's theme file (and One Light for light mode): blue `#61afef`

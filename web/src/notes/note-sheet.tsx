@@ -53,9 +53,14 @@ export function NoteSheet({
           ? "the whole document"
           : `“${target.note.quote}”`;
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: the dialog already closes from the keyboard (Esc) and Back
     <dialog
       ref={dialog}
       onClose={onClose}
+      onClick={(e) => {
+        // clicking outside the box closes it, like Esc and Back (the words typed stay kept)
+        if (e.target === dialog.current) dialog.current?.close();
+      }}
       className="m-auto w-[min(92vw,480px)] rounded-2xl border p-0 backdrop:bg-black/50"
       style={{ borderColor: "var(--line)", background: "var(--surface)", color: "var(--text)" }}
     >
