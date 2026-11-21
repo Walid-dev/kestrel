@@ -22,7 +22,25 @@ export const Settings = z.object({
   // the computer's own models (oMLX's OpenAI door); only these two may be called, and the guard below the context
   models: z
     .object({
-      url: z.string().default(MODEL_DEFAULTS.url),
+      // the door must stay on this computer: a remote URL would send documents and notes off it (review R2-1).
+      // Remote models, if ever wanted, are a separate decision with its own explicit opt-in.
+      url: z
+        .string()
+        .default(MODEL_DEFAULTS.url)
+        .refine(
+          (u) => {
+            try {
+              const { hostname, protocol } = new URL(u);
+              return (
+                (protocol === "http:" || protocol === "https:") &&
+                ["127.0.0.1", "localhost", "::1", "[::1]"].includes(hostname)
+              );
+            } catch {
+              return false;
+            }
+          },
+          { message: "models.url must stay on this computer (http://127.0.0.1:…): kestrel never sends documents away" },
+        ),
       careful: z.string().default(MODEL_DEFAULTS.careful),
       fast: z.string().default(MODEL_DEFAULTS.fast),
       contextChars: z.number().int().positive().default(MODEL_DEFAULTS.contextChars),
