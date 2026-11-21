@@ -1,8 +1,8 @@
 // The review, read like a code diff: minus lines out (red), plus lines in (green), the whole document when it is
 // small so the change reads in its place. One row of buttons; Save names the file it writes. A native dialog.
 import { useEffect, useRef } from "react";
+import { type DiffRow, diffRows } from "../../../src/shared/diff.ts";
 import type { Draft } from "../../../src/shared/notes.ts";
-import { type DiffRow, diffRows } from "./diff.ts";
 
 const ROW: Record<DiffRow["kind"], { mark: string; style: React.CSSProperties }> = {
   same: { mark: " ", style: {} },
