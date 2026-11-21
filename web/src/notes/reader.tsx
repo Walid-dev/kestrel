@@ -2,7 +2,7 @@
 // Selecting words offers a note on them; a button takes a note on the whole document; the sheet is a native dialog.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
-import { useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { type Line, lineKinds, segments } from "../../../src/shared/marks.ts";
 import type { DocumentFull, Draft, PlacedNote } from "../../../src/shared/notes.ts";
 import { NoteSheet, type SheetTarget } from "./note-sheet.tsx";
@@ -180,8 +180,15 @@ export function Reader() {
     );
   if (!doc.data) return null;
   return (
-    <main>
-      <div className="mb-3 flex items-baseline gap-3">
+    <main className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6">
+      <div className="mb-3 flex items-baseline gap-3 lg:col-start-1">
+        <Link
+          to="/notes"
+          className="font-mono text-[11px] uppercase tracking-[0.18em]"
+          style={{ color: "var(--accent)" }}
+        >
+          ← Notes
+        </Link>
         <p className="font-mono text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--muted)" }}>
           {doc.data.name}
         </p>
@@ -283,11 +290,20 @@ export function Reader() {
         style={{ borderColor: "var(--line)", background: "var(--surface)" }}
       >
         {lines.map((ln) => (
+          // biome-ignore lint/a11y/useKeyWithClickEvents: tapping a line is a shortcut; the same note comes from selecting words
+          // biome-ignore lint/a11y/noStaticElementInteractions: as above — the keyboard path is the selection
           <div
             key={ln.n}
             data-at={ln.at}
             className={LOOK[ln.kind]}
             style={ln.kind === "code" || ln.kind === "fence" ? { color: "var(--muted)" } : undefined}
+            onClick={(e) => {
+              // a tap on plain words notes the line; a mark (a button) and a real selection keep their own ways
+              if ((e.target as HTMLElement).closest("button")) return;
+              if (!getSelection()?.isCollapsed) return;
+              if (ln.text.trim() === "") return;
+              setSheet({ kind: "new", quote: ln.text, start: ln.at });
+            }}
           >
             {segments(ln, placed).map((seg) => {
               const open = () => {
@@ -330,7 +346,9 @@ export function Reader() {
           </button>
         </div>
       )}
-      <NotesList notes={placed} onOpen={(n) => setSheet({ kind: "edit", note: n })} />
+      <div className="lg:col-start-2 lg:row-start-1 lg:row-span-4 lg:sticky lg:top-6">
+        <NotesList notes={placed} onOpen={(n) => setSheet({ kind: "edit", note: n })} />
+      </div>
       {review && current?.status === "ready" && (
         <Review
           draft={current}

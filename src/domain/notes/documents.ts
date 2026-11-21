@@ -145,3 +145,8 @@ export function getDocument(db: DatabaseSync, id: string): DocumentFull | null {
   const r = db.prepare("SELECT * FROM documents WHERE id = ?").get(id) as Record<string, unknown> | undefined;
   return r ? { ...meta(r), text: String(r.text), previous: r.previous_text != null } : null;
 }
+
+// forget a document: its notes go with it (the table cascades); a file stays in its folder, an upload is gone
+export function deleteDocument(db: DatabaseSync, id: string): void {
+  db.prepare("DELETE FROM documents WHERE id = ?").run(id);
+}

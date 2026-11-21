@@ -1,5 +1,5 @@
-// The app's icons, drawn by code so the repo needs no image tools: the wolf's face on kestrel's dark ground. Run
-// once: node scripts/make-icons.ts. The PNGs are committed.
+// The app's icons, drawn by code so the repo needs no image tools: the wolf howling at the moon on kestrel's dark
+// ground. Run once: node scripts/make-icons.ts. The PNGs are committed.
 import { writeFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 
@@ -49,40 +49,35 @@ function png(size: number, draw: (x: number, y: number) => [number, number, numb
 
 const BG: [number, number, number] = [0x11, 0x14, 0x1b];
 const PINK: [number, number, number] = [0xff, 0x75, 0x7f];
-// the mark: a wolf's face, the same geometry as web/src/mark.tsx and favicon.svg (a 100-unit box); one polygon
-// filled by ray casting, the eyes cut back to the ground, sampled 3x3 per pixel so the edges stay smooth
+const VIOLET: [number, number, number] = [0xc0, 0x99, 0xff];
+// the mark: a wolf howling at the moon, the same geometry as web/src/mark.tsx and favicon.svg (a 100-unit box);
+// the wolf is one polygon filled by ray casting, sampled 3x3 per pixel so the edges stay smooth
 const WOLF: [number, number][] = [
-  [22, 4],
-  [36, 15],
-  [50, 15],
-  [64, 15],
-  [78, 4],
-  [72, 20],
-  [82, 30],
-  [87, 42],
-  [75, 50],
-  [79, 61],
-  [64, 75],
-  [50, 87],
-  [36, 75],
-  [21, 61],
-  [25, 50],
-  [13, 42],
-  [18, 30],
-  [28, 20],
+  [66, 2],
+  [61, 10],
+  [57, 13],
+  [52, 24],
+  [50, 40],
+  [48, 56],
+  [46, 84],
+  [39, 84],
+  [41, 64],
+  [35, 65],
+  [31, 84],
+  [23, 84],
+  [22, 74],
+  [15, 66],
+  [2, 72],
+  [12, 58],
+  [14, 49],
+  [29, 40],
+  [38, 32],
+  [46, 24],
+  [40, 16],
+  [47, 14],
+  [51, 8],
 ];
-const EYES: [number, number][][] = [
-  [
-    [56, 36],
-    [70, 33],
-    [62, 44],
-  ],
-  [
-    [44, 36],
-    [30, 33],
-    [38, 44],
-  ],
-];
+const MOON = { x: 80, y: 16, r: 8 };
 function inPolygon(px: number, py: number, poly: [number, number][]): boolean {
   let inside = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
@@ -101,13 +96,15 @@ for (const size of [192, 512]) {
   const u = size / 100; // icon coordinates to the mark's 100-unit box
   const icon = png(size, (x, y) => {
     let wolf = 0;
+    let moon = 0;
     for (let sx = 0; sx < 3; sx++)
       for (let sy = 0; sy < 3; sy++) {
         const px = (x + (sx + 0.5) / 3) / u;
         const py = (y + (sy + 0.5) / 3) / u;
-        if (inPolygon(px, py, WOLF) && !EYES.some((e) => inPolygon(px, py, e))) wolf++;
+        if (inPolygon(px, py, WOLF)) wolf++;
+        else if (Math.hypot(px - MOON.x, py - MOON.y) < MOON.r) moon++;
       }
-    return mix(BG, PINK, wolf / 9);
+    return mix(mix(BG, VIOLET, moon / 9), PINK, wolf / 9);
   });
   writeFileSync(`web/public/icons/icon-${size}.png`, icon);
   console.log(`icon-${size}.png: ${icon.length} bytes`);

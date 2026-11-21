@@ -43,6 +43,18 @@ export function NotesList() {
     onError: (e) => setWhy(e.message),
   });
 
+  const forget = useMutation({
+    mutationFn: async (d: DocumentMeta) => {
+      const sure = confirm(
+        d.source === "upload"
+          ? `Forget ${d.name}? An upload is gone for good, with its notes.`
+          : `Forget ${d.name}? The file stays in its folder; its notes here go.`,
+      );
+      if (!sure) return;
+      await fetch(`/api/notes/documents/${d.id}`, { method: "DELETE" });
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["docs"] }),
+  });
   const opened = new Set((docs.data?.documents ?? []).map((d) => d.path).filter(Boolean));
   const offered = (files.data?.files ?? []).filter((f) => !opened.has(f.path));
 
@@ -97,6 +109,16 @@ export function NotesList() {
               {d.source === "upload" ? "upload" : d.path} · {Math.max(1, Math.round(d.chars / 1000))}k characters
             </span>
           </Link>
+          <button
+            type="button"
+            aria-label={`Forget ${d.name}`}
+            title="Forget this document"
+            className="cursor-pointer rounded-full border px-2.5 py-1 text-xs"
+            style={{ borderColor: "var(--line)", color: "var(--muted)" }}
+            onClick={() => forget.mutate(d)}
+          >
+            ×
+          </button>
         </div>
       ))}
       {picked.length >= 2 && (

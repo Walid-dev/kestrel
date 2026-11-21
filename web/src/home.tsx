@@ -68,8 +68,11 @@ const APPS: { name: string; what: string; when: string | null; color: string }[]
 
 export function Home() {
   return (
-    <main className="grid gap-3.5">
-      <p className="font-mono mt-1 mb-1 text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--muted)" }}>
+    <main className="grid gap-3.5 md:grid-cols-2">
+      <p
+        className="font-mono mt-1 mb-1 text-[11px] uppercase tracking-[0.18em] md:col-span-2"
+        style={{ color: "var(--muted)" }}
+      >
         One app · one computer · my own models
       </p>
       {APPS.map((app) => {

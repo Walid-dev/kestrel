@@ -95,6 +95,9 @@ Each gets its own step-by-step plan, reviewed, before it starts.
 
 ### v0.2 · Searches, jobs first
 
+- A Models screen: which model each use runs on (Notes' careful and fast first), switched there and recorded, so
+  testing another model is one tap — the way the old setup's Models page works. Until then the settings file decides.
+
 - The job searches move in: the sources I still use, the scores, each site's limits, and a page that comes back
   empty reported as a problem, never as "nothing new".
 - The list opens on All, and filters combine. A Priority list holds every great match and every job I star, in view

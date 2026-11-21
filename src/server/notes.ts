@@ -7,6 +7,7 @@ import type { Hono } from "hono";
 import { z } from "zod";
 import {
   addUpload,
+  deleteDocument,
   getDocument,
   listDocuments,
   listFiles,
@@ -27,6 +28,10 @@ export function mountNotes(app: Hono, db: DatabaseSync, settings: Settings) {
 
   app.get("/api/notes/documents", (c) => c.json({ documents: listDocuments(db) }));
   app.get("/api/notes/files", (c) => c.json({ files: listFiles(settings) }));
+  app.delete("/api/notes/documents/:id", (c) => {
+    deleteDocument(db, c.req.param("id"));
+    return c.json({ ok: true });
+  });
   app.get("/api/notes/documents/:id", (c) => {
     const doc = getDocument(db, c.req.param("id"));
     return doc ? c.json(doc) : c.json({ error: "no such document" }, 404);
