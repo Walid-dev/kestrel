@@ -85,3 +85,11 @@ test("undo brings the previous text back, once", async () => {
   assert.equal(readFileSync(file, "utf8"), "The plan has three parts.\n");
   assert.throws(() => undoSave(db, doc.id), /nothing to undo/);
 });
+
+test("undo refuses when the file changed after the save, and touches nothing (R2-4)", async () => {
+  const { db, doc, file, draftId } = await draftOn(Buffer.from("The plan has three parts.\n"));
+  saveDraft(db, draftId, doc.id);
+  appendFileSync(file, "a newer edit from another tool\n");
+  assert.throws(() => undoSave(db, doc.id), /changed after the save/);
+  assert.match(readFileSync(file, "utf8"), /newer edit/); // the newer edit survives
+});

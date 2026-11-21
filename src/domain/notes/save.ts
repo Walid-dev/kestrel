@@ -99,6 +99,15 @@ export function undoSave(db: DatabaseSync, documentId: string): { where: string 
   let where = "the upload, kept in kestrel";
   let sha = hash(Buffer.from(doc.previous_text, "utf8"));
   if (doc.source === "file" && doc.path) {
+    // the file must still be exactly what the save wrote: an edit made after it is never overwritten (review R2-4)
+    let now: Buffer;
+    try {
+      now = readFileSync(doc.path);
+    } catch {
+      throw new Refused(`the file is gone: ${doc.path}`);
+    }
+    if (hash(now) !== doc.sha256)
+      throw new Refused("the file changed after the save: nothing was undone, open it again to see it");
     const out = encode(doc.previous_text, doc);
     writeBeside(doc.path, out);
     sha = hash(out);
