@@ -368,9 +368,8 @@ export function Reader() {
         <NoteSheet
           docId={id}
           target={sheet}
-          onSave={(text) => {
-            save.mutate({ target: sheet, text });
-            setSheet(null);
+          onSave={async (text) => {
+            await save.mutateAsync({ target: sheet, text });
             getSelection()?.removeAllRanges();
           }}
           onDelete={() => {
