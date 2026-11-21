@@ -42,6 +42,12 @@ Both work on the repo only, with made-up data. Neither opens my data folder or t
 
 ## Plan changes during the build
 
+- **2026-11-21, after v0.1:** auto mode. The builder builds v0.2 to v0.5 round after round without per-step GOs,
+  committing and pushing continuously (this repo only). Each version still gets a written plan, an adversarial
+  review of that plan by orchestrated agents before building, the same checks and evals while building, and a
+  multi-lens review sweep after; at the end, a second model reviews the whole repo in one context, and I test and
+  adjust. A failure to push, a check that cannot pass, or anything needing my accounts stops and waits for me.
+
 - **2026-11-21, gate 3:** the Notes screens live under `web/src/notes/` (the runbook wrote `web/notes/`). Asks run
   with thinking on, and the model door's JSON mode is off for the big write: it pushed both local models into
   top-level arrays — the prompt asks for one object, and the client reads tolerantly (a one-object array unwraps).

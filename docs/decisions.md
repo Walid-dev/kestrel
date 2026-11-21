@@ -5,6 +5,13 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-21 · Auto mode for v0.2–v0.5; the search engine is generic, the sites are data.**
+  The builder builds the remaining versions without per-step GOs, pushing continuously to this repo only; reviews
+  run per version by orchestrated agents and at the end by a second model over the whole repo. For Searches, the
+  repo holds a generic engine (specs, runs, limits, scoring, reporting) and speaks the old setup's collector
+  convention; the per-site scripts and my search terms live in the data folder, since they are personal and
+  site-fragile. Rejected: porting site scrapers into a public repo.
+
 - **2026-11-21 · Round 2 is applied: ten findings, ten commits, each with its test.**
   The rules it added: the model door must be loopback — documents never leave the computer; a change must cite a
   real open note on its own document, and a note the model forgets is named, never dropped; documents travel to the
