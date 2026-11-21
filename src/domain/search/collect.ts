@@ -1,0 +1,63 @@
+// The collector door: a collector is an executable in the data folder that prints its items as JSON. The engine runs
+// it with a time limit and a size cap, reads the items, and turns every bad ending into a problem in plain words —
+// exit code 3 means the site wants a login again (the old setup's convention, so existing scripts work unchanged).
+import { execFile } from "node:child_process";
+import { z } from "zod";
+
+export const Item = z.object({
+  source: z.string().min(1),
+  url: z.string().min(1),
+  title: z.string().min(1),
+  org: z.string().default(""),
+  location: z.string().default(""),
+  posted: z.string().default(""),
+  workMode: z.string().default(""),
+  seniority: z.string().default(""),
+  salaryMin: z.number().nullable().default(null),
+  salaryMax: z.number().nullable().default(null),
+  salaryCurrency: z.string().nullable().default(null),
+  usOnly: z.boolean().default(false),
+  excerpt: z.string().default(""),
+});
+export type Item = z.infer<typeof Item>;
+
+export type Collected = { items: Item[]; problem: string };
+
+export function runCollector(
+  script: string,
+  args: string[],
+  opts: { timeoutMs?: number; maxBytes?: number } = {},
+): Promise<Collected> {
+  const timeoutMs = opts.timeoutMs ?? 180_000;
+  const maxBytes = opts.maxBytes ?? 20_000_000;
+  return new Promise((resolve) => {
+    execFile(script, args, { timeout: timeoutMs, maxBuffer: maxBytes, encoding: "utf8" }, (error, stdout, stderr) => {
+      const hint = (stderr || "").trim().split("\n")[0]?.slice(0, 120) ?? "";
+      if (error) {
+        const e = error as { code?: number | string; killed?: boolean; signal?: string | null };
+        if (e.code === 3)
+          return resolve({ items: [], problem: `the site wants a login again${hint ? `: ${hint}` : ""}` });
+        if (e.killed || e.signal === "SIGTERM")
+          return resolve({
+            items: [],
+            problem: `the collector ran past ${Math.round(timeoutMs / 1000)}s and was stopped`,
+          });
+        if (e.code === "ENOENT") return resolve({ items: [], problem: "the collector script is not there" });
+        return resolve({ items: [], problem: `the collector failed (exit ${e.code})${hint ? `: ${hint}` : ""}` });
+      }
+      let raw: unknown;
+      try {
+        raw = JSON.parse(stdout);
+      } catch {
+        return resolve({ items: [], problem: "the collector answered something that isn't JSON" });
+      }
+      const read = z.array(Item).safeParse(raw);
+      if (!read.success)
+        return resolve({
+          items: [],
+          problem: `the collector's items miss the shape: ${read.error.issues[0]?.message ?? ""}`,
+        });
+      resolve({ items: read.data, problem: "" });
+    });
+  });
+}
