@@ -98,3 +98,14 @@ test("a hand-written spec with lone strings still scores: commas split, junk fal
   assert.ok(got.score > 0);
   assert.match(got.why, /title matches keeper/);
 });
+
+test("a deal scores by its cap: under earns the pay part, over says so, no price takes the middle road", () => {
+  const deals = { title: { want: ["chair"] }, price: { cap: 300 }, freshDays: 7 };
+  const under = scoreJob(deals, { title: "A fine chair", price: 120, posted: "2026-11-20" }, NOW);
+  assert.equal(under.parts.pay, 10);
+  const over = scoreJob(deals, { title: "A fine chair", price: 700, posted: "2026-11-20" }, NOW);
+  assert.equal(over.parts.pay, 0);
+  assert.match(over.why, /over the cap/);
+  const unpriced = scoreJob(deals, { title: "A fine chair", posted: "2026-11-20" }, NOW);
+  assert.equal(unpriced.parts.pay, 6);
+});

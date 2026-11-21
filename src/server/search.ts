@@ -28,6 +28,14 @@ export function mountSearch(app: Hono, db: DatabaseSync) {
   const specsDir = () => join(dataDir(), "searches");
   app.get("/api/search", (c) => {
     const { specs, problems } = loadSpecs(specsDir());
+    // searches that exist only as mirrored listings (no spec file yet) still get their card, quiet and runless
+    const known = new Set(specs.map((s) => s.id));
+    const mirrored = (
+      db.prepare("SELECT search, COUNT(*) AS n FROM listings GROUP BY search ORDER BY search").all() as {
+        search: string;
+        n: number;
+      }[]
+    ).filter((r) => !known.has(r.search));
     return c.json({
       searches: specs.map((s) => ({
         id: s.id,
@@ -37,6 +45,7 @@ export function mountSearch(app: Hono, db: DatabaseSync) {
         everyMinutes: s.everyMinutes,
         lastRun: lastRun(db, s.id),
       })),
+      mirrored: mirrored.map((r) => ({ id: r.search, listings: r.n })),
       problems,
       mirror: lastRun(db, "mirror:v1"), // the side-by-side's nightly import, with its problem when it failed
     });
@@ -48,6 +57,7 @@ export function mountSearch(app: Hono, db: DatabaseSync) {
         status: q.status || undefined,
         match: q.match || undefined,
         source: q.source || undefined,
+        search: q.search || undefined,
         priority: q.priority === "1",
         q: q.q || undefined,
       }),

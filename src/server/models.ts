@@ -9,6 +9,17 @@ import type { Settings } from "../platform/config.ts";
 
 export function mountModels(app: Hono, db: DatabaseSync, settings: Settings) {
   app.get("/api/models", async (c) => c.json({ door: await doorModels(settings), uses: listUses(db, settings) }));
+  // what the models cost: time, counted from every recorded call — local models charge nothing else
+  app.get("/api/models/calls", (c) => {
+    const rows = db
+      .prepare(
+        `SELECT purpose, model, COUNT(*) AS calls, ROUND(AVG(ms) / 1000.0, 1) AS seconds, MAX(at) AS last,
+                SUM(outcome != 'ok') AS failed
+         FROM model_calls GROUP BY purpose, model ORDER BY MAX(at) DESC LIMIT 30`,
+      )
+      .all();
+    return c.json({ calls: rows });
+  });
   app.post(
     "/api/models",
     zValidator(

@@ -27,6 +27,10 @@ export const ScoringShape = z
       .object({ words: words.default([]), remoteOk: z.boolean().default(true) })
       .optional()
       .catch(undefined),
+    price: z
+      .object({ cap: z.number().catch(0) })
+      .optional()
+      .catch(undefined),
     freshDays: z.number().catch(7),
   })
   .catch({ title: { want: [], avoid: [] }, skills: [], level: { want: [], avoid: [] }, freshDays: 7 });
@@ -43,6 +47,7 @@ export type ScoredJob = {
   posted?: string; // ISO date
   usOnly?: boolean;
   excerpt?: string;
+  price?: number | null; // a deal's money: judged against the cap, shown on the card
 };
 export type Score = {
   score: number;
@@ -77,7 +82,16 @@ export function scoreJob(raw: unknown, job: ScoredJob, now: Date): Score {
   parts.level = levelBad ? 0 : levelGood ? WEIGHTS.level : Math.round(WEIGHTS.level / 2);
   if (levelBad) why.push("another level");
 
-  if (scoring.pay?.floor) {
+  if (scoring.price?.cap) {
+    parts.pay =
+      job.price === null || job.price === undefined
+        ? Math.round(WEIGHTS.pay * 0.6)
+        : job.price <= scoring.price.cap
+          ? WEIGHTS.pay
+          : 0;
+    if (job.price !== null && job.price !== undefined && job.price > scoring.price.cap)
+      why.push("the price sits over the cap");
+  } else if (scoring.pay?.floor) {
     const toCad = job.salaryCurrency === "USD" ? (scoring.pay.usdToCad ?? 1.35) : 1;
     // every period annualizes before the floor: an hourly wage is a year of hours, a monthly one twelve months
     const period = (job.salaryPeriod ?? "").toLowerCase();

@@ -19,6 +19,7 @@ export const Item = z.object({
   salaryPeriod: z.string().nullable().default(null), // yearly unless said; hourly pay is annualized for the floor
   usOnly: z.boolean().default(false),
   excerpt: z.string().default(""),
+  price: z.number().nullable().default(null), // a deal's money; jobs leave it null
 });
 export type Item = z.infer<typeof Item>;
 

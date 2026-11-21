@@ -1,5 +1,6 @@
 // Home: the launcher. Each app is a card; the ones still being built say which version brings them (docs/PLAN.md)
 // and stay quiet until then.
+import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { LiveStrip } from "./live-strip.tsx";
@@ -38,6 +39,12 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M12 6v14.5" />
     </svg>
   ),
+  Tasks: (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      <path d="m8.5 12.5 2.5 2.5 4.5-5" />
+    </svg>
+  ),
 };
 
 const APPS: { name: string; what: string; when: string; to: string | null; color: string }[] = [
@@ -69,12 +76,36 @@ const APPS: { name: string; what: string; when: string; to: string | null; color
     to: "/learn",
     color: "var(--green)",
   },
+  {
+    name: "Tasks",
+    what: "One line each; an agent closes one with a note of what was done.",
+    when: "v0.5",
+    to: "/tasks",
+    color: "var(--pink)",
+  },
 ];
 
 export function Home() {
+  const brief = useQuery({
+    queryKey: ["brief"],
+    queryFn: async () => (await (await fetch("/api/brief")).json()) as { lines: string[] },
+    refetchInterval: 5 * 60_000,
+  });
   return (
     <main className="grid gap-3.5 md:grid-cols-2">
       <LiveStrip />
+      {brief.data && (
+        <section className="card md:col-span-2">
+          <p className="font-mono mb-1.5 text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--muted)" }}>
+            This morning
+          </p>
+          {brief.data.lines.map((line) => (
+            <p key={line} className="text-sm leading-relaxed">
+              {line}
+            </p>
+          ))}
+        </section>
+      )}
       <p
         className="font-mono mt-1 mb-1 text-[11px] uppercase tracking-[0.18em] md:col-span-2"
         style={{ color: "var(--muted)" }}

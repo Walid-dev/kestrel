@@ -14,6 +14,13 @@ export function Models() {
       return (await res.json()) as { door: string[]; uses: UseRow[] };
     },
   });
+  const spent = useQuery({
+    queryKey: ["model-calls"],
+    queryFn: async () =>
+      (await (await fetch("/api/models/calls")).json()) as {
+        calls: { purpose: string; model: string; calls: number; seconds: number; last: string; failed: number }[];
+      },
+  });
   const set = useMutation({
     mutationFn: async (body: { use: string; model: string }) => {
       const res = await fetch("/api/models", {
@@ -82,6 +89,20 @@ export function Models() {
           </div>
         </section>
       ))}
+      {(spent.data?.calls.length ?? 0) > 0 && (
+        <section className="card grid gap-2">
+          <h3 className="font-cond text-lg font-bold">What they cost</h3>
+          <p className="text-sm" style={{ color: "var(--muted)" }}>
+            Local models charge time, nothing else. Every recorded call, newest first.
+          </p>
+          {(spent.data?.calls ?? []).map((r) => (
+            <p key={`${r.purpose}:${r.model}`} className="font-mono text-xs" style={{ color: "var(--muted)" }}>
+              {r.purpose} · {r.model} · {r.calls} call{r.calls === 1 ? "" : "s"} · {r.seconds}s each
+              {r.failed > 0 && <span style={{ color: "var(--orange)" }}> · {r.failed} failed</span>}
+            </p>
+          ))}
+        </section>
+      )}
     </main>
   );
 }

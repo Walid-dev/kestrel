@@ -16,6 +16,7 @@ import { NotesList } from "./notes/list.tsx";
 import { Reader } from "./notes/reader.tsx";
 import { NotesSet } from "./notes/set.tsx";
 import { Searches } from "./search/searches.tsx";
+import { Tasks } from "./tasks.tsx";
 import "./styles.css";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ if (rootEl)
               <Route path="learn/lesson/:id" element={<LearnLesson />} />
               <Route path="learn/practice" element={<LearnPractice />} />
               <Route path="learn/live" element={<LearnLive />} />
+              <Route path="tasks" element={<Tasks />} />
               <Route path="notes/set" element={<NotesSet />} />
               <Route path="notes/:id" element={<Reader />} />
             </Route>

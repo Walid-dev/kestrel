@@ -30,6 +30,7 @@ const item = (o: Partial<Item> = {}): Item => ({
   salaryMax: null,
   salaryCurrency: null,
   salaryPeriod: null,
+  price: null,
   usOnly: false,
   excerpt: "Apiary Smoker Hive Wax.",
   ...o,
@@ -94,6 +95,9 @@ test("status and star stick, and the filters combine", () => {
   assert.equal(listListings(db, { status: "passed" }).length, 1);
   assert.equal(listListings(db, { priority: true }).length, 1);
   assert.equal(listListings(db, { q: "clerk" }).length, 1);
+  assert.equal(listListings(db, { search: "s1" }).length, 2);
+  assert.equal(listListings(db, { search: "s1", status: "passed" }).length, 1);
+  assert.equal(listListings(db, { search: "nowhere" }).length, 0);
   assert.equal(normalizeDedupe("Made-up Co", "Head  Keeper!"), "madeup co|head keeper");
 });
 

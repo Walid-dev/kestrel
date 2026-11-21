@@ -11,6 +11,7 @@ import { loadSettings } from "../platform/config.ts";
 import { dataDir, isDeployed } from "../platform/paths.ts";
 import { app } from "./app.ts";
 import { mountApply } from "./apply.ts";
+import { mountBrief } from "./brief.ts";
 import { mountEvents } from "./events.ts";
 import { identity } from "./identity.ts";
 import { mountLearn } from "./learn.ts";
@@ -18,6 +19,7 @@ import { mountModels } from "./models.ts";
 import { mountNotes } from "./notes.ts";
 import { startScheduler } from "./scheduler.ts";
 import { mountSearch } from "./search.ts";
+import { mountTasks } from "./tasks.ts";
 
 // the settings first: a missing or wrong file stops here, with the example in the message
 let settings: ReturnType<typeof loadSettings>;
@@ -83,6 +85,8 @@ if (!isDeployed() && (db.prepare("SELECT COUNT(*) AS n FROM packs").get() as { n
 }
 mountSearch(app, db);
 mountApply(app, db);
+mountTasks(app, db);
+mountBrief(app, db, settings);
 mountEvents(app);
 startScheduler(db, {
   specsDir: join(dataDir(), "searches"),

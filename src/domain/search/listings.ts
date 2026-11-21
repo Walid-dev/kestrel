@@ -107,6 +107,7 @@ export type ListingFilters = {
   source?: string;
   priority?: boolean;
   q?: string;
+  search?: string;
 };
 
 export function listListings(db: DatabaseSync, filters: ListingFilters = {}, limit = 500): ListingRow[] {
@@ -123,6 +124,10 @@ export function listListings(db: DatabaseSync, filters: ListingFilters = {}, lim
   if (filters.source) {
     where.push("source = ?");
     params.push(filters.source);
+  }
+  if (filters.search) {
+    where.push("search = ?");
+    params.push(filters.search);
   }
   // every filter lives in the SQL, before the limit — an old starred listing must never fall off the Priority view
   if (filters.priority)

@@ -57,13 +57,33 @@ switch (command) {
   case "apply-list":
     out(await call("/api/apply"));
     break;
+  case "task-list":
+    out(await call(`/api/tasks?which=${rest[0] === "done" ? "done" : rest[0] === "all" ? "all" : "open"}`));
+    break;
+  case "task-add": {
+    if (!rest[0]) usage();
+    const forAt = rest.indexOf("--for");
+    out(await call("/api/tasks", { text: rest[0], who: forAt >= 0 ? (rest[forAt + 1] ?? "") : "" }));
+    break;
+  }
+  case "task-close": {
+    const noteAt = rest.indexOf("--note");
+    if (!rest[0] || noteAt < 0) usage();
+    out(await call(`/api/tasks/${rest[0]}/close`, { note: rest[noteAt + 1] ?? "" }));
+    break;
+  }
+  case "task-reopen":
+    if (!rest[0]) usage();
+    out(await call(`/api/tasks/${rest[0]}/reopen`, {}));
+    break;
   default:
     usage();
 }
 
 function usage(): never {
   console.error(
-    "kestrel: apply-queue <link|listing-id> | apply-claim [agent] | apply-report <id> --sent | --not-sent <why> | --needs-me <what> | --applying | apply-retry <id> | apply-list",
+    "kestrel: apply-queue <link|listing-id> | apply-claim [agent] | apply-report <id> --sent | --not-sent <why> | --needs-me <what> | --applying | apply-retry <id> | apply-list\n" +
+      "        task-list [open|done|all] | task-add <text> [--for <who>] | task-close <id> --note <what was done> | task-reopen <id>",
   );
   process.exit(2);
 }

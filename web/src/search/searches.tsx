@@ -40,6 +40,7 @@ type Listing = {
     salaryMax?: number | null;
     salaryCurrency?: string | null;
     salaryPeriod?: string | null;
+    price?: number | null;
     posted?: string;
     why?: string;
   };
@@ -78,22 +79,29 @@ export function Searches() {
   const [match, setMatch] = useState("");
   const [priority, setPriority] = useState(false);
   const [q, setQ] = useState("");
+  const [inSearch, setInSearch] = useState("");
   const [unfold, setUnfold] = useState(false);
 
   const searches = useQuery({
     queryKey: ["searches"],
     queryFn: async () =>
-      (await (await fetch("/api/search")).json()) as { searches: Search[]; problems: string[]; mirror: Run },
+      (await (await fetch("/api/search")).json()) as {
+        searches: Search[];
+        mirrored: { id: string; listings: number }[];
+        problems: string[];
+        mirror: Run;
+      },
     refetchInterval: 60_000,
   });
   const listings = useQuery({
-    queryKey: ["listings", status, match, priority, q],
+    queryKey: ["listings", status, match, priority, q, inSearch],
     queryFn: async () => {
       const p = new URLSearchParams();
       if (status) p.set("status", status);
       if (match) p.set("match", match);
       if (priority) p.set("priority", "1");
       if (q) p.set("q", q);
+      if (inSearch) p.set("search", inSearch);
       return (await (await fetch(`/api/search/listings?${p}`)).json()) as { listings: Listing[] };
     },
     refetchInterval: 60_000,
@@ -155,6 +163,21 @@ export function Searches() {
           </button>
         </section>
       ))}
+      {(searches.data?.mirrored ?? []).map((m) => (
+        <section key={m.id} className="card flex items-baseline gap-3">
+          <h3 className="font-cond text-lg font-bold">{m.id}</h3>
+          <button
+            type="button"
+            className="btn btn-quiet ml-auto"
+            onClick={() => setInSearch((v) => (v === m.id ? "" : m.id))}
+          >
+            {m.listings} listing{m.listings === 1 ? "" : "s"}
+          </button>
+          <span className="font-mono text-[11px]" style={{ color: "var(--muted)" }}>
+            mirrored · no spec yet
+          </span>
+        </section>
+      ))}
       {searches.data?.mirror && (
         <p
           className="font-mono text-xs"
@@ -198,6 +221,17 @@ export function Searches() {
             </option>
           ))}
         </select>
+        <select className="btn" value={inSearch} onChange={(e) => setInSearch(e.target.value)} aria-label="Search">
+          <option value="">every search</option>
+          {[
+            ...(searches.data?.searches ?? []).map((s) => s.id),
+            ...(searches.data?.mirrored ?? []).map((m) => m.id),
+          ].map((id) => (
+            <option key={id} value={id}>
+              {id}
+            </option>
+          ))}
+        </select>
         <input
           type="search"
           className="btn min-w-0 flex-1"
@@ -228,7 +262,12 @@ export function Searches() {
             </button>
           </div>
           <p className="text-sm" style={{ color: "var(--muted)" }}>
-            {[r.data.org, r.data.location, payLine(r.data), r.data.posted ? `posted ${r.data.posted}` : ""]
+            {[
+              r.data.org,
+              r.data.location,
+              r.data.price != null ? `$${r.data.price}` : payLine(r.data),
+              r.data.posted ? `posted ${r.data.posted}` : "",
+            ]
               .filter(Boolean)
               .join(" · ")}
           </p>

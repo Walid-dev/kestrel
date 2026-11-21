@@ -49,6 +49,51 @@ function oldDb(base: string): string {
       matchWhy: "",
     }),
   );
+  db.exec(
+    `CREATE TABLE items (id TEXT, run_id TEXT, kind TEXT, source TEXT, url TEXT, title TEXT, org TEXT,
+       price REAL, location TEXT, posted TEXT, first_seen TEXT, last_seen TEXT, score REAL, notes TEXT,
+       state TEXT, status TEXT, my_note TEXT, fit TEXT, fit_reason TEXT, twin_of TEXT);
+       CREATE TABLE runs (run_id TEXT, spec TEXT, started TEXT);`,
+  );
+  db.prepare("INSERT INTO runs (run_id, spec, started) VALUES ('r1', 'made-up-chair-site', '2026-11-01')").run();
+  const deal = db.prepare(
+    `INSERT INTO items (id, run_id, source, url, title, org, price, location, posted, first_seen, last_seen,
+       score, status, my_note, fit_reason, twin_of) VALUES (?, 'r1', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  deal.run(
+    "d1",
+    "made-up-market",
+    "https://example.com/deal/1",
+    "A fine chair",
+    "someone",
+    120,
+    "Hiveton",
+    "2026-11-01",
+    "2026-11-01",
+    "2026-11-02",
+    8.5,
+    "contacted",
+    "asked about the arms",
+    "under the cap and near",
+    "",
+  );
+  deal.run(
+    "d2",
+    "made-up-market",
+    "https://example.com/deal/2",
+    "A worn chair",
+    "",
+    700,
+    "Elsewhere",
+    "2026-10-20",
+    "2026-10-20",
+    null,
+    2,
+    "not",
+    "",
+    "",
+    "",
+  );
   db.close();
   return p;
 }
@@ -64,7 +109,7 @@ test("dry run counts without writing; write lands; a second run is all unchanged
   assert.deepEqual(dry.kestrel, {}); // a dry run writes nothing
   const wet = importV1(db, from, true);
   assert.deepEqual(wet.landed, { new: 2, updated: 0, unchanged: 0 });
-  assert.deepEqual(wet.kestrel, { applied: 1, passed: 1 });
+  assert.deepEqual(wet.kestrel, { applied: 2, passed: 2 }); // the fixture now carries two deals too
   const again = importV1(db, from, true);
   assert.deepEqual(again.landed, { new: 0, updated: 0, unchanged: 2 });
   const old = new DatabaseSync(from);
@@ -72,7 +117,44 @@ test("dry run counts without writing; write lands; a second run is all unchanged
   old.close();
   const synced = importV1(db, from, true);
   assert.deepEqual(synced.landed, { new: 0, updated: 1, unchanged: 1 });
-  assert.deepEqual(synced.kestrel, { interviewing: 1, passed: 1 });
+  assert.deepEqual(synced.kestrel, { applied: 1, interviewing: 1, passed: 2 });
   const starred = db.prepare("SELECT starred FROM listings WHERE id = 'o1'").get() as { starred: number };
   assert.equal(starred.starred, 1); // the old star travels
+});
+
+test("the old deals carry over: the vocabulary maps, the 0-10 score walks onto the card, reruns stay quiet", () => {
+  const base = mkdtempSync(join(tmpdir(), "kestrel-import-deals-"));
+  const file = join(base, "t.db");
+  const db = new DatabaseSync(file);
+  migrate(db, file);
+  const from = oldDb(base);
+  const wet = importV1(db, from, true);
+  assert.deepEqual(wet.deals.landed, { new: 2, updated: 0, unchanged: 0 });
+  assert.deepEqual(wet.deals.source, { applied: 1, passed: 1 }); // contacted and not, mapped
+  const d1 = db.prepare("SELECT * FROM listings WHERE id = 'd1'").get() as Record<string, unknown>;
+  assert.equal(d1.search, "made-up-chair-site");
+  assert.equal(d1.status, "applied");
+  assert.equal(d1.score, 85);
+  assert.equal(d1.match, "great");
+  assert.equal(d1.dedupe, "someone|a fine chair");
+  const data = JSON.parse(String(d1.data)) as { price: number; note: string };
+  assert.equal(data.price, 120);
+  assert.equal(data.note, "asked about the arms");
+  const again = importV1(db, from, true);
+  assert.deepEqual(again.deals.landed, { new: 0, updated: 0, unchanged: 2 });
+});
+
+test("an old database without deal tables simply carries none", () => {
+  const base = mkdtempSync(join(tmpdir(), "kestrel-import-nodeals-"));
+  const file = join(base, "t.db");
+  const db = new DatabaseSync(file);
+  migrate(db, file);
+  const bare = join(base, "bare.db");
+  const o = new DatabaseSync(bare);
+  o.exec(
+    "CREATE TABLE job_listings (id TEXT, hunt TEXT, link TEXT, dedupe_key TEXT, status TEXT, found TEXT, data TEXT)",
+  );
+  o.close();
+  const got = importV1(db, bare, true);
+  assert.deepEqual(got.deals.landed, { new: 0, updated: 0, unchanged: 0 });
 });
