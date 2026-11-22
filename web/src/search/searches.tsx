@@ -1,7 +1,8 @@
 // Searches, the old hunt pages' layout: the hunts as tabs (jobs and deals); the masthead with the hunt's name, Search
-// now and what it looks for; one filter panel — the search box on top, then the stage, the match, the role or model,
-// the source and the order as dropdowns with their counts, folding away when not wanted; then the cards. A card swipes
-// right for Interested and left for Not for me, has the same buttons under it, and opens the whole listing on a tap.
+// now and what it looks for; one filter panel — the search box on top with the round Reset, then the stage, the match,
+// the role or model, the source and the order as pills, each part folding on its own and the whole panel too; then the
+// cards. The page opens on To review, best first. A card swipes right for Interested and left for Not for me, has the
+// same buttons under it, starts a deep check, and opens the whole listing on a tap.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
@@ -16,9 +17,10 @@ type Hunt = {
   about: string;
   count: number;
   searches: string[];
-  specs: { id: string; name: string; enabled: boolean; everyMinutes: number }[];
+  specs: { id: string; name: string; enabled: boolean; everyMinutes: number; auto: boolean }[];
   lastRun: Run;
   mirrored: boolean;
+  running: number; // its searches queued or running now
 };
 type Counts = {
   stages: Record<string, number>;
@@ -27,11 +29,12 @@ type Counts = {
   source: Record<string, number>;
 };
 
-// the stages the page offers, in the old page's order (offers and closed jobs stay under All)
+// the stages the page offers (offers and closed jobs stay under All). It opens on To review, best first: the new
+// great and good matches, the ones worth a look now
 const STAGE_LIST: Record<"jobs" | "deals", [string, string][]> = {
   jobs: [
-    ["priority", "★ Priority"],
     ["review", "To review"],
+    ["priority", "★ Priority"],
     ["possible", "Possible"],
     ["interested", "Interested"],
     ["maybe", "Not sure"],
@@ -54,6 +57,7 @@ const STAGE_LIST: Record<"jobs" | "deals", [string, string][]> = {
     ["leftout", "Hidden by the rules"],
   ],
 };
+const DEFAULT_STAGE = { jobs: "review", deals: "new" } as const;
 const PAGE = 120;
 const FOLD = "kestrel-search-filters";
 const at = (iso: string) =>
@@ -191,13 +195,15 @@ export function Searches() {
       if (!res.ok) throw new Error(`the hunts didn't load (${res.status})`);
       return (await res.json()) as { hunts: Hunt[]; problems: string[]; mirror: Run };
     },
-    refetchInterval: 60_000,
+    // while a hunt searches, its button counts down and its new cards come in
+    refetchInterval: (query) => (query.state.data?.hunts.some((h) => h.running > 0) ? 5000 : 60_000),
   });
   const all = hunts.data?.hunts ?? [];
+  const busy = all.some((h) => h.running > 0);
   const hunt =
     all.find((h) => `${h.kind}:${h.key}` === params.get("hunt")) ?? all.find((h) => h.kind === "jobs") ?? all[0];
   const kind = hunt?.kind ?? "jobs";
-  const stage = params.get("stage") ?? (kind === "jobs" ? "priority" : "new");
+  const stage = params.get("stage") ?? DEFAULT_STAGE[kind];
   const q = params.get("q") ?? "";
   const source = params.get("source") ?? "";
   const sort = params.get("sort") ?? "best";
@@ -231,7 +237,8 @@ export function Searches() {
       return (await res.json()) as { listings: Listing[] };
     },
     enabled: Boolean(hunt),
-    refetchInterval: 60_000,
+    refetchInterval: (query) =>
+      busy || query.state.data?.listings.some((l) => l.deepState === "running") ? 5000 : 60_000,
   });
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["listings"] });
@@ -259,9 +266,15 @@ export function Searches() {
     },
     onSettled: refresh,
   });
+  // Search now: every search of the hunt, one after the other, in the background (the chair's run across two sites
+  // and ten models takes a while); the button counts them down
   const runNow = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/search/run/${encodeURIComponent(id)}`, { method: "POST" });
+    mutationFn: async (h: Hunt) => {
+      const res = await fetch("/api/search/hunts/run", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: h.kind, key: h.key }),
+      });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
     },
     onSettled: () => {
@@ -269,13 +282,20 @@ export function Searches() {
       queryClient.invalidateQueries({ queryKey: ["searches"] });
     },
   });
+  const deep = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/search/listings/${encodeURIComponent(id)}/deep`, { method: "POST" });
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
+    },
+    onSettled: refresh,
+  });
 
   // a deal's tier is reckoned from the usual price, so its menu counts the loaded cards
   const rows = (listings.data?.listings ?? []).filter((l) => kind === "jobs" || !match || l.deal?.tier === match);
   const tiers: Record<string, number> = {};
   for (const l of listings.data?.listings ?? []) if (l.deal) tiers[l.deal.tier] = (tiers[l.deal.tier] ?? 0) + 1;
   const c = counts.data;
-  const failed = [hunts, counts, listings, act, queue, runNow].find((x) => x.isError);
+  const failed = [hunts, counts, listings, act, queue, runNow, deep].find((x) => x.isError);
   const spec = hunt?.specs.find((s) => s.enabled);
   const sources = Object.entries(c?.source ?? {}).sort((a, b) => b[1] - a[1]);
   const groups = Object.entries(c?.group ?? {})
@@ -283,7 +303,8 @@ export function Searches() {
     .sort((a, b) => b[1] - a[1]);
   const active = [match, group, source].filter(Boolean).length + (sort !== "best" ? 1 : 0);
   const stageName = STAGE_LIST[kind].find(([s]) => s === stage)?.[1] ?? stage;
-  const defaultStage = kind === "jobs" ? "priority" : "new";
+  const defaultStage = DEFAULT_STAGE[kind];
+  const changed = active > 0 || Boolean(q) || stage !== defaultStage;
   // Reset: every filter back to the start, the hunt and the panel as they are
   const reset = () => {
     const next = new URLSearchParams();
@@ -324,8 +345,17 @@ export function Searches() {
               {hunt.name}
             </h2>
             {spec && (
-              <button type="button" className="btn" disabled={runNow.isPending} onClick={() => runNow.mutate(spec.id)}>
-                {runNow.isPending ? "Searching…" : "Search now"}
+              <button
+                type="button"
+                className="btn"
+                disabled={runNow.isPending || hunt.running > 0}
+                onClick={() => runNow.mutate(hunt)}
+              >
+                {hunt.running > 1
+                  ? `Searching… ${hunt.running} to go`
+                  : hunt.running === 1 || runNow.isPending
+                    ? "Searching…"
+                    : "Search now"}
               </button>
             )}
             <Link
@@ -370,7 +400,7 @@ export function Searches() {
                 Last search <b style={{ color: "var(--text)" }}>{at(hunt.lastRun.started)}</b>: {hunt.lastRun.found}{" "}
                 found, {hunt.lastRun.kept} new
                 {hunt.lastRun.problem && <span style={{ color: "var(--warn)" }}> · {hunt.lastRun.problem}</span>}
-                {spec && ` · every ${Math.round(spec.everyMinutes / 60)} h`}
+                {spec && (spec.auto ? ` · every ${Math.round(spec.everyMinutes / 60)} h` : " · runs when you ask")}
               </>
             ) : hunt.mirrored ? (
               <>
@@ -396,11 +426,36 @@ export function Searches() {
             value={q}
             onChange={(e) => set("q", e.target.value)}
           />
-          {(active > 0 || q || stage !== defaultStage) && (
-            <button type="button" className="btn shrink-0" onClick={reset}>
-              Reset
-            </button>
-          )}
+          {/* the round Reset: always there, lit when a filter differs from how the page opens */}
+          <button
+            type="button"
+            className="btn grid shrink-0 place-items-center !rounded-full !p-0"
+            style={{
+              width: 38,
+              height: 38,
+              opacity: changed ? 1 : 0.45,
+              color: changed ? "var(--accent)" : undefined,
+            }}
+            disabled={!changed}
+            onClick={reset}
+            aria-label="Reset the filters"
+            title="Reset the filters"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="17"
+              height="17"
+              aria-hidden="true"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M3 12a9 9 0 1 0 3-6.7" />
+              <path d="M3 4v5h5" />
+            </svg>
+          </button>
           <button type="button" className="btn shrink-0" aria-expanded={shown} onClick={() => fold(!shown)}>
             {shown ? "Hide filters" : `Filters${active ? ` · ${active}` : ""}`}
           </button>
@@ -547,13 +602,19 @@ export function Searches() {
             leftLabel={kind === "jobs" ? "Not for me" : "Not interested"}
           >
             {l.kind === "deals" ? (
-              <DealCard l={l} onOpen={() => setOpen(l.id)} onStatus={(s) => status(l, s)} />
+              <DealCard
+                l={l}
+                onOpen={() => setOpen(l.id)}
+                onStatus={(s) => status(l, s)}
+                onDeep={() => deep.mutate(l.id)}
+              />
             ) : (
               <JobCard
                 l={l}
                 onOpen={() => setOpen(l.id)}
                 onStatus={(s) => status(l, s)}
                 onQueue={() => queue.mutate(l.id)}
+                onDeep={() => deep.mutate(l.id)}
               />
             )}
           </Swipe>

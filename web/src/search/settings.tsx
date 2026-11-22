@@ -172,14 +172,28 @@ export function SearchSettings() {
             <Field label="What it looks for" hint="one line, shown under the search's name">
               <input className="btn" value={String(raw.about ?? "")} onChange={(e) => put({ about: e.target.value })} />
             </Field>
-            <Field label="How often" hint="hours between searches">
-              <input
-                className="btn"
-                type="number"
-                min={1}
-                value={Math.round(Number(raw.everyMinutes ?? 360) / 60)}
-                onChange={(e) => put({ everyMinutes: Math.max(1, Number(e.target.value) || 1) * 60 })}
-              />
+            <Field
+              label="How often"
+              hint={raw.auto === false ? "only when you press Search now" : "hours between searches"}
+            >
+              <div className="flex gap-2">
+                <input
+                  className="btn min-w-0 flex-1"
+                  type="number"
+                  min={1}
+                  disabled={raw.auto === false}
+                  value={Math.round(Number(raw.everyMinutes ?? 360) / 60)}
+                  onChange={(e) => put({ everyMinutes: Math.max(1, Number(e.target.value) || 1) * 60 })}
+                />
+                <button
+                  type="button"
+                  className="pill shrink-0"
+                  aria-pressed={raw.auto === false}
+                  onClick={() => put({ auto: raw.auto === false })}
+                >
+                  Only when I ask
+                </button>
+              </div>
             </Field>
           </div>
           <div className="flex flex-wrap gap-2">

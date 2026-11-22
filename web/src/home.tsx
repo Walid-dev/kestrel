@@ -51,16 +51,34 @@ export const ICONS: Record<string, ReactNode> = {
       <path d="m8.5 12.5 2.5 2.5 4.5-5" />
     </svg>
   ),
+  Chat: (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
+      <path d="M4.5 5.5h15v10h-9L6 19v-3.5H4.5z" />
+    </svg>
+  ),
+  Research: (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M3.5 12h17M12 3.5c2.4 2.3 3.6 5.1 3.6 8.5s-1.2 6.2-3.6 8.5c-2.4-2.3-3.6-5.1-3.6-8.5s1.2-6.2 3.6-8.5z" />
+    </svg>
+  ),
+  Quiz: (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.6" />
+      <path d="M12 16.6v.1" />
+    </svg>
+  ),
+  "Cover letters": (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
+      <rect x="3.5" y="5.5" width="17" height="13" rx="2" />
+      <path d="m4 7 8 6 8-6" />
+    </svg>
+  ),
 };
 
+// the order is mine: Searches, Chat, Learn, Notes, Tasks, then the rest
 const APPS: { name: string; what: string; when: string; to: string | null; color: string }[] = [
-  {
-    name: "Notes",
-    what: "A document, my notes on its words, and the changes the computer's model proposes.",
-    when: "v0.1",
-    to: "/notes",
-    color: "var(--accent)",
-  },
   {
     name: "Searches",
     what: "Job and deal hunts that run on their own, each listing whole, deep checks on a tap.",
@@ -69,11 +87,11 @@ const APPS: { name: string; what: string; when: string; to: string | null; color
     color: "var(--purple)",
   },
   {
-    name: "Applications",
-    what: "One page by state; what needs me waits here and nothing gets lost.",
-    when: "v0.3",
-    to: "/applications",
-    color: "var(--orange)",
+    name: "Chat",
+    what: "The agent's chats, live as they work: write to one, answer its questions, stop it.",
+    when: "",
+    to: "/chats",
+    color: "var(--accent)",
   },
   {
     name: "Learn",
@@ -83,11 +101,11 @@ const APPS: { name: string; what: string; when: string; to: string | null; color
     color: "var(--green)",
   },
   {
-    name: "Interview prep",
-    what: "Answers to say for a job or a project, and the helper that finds them while you're asked.",
-    when: "v0.4",
-    to: "/interview",
-    color: "var(--yellow)",
+    name: "Notes",
+    what: "A document, my notes on its words, and the changes the computer's model proposes.",
+    when: "v0.1",
+    to: "/notes",
+    color: "var(--accent)",
   },
   {
     name: "Tasks",
@@ -96,17 +114,44 @@ const APPS: { name: string; what: string; when: string; to: string | null; color
     to: "/tasks",
     color: "var(--pink)",
   },
+  {
+    name: "Research",
+    what: "Ask anything: the computer's model searches the web, quick or deep, and writes it plain, like a lesson.",
+    when: "v0.6",
+    to: "/research",
+    color: "var(--yellow)",
+  },
+  {
+    name: "Quiz",
+    what: "Questions from my lessons; I answer, the model corrects me and says why.",
+    when: "v0.6",
+    to: "/quiz",
+    color: "var(--green)",
+  },
+  {
+    name: "Applications",
+    what: "One page by state; what needs me waits here and nothing gets lost.",
+    when: "v0.3",
+    to: "/applications",
+    color: "var(--orange)",
+  },
+  {
+    name: "Cover letters",
+    what: "A letter for a real job, written the way an application writes it: change my voice, write again, compare.",
+    when: "v0.6",
+    to: "/letters",
+    color: "var(--orange)",
+  },
+  {
+    name: "Interview prep",
+    what: "Answers to say for a job or a project, and the helper that finds them while you're asked.",
+    when: "v0.4",
+    to: "/interview",
+    color: "var(--yellow)",
+  },
 ];
 
 export function Home() {
-  const links = useQuery({
-    queryKey: ["links"],
-    queryFn: async () => {
-      const res = await fetch("/api/links");
-      if (!res.ok) throw new Error(`${res.status}`);
-      return (await res.json()) as { links: { name: string; what: string; desktop: string; phone?: string }[] };
-    },
-  });
   const brief = useQuery({
     queryKey: ["brief"],
     queryFn: async () => {
@@ -180,19 +225,6 @@ export function Home() {
           </Link>
         );
       })}
-      {(links.data?.links ?? []).slice(0, 1).map((l) => (
-        <Link key={l.name} to="/chats" className="card card-link flex items-center gap-3">
-          <span style={{ color: "var(--accent)" }}>
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-              <path d="M4.5 5.5h15v10h-9L6 19v-3.5H4.5z" />
-            </svg>
-          </span>
-          <span className="font-cond text-lg font-bold">{l.name}</span>
-          <span className="ml-auto truncate text-sm" style={{ color: "var(--muted)" }}>
-            the agent, in its own app
-          </span>
-        </Link>
-      ))}
       <Link to="/cost" className="card card-link flex items-center gap-3">
         <span style={{ color: "var(--yellow)" }}>
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>

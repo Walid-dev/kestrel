@@ -32,7 +32,7 @@ export async function tick(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Pr
 async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promise<string[]> {
   const did: string[] = [];
   for (const spec of loadSpecs(dirs.specsDir).specs) {
-    if (!spec.enabled) continue;
+    if (!spec.enabled || !spec.auto) continue; // off, or only when I ask
     const last = lastRun(db, spec.id);
     const due = !last || now.getTime() - new Date(last.started).getTime() >= spec.everyMinutes * 60_000;
     if (!due) continue;

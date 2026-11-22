@@ -1,6 +1,7 @@
 // The hunt cards, the old Job Hunt and Deal Hunt's: status, group and source on top; the title with its pay or price
 // in a coloured pill; where and when; the match line with its bar (a deal: where its price sits against the usual);
-// the model's read and the deep check. A tap anywhere opens the whole listing.
+// the model's read (short, so it stays) and the deep check: its verdict as a chip, or the button that starts one; the
+// report itself waits in the open listing. A tap anywhere opens the whole listing.
 import { type ReactNode, useRef, useState } from "react";
 
 export type Listing = {
@@ -19,6 +20,7 @@ export type Listing = {
   deal: { median: number; p25: number; p75: number; n: number; pct: number; tier: string; under: number } | null;
   app: { state: string; reason: string } | null;
   deepVerdict: string | null;
+  deepState: string | null; // the latest deep check: running, done or failed
 };
 
 export const STAGES: Record<"jobs" | "deals", { status: string; label: string; tone: string }[]> = {
@@ -222,22 +224,49 @@ function Head({ l }: { l: Listing }) {
   );
 }
 
-// the card shows only the results — the model's read and the deep check's verdict — as small chips; their words wait
-// in the open listing
-function Results({ fit, report }: { fit: number | null; report: string | null }) {
+// the model's read stays on the card, words and all: it is short. The deep check shows only its verdict, as a chip —
+// the report waits in the open listing — or, with none yet, the blue button that starts one
+function Results({ l, onDeep }: { l: Listing; onDeep: () => void }) {
   let verdict = "";
   try {
-    verdict = report ? String((JSON.parse(report) as { verdict?: string }).verdict ?? "") : "";
+    verdict = l.deepVerdict ? String((JSON.parse(l.deepVerdict) as { verdict?: string }).verdict ?? "") : "";
   } catch {
     verdict = "";
   }
   const v = VERDICT[verdict];
-  if (fit == null && !v) return null;
+  const fit = num(l.data.fit);
+  const why = str(l.data.fitWhy);
+  const running = l.deepState === "running";
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {fit != null && <span className={`chip ${fitTone(fit)}`}>Model's read {fit}/10</span>}
-      {v && <span className={`chip ${v.tone}`}>Deep check · {v.label}</span>}
-    </div>
+    <>
+      {why && (
+        <ReadBox
+          label="Model's read"
+          chip={fit != null ? `Fit ${fit}/10` : undefined}
+          tone={fit != null ? fitTone(fit) : undefined}
+        >
+          {why}
+        </ReadBox>
+      )}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {!why && fit != null && <span className={`chip ${fitTone(fit)}`}>Model's read {fit}/10</span>}
+        {v && !running ? (
+          <span className={`chip ${v.tone}`}>Deep check · {v.label}</span>
+        ) : (
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={running}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDeep();
+            }}
+          >
+            {running ? "Deep check running…" : l.deepState === "failed" ? "Deep check again" : "Deep check"}
+          </button>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -404,15 +433,16 @@ export function JobCard({
   onOpen,
   onStatus,
   onQueue,
+  onDeep,
 }: {
   l: Listing;
   onOpen: () => void;
   onStatus: (s: string) => void;
   onQueue: () => void;
+  onDeep: () => void;
 }) {
   const d = l.data;
   const pay = payOf(d);
-  const fit = num(d.fit);
   const m = MATCH[l.match];
   const posted = str(d.posted);
   return (
@@ -470,7 +500,7 @@ export function JobCard({
         </div>
       )}
       {l.score != null && <ScoreBar score={l.score} />}
-      <Results fit={fit} report={l.deepVerdict} />
+      <Results l={l} onDeep={onDeep} />
       <Stages
         l={l}
         onStatus={onStatus}
@@ -486,10 +516,19 @@ export function JobCard({
   );
 }
 
-export function DealCard({ l, onOpen, onStatus }: { l: Listing; onOpen: () => void; onStatus: (s: string) => void }) {
+export function DealCard({
+  l,
+  onOpen,
+  onStatus,
+  onDeep,
+}: {
+  l: Listing;
+  onOpen: () => void;
+  onStatus: (s: string) => void;
+  onDeep: () => void;
+}) {
   const d = l.data;
   const price = num(d.price);
-  const fit = num(d.fit);
   const deal = l.deal;
   const t = deal ? DEAL[deal.tier] : null;
   const posted = str(d.posted);
@@ -551,7 +590,7 @@ export function DealCard({ l, onOpen, onStatus }: { l: Listing; onOpen: () => vo
           </p>
         </>
       )}
-      <Results fit={fit} report={l.deepVerdict} />
+      <Results l={l} onDeep={onDeep} />
       <Stages l={l} onStatus={onStatus} />
     </article>
   );

@@ -22,9 +22,13 @@ export type Run = {
 // one run at a time, whoever asks: the collectors share one computer and one browser tab, so the tick and Run now
 // join the same line instead of interleaving on the page
 let line: Promise<unknown> = Promise.resolve();
+// the searches in the line now, queued or running: a hunt's Search now counts them down
+const pending = new Set<string>();
+export const pendingSearches = (): ReadonlySet<string> => pending;
 
 export function runSearch(db: DatabaseSync, spec: Spec, now: Date): Promise<Run> {
-  const next = line.then(() => runSearchNow(db, spec, now));
+  pending.add(spec.id);
+  const next = line.then(() => runSearchNow(db, spec, now)).finally(() => pending.delete(spec.id));
   line = next.catch(() => {});
   return next;
 }

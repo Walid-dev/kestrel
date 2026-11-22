@@ -11,6 +11,7 @@ export const Spec = z.object({
   collector: z.string().min(1), // a path, relative to the data folder unless absolute
   args: z.array(z.string()).default([]),
   everyMinutes: z.number().int().positive().default(360),
+  auto: z.boolean().default(true), // false: it runs only when I ask (Search now), never on the clock
   env: z.record(z.string(), z.string()).default({}), // the old convention's knobs (terms, pages) travel here
   limits: z
     .object({

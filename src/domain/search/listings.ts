@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { Refused } from "../notes/documents.ts";
 import type { Item } from "./collect.ts";
-import { type Score, scoreJob } from "./score.ts";
+import { leftOutOf, type Score, scoreJob } from "./score.ts";
 
 export type ListingRow = {
   id: string;
@@ -67,15 +67,8 @@ export function keepItems(
   const iso = now.toISOString();
   for (const item of items.slice(0, perRun)) {
     const scored: Score = scoreJob(scoring, item, now);
-    // the rules set some aside until I mark them: a weak job match, a deal over its price cap
-    const leftOut =
-      kind === "deals"
-        ? item.price != null && scored.parts.pay === 0
-          ? "over your price cap"
-          : null
-        : scored.score < 40
-          ? "weak match"
-          : null;
+    // the rules set some aside until I mark them (score.ts says which)
+    const leftOut = leftOutOf(kind, scoring, item, scored, now);
     // a job reposted under a new link is the same job (org|title); a deal is its link — two
     // same-titled chairs from sellers with no name are two chairs
     const dedupe = kind === "deals" ? item.url : normalizeDedupe(item.org, item.title);
@@ -355,14 +348,7 @@ export function rescoreSearch(
   for (const r of rows) {
     const data = JSON.parse(r.data) as Record<string, unknown>;
     const scored = scoreJob(scoring, data as unknown as Item, now);
-    const leftOut =
-      kind === "deals"
-        ? typeof data.price === "number" && scored.parts.pay === 0
-          ? "over your price cap"
-          : null
-        : scored.score < 40
-          ? "weak match"
-          : null;
+    const leftOut = leftOutOf(kind, scoring, data as unknown as Item, scored, now);
     put.run(
       scored.score,
       scored.match,

@@ -1,6 +1,7 @@
-// Chats: the DeepSeek Harness inside kestrel's own frame, so it opens like the rest of the app — no browser bar on top.
-// On this computer it uses dsh's own door; on the phone, the private network's address. Its own window stays one tap
-// away for anything the frame can't do.
+// Chat: the agent's chats app (dsh's phone page, dressed in kestrel's look) inside kestrel's own frame, so it opens
+// like the rest of the app — no browser bar on top. On this computer it is dsh's local address; over the private
+// network's https name, the phone's. dsh lets only pages on the same machine name show it in a frame. Its own window
+// stays one tap away for anything the frame can't do.
 import { useQuery } from "@tanstack/react-query";
 
 type Link = { name: string; what: string; desktop: string; phone?: string };
@@ -20,7 +21,7 @@ export function Chats() {
   if (links.data && !chat)
     return (
       <main className="grid gap-3">
-        <h2 className="font-cond m-0 text-[28px] font-bold">Chats</h2>
+        <h2 className="font-cond m-0 text-[28px] font-bold">Chat</h2>
         <p className="m-0 text-sm" style={{ color: "var(--muted)" }}>
           No chat app is set yet (settings.json: links).
         </p>
@@ -29,22 +30,23 @@ export function Chats() {
   return (
     <main className="grid gap-2">
       <div className="flex items-center gap-3">
-        <h2 className="font-cond m-0 text-[22px] font-bold">{chat?.name ?? "Chats"}</h2>
-        <span className="text-sm" style={{ color: "var(--muted)" }}>
+        <h2 className="font-cond m-0 text-[22px] font-bold">Chat</h2>
+        <span className="truncate text-sm" style={{ color: "var(--muted)" }}>
           {chat?.what}
         </span>
         {src && (
-          <a href={src} target="_blank" rel="noopener noreferrer" className="btn btn-quiet ml-auto">
+          <a href={src} target="_blank" rel="noopener noreferrer" className="btn btn-quiet ml-auto shrink-0">
             Its own window ↗
           </a>
         )}
       </div>
       {src && (
         <iframe
-          title={chat?.name ?? "Chats"}
+          title="Chat"
           src={src}
           className="w-full rounded-2xl border"
-          style={{ height: "calc(100dvh - 150px)", borderColor: "var(--line)", background: "var(--surface)" }}
+          // the room between kestrel's header and, on a phone, its bottom bar
+          style={{ height: "calc(100dvh - 190px)", borderColor: "var(--line)", background: "var(--surface)" }}
           allow="clipboard-read; clipboard-write; microphone"
         />
       )}

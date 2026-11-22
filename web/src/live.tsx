@@ -125,7 +125,9 @@ function Row({ a, go }: { a: Item; go: (link: string) => void }) {
 export function LivePage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [view, setView] = useState<"now" | "activity">(location.hash === "#activity" ? "activity" : "now");
+  const [picked, setView] = useState<"now" | "activity" | null>(
+    location.hash === "#activity" ? "activity" : location.hash === "#now" ? "now" : null,
+  );
   const [kind, setKind] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [, tick] = useState(0);
@@ -138,6 +140,10 @@ export function LivePage() {
     },
     refetchInterval: (q) => ((q.state.data?.now.length ?? 0) > 0 ? 3000 : 15000),
   });
+  // with no tab picked, the page opens on what matters: Now while something runs or waits on me, else the Activity
+  // (the same count as the Now tab's dot)
+  const working = (live.data?.now.length ?? 0) + (live.data?.apps.filter((a) => a.state !== "queued").length ?? 0);
+  const view = picked ?? (live.data && working === 0 ? "activity" : "now");
   const log = useQuery({
     queryKey: ["live-activity", kind],
     queryFn: async () => {
@@ -160,9 +166,10 @@ export function LivePage() {
   }, [live.data?.now.length]);
   // the address keeps the view, so Back and a shared link land where I was
   useEffect(() => {
-    const want = view === "activity" ? "#activity" : "";
+    if (!picked) return; // the page's own choice stays out of the address: the next visit chooses again
+    const want = picked === "activity" ? "#activity" : "#now";
     if (location.hash !== want) window.history.replaceState(null, "", `${location.pathname}${location.search}${want}`);
-  }, [view]);
+  }, [picked]);
 
   // a tap opens the work: a listing in place, anything else on its own page
   const go = (link: string) => {

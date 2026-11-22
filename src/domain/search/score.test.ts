@@ -1,7 +1,7 @@
 // A table of made-up beekeeping jobs scores as labelled: the engine is rules, so the labels are exact.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { scoreJob } from "./score.ts";
+import { leftOutOf, scoreJob } from "./score.ts";
 
 const NOW = new Date("2026-11-21T12:00:00Z");
 const scoring = {
@@ -118,4 +118,26 @@ test("a skills list split letter by letter is read back as its words (a corrupte
     NOW,
   );
   assert.match(got.why, /1 of 2 skills named/);
+});
+
+test("a deal is set aside by the old specs' rules: an avoided word, no wanted word, the price range, an old ad", () => {
+  const rules = {
+    title: { want: ["teapot", "kettle"], avoid: ["lid only", "replica"] },
+    price: { cap: 300, floor: 40 },
+    freshDays: 7,
+  };
+  const why = (item: { title: string; price?: number | null; posted?: string }) =>
+    leftOutOf("deals", rules, item, scoreJob(rules, item, NOW), NOW);
+  assert.equal(why({ title: "Copper teapot", price: 120, posted: "2026-11-20" }), null);
+  assert.equal(why({ title: "Teapot lid only", price: 120 }), "the title says lid only");
+  assert.equal(why({ title: "A copper jug", price: 120 }), "the title names none of teapot, kettle");
+  assert.equal(why({ title: "Kettle", price: 900 }), "over your price cap");
+  assert.equal(why({ title: "Kettle", price: 5 }), "under your price floor");
+  assert.equal(why({ title: "Kettle", price: 120, posted: "2026-10-01" }), "an ad older than 7 days");
+  assert.equal(why({ title: "Kettle", price: null }), null); // no price, no date: it stays in view
+  // a job keeps its one rule: a weak match
+  assert.equal(
+    leftOutOf("jobs", rules, { title: "Kettle" }, { score: 30, match: "poor", why: "", parts: {} }, NOW),
+    "weak match",
+  );
 });

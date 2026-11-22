@@ -149,7 +149,7 @@ const BAR = [
     ),
   },
   { to: "/searches", label: "Searches", icon: ICONS.Searches },
-  { to: "/applications", label: "Applied", icon: ICONS.Applications },
+  { to: "/chats", label: "Chat", icon: ICONS.Chat },
   { to: "/learn", label: "Learn", icon: ICONS.Learn },
   {
     to: "/live",

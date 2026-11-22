@@ -21,7 +21,7 @@ import {
   setListingStatus,
   usualPrices,
 } from "../domain/search/listings.ts";
-import { lastRun, runSearch } from "../domain/search/runs.ts";
+import { lastRun, pendingSearches, runSearch } from "../domain/search/runs.ts";
 import { listCollectors, loadSpecs, readSpecFile, writeSpecFile } from "../domain/search/specs.ts";
 import { record } from "../platform/activity.ts";
 import type { Settings } from "../platform/config.ts";
@@ -78,10 +78,19 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
       about: string;
       count: number;
       searches: string[];
-      specs: { id: string; name: string; enabled: boolean; everyMinutes: number }[];
+      specs: { id: string; name: string; enabled: boolean; everyMinutes: number; auto: boolean }[];
       lastRun: ReturnType<typeof lastRun>;
       mirrored: boolean;
+      running: number;
     };
+    const brief = (s: (typeof specs)[number]) => ({
+      id: s.id,
+      name: s.name,
+      enabled: s.enabled,
+      everyMinutes: s.everyMinutes,
+      auto: s.auto,
+    });
+    const busy = (ids: string[]) => ids.filter((id) => pendingSearches().has(id)).length;
     const hunts: Hunt[] = listHunts(db).map((h): Hunt => {
       // a hunt's specs: its searches that have a spec file (Run now needs one), or a spec named after the hunt
       const own = specs.filter((s) => h.searches.includes(s.id) || (s.hunt && s.hunt === h.key));
@@ -94,9 +103,10 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
         about: first?.about ?? "",
         count: h.count,
         searches: h.searches,
-        specs: own.map((s) => ({ id: s.id, name: s.name, enabled: s.enabled, everyMinutes: s.everyMinutes })),
+        specs: own.map(brief),
         lastRun: runs.sort((a, b) => b.started.localeCompare(a.started))[0] ?? null,
         mirrored: own.length === 0,
+        running: busy(own.map((s) => s.id)),
       };
     });
     // a spec with no listings yet still gets its tab
@@ -109,9 +119,10 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
           about: s.about,
           count: 0,
           searches: [s.id],
-          specs: [{ id: s.id, name: s.name, enabled: s.enabled, everyMinutes: s.everyMinutes }],
+          specs: [brief(s)],
           lastRun: lastRun(db, s.id),
           mirrored: false,
+          running: busy([s.id]),
         });
     return c.json({ hunts, problems, mirror: lastRun(db, "mirror:v1") });
   });
@@ -132,18 +143,17 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
         }[]
       ).map((a) => [a.listing, { state: a.state, reason: a.reason }]),
     );
+    const verdict = db.prepare(
+      "SELECT report FROM deep_checks WHERE listing = ? AND state = 'done' ORDER BY started DESC LIMIT 1",
+    );
+    const latest = db.prepare("SELECT state FROM deep_checks WHERE listing = ? ORDER BY started DESC LIMIT 1");
     const rows = listListings(db, filters, limit).map((r) => ({
       ...r,
       deal: r.kind === "deals" ? dealOf(r, usual) : null,
       app: apps.get(r.id) ?? null,
-      deepVerdict:
-        (
-          db
-            .prepare(
-              "SELECT report FROM deep_checks WHERE listing = ? AND state = 'done' ORDER BY started DESC LIMIT 1",
-            )
-            .get(r.id) as { report: string } | undefined
-        )?.report ?? null,
+      deepVerdict: (verdict.get(r.id) as { report: string } | undefined)?.report ?? null,
+      // the card's button: running shows it busy, failed offers it again
+      deepState: (latest.get(r.id) as { state: string } | undefined)?.state ?? null,
     }));
     return c.json({ listings: rows });
   });
@@ -230,6 +240,22 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
       return c.json({ error: e instanceof Error ? e.message : String(e) }, 400);
     }
   });
+  // Search now for a whole hunt: each of its searches that is on joins the one line, in the background; the hunts list
+  // counts them down
+  app.post(
+    "/api/search/hunts/run",
+    zValidator("json", z.object({ kind: z.enum(["jobs", "deals"]), key: z.string().min(1) })),
+    (c) => {
+      const { kind, key } = c.req.valid("json");
+      const hunt = listHunts(db).find((h) => h.kind === kind && h.key === key);
+      const on = loadSpecs(specsDir()).specs.filter(
+        (s) => s.enabled && s.kind === kind && ((hunt?.searches.includes(s.id) ?? false) || (s.hunt || s.id) === key),
+      );
+      if (!on.length) return c.json({ error: "this hunt has no kestrel search that is on" }, 400);
+      for (const s of on) runSearch(db, s, new Date()).catch(() => {}); // a failed run lands its own row
+      return c.json({ started: on.length }, 202);
+    },
+  );
   app.post("/api/search/run/:id", async (c) => {
     const spec = loadSpecs(specsDir()).specs.find((s) => s.id === c.req.param("id"));
     if (!spec) return c.json({ error: "no such search" }, 404);

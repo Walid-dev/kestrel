@@ -24,6 +24,7 @@ function setup(items: string) {
     collector: script,
     args: [],
     everyMinutes: 360,
+    auto: true,
     limits: { perRun: 200, timeoutMs: 180_000, maxBytes: 20_000_000 },
     env: {},
     scoring: { title: { want: ["keeper"] } } as unknown,

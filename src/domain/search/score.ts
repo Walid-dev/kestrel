@@ -33,8 +33,9 @@ export const ScoringShape = z
       .object({ words: words.default([]), remoteOk: z.boolean().default(true) })
       .optional()
       .catch(undefined),
+    // a deal's price range: over the cap or under the floor (a part, a wanted ad, a scam) it is set aside
     price: z
-      .object({ cap: z.number().catch(0) })
+      .object({ cap: z.number().catch(0), floor: z.number().catch(0) })
       .optional()
       .catch(undefined),
     freshDays: z.number().catch(7),
@@ -128,4 +129,29 @@ export function scoreJob(raw: unknown, job: ScoredJob, now: Date): Score {
   const score = Object.values(parts).reduce((a, b) => a + b, 0);
   const match = score >= 80 ? "great" : score >= 60 ? "good" : score >= 40 ? "weak" : "poor";
   return { score, match, why: why.join("; ") || "nothing stood out", parts };
+}
+
+// the rules that set a listing aside until I mark it. A job: a weak match. A deal: a title with an avoided word or none
+// of the wanted ones (the old specs' exclude and require lines), a price over the cap or under the floor, an ad older
+// than its fresh window. Answers the reason in plain words, or null when it stays in view
+export function leftOutOf(
+  kind: "jobs" | "deals",
+  raw: unknown,
+  item: ScoredJob,
+  score: Score,
+  now: Date,
+): string | null {
+  if (kind === "jobs") return score.score < 40 ? "weak match" : null;
+  const s = ScoringShape.parse(raw ?? {});
+  const title = item.title ?? "";
+  const avoided = s.title.avoid.find((w) => has(title, w));
+  if (avoided) return `the title says ${avoided}`;
+  if (s.title.want.length && !s.title.want.some((w) => has(title, w)))
+    return `the title names none of ${s.title.want.join(", ")}`;
+  const price = item.price;
+  if (price != null && s.price?.cap && price > s.price.cap) return "over your price cap";
+  if (price != null && s.price?.floor && price < s.price.floor) return "under your price floor";
+  const days = item.posted ? (now.getTime() - new Date(item.posted).getTime()) / 86_400_000 : 0;
+  if (days > s.freshDays) return `an ad older than ${s.freshDays} days`;
+  return null;
 }

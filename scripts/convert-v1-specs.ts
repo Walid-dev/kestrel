@@ -1,9 +1,15 @@
-// Turn the old setup's hunt specs (job_hunts rows, JSON documents) into searches/*.json skeletons in the data
-// folder: name, title words, the pay floor, deal-breakers as avoid words. They land disabled, each waiting for its
-// collector line — pointing at a real script is a decision, not a guess.
-// Run: node scripts/convert-v1-specs.ts --from <old hunts.db> --out <searches dir>
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+// Turn the old setup's searches into searches/*.json in the data folder. Dry by default: it prints what it would write;
+// --write lands it.
+// - Job hunts (job_hunts rows, JSON documents): skeletons with the name, title words, the pay floor and deal-breakers as
+//   avoid words. They land off, each waiting for its collector line — pointing at a real script is a decision.
+// - Deal searches (the old specs folder, one .md each: `kind: deal`, `collector: kijiji`…): ready to run with the old
+//   collectors themselves, through node, with the same knobs the old engine gave them (term, pages, price range, age).
+//   Same file names, so each owns the listings the import already brought. They run only when asked (auto: false)
+//   while the old setup still runs them on its clock.
+// Run: node scripts/convert-v1-specs.ts --from <old hunts.db> --out <searches dir> [--write]
+//      node scripts/convert-v1-specs.ts --deals <old specs folder> --out <searches dir> [--write]
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { parseArgs } from "node:util";
 
@@ -18,6 +24,75 @@ type OldHunt = {
   level?: string;
   archived?: boolean;
 };
+
+// the old collectors' names on screen
+const SITE: Record<string, string> = { kijiji: "Kijiji", "facebook-marketplace": "Marketplace" };
+const list = (s: string) =>
+  s
+    .split(/[;,]/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+// one old deal spec (its text and path) as a kestrel search, or null when it isn't a deal run by a collector
+export function dealSpecFromV1(text: string, file: string, collectorsDir: string) {
+  const head = text.split(/^---$/m)[0] ?? "";
+  const get = (k: string) => head.match(new RegExp(`^${k}:[ \\t]*(.*)$`, "m"))?.[1]?.trim() ?? "";
+  const num = (k: string) => (get(k) && Number.isFinite(Number(get(k))) ? Number(get(k)) : 0);
+  if (get("kind") !== "deal" || get("fetch") !== "script" || !get("collector")) return null;
+  const pages = num("pages") || 1;
+  const times = list(get("schedule")).length;
+  const want = list(get("require")).length ? list(get("require")) : list(get("title_like"));
+  return {
+    id: basename(file, ".md"),
+    spec: {
+      name: `${get("category") || get("term")} · ${SITE[get("collector")] ?? get("collector")}`,
+      kind: "deals",
+      collector: "/usr/bin/env", // the old collectors are plain modules: node runs them, as the old engine did
+      args: ["node", join(collectorsDir, `${get("collector")}.mjs`), file],
+      everyMinutes: times ? Math.round(1440 / times) : 720,
+      auto: false,
+      env: {
+        HUNT_SPEC: file,
+        HUNT_TERM: get("term"),
+        HUNT_PAGES: String(pages),
+        HUNT_MAX_AGE_DAYS: get("max_age_days"),
+        HUNT_MIN_PRICE: get("min_price"),
+        HUNT_MAX_PRICE: get("max_price"),
+      },
+      limits: { perRun: 200, timeoutMs: Math.max(180_000, 60_000 + pages * 20_000), maxBytes: 20_000_000 },
+      about: "",
+      hunt: get("hunt"),
+      category: get("category"),
+      scoring: {
+        title: { want, avoid: list(get("exclude")) },
+        price: { cap: num("max_price"), floor: num("min_price") },
+        freshDays: num("max_age_days") || 7,
+      },
+      enabled: true,
+    },
+  };
+}
+
+export function convertDealSpecs(from: string, out: string, write: boolean): string[] {
+  const collectors = join(dirname(from), "collectors");
+  const done: string[] = [];
+  for (const f of readdirSync(from).filter((n) => n.endsWith(".md"))) {
+    const file = join(from, f);
+    const made = dealSpecFromV1(readFileSync(file, "utf8"), file, collectors);
+    if (!made) continue;
+    const target = join(out, `${made.id}.json`);
+    const there = existsSync(target);
+    if (write) {
+      mkdirSync(out, { recursive: true });
+      writeFileSync(target, `${JSON.stringify(made.spec, null, 2)}\n`);
+    }
+    const { floor, cap } = made.spec.scoring.price;
+    done.push(
+      `${made.id}: ${made.spec.name}, "${made.spec.env.HUNT_TERM}", $${floor}–$${cap}${there && !write ? " (replaces the file there)" : ""}`,
+    );
+  }
+  return done;
+}
 
 export function convertSpecs(from: string, out: string): string[] {
   const old = new DatabaseSync(from, { readOnly: true });
@@ -71,11 +146,28 @@ export function convertSpecs(from: string, out: string): string[] {
 }
 
 if (process.argv[1]?.endsWith("convert-v1-specs.ts")) {
-  const { values } = parseArgs({ options: { from: { type: "string" }, out: { type: "string" } } });
-  if (!values.from || !values.out) {
-    console.error("convert-v1-specs: --from <old hunts.db> --out <searches dir>");
+  const { values } = parseArgs({
+    options: {
+      from: { type: "string" },
+      deals: { type: "string" },
+      out: { type: "string" },
+      write: { type: "boolean", default: false },
+    },
+  });
+  if ((!values.from && !values.deals) || !values.out) {
+    console.error(
+      "convert-v1-specs: --from <old hunts.db> | --deals <old specs folder>, then --out <searches dir> [--write]",
+    );
     process.exit(2);
   }
-  for (const f of convertSpecs(values.from, values.out))
-    console.log(`wrote ${f} (enabled: false — point its collector at a script)`);
+  if (values.deals) {
+    const done = convertDealSpecs(values.deals, values.out, values.write);
+    console.log(values.write ? `wrote ${done.length} deal searches:` : `dry run, would write ${done.length}:`);
+    for (const d of done) console.log(`  ${d}`);
+  } else if (values.from) {
+    if (!values.write) console.log("dry run: add --write to land the job skeletons");
+    else
+      for (const f of convertSpecs(values.from, values.out))
+        console.log(`wrote ${f} (enabled: false — point its collector at a script)`);
+  }
 }
