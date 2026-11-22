@@ -5,6 +5,29 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-22 · The money scale, loading that shows, and colour by meaning.**
+  A pay or price pill takes the old hunt pages' scale by match or deal (mint, lime, amber, coral); the model's read
+  is purple, the deep check blue, remote cyan; Learn's packs wear their parent's colour (Personal green, AI purple,
+  Platform blue) and Review today is cyan. While a filter's results load, the old cards and counts stay dimmed
+  under a sweeping bar (keepPreviousData), the first load shows skeletons, and a pressed stage shows at once.
+  Rejected: one green for every good thing (the page read as a wall of green).
+- **2026-11-22 · The quiz explains; Research asks, knows me and names its sources.**
+  After each question the fast model writes the answer as a small lesson (in one line, break it down, an
+  analogy, code when technical, the usual mistake, a line to remember), started while I answer and kept per
+  question; I don't know counts as a miss. Research may ask up to three questions first (the fast model, a few
+  seconds); About me and the context folder's files go into the writing prompt only, never into a search query;
+  each [n] becomes a link named for its site. Rejected: a richer marking call (slower, and the mark is not the
+  explanation).
+- **2026-11-22 · Writing, not Cover letters; Tasks the old Hub's way; notes on just the words.**
+  The writing lab writes a letter, a form's answer or any text for a job, each the application's way, a PDF only
+  for a letter. Tasks takes the old Hub's list: whom a task is for, words edited in place, a round tick that asks me
+  no note (an agent's close keeps its note), delete. A note's selection is decided once, when the pointer lifts: a
+  click handler after the note box took the focus had found the selection gone and noted the paragraph.
+- **2026-11-22 · A dock at a computer's edge; Chat by device.**
+  On a computer the right edge slides in every app, the old pages' dock. Chat on a computer opens dsh's own app at
+  the address its browser is signed in to, in a tab; on a phone it frames the chats page and opens its own window
+  through dsh's door. Rejected: framing dsh on a computer through the private network's name, where the computer's
+  browser is not signed in.
 - **2026-11-22 · Research, Quiz and the letter lab reuse what exists.**
   Research answers in the lesson shape (the blocks Learn already draws, read by Listen), from the model door's own
   search and fetch: quick reads three pages from one search, deep reads six from the searches the model plans; each
