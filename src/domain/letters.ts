@@ -164,11 +164,13 @@ export function startLetter(db: DatabaseSync, settings: Settings, listingId: str
       step("Writing the letter");
       const draft = await callModel(
         effective,
-        { model, system: SYSTEM, prompt: letterPrompt(input), maxTokens: 3000, thinking: true },
+        // the files are long and the model thinks before it writes: room for both (3,000 ran out while thinking)
+        { model, system: SYSTEM, prompt: letterPrompt(input), maxTokens: 12_000, thinking: true },
         LetterDraft,
       );
       recordCall(db, `letter:v${LETTER_VERSION}`, draft);
-      if (!draft.ok) return finish("failed", "", { model }, `the model didn't write it well: ${draft.why}`);
+      if (!draft.ok)
+        return finish("failed", "", { model }, `the model didn't write it well: ${draft.why} (${draft.detail})`);
       let letter = tidy(draft.value.letter);
       const fixed: string[] = []; // what each check named before a fix
       let findings = "";
@@ -182,7 +184,7 @@ export function startLetter(db: DatabaseSync, settings: Settings, listingId: str
         step("Fixing what the check named");
         const fix = await callModel(
           effective,
-          { model, system: SYSTEM, prompt: fixPrompt(input, letter, findings), maxTokens: 3000, thinking: true },
+          { model, system: SYSTEM, prompt: fixPrompt(input, letter, findings), maxTokens: 12_000, thinking: true },
           LetterFix,
         );
         recordCall(db, `letter-fix:v${LETTER_VERSION}`, fix);

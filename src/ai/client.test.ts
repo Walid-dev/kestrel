@@ -27,6 +27,14 @@ test("an answer in the wrong shape fails with the field named", async () => {
   assert.match(got.detail, /answer/);
 });
 
+test("a model that runs out of room while thinking says so, so the budget gets raised", async () => {
+  const s = await startStandIn(() => ({ content: "", finish: "length" }));
+  const got = await callModel(settings(s.url), ask, Shape);
+  await s.close();
+  assert.ok(!got.ok && got.why === "refusal");
+  assert.match(got.detail, /whole answer thinking/);
+});
+
 test("a slow model becomes a timeout; a refusal and a down door name themselves", async () => {
   const slow = await startStandIn(() => ({ content: '{"answer":"late"}', delayMs: 3000 }));
   const late = await callModel(settings(slow.url), ask, Shape);

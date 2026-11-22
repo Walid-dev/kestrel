@@ -2,7 +2,8 @@
 // answers whatever the test tells it to. No model runs; the checks stay fast and free.
 import { createServer, type Server } from "node:http";
 
-export type StandInPlan = { content?: string; delayMs?: number; status?: number };
+// finish: why the stream says it stopped ("length": out of room), as the door reports it
+export type StandInPlan = { content?: string; delayMs?: number; status?: number; finish?: string };
 
 export function startStandIn(plan: (body: { model: string; messages: { content: string }[] }) => StandInPlan): Promise<{
   url: string;
@@ -30,7 +31,10 @@ export function startStandIn(plan: (body: { model: string; messages: { content: 
         for (const piece of [content.slice(0, half), content.slice(half)])
           res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: piece } }] })}\n\n`);
         res.write(
-          `data: ${JSON.stringify({ choices: [{ delta: {} }], usage: { prompt_tokens: 7, completion_tokens: 9 } })}\n\n`,
+          `data: ${JSON.stringify({
+            choices: [{ delta: {}, finish_reason: p.finish ?? "stop" }],
+            usage: { prompt_tokens: 7, completion_tokens: 9 },
+          })}\n\n`,
         );
         res.write("data: [DONE]\n\n");
         res.end();

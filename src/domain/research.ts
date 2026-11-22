@@ -14,8 +14,9 @@ import { modelFor } from "./models.ts";
 import { Refused } from "./notes/documents.ts";
 
 export const LEVELS: Record<Level, { pages: number; chars: number; perSearch: number; maxTokens: number }> = {
-  quick: { pages: 3, chars: 5000, perSearch: 6, maxTokens: 2500 },
-  deep: { pages: 6, chars: 4000, perSearch: 4, maxTokens: 5000 },
+  // the room for thinking and the answer together: a model that runs out while thinking answers nothing
+  quick: { pages: 3, chars: 5000, perSearch: 6, maxTokens: 6000 },
+  deep: { pages: 6, chars: 4000, perSearch: 4, maxTokens: 10_000 },
 };
 
 export type Ref = { n: number; title: string; url: string };
@@ -116,7 +117,7 @@ export function startResearch(db: DatabaseSync, settings: Settings, input: { que
         ResearchReport,
       );
       recordCall(db, `research:v${RESEARCH_VERSION}`, got);
-      if (!got.ok) return finish("failed", null, `the model didn't answer well: ${got.why}`);
+      if (!got.ok) return finish("failed", null, `the model didn't answer well: ${got.why} (${got.detail})`);
       finish("done", {
         ...got.value,
         refs: hits.map((h, i) => ({ n: i + 1, title: h.title, url: h.url })),

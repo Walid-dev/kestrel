@@ -65,6 +65,7 @@ export async function callModel<T>(settings: ModelSettings, call: Call, shape: z
   }
   if (!res.ok || !res.body) return fail("down", `the model door answered ${res.status}`);
   let text = "";
+  let finish = ""; // why the model stopped: "length" means the answer ran out of room
   let tokensIn: number | null = null;
   let tokensOut: number | null = null;
   try {
@@ -83,10 +84,11 @@ export async function callModel<T>(settings: ModelSettings, call: Call, shape: z
         if (data === "[DONE]") continue;
         try {
           const piece = JSON.parse(data) as {
-            choices?: { delta?: { content?: string } }[];
+            choices?: { delta?: { content?: string }; finish_reason?: string | null }[];
             usage?: { prompt_tokens?: number; completion_tokens?: number };
           };
           text += piece.choices?.[0]?.delta?.content ?? "";
+          finish = piece.choices?.[0]?.finish_reason ?? finish;
           if (piece.usage) {
             tokensIn = piece.usage.prompt_tokens ?? tokensIn;
             tokensOut = piece.usage.completion_tokens ?? tokensOut;
@@ -99,7 +101,13 @@ export async function callModel<T>(settings: ModelSettings, call: Call, shape: z
   } catch (e) {
     return fail((e as Error).name === "TimeoutError" ? "timeout" : "down", (e as Error).message);
   }
-  if (text.trim() === "") return fail("refusal", "the model answered nothing");
+  if (text.trim() === "")
+    return fail(
+      "refusal",
+      finish === "length"
+        ? "the model spent its whole answer thinking: raise the call's max tokens"
+        : "the model answered nothing",
+    );
   let raw: unknown;
   try {
     raw = JSON.parse(text.trim());
