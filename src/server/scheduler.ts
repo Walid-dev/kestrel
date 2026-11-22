@@ -54,7 +54,7 @@ async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promis
       let kept = 0;
       let problem = "";
       try {
-        const counts = importV1(db, mirror.from, true);
+        const counts = importV1(db, mirror.from, true, { specsDir: mirror.specs });
         const j = counts.landed;
         const d = counts.deals.landed;
         found = j.new + j.updated + j.unchanged + d.new + d.updated + d.unchanged;
@@ -80,11 +80,11 @@ async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promis
   return did;
 }
 
-function readMirror(file?: string): { from: string; everyMinutes: number } | null {
+function readMirror(file?: string): { from: string; everyMinutes: number; specs?: string } | null {
   if (!file) return null;
   try {
-    const read = JSON.parse(readFileSync(file, "utf8")) as { from?: string; everyMinutes?: number };
-    return read.from ? { from: read.from, everyMinutes: read.everyMinutes ?? 1440 } : null;
+    const read = JSON.parse(readFileSync(file, "utf8")) as { from?: string; everyMinutes?: number; specs?: string };
+    return read.from ? { from: read.from, everyMinutes: read.everyMinutes ?? 1440, specs: read.specs } : null;
   } catch {
     return null; // no mirror file: nothing to mirror
   }

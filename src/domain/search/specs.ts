@@ -19,6 +19,9 @@ export const Spec = z.object({
       maxBytes: z.number().int().positive().default(20_000_000),
     })
     .default({ perRun: 200, timeoutMs: 180_000, maxBytes: 20_000_000 }),
+  about: z.string().default(""), // one line of what it looks for, under the hunt's name
+  hunt: z.string().default(""), // searches sharing a hunt show together (a deal hunt across sites and models)
+  category: z.string().default(""), // the model or the group inside a hunt
   scoring: z.unknown(), // score.ts reads it; kept loose here so a spec file edit never bricks the list
   enabled: z.boolean().default(true),
 });

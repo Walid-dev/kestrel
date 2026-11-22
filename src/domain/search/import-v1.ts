@@ -1,6 +1,10 @@
-// The import from the old setup, idempotent: the old database stays the authority for statuses and stars until the
-// cutover, so re-running refreshes and never double-lists. The nightly mirror runs this during the side-by-side
-// week; scripts/import-v1.ts is the by-hand door.
+// The import from the old setup, idempotent: the old database stays the authority for statuses, stars and notes until
+// the cutover, so re-running refreshes and never double-lists. It carries the jobs with my own marks (the owner
+// column: stars, notes, application attempts), the deals with their hunt, model and price history, and every deep
+// check already written. The nightly mirror runs this during the side-by-side weeks; scripts/import-v1.ts is the
+// by-hand door.
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 type OldRow = {
@@ -11,18 +15,34 @@ type OldRow = {
   status: string;
   found: string;
   data: string;
+  owner: string | null;
 };
+type Landed = { new: number; updated: number; unchanged: number };
 
 export type ImportCounts = {
-  source: Record<string, number>; // the old database's rows by status
+  source: Record<string, number>; // the old database's job rows by status
   sourceStarred: number;
   sourceScored: number;
-  landed: { new: number; updated: number; unchanged: number };
-  deals: { source: Record<string, number>; landed: { new: number; updated: number; unchanged: number } };
+  landed: Landed;
+  deals: { source: Record<string, number>; landed: Landed };
+  applications: { sent: number; notSent: number };
+  deepChecks: number;
   kestrel: Record<string, number>; // kestrel's rows by status after (or as-if, on a dry run)
   kestrelStarred: number;
   kestrelScored: number;
 };
+
+export type ImportOptions = { specsDir?: string }; // the old deal specs, whose head names each one's hunt and model
+
+const json = (s: string | null | undefined): Record<string, unknown> => {
+  try {
+    const v = JSON.parse(s ?? "{}");
+    return v && typeof v === "object" ? (v as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+};
+const text = (v: unknown): string => (typeof v === "string" ? v : "");
 
 // the old deal vocabulary onto the one status set: an outreach is applied, a no is passed, gone is closed
 const DEAL_STATUS: Record<string, string> = {
@@ -33,6 +53,96 @@ const DEAL_STATUS: Record<string, string> = {
   not: "passed",
   sold: "closed",
 };
+
+// an old spec's head: `hunt: Office chair`, `category: Aeron`
+function specHeads(dir: string | undefined): Map<string, { hunt: string; category: string }> {
+  const out = new Map<string, { hunt: string; category: string }>();
+  if (!dir || !existsSync(dir)) return out;
+  for (const f of readdirSync(dir).filter((n) => n.endsWith(".md"))) {
+    const head = readFileSync(join(dir, f), "utf8").slice(0, 2000);
+    const hunt = head.match(/^hunt:\s*(.+)$/m)?.[1]?.trim() ?? "";
+    const category = head.match(/^category:\s*(.+)$/m)?.[1]?.trim() ?? "";
+    if (hunt || category) out.set(basename(f, ".md"), { hunt, category });
+  }
+  return out;
+}
+
+function importApplications(db: DatabaseSync, rows: OldRow[], write: boolean): ImportCounts["applications"] {
+  const counts = { sent: 0, notSent: 0 };
+  const put = db.prepare(
+    `INSERT INTO applications (id, listing, link, title, org, state, reason, agent, started, updated)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'the old setup', ?, ?)
+     ON CONFLICT (id) DO UPDATE SET state = excluded.state, reason = excluded.reason, updated = excluded.updated`,
+  );
+  for (const r of rows) {
+    const apply = json(r.owner).apply as Record<string, unknown> | undefined;
+    const state = text(apply?.state);
+    if (!apply || !["sent", "unfinished", "failed", "started"].includes(state)) continue;
+    const report = (apply.report ?? {}) as Record<string, unknown>;
+    const data = json(r.data);
+    const sent = state === "sent";
+    sent ? counts.sent++ : counts.notSent++;
+    if (!write) continue;
+    const reason = sent
+      ? ""
+      : text(report.blocker) ||
+        text(report.outcome) ||
+        (state === "started"
+          ? "started in the old setup and never finished"
+          : "stopped before sending in the old setup");
+    const at = text(apply.at) || r.found;
+    put.run(
+      `v1:${r.id}`,
+      r.id,
+      r.link,
+      text(data.title),
+      text(data.company) || text(data.org),
+      sent ? "sent" : "not-sent",
+      reason.slice(0, 300),
+      at,
+      text(apply.endedAt) || at,
+    );
+  }
+  return counts;
+}
+
+function importDeepChecks(db: DatabaseSync, old: DatabaseSync, write: boolean): number {
+  let rows: {
+    key: string;
+    state: string;
+    started: string | null;
+    finished: string | null;
+    report: string | null;
+    error: string | null;
+  }[];
+  try {
+    rows = old.prepare("SELECT key, state, started, finished, report, error FROM deep_checks").all() as typeof rows;
+  } catch {
+    return 0; // an old database without deep checks has none to carry
+  }
+  const put = db.prepare(
+    `INSERT INTO deep_checks (id, listing, state, step, started, finished, report, error) VALUES (?, ?, ?, '', ?, ?, ?, ?)
+     ON CONFLICT (id) DO UPDATE SET state = excluded.state, finished = excluded.finished, report = excluded.report,
+       error = excluded.error`,
+  );
+  let n = 0;
+  for (const r of rows) {
+    const [kind, id] = [r.key.slice(0, r.key.indexOf(":")), r.key.slice(r.key.indexOf(":") + 1)];
+    if (!["job", "deal"].includes(kind) || !id) continue;
+    n++;
+    if (write)
+      put.run(
+        `v1:${r.key}`,
+        id,
+        r.state === "done" && r.report ? "done" : "failed",
+        r.started ?? new Date().toISOString(),
+        r.finished,
+        r.report,
+        r.error ?? "",
+      );
+  }
+  return n;
+}
 
 type OldDeal = {
   id: string;
@@ -49,55 +159,85 @@ type OldDeal = {
   score: number | null;
   status: string | null;
   my_note: string | null;
+  fit: number | null;
   fit_reason: string | null;
   twin_of: string | null;
 };
 
 // The old deals live in items, each tied through its run to the spec that found it. Scores there run 0–10.
-function importDeals(db: DatabaseSync, old: DatabaseSync, write: boolean): ImportCounts["deals"] {
+function importDeals(db: DatabaseSync, old: DatabaseSync, write: boolean, opts: ImportOptions): ImportCounts["deals"] {
   const counts: ImportCounts["deals"] = { source: {}, landed: { new: 0, updated: 0, unchanged: 0 } };
   let rows: OldDeal[];
   try {
     rows = old
       .prepare(
         `SELECT i.id, r.spec, i.source, i.url, i.title, i.org, i.price, i.location, i.posted, i.first_seen,
-                i.last_seen, i.score, i.status, i.my_note, i.fit_reason, i.twin_of
+                i.last_seen, i.score, i.status, i.my_note, i.fit, i.fit_reason, i.twin_of
          FROM items i JOIN runs r ON r.run_id = i.run_id`,
       )
       .all() as OldDeal[];
   } catch {
     return counts; // an old database without deal tables simply has none to carry
   }
-  const get = db.prepare("SELECT id, status, score FROM listings WHERE id = ? OR (search = ? AND link = ?)");
+  // each deal's prices over time, a change kept only when the price moved
+  const prices = new Map<string, { at: string; price: number }[]>();
+  try {
+    for (const h of old.prepare("SELECT item_id, seen_at, price FROM history ORDER BY seen_at").all() as {
+      item_id: string;
+      seen_at: string;
+      price: number | null;
+    }[]) {
+      if (h.price == null) continue;
+      const list = prices.get(String(h.item_id)) ?? [];
+      if (list.at(-1)?.price !== h.price) list.push({ at: h.seen_at, price: h.price });
+      prices.set(String(h.item_id), list);
+    }
+  } catch {
+    // no history table: each deal shows its one price
+  }
+  const heads = specHeads(opts.specsDir);
+  const get = db.prepare("SELECT id, status, score, data FROM listings WHERE id = ? OR (search = ? AND link = ?)");
   const insert = db.prepare(
-    `INSERT INTO listings (id, search, source, link, dedupe, status, starred, found, updated, score, match, data)
-     VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)`,
+    `INSERT INTO listings (id, search, source, link, dedupe, status, starred, found, updated, score, match, data, kind)
+     VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, 'deals')`,
   );
-  const update = db.prepare("UPDATE listings SET status = ?, score = ?, match = ?, data = ?, updated = ? WHERE id = ?");
+  const update = db.prepare(
+    "UPDATE listings SET status = ?, score = ?, match = ?, data = ?, updated = ?, kind = 'deals' WHERE id = ?",
+  );
   for (const r of rows) {
     const status = DEAL_STATUS[r.status ?? "new"] ?? "new";
     counts.source[status] = (counts.source[status] ?? 0) + 1;
     const score = r.score === null ? null : Math.round(r.score * 10); // the old 0–10 onto the 0–100 card
     const match = score === null ? "" : score >= 80 ? "great" : score >= 60 ? "good" : score >= 40 ? "weak" : "poor";
+    const head = heads.get(r.spec);
     const data = JSON.stringify({
+      kind: "deals",
       source: r.source,
       title: r.title,
       org: r.org ?? "",
       location: r.location ?? "",
       posted: r.posted ?? "",
       price: r.price,
-      why: r.fit_reason ?? "",
+      prices: prices.get(String(r.id)) ?? [],
+      hunt: head?.hunt ?? "",
+      category: head?.category ?? "",
+      fit: r.fit,
+      fitWhy: r.fit_reason ?? "",
+      why: "",
       note: r.my_note ?? "",
       twin: r.twin_of ?? "",
     });
     const updatedAt = r.last_seen ?? r.first_seen;
-    const have = get.get(r.id, r.spec, r.url) as { id: string; status: string; score: number | null } | undefined;
+    const have = get.get(String(r.id), r.spec, r.url) as
+      | { id: string; status: string; score: number | null; data: string }
+      | undefined;
     if (!have) {
       counts.landed.new++;
-      if (write) insert.run(r.id, r.spec, r.source, r.url, r.url, status, r.first_seen, updatedAt, score, match, data);
+      if (write)
+        insert.run(String(r.id), r.spec, r.source, r.url, r.url, status, r.first_seen, updatedAt, score, match, data);
       continue;
     }
-    if (have.status === status && have.score === score) {
+    if (have.status === status && have.score === score && have.data === data) {
       counts.landed.unchanged++;
       continue;
     }
@@ -107,36 +247,56 @@ function importDeals(db: DatabaseSync, old: DatabaseSync, write: boolean): Impor
   return counts;
 }
 
-export function importV1(db: DatabaseSync, from: string, write: boolean): ImportCounts {
+export function importV1(db: DatabaseSync, from: string, write: boolean, opts: ImportOptions = {}): ImportCounts {
   const old = new DatabaseSync(from, { readOnly: true });
+  const cols = (old.prepare("PRAGMA table_info(job_listings)").all() as { name: string }[]).map((c) => c.name);
   const rows = old
-    .prepare("SELECT id, hunt, link, dedupe_key, status, found, data FROM job_listings")
+    .prepare(
+      `SELECT id, hunt, link, dedupe_key, status, found, data, ${cols.includes("owner") ? "owner" : "NULL AS owner"} FROM job_listings`,
+    )
     .all() as OldRow[];
   const source: Record<string, number> = {};
   let sourceStarred = 0;
   let sourceScored = 0;
-  const landed = { new: 0, updated: 0, unchanged: 0 };
+  const landed: Landed = { new: 0, updated: 0, unchanged: 0 };
+  // a link match stays inside its own search: another hunt's row with the same link is its own (the sweep's finding)
   const get = db.prepare(
-    "SELECT id, status, starred, score FROM listings WHERE id = ? OR (search = ? AND (dedupe = ? OR link = ?))",
+    "SELECT id, status, starred, score, data FROM listings WHERE id = ? OR (search = ? AND (dedupe = ? OR link = ?))",
   );
   const insert = db.prepare(
-    `INSERT INTO listings (id, search, source, link, dedupe, status, starred, found, updated, score, match, data)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO listings (id, search, source, link, dedupe, status, starred, found, updated, score, match, data, kind)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'jobs')`,
   );
   const update = db.prepare(
     "UPDATE listings SET status = ?, starred = ?, score = ?, match = ?, data = ?, updated = ? WHERE id = ?",
   );
+  const kept: OldRow[] = [];
   for (const r of rows) {
+    const data = json(r.data);
+    const own = json(r.owner);
+    if (own.deleted) continue; // a job I removed in the old setup stays removed
+    kept.push(r);
     source[r.status] = (source[r.status] ?? 0) + 1;
-    const data = JSON.parse(r.data) as Record<string, unknown>;
-    const starred = data.star === true ? 1 : data.star === false ? 0 : null;
+    // my star lives in the owner column; an old row may still carry it in its data
+    const star = own.star ?? data.star;
+    const starred = star === true ? 1 : star === false ? 0 : null;
     if (starred === 1) sourceStarred++;
     const score = typeof data.score === "number" ? Math.round(data.score) : null;
     if (score !== null) sourceScored++;
     const match = String(data.match ?? "");
     const updatedAt = String(data.lastSeen ?? r.found);
+    const carried = JSON.stringify({
+      ...data,
+      kind: "jobs",
+      org: text(data.company) || text(data.org),
+      why: data.matchWhy ?? "",
+      note: text(own.myNote),
+      appliedAt: own.appliedAt ?? null,
+      followUpAt: own.followUpAt ?? null,
+      interviewAt: own.interviewAt ?? null,
+    });
     const have = get.get(r.id, r.hunt, r.dedupe_key, r.link) as
-      | { id: string; status: string; starred: number | null; score: number | null }
+      | { id: string; status: string; starred: number | null; score: number | null; data: string }
       | undefined;
     if (!have) {
       landed.new++;
@@ -153,28 +313,20 @@ export function importV1(db: DatabaseSync, from: string, write: boolean): Import
           updatedAt,
           score,
           match,
-          JSON.stringify({ ...data, why: data.matchWhy ?? "" }),
+          carried,
         );
       continue;
     }
-    const same = have.status === r.status && have.starred === starred && have.score === score;
-    if (same) {
+    if (have.status === r.status && have.starred === starred && have.score === score && have.data === carried) {
       landed.unchanged++;
       continue;
     }
-    landed.updated++; // the old setup stays the authority for status and star until the cutover
-    if (write)
-      update.run(
-        r.status,
-        starred,
-        score,
-        match,
-        JSON.stringify({ ...data, why: data.matchWhy ?? "" }),
-        updatedAt,
-        have.id,
-      );
+    landed.updated++; // the old setup stays the authority for status, star and note until the cutover
+    if (write) update.run(r.status, starred, score, match, carried, updatedAt, have.id);
   }
-  const deals = importDeals(db, old, write);
+  const applications = importApplications(db, kept, write);
+  const deals = importDeals(db, old, write, opts);
+  const deepChecks = importDeepChecks(db, old, write);
   old.close();
   const kestrel: Record<string, number> = {};
   const after = db.prepare("SELECT status, COUNT(*) AS n FROM listings GROUP BY status").all() as {
@@ -190,6 +342,8 @@ export function importV1(db: DatabaseSync, from: string, write: boolean): Import
     sourceScored,
     landed,
     deals,
+    applications,
+    deepChecks,
     kestrel,
     kestrelStarred: starredRow.n,
     kestrelScored: scoredRow.n,

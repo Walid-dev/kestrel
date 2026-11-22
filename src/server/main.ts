@@ -85,7 +85,7 @@ if (!isDeployed() && (db.prepare("SELECT COUNT(*) AS n FROM packs").get() as { n
     2,
   );
 }
-mountSearch(app, db);
+mountSearch(app, db, settings);
 mountApply(app, db);
 mountTasks(app, db);
 mountBrief(app, db, settings);

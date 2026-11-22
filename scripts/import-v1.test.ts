@@ -179,3 +179,89 @@ test("a link shared with another search's row is never clobbered: each hunt keep
   assert.equal(other.status, "interviewing"); // untouched
   assert.equal(other.starred, 1);
 });
+
+test("my own marks travel: the owner column's star, note and application attempts; a removed job stays removed", () => {
+  const base = mkdtempSync(join(tmpdir(), "kestrel-import-owner-"));
+  const file = join(base, "t.db");
+  const db = new DatabaseSync(file);
+  migrate(db, file);
+  const from = join(base, "owner.db");
+  const o = new DatabaseSync(from);
+  o.exec(
+    "CREATE TABLE job_listings (id TEXT, hunt TEXT, link TEXT, dedupe_key TEXT, status TEXT, found TEXT, data TEXT, owner TEXT)",
+  );
+  const put = o.prepare("INSERT INTO job_listings VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+  const data = (title: string) =>
+    JSON.stringify({ source: "made-up-board", title, company: "Made Co", score: 70, match: "good" });
+  put.run(
+    "a",
+    "h",
+    "https://example.com/a",
+    "made co|keeper",
+    "applied",
+    "2026-11-01",
+    data("Keeper"),
+    JSON.stringify({
+      star: true,
+      myNote: "ask about the smoker",
+      apply: { state: "sent", at: "2026-11-02T10:00:00Z", endedAt: "2026-11-02T10:20:00Z", report: {} },
+    }),
+  );
+  put.run(
+    "b",
+    "h",
+    "https://example.com/b",
+    "made co|wrangler",
+    "new",
+    "2026-11-01",
+    data("Wrangler"),
+    JSON.stringify({
+      apply: { state: "unfinished", at: "2026-11-03T10:00:00Z", report: { blocker: "a human check on the form" } },
+    }),
+  );
+  put.run(
+    "c",
+    "h",
+    "https://example.com/c",
+    "made co|gone",
+    "new",
+    "2026-11-01",
+    data("Gone"),
+    JSON.stringify({ deleted: true }),
+  );
+  o.exec(
+    "CREATE TABLE deep_checks (key TEXT, kind TEXT, state TEXT, started TEXT, finished TEXT, step TEXT, report TEXT, error TEXT)",
+  );
+  o.prepare("INSERT INTO deep_checks VALUES ('job:a', 'job', 'done', '2026-11-02', '2026-11-02', '', ?, '')").run(
+    JSON.stringify({ verdict: "apply", headline: "A made-up fit." }),
+  );
+  o.close();
+  const got = importV1(db, from, true);
+  assert.equal(got.landed.new, 2); // the removed one never lands
+  assert.equal(got.sourceStarred, 1);
+  assert.deepEqual(got.applications, { sent: 1, notSent: 1 });
+  assert.equal(got.deepChecks, 1);
+  const a = db.prepare("SELECT starred, data FROM listings WHERE id = 'a'").get() as { starred: number; data: string };
+  assert.equal(a.starred, 1);
+  const ad = JSON.parse(a.data) as { org: string; note: string };
+  assert.equal(ad.org, "Made Co"); // the old company is the card's org
+  assert.equal(ad.note, "ask about the smoker");
+  const apps = db.prepare("SELECT id, state, reason FROM applications ORDER BY id").all() as {
+    id: string;
+    state: string;
+    reason: string;
+  }[];
+  assert.deepEqual(
+    apps.map((x) => [x.id, x.state]),
+    [
+      ["v1:a", "sent"],
+      ["v1:b", "not-sent"],
+    ],
+  );
+  assert.equal(apps[1].reason, "a human check on the form");
+  const deep = db.prepare("SELECT listing, state FROM deep_checks").get() as { listing: string; state: string };
+  assert.equal(deep.listing, "a");
+  assert.equal(deep.state, "done");
+  const again = importV1(db, from, true);
+  assert.deepEqual(again.landed, { new: 0, updated: 0, unchanged: 2 }); // nothing moves on a second run
+});

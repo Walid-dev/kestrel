@@ -14,6 +14,7 @@ const settings: Settings = {
   notes: { folders: [] },
   models: { url: "http://127.0.0.1:1/v1", careful: "careful-model", fast: "fast-model", contextChars: 1000 },
   voice: { url: "http://127.0.0.1:1", name: "made-up" },
+  profile: {},
 };
 
 test("the settings answer until a pick is made; the pick wins and survives a reopen", () => {
@@ -34,6 +35,7 @@ test("the settings answer until a pick is made; the pick wins and survives a reo
       ["notes-careful", "careful-model"],
       ["notes-fast", "another-made-up"],
       ["learn-ask", "careful-model"], // the live eval moved Ask's fallback to the careful model
+      ["search-deep", "careful-model"],
     ],
   );
 });

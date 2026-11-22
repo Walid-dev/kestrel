@@ -1,5 +1,5 @@
 // The by-hand door to the import: dry by default with counts that must match, --write to land them.
-// Run: node scripts/import-v1.ts --from <old hunts.db> [--write]  (KESTREL_DATA_DIR picks the target folder)
+// Run: node scripts/import-v1.ts --from <old hunts.db> [--specs <old specs folder>] [--write]  (KESTREL_DATA_DIR picks the target folder)
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { openDb } from "../src/db/db.ts";
@@ -8,7 +8,9 @@ import { importV1 } from "../src/domain/search/import-v1.ts";
 import { dataDir } from "../src/platform/paths.ts";
 
 if (process.argv[1]?.endsWith("import-v1.ts")) {
-  const { values } = parseArgs({ options: { from: { type: "string" }, write: { type: "boolean", default: false } } });
+  const { values } = parseArgs({
+    options: { from: { type: "string" }, specs: { type: "string" }, write: { type: "boolean", default: false } },
+  });
   if (!values.from) {
     console.error("import-v1: --from <the old hunts.db> [--write]");
     process.exit(2);
@@ -24,7 +26,7 @@ if (process.argv[1]?.endsWith("import-v1.ts")) {
   db.exec("BEGIN");
   let counts: ReturnType<typeof importV1>;
   try {
-    counts = importV1(db, values.from, values.write);
+    counts = importV1(db, values.from, values.write, { specsDir: values.specs });
     db.exec(values.write ? "COMMIT" : "ROLLBACK");
   } catch (e) {
     db.exec("ROLLBACK");
@@ -37,6 +39,8 @@ if (process.argv[1]?.endsWith("import-v1.ts")) {
   console.log("  would land / landed:", JSON.stringify(counts.landed));
   console.log("  deals by status:", JSON.stringify(counts.deals.source));
   console.log("  deals would land / landed:", JSON.stringify(counts.deals.landed));
+  console.log(`  applications: ${counts.applications.sent} sent, ${counts.applications.notSent} not sent`);
+  console.log(`  deep checks: ${counts.deepChecks}`);
   console.log("  kestrel by status:", JSON.stringify(counts.kestrel));
   console.log(`  kestrel: ${counts.kestrelStarred} starred, ${counts.kestrelScored} scored`);
 }

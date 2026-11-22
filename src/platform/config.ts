@@ -54,6 +54,15 @@ export const Settings = z.object({
       name: z.string().default("af_heart"),
     })
     .default({ url: "http://127.0.0.1:8798", name: "af_heart" }),
+  // who I am, for a deep check's read of a job: level, years, skills, a summary (personal: the data folder only)
+  profile: z
+    .object({
+      level: z.string().optional(),
+      years: z.number().optional(),
+      skills: z.array(z.string()).optional(),
+      summary: z.string().optional(),
+    })
+    .default({}),
 });
 export type Settings = z.infer<typeof Settings>;
 

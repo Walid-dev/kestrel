@@ -45,6 +45,7 @@ async function runSearchNow(db: DatabaseSync, spec: Spec, now: Date): Promise<Ru
     now,
     spec.limits.perRun,
     spec.kind,
+    { hunt: spec.hunt || spec.name, category: spec.category },
   );
   const problem = collected.problem || (found === 0 ? "the page answered empty" : "");
   const run: Run = {

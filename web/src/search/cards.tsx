@@ -1,0 +1,410 @@
+// The hunt cards, the old Job Hunt and Deal Hunt's: status, group and source on top; the title with its pay or price
+// in a coloured pill; where and when; the match line with its bar (a deal: where its price sits against the usual);
+// the model's read and the deep check. A tap anywhere opens the whole listing.
+import type { ReactNode } from "react";
+
+export type Listing = {
+  id: string;
+  search: string;
+  source: string;
+  link: string;
+  status: string;
+  starred: number | null;
+  found: string;
+  score: number | null;
+  match: string;
+  kind: "jobs" | "deals";
+  priority: boolean;
+  data: Record<string, unknown>;
+  deal: { median: number; p25: number; p75: number; n: number; pct: number; tier: string; under: number } | null;
+  app: { state: string; reason: string } | null;
+  deepVerdict: string | null;
+};
+
+export const STAGES: Record<"jobs" | "deals", { status: string; label: string; tone: string }[]> = {
+  jobs: [
+    { status: "new", label: "To review", tone: "tone-muted" },
+    { status: "interested", label: "Interested", tone: "tone-green" },
+    { status: "maybe", label: "Not sure", tone: "tone-yellow" },
+    { status: "applied", label: "Applied", tone: "tone-accent" },
+    { status: "interviewing", label: "Interviewing", tone: "tone-orange" },
+    { status: "offer", label: "Offer", tone: "tone-green" },
+    { status: "rejected", label: "Rejected", tone: "tone-red" },
+    { status: "closed", label: "Closed", tone: "tone-muted" },
+    { status: "fake", label: "Not real", tone: "tone-red" },
+    { status: "passed", label: "Not for me", tone: "tone-muted" },
+  ],
+  deals: [
+    { status: "new", label: "To review", tone: "tone-muted" },
+    { status: "interested", label: "Interested", tone: "tone-green" },
+    { status: "maybe", label: "Not sure", tone: "tone-yellow" },
+    { status: "applied", label: "Contacted", tone: "tone-accent" },
+    { status: "passed", label: "Not interested", tone: "tone-muted" },
+    { status: "closed", label: "Sold", tone: "tone-muted" },
+  ],
+};
+export const stageOf = (kind: "jobs" | "deals", status: string) =>
+  STAGES[kind].find((s) => s.status === status) ?? { status, label: status, tone: "tone-muted" };
+
+export const MATCH: Record<string, { label: string; tone: string }> = {
+  great: { label: "Great match", tone: "tone-green" },
+  good: { label: "Good match", tone: "tone-accent" },
+  weak: { label: "Possible match", tone: "tone-yellow" },
+  poor: { label: "Weak match", tone: "tone-red" },
+};
+export const DEAL: Record<string, { label: string; tone: string }> = {
+  great: { label: "Great deal", tone: "tone-green" },
+  good: { label: "Good deal", tone: "tone-green" },
+  fair: { label: "Fair price", tone: "tone-yellow" },
+  over: { label: "Overpriced", tone: "tone-red" },
+};
+export const VERDICT: Record<string, { label: string; tone: string }> = {
+  apply: { label: "Apply", tone: "tone-green" },
+  maybe: { label: "Maybe", tone: "tone-yellow" },
+  skip: { label: "Skip", tone: "tone-red" },
+  buy: { label: "Buy", tone: "tone-green" },
+  negotiate: { label: "Negotiate", tone: "tone-yellow" },
+  unsure: { label: "Unsure", tone: "tone-muted" },
+};
+
+export const str = (v: unknown): string => (typeof v === "string" ? v : "");
+const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+// "$124k–244k", the period named when it isn't a year
+export function payOf(d: Record<string, unknown>): string {
+  const lo = num(d.salaryMin);
+  const hi = num(d.salaryMax);
+  if (lo == null && hi == null) return "";
+  const k = (v: number) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v));
+  const cur = str(d.salaryCurrency) === "USD" ? "US$" : "$";
+  const range = lo != null && hi != null && lo !== hi ? `${k(lo)}–${k(hi)}` : k(hi ?? lo ?? 0);
+  const period = str(d.salaryPeriod).toLowerCase();
+  const per = period && !period.includes("year") ? `/${period.replace("ly", "").replace("dai", "day")}` : "";
+  return `${cur}${range}${per}`;
+}
+
+const DAY = 86_400_000;
+export function ago(iso: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "";
+  const days = Math.floor((Date.now() - t) / DAY);
+  if (days <= 0) {
+    const h = Math.max(1, Math.round((Date.now() - t) / 3_600_000));
+    return h < 24 ? `${h} hour${h === 1 ? "" : "s"} ago` : "today";
+  }
+  if (days < 7) return `${days} day${days === 1 ? "" : "s"} ago`;
+  if (days < 30) return `${Math.round(days / 7)} week${Math.round(days / 7) === 1 ? "" : "s"} ago`;
+  return `${Math.round(days / 30)} month${Math.round(days / 30) === 1 ? "" : "s"} ago`;
+}
+export const day = (iso: string) => {
+  const t = Date.parse(iso);
+  return Number.isNaN(t) ? "" : new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+};
+
+function Ring({ tone }: { tone: string }) {
+  return (
+    <span
+      className={`${tone} inline-block h-[15px] w-[15px] shrink-0 rounded-full`}
+      style={{
+        border: "2.5px solid var(--tone)",
+        boxShadow: "inset 0 0 0 2.5px var(--surface)",
+        background: "var(--tone)",
+      }}
+    />
+  );
+}
+
+// a 0–100 score on a red-to-green bar, the dot where it sits
+export function ScoreBar({ score }: { score: number }) {
+  const at = Math.max(0, Math.min(100, score));
+  return (
+    <div
+      className="relative mt-1 mb-4 h-1.5 rounded-full"
+      style={{ background: "linear-gradient(90deg, var(--red) 0%, var(--yellow) 45%, var(--green) 80%)" }}
+    >
+      <span
+        className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{
+          left: `${at}%`,
+          background: "var(--green)",
+          border: "3px solid var(--surface)",
+          boxShadow: "0 0 0 1px var(--green)",
+        }}
+      />
+      <span
+        className="font-mono absolute top-3 -translate-x-1/2 text-[10.5px]"
+        style={{ left: `${at}%`, color: "var(--muted)" }}
+      >
+        {score}
+      </span>
+    </div>
+  );
+}
+
+// a deal's price on a cheap-to-dear bar: the usual spread marked, the dot where this ad sits
+export function PriceBar({ price, deal }: { price: number; deal: NonNullable<Listing["deal"]> }) {
+  const lo = Math.min(price, deal.p25) * 0.75;
+  const hi = Math.max(price, deal.p75) * 1.2;
+  const at = (v: number) => `${((v - lo) / (hi - lo)) * 100}%`;
+  return (
+    <div
+      className="relative mt-1 mb-5 h-1.5 rounded-full"
+      style={{ background: "linear-gradient(90deg, var(--green) 0%, var(--yellow) 50%, var(--red) 100%)" }}
+    >
+      {[deal.p25, deal.p75].map((v) => (
+        <span
+          key={v}
+          className="font-mono absolute top-3 -translate-x-1/2 text-[10.5px]"
+          style={{ left: at(v), color: "var(--muted)" }}
+        >
+          ${Math.round(v)}
+        </span>
+      ))}
+      <span
+        className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{
+          left: at(price),
+          background: "var(--green)",
+          border: "3px solid var(--surface)",
+          boxShadow: "0 0 0 1px var(--green)",
+        }}
+      />
+    </div>
+  );
+}
+
+export function ReadBox({
+  label,
+  chip,
+  tone,
+  children,
+}: {
+  label: string;
+  chip?: string;
+  tone?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`read-box ${tone ?? "tone-accent"} grid gap-1.5`}>
+      <div className="flex items-center gap-2">
+        <span className="eyebrow" style={{ color: "var(--accent)" }}>
+          {label}
+        </span>
+        {chip && <span className={`chip ${tone ?? "tone-accent"}`}>{chip}</span>}
+      </div>
+      <div className="text-[14.5px] leading-relaxed" style={{ color: "var(--text)" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const fitTone = (fit: number) => (fit >= 7 ? "tone-green" : fit >= 4 ? "tone-yellow" : "tone-red");
+const APP_CHIP: Record<string, [string, string]> = {
+  sent: ["Sent", "tone-accent"],
+  "not-sent": ["Not sent", "tone-orange"],
+  "needs-me": ["Needs me", "tone-pink"],
+  applying: ["Applying", "tone-purple"],
+  queued: ["Queued", "tone-purple"],
+};
+
+function Head({ l }: { l: Listing }) {
+  const stage = stageOf(l.kind, l.status);
+  const app = l.app && l.status === "new" ? APP_CHIP[l.app.state] : null;
+  const group = str(l.data.family) || str(l.data.category);
+  return (
+    <div className="flex items-center gap-2">
+      <span className={`chip chip-caps ${app ? app[1] : stage.tone}`}>{app ? app[0] : stage.label}</span>
+      {group && <span className="eyebrow truncate">{group}</span>}
+      <span className="eyebrow ml-auto truncate">{l.source.replaceAll("-", " ")}</span>
+      {(l.priority || l.starred === 1) && <span style={{ color: "var(--yellow)" }}>★</span>}
+    </div>
+  );
+}
+
+function Deep({ report }: { report: string | null }) {
+  if (!report) return null;
+  let r: { verdict?: string; headline?: string } = {};
+  try {
+    r = JSON.parse(report) as typeof r;
+  } catch {
+    return null;
+  }
+  const v = VERDICT[r.verdict ?? ""];
+  return (
+    <ReadBox label="Deep check" chip={v?.label} tone={v?.tone}>
+      {r.headline}
+    </ReadBox>
+  );
+}
+
+export function JobCard({ l, onOpen }: { l: Listing; onOpen: () => void }) {
+  const d = l.data;
+  const pay = payOf(d);
+  const fit = num(d.fit);
+  const m = MATCH[l.match];
+  const posted = str(d.posted);
+  return (
+    <article
+      className="card card-link grid content-start gap-3 cursor-pointer"
+      onClick={onOpen}
+      onKeyDown={(e) => e.key === "Enter" && onOpen()}
+    >
+      <Head l={l} />
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="font-cond m-0 text-[21px] font-bold leading-tight">{str(d.title)}</h3>
+          <p className="m-0 mt-1 text-[14.5px]" style={{ color: "var(--text)" }}>
+            {str(d.org)}
+            <span style={{ color: "var(--muted)" }}>
+              {[str(d.location), str(d.workMode)].filter(Boolean).length
+                ? ` · ${[str(d.location), str(d.workMode)].filter(Boolean).join(" · ")}`
+                : ""}
+            </span>
+          </p>
+        </div>
+        {pay && (
+          <span
+            className="font-mono shrink-0 rounded-lg px-2.5 py-1.5 text-[15px] font-bold"
+            style={{ background: "var(--green)", color: "var(--bg)" }}
+          >
+            {pay}
+          </span>
+        )}
+      </div>
+      <p className="m-0 text-[13px]" style={{ color: "var(--muted)" }}>
+        {posted && (
+          <>
+            Posted <b style={{ color: "var(--text)" }}>{ago(posted)}</b> · {day(posted)} ·{" "}
+          </>
+        )}
+        Found <b style={{ color: "var(--text)" }}>{day(l.found)}</b>
+      </p>
+      {(str(d.seniority) || str(d.employment)) && (
+        <div className="flex flex-wrap gap-1.5">
+          {str(d.seniority) && <span className="chip tone-muted">{str(d.seniority)}</span>}
+          {str(d.workMode).toLowerCase().includes("remote") && <span className="chip tone-green">Remote</span>}
+          {str(d.employment) && !/full/i.test(str(d.employment)) && (
+            <span className="chip tone-yellow">{str(d.employment)}</span>
+          )}
+        </div>
+      )}
+      {m && (
+        <div className="flex items-start gap-2 text-[14px]">
+          <Ring tone={m.tone} />
+          <span>
+            <b style={{ color: "var(--strong)" }}>{m.label}</b>
+            {str(d.why) && <span style={{ color: "var(--muted)" }}> · {str(d.why)}</span>}
+          </span>
+        </div>
+      )}
+      {l.score != null && <ScoreBar score={l.score} />}
+      {fit != null && (
+        <ReadBox label="Model's read" chip={`Fit ${fit}/10`} tone={fitTone(fit)}>
+          {str(d.fitWhy)}
+        </ReadBox>
+      )}
+      <Deep report={l.deepVerdict} />
+    </article>
+  );
+}
+
+export function DealCard({ l, onOpen, onStatus }: { l: Listing; onOpen: () => void; onStatus: (s: string) => void }) {
+  const d = l.data;
+  const price = num(d.price);
+  const fit = num(d.fit);
+  const deal = l.deal;
+  const t = deal ? DEAL[deal.tier] : null;
+  const posted = str(d.posted);
+  const pill = !deal
+    ? "var(--surface-2)"
+    : deal.tier === "over"
+      ? "var(--red)"
+      : deal.tier === "fair"
+        ? "var(--yellow)"
+        : "var(--green)";
+  return (
+    <article
+      className="card card-link grid content-start gap-3 cursor-pointer"
+      onClick={onOpen}
+      onKeyDown={(e) => e.key === "Enter" && onOpen()}
+    >
+      <Head l={l} />
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="font-cond m-0 text-[21px] font-bold leading-tight">{str(d.title)}</h3>
+          <p className="m-0 mt-1 text-[14.5px]" style={{ color: "var(--muted)" }}>
+            {str(d.location)}
+          </p>
+        </div>
+        {price != null && (
+          <span
+            className="font-mono shrink-0 rounded-lg px-3 py-1.5 text-[18px] font-bold"
+            style={{ background: pill, color: deal ? "var(--bg)" : "var(--strong)" }}
+          >
+            ${Math.round(price)}
+          </span>
+        )}
+      </div>
+      <p className="m-0 text-[13px]" style={{ color: "var(--muted)" }}>
+        {posted && (
+          <>
+            Posted <b style={{ color: "var(--text)" }}>{ago(posted)}</b> · {day(posted)} ·{" "}
+          </>
+        )}
+        Found <b style={{ color: "var(--text)" }}>{day(l.found)}</b>
+      </p>
+      {fit != null && <span className={`chip ${fitTone(fit)} justify-self-start`}>Fit {fit}/10</span>}
+      {deal && t && price != null && (
+        <>
+          <div className="flex items-start gap-2 text-[14px]">
+            <Ring tone={t.tone} />
+            <span>
+              <b style={{ color: "var(--strong)" }}>{t.label}</b>
+              <span style={{ color: "var(--muted)" }}> · {deal.pct}% of the usual asking price</span>
+            </span>
+          </div>
+          <PriceBar price={price} deal={deal} />
+          <p className="m-0 text-[13.5px]" style={{ color: "var(--muted)" }}>
+            {deal.under > 0 ? (
+              <b style={{ color: "var(--green)" }}>${deal.under} under</b>
+            ) : (
+              <b style={{ color: "var(--red)" }}>${-deal.under} over</b>
+            )}{" "}
+            the usual ${Math.round(deal.median)} used, from {deal.n} listings.
+          </p>
+        </>
+      )}
+      {str(d.fitWhy) && (
+        <ReadBox
+          label="Model's read"
+          chip={fit != null ? `Fit ${fit}/10` : undefined}
+          tone={fit != null ? fitTone(fit) : undefined}
+        >
+          {str(d.fitWhy)}
+        </ReadBox>
+      )}
+      <Deep report={l.deepVerdict} />
+      {/* one-tap stages: the card stays where it is, the tap doesn't open the sheet */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: the wrapper only stops the card's own tap */}
+      <div className="flex flex-wrap gap-2 pt-1" onClick={(e) => e.stopPropagation()} onKeyDown={undefined}>
+        {[
+          ["passed", "Not interested"],
+          ["maybe", "? Not sure"],
+          ["interested", "✓ Interested"],
+        ].map(([s, label]) => (
+          <button
+            key={s}
+            type="button"
+            className="btn"
+            aria-pressed={l.status === s}
+            style={l.status === s ? { borderColor: "var(--strong)", color: "var(--strong)" } : undefined}
+            onClick={() => onStatus(l.status === s ? "new" : s)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </article>
+  );
+}

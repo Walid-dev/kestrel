@@ -1,123 +1,107 @@
-// Searches: the specs with their last runs and problems on top, then the listings — All by default, filters combine,
-// Priority holds what matters through every status, aside folds away.
+// Searches, the old hunt pages' layout: the hunts as tabs (jobs and deals); the masthead with the hunt's name, Search
+// now and what it looks for; the stages with their counts; search, source and sort; the match pills and the groups;
+// then the cards. A card opens the whole listing; a deal card's stages are one tap.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useSearchParams } from "react-router";
+import { ago, DEAL, DealCard, JobCard, type Listing, MATCH, STAGES } from "./cards.tsx";
+import { ListingSheet } from "./sheet.tsx";
 
 type Run = { started: string; found: number; kept: number; problem: string } | null;
-
-// pay, read honestly: a range when both ends exist, the period named when it isn't a year
-const payLine = (d: {
-  salaryMin?: number | null;
-  salaryMax?: number | null;
-  salaryCurrency?: string | null;
-  salaryPeriod?: string | null;
-}): string => {
-  const lo = d.salaryMin ?? null;
-  const hi = d.salaryMax ?? null;
-  if (lo === null && hi === null) return "";
-  const n = (v: number) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v));
-  const range = lo !== null && hi !== null && lo !== hi ? `${n(lo)}–${n(hi)}` : n(hi ?? lo ?? 0);
-  const period = (d.salaryPeriod ?? "").toLowerCase();
-  const per = period && !period.includes("year") ? `/${period.replace("ly", "")}` : "";
-  return `${range} ${d.salaryCurrency ?? ""}${per}`.trim();
+type Hunt = {
+  key: string;
+  kind: "jobs" | "deals";
+  name: string;
+  about: string;
+  count: number;
+  searches: string[];
+  specs: { id: string; name: string; enabled: boolean; everyMinutes: number }[];
+  lastRun: Run;
+  mirrored: boolean;
 };
-type Search = { id: string; name: string; enabled: boolean; everyMinutes: number; lastRun: Run };
-type Listing = {
-  id: string;
-  source: string;
-  link: string;
-  status: string;
-  starred: number | null;
-  found: string;
-  score: number | null;
-  match: string;
-  priority: boolean;
-  data: {
-    title?: string;
-    org?: string;
-    location?: string;
-    salaryMin?: number | null;
-    salaryMax?: number | null;
-    salaryCurrency?: string | null;
-    salaryPeriod?: string | null;
-    price?: number | null;
-    posted?: string;
-    why?: string;
-  };
+type Counts = {
+  status: Record<string, number>;
+  priority: number;
+  all: number;
+  match: Record<string, number>;
+  group: Record<string, number>;
+  source: Record<string, number>;
 };
 
-const STATUSES = [
-  "new",
-  "interested",
-  "maybe",
-  "applied",
-  "interviewing",
-  "offer",
-  "rejected",
-  "passed",
-  "fake",
-  "closed",
-];
-const MATCH_COLOR: Record<string, string> = {
-  great: "var(--green)",
-  good: "var(--accent)",
-  weak: "var(--orange)",
-  poor: "var(--muted)",
-};
-const FOLDED = new Set(["passed", "fake", "closed"]);
-
-const ago = (iso: string) => {
-  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  if (mins < 48 * 60) return `${Math.round(mins / 60)}h ago`;
-  return `${Math.round(mins / 1440)}d ago`;
-};
+const PAGE = 120;
+const at = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
 
 export function Searches() {
   const queryClient = useQueryClient();
-  const [status, setStatus] = useState("");
-  const [match, setMatch] = useState("");
-  const [priority, setPriority] = useState(false);
-  const [q, setQ] = useState("");
-  const [inSearch, setInSearch] = useState("");
-  const [unfold, setUnfold] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const [open, setOpen] = useState<string | null>(null);
+  const [limit, setLimit] = useState(PAGE);
+  const set = (k: string, v: string) => {
+    const next = new URLSearchParams(params);
+    if (v) next.set(k, v);
+    else next.delete(k);
+    if (k === "hunt") for (const x of ["stage", "match", "group", "source", "q"]) next.delete(x);
+    setParams(next, { replace: true });
+    setLimit(PAGE);
+  };
 
-  const searches = useQuery({
+  const hunts = useQuery({
     queryKey: ["searches"],
     queryFn: async () => {
       const res = await fetch("/api/search");
-      if (!res.ok) throw new Error(`the searches didn't load (${res.status})`);
-      return (await res.json()) as {
-        searches: Search[];
-        mirrored: { id: string; listings: number }[];
-        problems: string[];
-        mirror: Run;
-      };
+      if (!res.ok) throw new Error(`the hunts didn't load (${res.status})`);
+      return (await res.json()) as { hunts: Hunt[]; problems: string[]; mirror: Run };
     },
     refetchInterval: 60_000,
   });
-  const listings = useQuery({
-    queryKey: ["listings", status, match, priority, q, inSearch],
+  const all = hunts.data?.hunts ?? [];
+  const hunt =
+    all.find((h) => `${h.kind}:${h.key}` === params.get("hunt")) ?? all.find((h) => h.kind === "jobs") ?? all[0];
+  const kind = hunt?.kind ?? "jobs";
+  const stage = params.get("stage") ?? (kind === "jobs" ? "priority" : "new");
+  const q = params.get("q") ?? "";
+  const source = params.get("source") ?? "";
+  const sort = params.get("sort") ?? "best";
+  const match = params.get("match") ?? "";
+  const group = params.get("group") ?? "";
+
+  const base = new URLSearchParams({ kind, hunt: hunt?.key ?? "" });
+  if (q) base.set("q", q);
+  if (source) base.set("source", source);
+  if (group) base.set("group", group);
+  if (kind === "jobs" && match) base.set("match", match);
+  const filtered = new URLSearchParams(base);
+  if (stage === "priority") filtered.set("priority", "1");
+  else if (stage !== "all") filtered.set("status", stage);
+  filtered.set("sort", sort);
+
+  const counts = useQuery({
+    queryKey: ["search-counts", base.toString()],
     queryFn: async () => {
-      const p = new URLSearchParams();
-      if (status) p.set("status", status);
-      if (match) p.set("match", match);
-      if (priority) p.set("priority", "1");
-      if (q) p.set("q", q);
-      if (inSearch) p.set("search", inSearch);
-      const res = await fetch(`/api/search/listings?${p}`);
+      const res = await fetch(`/api/search/counts?${base}`);
+      if (!res.ok) throw new Error(`${res.status}`);
+      return (await res.json()) as Counts;
+    },
+    enabled: Boolean(hunt),
+  });
+  const listings = useQuery({
+    queryKey: ["listings", filtered.toString(), limit],
+    queryFn: async () => {
+      const res = await fetch(`/api/search/listings?${filtered}&limit=${limit}`);
       if (!res.ok) throw new Error(`the listings didn't load (${res.status})`);
       return (await res.json()) as { listings: Listing[] };
     },
+    enabled: Boolean(hunt),
     refetchInterval: 60_000,
   });
   const refresh = () => {
-    queryClient.invalidateQueries({ queryKey: ["searches"] });
     queryClient.invalidateQueries({ queryKey: ["listings"] });
+    queryClient.invalidateQueries({ queryKey: ["search-counts"] });
   };
   const act = useMutation({
     mutationFn: async (input: { id: string; body: Record<string, unknown> }) => {
-      const res = await fetch(`/api/search/listings/${input.id}`, {
+      const res = await fetch(`/api/search/listings/${encodeURIComponent(input.id)}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(input.body),
@@ -126,227 +110,231 @@ export function Searches() {
     },
     onSettled: refresh,
   });
-  const queue = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch("/api/apply/queue", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ listing: id }),
-      });
-      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
-    },
-    onSettled: refresh,
-  });
   const runNow = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/search/run/${id}`, { method: "POST" });
+      const res = await fetch(`/api/search/run/${encodeURIComponent(id)}`, { method: "POST" });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
     },
-    onSettled: refresh,
+    onSettled: () => {
+      refresh();
+      queryClient.invalidateQueries({ queryKey: ["searches"] });
+    },
   });
 
-  const rows = listings.data?.listings ?? [];
-  const folded = status || unfold ? [] : rows.filter((r) => FOLDED.has(r.status));
-  const shown = status || unfold ? rows : rows.filter((r) => !FOLDED.has(r.status));
+  // a deal's tier is reckoned from the usual price, so its pills count the loaded cards
+  const rows = (listings.data?.listings ?? []).filter((l) => kind === "jobs" || !match || l.deal?.tier === match);
+  const tiers: Record<string, number> = {};
+  for (const l of listings.data?.listings ?? []) if (l.deal) tiers[l.deal.tier] = (tiers[l.deal.tier] ?? 0) + 1;
+  const c = counts.data;
+  const failed = [hunts, counts, listings, act, runNow].find((x) => x.isError);
+  const spec = hunt?.specs.find((s) => s.enabled);
+  const sources = Object.entries(c?.source ?? {}).sort((a, b) => b[1] - a[1]);
+  const groups = Object.entries(c?.group ?? {})
+    .filter(([g]) => g)
+    .sort((a, b) => b[1] - a[1]);
 
   return (
-    <main className="grid gap-3.5">
-      <h2 className="font-cond text-xl font-bold">Searches</h2>
-      {(searches.data?.searches ?? []).map((s) => (
-        <section key={s.id} className="card flex flex-wrap items-center gap-3 py-3">
-          <span className="font-cond font-bold">{s.name}</span>
-          {s.lastRun ? (
-            <span className="font-mono text-xs" style={{ color: s.lastRun.problem ? "var(--warn)" : "var(--muted)" }}>
-              {ago(s.lastRun.started)} · {s.lastRun.found} found · {s.lastRun.kept} new
-              {s.lastRun.problem && ` · ${s.lastRun.problem}`}
-            </span>
-          ) : (
-            <span className="font-mono text-xs" style={{ color: "var(--muted)" }}>
-              never ran
-            </span>
-          )}
-          <button type="button" className="btn ml-auto" disabled={runNow.isPending} onClick={() => runNow.mutate(s.id)}>
-            {runNow.isPending ? "Running…" : "Run now"}
-          </button>
-        </section>
-      ))}
-      {(searches.data?.mirrored ?? []).length > 0 && (
-        <section className="card flex flex-wrap items-baseline gap-3">
-          <h3 className="font-cond text-lg font-bold">Mirrored from the old setup</h3>
-          <span className="font-mono ml-auto text-[11px]" style={{ color: "var(--muted)" }}>
-            {searches.data?.mirrored.length} searches · {searches.data?.mirrored.reduce((n, m) => n + m.listings, 0)}{" "}
-            listings · no specs yet — the Search filter picks one
-          </span>
-        </section>
-      )}
-      {(() => {
-        const failed = [searches, listings, act, runNow, queue].find((x) => x.isError);
-        return failed ? (
-          <p className="text-sm" style={{ color: "var(--red)" }}>
-            {String((failed.error as Error).message)}
-          </p>
-        ) : null;
-      })()}
-      {searches.data?.mirror && (
-        <p
-          className="font-mono text-xs"
-          style={{ color: searches.data.mirror.problem ? "var(--warn)" : "var(--muted)" }}
-        >
-          mirror from the old setup: {ago(searches.data.mirror.started)} · {searches.data.mirror.kept} refreshed
-          {searches.data.mirror.problem && ` · ${searches.data.mirror.problem}`}
-        </p>
-      )}
-      {(searches.data?.problems ?? []).map((p) => (
-        <p key={p} className="rounded-xl px-3 py-2 text-sm" style={{ background: "var(--warn-soft)" }}>
-          a search file can't be read — {p}
-        </p>
-      ))}
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          className="btn"
-          style={
-            priority
-              ? { background: "var(--accent-soft)", borderColor: "var(--accent)", color: "var(--accent)" }
-              : undefined
-          }
-          onClick={() => setPriority((v) => !v)}
-        >
-          ★ Priority
-        </button>
-        <select className="btn" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status">
-          <option value="">every status</option>
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-        <select className="btn" value={match} onChange={(e) => setMatch(e.target.value)} aria-label="Match">
-          <option value="">any match</option>
-          {["great", "good", "weak", "poor"].map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
-        <select className="btn" value={inSearch} onChange={(e) => setInSearch(e.target.value)} aria-label="Search">
-          <option value="">every search</option>
-          {[
-            ...new Set([
-              ...(searches.data?.searches ?? []).map((s) => s.id),
-              ...(searches.data?.mirrored ?? []).map((m) => m.id),
-              ...(inSearch ? [inSearch] : []),
-            ]),
-          ].map((id) => (
-            <option key={id} value={id}>
-              {id}
-            </option>
-          ))}
-        </select>
-        <input
-          type="search"
-          className="btn min-w-0 flex-1"
-          placeholder="a word from the card"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-      </div>
-      {shown.map((r) => (
-        <section key={r.id} className="card grid gap-1.5">
-          <div className="flex items-start gap-2">
-            <a
-              href={r.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-cond min-w-0 flex-1 text-lg font-bold hover:underline"
-            >
-              {r.data.title ?? "(untitled)"}
-            </a>
+    <main className="grid gap-5">
+      {all.length > 1 && (
+        <nav className="flex flex-wrap gap-2">
+          {all.map((h) => (
             <button
+              key={`${h.kind}:${h.key}`}
               type="button"
-              aria-label={r.priority ? "Leave Priority" : "Star into Priority"}
-              className="-m-2 shrink-0 cursor-pointer p-2 text-xl"
-              style={{ color: r.priority ? "var(--yellow)" : "var(--muted)" }}
-              onClick={() => act.mutate({ id: r.id, body: { starred: r.priority ? 0 : 1 } })}
+              className="pill"
+              aria-pressed={h === hunt}
+              onClick={() => set("hunt", `${h.kind}:${h.key}`)}
             >
-              {r.priority ? "★" : "☆"}
+              <span className={`dot ${h.kind === "jobs" ? "tone-accent" : "tone-orange"}`} />
+              {h.name}
+              <b>{h.count}</b>
             </button>
-          </div>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
-            {[
-              r.data.org,
-              r.data.location,
-              r.data.price != null ? `$${r.data.price}` : payLine(r.data),
-              r.data.posted ? `posted ${r.data.posted}` : "",
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-          <p className="font-mono text-xs" style={{ color: "var(--muted)" }}>
-            <span style={{ color: MATCH_COLOR[r.match] ?? "var(--muted)" }}>
-              {r.match || "unscored"}
-              {r.score !== null && ` ${r.score}`}
-            </span>
-            {r.data.why && ` · ${r.data.why}`}
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className="font-mono rounded-full px-2 py-0.5 text-[11px]"
-              style={{ background: "var(--surface-2)", color: "var(--muted)" }}
-            >
-              {r.status}
-            </span>
-            <span className="font-mono text-[11px]" style={{ color: "var(--muted)" }}>
-              {r.source} · found {ago(r.found)}
-            </span>
-            <select
-              className="btn ml-auto"
-              value={r.status}
-              aria-label="Set the status"
-              onChange={(e) => act.mutate({ id: r.id, body: { status: e.target.value } })}
-            >
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="btn btn-quiet"
-              onClick={() => act.mutate({ id: r.id, body: { status: r.status === "passed" ? "new" : "passed" } })}
-            >
-              {r.status === "passed" ? "Back in" : "Aside"}
-            </button>
-            {!["applied", "interviewing", "offer", "passed", "fake", "closed"].includes(r.status) && (
-              <button
-                type="button"
-                className="btn"
-                title={queue.isError ? queue.error.message : "Queue this job for the apply agent"}
-                onClick={() => queue.mutate(r.id)}
-              >
-                Queue to apply
+          ))}
+        </nav>
+      )}
+
+      {hunt && (
+        <header className="grid gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="font-cond m-0 text-[34px] font-bold uppercase leading-none tracking-tight md:text-[40px]">
+              {hunt.name}
+            </h2>
+            {spec && (
+              <button type="button" className="btn" disabled={runNow.isPending} onClick={() => runNow.mutate(spec.id)}>
+                {runNow.isPending ? "Searching…" : "Search now"}
               </button>
             )}
           </div>
-        </section>
-      ))}
-      {rows.length === 0 && listings.data && (
-        <p className="text-sm" style={{ color: "var(--muted)" }}>
-          Nothing here yet{priority || status || match || q || inSearch ? " with these filters" : ""}.
+          {(hunt.about || kind === "deals") && (
+            <p className="m-0 max-w-3xl text-[16px]" style={{ color: "var(--muted)" }}>
+              {hunt.about || (groups.length ? `${groups.length} models: ${groups.map(([g]) => g).join(", ")}.` : "")}
+            </p>
+          )}
+          <p className="font-mono m-0 text-[12.5px]" style={{ color: "var(--muted)" }}>
+            <span className={`chip chip-caps ${kind === "jobs" ? "tone-accent" : "tone-orange"} mr-2`}>
+              {kind === "jobs" ? "Jobs" : "Used deals"}
+            </span>
+            {hunt.lastRun ? (
+              <>
+                Last search <b style={{ color: "var(--text)" }}>{at(hunt.lastRun.started)}</b>: {hunt.lastRun.found}{" "}
+                found, {hunt.lastRun.kept} new
+                {hunt.lastRun.problem && <span style={{ color: "var(--warn)" }}> · {hunt.lastRun.problem}</span>}
+                {spec && ` · every ${Math.round(spec.everyMinutes / 60)} h`}
+              </>
+            ) : hunt.mirrored ? (
+              <>
+                mirrored nightly from the old setup
+                {hunts.data?.mirror && ` · last ${ago(hunts.data.mirror.started)}`}
+                {hunts.data?.mirror?.problem && (
+                  <span style={{ color: "var(--warn)" }}> · {hunts.data.mirror.problem}</span>
+                )}
+              </>
+            ) : (
+              "no search yet"
+            )}
+          </p>
+        </header>
+      )}
+
+      <div className="grid gap-3 pt-4" style={{ borderTop: "1px solid var(--line)" }}>
+        <div className="flex flex-wrap gap-2">
+          {kind === "jobs" && (
+            <button
+              type="button"
+              className="pill"
+              aria-pressed={stage === "priority"}
+              onClick={() => set("stage", "priority")}
+            >
+              <span style={{ color: "var(--yellow)" }}>★</span> Priority <b>{c?.priority ?? "·"}</b>
+            </button>
+          )}
+          {STAGES[kind].map((s) => (
+            <button
+              key={s.status}
+              type="button"
+              className={`pill ${s.tone}`}
+              aria-pressed={stage === s.status}
+              onClick={() => set("stage", s.status)}
+            >
+              <span className="dot" /> {s.label} <b>{c?.status[s.status] ?? 0}</b>
+            </button>
+          ))}
+          <button type="button" className="pill" aria-pressed={stage === "all"} onClick={() => set("stage", "all")}>
+            All <b>{c?.all ?? "·"}</b>
+          </button>
+        </div>
+        <div className="grid gap-2 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          <input
+            type="search"
+            className="btn"
+            placeholder={kind === "jobs" ? "Search title, company, location or note" : "Search title, area or note"}
+            value={q}
+            onChange={(e) => set("q", e.target.value)}
+          />
+          <select className="btn" value={source} onChange={(e) => set("source", e.target.value)} aria-label="Source">
+            <option value="">All sources</option>
+            {sources.map(([s, n]) => (
+              <option key={s} value={s}>
+                {s.replaceAll("-", " ")} ({n})
+              </option>
+            ))}
+          </select>
+          <select className="btn" value={sort} onChange={(e) => set("sort", e.target.value)} aria-label="Sort">
+            <option value="best">{kind === "jobs" ? "Best matches first" : "Best deals first"}</option>
+            <option value="newest">Newest first</option>
+            <option value="money">{kind === "jobs" ? "Highest pay first" : "Lowest price first"}</option>
+          </select>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" className="pill" aria-pressed={!match} onClick={() => set("match", "")}>
+            {kind === "jobs" ? "Match" : "Deal"}{" "}
+            <b>
+              {kind === "jobs"
+                ? Object.values(c?.match ?? {}).reduce((a, b) => a + b, 0)
+                : (listings.data?.listings.length ?? 0)}
+            </b>
+          </button>
+          {(kind === "jobs"
+            ? (["great", "good", "weak", "poor"] as const).map((m) => ({
+                k: m,
+                ...MATCH[m],
+                n: c?.match[m] ?? 0,
+                label: { great: "Great 80+", good: "Good 60–79", weak: "Possible 40–59", poor: "Weak under 40" }[m],
+              }))
+            : (["great", "good", "fair", "over"] as const).map((m) => ({ k: m, ...DEAL[m], n: tiers[m] ?? 0 }))
+          ).map((m) => (
+            <button
+              key={m.k}
+              type="button"
+              className={`pill ${m.tone}`}
+              aria-pressed={match === m.k}
+              onClick={() => set("match", match === m.k ? "" : m.k)}
+            >
+              <span className="dot" /> {m.label} <b>{m.n}</b>
+            </button>
+          ))}
+          {kind === "deals" && (
+            <span className="text-[13px]" style={{ color: "var(--muted)" }}>
+              The bar on each card shows where the price sits against the usual price.
+            </span>
+          )}
+        </div>
+        {groups.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="pill" aria-pressed={!group} onClick={() => set("group", "")}>
+              {kind === "jobs" ? "Role" : "Model"} <b>{groups.reduce((a, [, n]) => a + n, 0)}</b>
+            </button>
+            {groups.map(([g, n]) => (
+              <button
+                key={g}
+                type="button"
+                className="pill"
+                aria-pressed={group === g}
+                onClick={() => set("group", group === g ? "" : g)}
+              >
+                {g} <b>{n}</b>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {failed && (
+        <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
+          {String((failed.error as Error).message)}
         </p>
       )}
-      {folded.length > 0 && (
-        <button type="button" className="btn btn-quiet" onClick={() => setUnfold(true)}>
-          {folded.length} set aside, fake or closed — show them
+      {(hunts.data?.problems ?? []).map((p) => (
+        <p key={p} className="m-0 rounded-xl px-4 py-3 text-sm" style={{ background: "var(--warn-soft)" }}>
+          a search file can't be read — {p}
+        </p>
+      ))}
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {rows.map((l) =>
+          l.kind === "deals" ? (
+            <DealCard
+              key={l.id}
+              l={l}
+              onOpen={() => setOpen(l.id)}
+              onStatus={(s) => act.mutate({ id: l.id, body: { status: s } })}
+            />
+          ) : (
+            <JobCard key={l.id} l={l} onOpen={() => setOpen(l.id)} />
+          ),
+        )}
+      </section>
+      {listings.data && rows.length === 0 && (
+        <p className="m-0 text-sm" style={{ color: "var(--muted)" }}>
+          Nothing here{q || source || group || match ? " with these filters" : ""}.
+        </p>
+      )}
+      {listings.data && listings.data.listings.length >= limit && (
+        <button type="button" className="btn justify-self-center" onClick={() => setLimit((n) => n + PAGE)}>
+          Show more
         </button>
       )}
-      {unfold && !status && (
-        <button type="button" className="btn btn-quiet" onClick={() => setUnfold(false)}>
-          fold them away again
-        </button>
-      )}
+      {open && <ListingSheet id={open} onClose={() => setOpen(null)} />}
     </main>
   );
 }

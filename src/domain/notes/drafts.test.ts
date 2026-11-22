@@ -24,6 +24,7 @@ const settings = (url: string, contextChars = 100_000): Settings => ({
   notes: { folders: [] },
   models: { url, careful: "careful-model", fast: "fast-model", contextChars },
   voice: { url: "http://127.0.0.1:1", name: "made-up" },
+  profile: {},
 });
 
 test("a draft is made, placed, and still there until discarded", async () => {

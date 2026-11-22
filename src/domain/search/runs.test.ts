@@ -27,6 +27,9 @@ function setup(items: string) {
     limits: { perRun: 200, timeoutMs: 180_000, maxBytes: 20_000_000 },
     env: {},
     scoring: { title: { want: ["keeper"] } } as unknown,
+    about: "",
+    hunt: "",
+    category: "",
     enabled: true,
   };
   return { base, db, spec };
