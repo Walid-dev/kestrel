@@ -41,3 +41,11 @@ test("what waits is counted: the fresh great match, the open task, the ungraded 
     "1 task stays open.",
   ]);
 });
+
+test("the brief counts every due lesson, not the practice queue's first page (sweep)", () => {
+  const db = setup();
+  const pack = addPack(db, "A made-up pack");
+  for (let i = 0; i < 25; i++) addLesson(db, pack, `Lesson ${i}`, { check: [{ q: "When?", a: "Now." }] }, i, `l-${i}`);
+  const lines = morningBrief(db, NOW);
+  assert.ok(lines.includes("25 lessons are due to practice."), lines.join(" | "));
+});

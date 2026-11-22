@@ -84,13 +84,16 @@ export function Searches() {
 
   const searches = useQuery({
     queryKey: ["searches"],
-    queryFn: async () =>
-      (await (await fetch("/api/search")).json()) as {
+    queryFn: async () => {
+      const res = await fetch("/api/search");
+      if (!res.ok) throw new Error(`the searches didn't load (${res.status})`);
+      return (await res.json()) as {
         searches: Search[];
         mirrored: { id: string; listings: number }[];
         problems: string[];
         mirror: Run;
-      },
+      };
+    },
     refetchInterval: 60_000,
   });
   const listings = useQuery({
@@ -102,7 +105,9 @@ export function Searches() {
       if (priority) p.set("priority", "1");
       if (q) p.set("q", q);
       if (inSearch) p.set("search", inSearch);
-      return (await (await fetch(`/api/search/listings?${p}`)).json()) as { listings: Listing[] };
+      const res = await fetch(`/api/search/listings?${p}`);
+      if (!res.ok) throw new Error(`the listings didn't load (${res.status})`);
+      return (await res.json()) as { listings: Listing[] };
     },
     refetchInterval: 60_000,
   });
@@ -112,11 +117,12 @@ export function Searches() {
   };
   const act = useMutation({
     mutationFn: async (input: { id: string; body: Record<string, unknown> }) => {
-      await fetch(`/api/search/listings/${input.id}`, {
+      const res = await fetch(`/api/search/listings/${input.id}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(input.body),
       });
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
     },
     onSettled: refresh,
   });
@@ -133,7 +139,8 @@ export function Searches() {
   });
   const runNow = useMutation({
     mutationFn: async (id: string) => {
-      await fetch(`/api/search/run/${id}`, { method: "POST" });
+      const res = await fetch(`/api/search/run/${id}`, { method: "POST" });
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
     },
     onSettled: refresh,
   });
@@ -172,6 +179,14 @@ export function Searches() {
           </span>
         </section>
       )}
+      {(() => {
+        const failed = [searches, listings, act, runNow, queue].find((x) => x.isError);
+        return failed ? (
+          <p className="text-sm" style={{ color: "var(--red)" }}>
+            {String((failed.error as Error).message)}
+          </p>
+        ) : null;
+      })()}
       {searches.data?.mirror && (
         <p
           className="font-mono text-xs"
@@ -218,8 +233,11 @@ export function Searches() {
         <select className="btn" value={inSearch} onChange={(e) => setInSearch(e.target.value)} aria-label="Search">
           <option value="">every search</option>
           {[
-            ...(searches.data?.searches ?? []).map((s) => s.id),
-            ...(searches.data?.mirrored ?? []).map((m) => m.id),
+            ...new Set([
+              ...(searches.data?.searches ?? []).map((s) => s.id),
+              ...(searches.data?.mirrored ?? []).map((m) => m.id),
+              ...(inSearch ? [inSearch] : []),
+            ]),
           ].map((id) => (
             <option key={id} value={id}>
               {id}
@@ -316,7 +334,7 @@ export function Searches() {
       ))}
       {rows.length === 0 && listings.data && (
         <p className="text-sm" style={{ color: "var(--muted)" }}>
-          Nothing here yet{priority || status || match || q ? " with these filters" : ""}.
+          Nothing here yet{priority || status || match || q || inSearch ? " with these filters" : ""}.
         </p>
       )}
       {folded.length > 0 && (

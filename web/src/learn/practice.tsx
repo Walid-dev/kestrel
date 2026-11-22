@@ -10,15 +10,20 @@ export function LearnPractice() {
   const [shown, setShown] = useState(false);
   const due = useQuery({
     queryKey: ["due"],
-    queryFn: async () => (await (await fetch("/api/learn/due")).json()) as { lessons: Lesson[] },
+    queryFn: async () => {
+      const res = await fetch("/api/learn/due");
+      if (!res.ok) throw new Error(`the due list didn't load (${res.status})`);
+      return (await res.json()) as { lessons: Lesson[] };
+    },
   });
   const grade = useMutation({
     mutationFn: async (input: { lesson: string; grade: "again" | "good" }) => {
-      await fetch("/api/learn/grade", {
+      const res = await fetch("/api/learn/grade", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(input),
       });
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
     },
     onSettled: () => {
       setShown(false);
@@ -26,6 +31,18 @@ export function LearnPractice() {
     },
   });
   const next = (due.data?.lessons ?? []).find((l) => l.body.check.length > 0);
+  if (due.isError || grade.isError)
+    return (
+      <main className="grid gap-3">
+        <h2 className="font-cond text-xl font-bold">Practice</h2>
+        <p className="text-sm" style={{ color: "var(--red)" }}>
+          {String(((due.error ?? grade.error) as Error).message)}
+        </p>
+        <Link to="/learn" className="btn justify-self-start">
+          ← Learn
+        </Link>
+      </main>
+    );
   if (due.data && !next)
     return (
       <main className="grid gap-3">

@@ -1,5 +1,7 @@
 // The one-time import from the old setup: the old Learn lessons by topic, a guide's term entries with its
-// glossary, and the interview answer files. Ids are stable, so a rerun updates — it never doubles.
+// glossary, and the interview answer files. Ids are stable, so a rerun updates — it never doubles. A reworded
+// title mints a new id, so the old lesson stays beside it until deleted by hand; two sources minting the same id
+// in one run collide, and the later one is skipped by name rather than silently overwriting the first.
 import type { DatabaseSync } from "node:sqlite";
 import { LessonBody } from "./lessons.ts";
 
@@ -34,6 +36,13 @@ function upsertPack(db: DatabaseSync, id: string, name: string, kind: "lesson-pa
   ).run(id, name, kind, new Date().toISOString());
 }
 
+// one run's minted ids, per pack: a second lesson minting the same id is a collision, skipped by name
+function freshId(minted: Set<string>, id: string): boolean {
+  if (minted.has(id)) return false;
+  minted.add(id);
+  return true;
+}
+
 function upsertLesson(
   db: DatabaseSync,
   id: string,
@@ -61,6 +70,7 @@ export function importOldLearn(db: DatabaseSync, old: unknown): ImportCounts {
     return counts;
   }
   const packs = new Map<string, number>(); // pack id -> next position
+  const minted = new Set<string>();
   for (const raw of old) {
     const o = (raw ?? {}) as Record<string, unknown>;
     const topic = txt(o.topic) || "untopiced";
@@ -84,7 +94,12 @@ export function importOldLearn(db: DatabaseSync, old: unknown): ImportCounts {
       check: (Array.isArray(o.check) ? o.check : []).map((c) => pair(c, "q", "a")).filter((c) => c !== null),
     };
     const title = txt(o.title);
-    if (upsertLesson(db, `${packId}/${txt(o.id) || slug(title)}`, packId, position, title, body)) {
+    const id = `${packId}/${txt(o.id) || slug(title)}`;
+    if (!freshId(minted, id)) {
+      counts.skipped.push(`two old lessons share the id ${txt(o.id) || slug(title)}: the later one is skipped`);
+      continue;
+    }
+    if (upsertLesson(db, id, packId, position, title, body)) {
       counts.lessons++;
       packs.set(packId, position + 1);
     } else counts.skipped.push(`old lesson without a title or a readable body: ${txt(o.id) || "?"}`);
@@ -106,6 +121,7 @@ export function importGuide(db: DatabaseSync, guide: unknown): ImportCounts {
   const packId = `guide:${slug(name)}`;
   upsertPack(db, packId, name, "lesson-pack");
   counts.packs++;
+  const minted = new Set<string>();
   let position = 1;
   for (const part of Array.isArray(g.parts) ? g.parts : []) {
     const sections = (part as Record<string, unknown>)?.sections;
@@ -121,7 +137,12 @@ export function importGuide(db: DatabaseSync, guide: unknown): ImportCounts {
           check: check ? [check] : [],
         };
         const term = txt(b.term);
-        if (upsertLesson(db, `${packId}/${txt(b.id) || slug(term)}`, packId, position, term, body)) {
+        const id = `${packId}/${txt(b.id) || slug(term)}`;
+        if (term && !freshId(minted, id)) {
+          counts.skipped.push(`two guide entries share the id ${txt(b.id) || slug(term)}: the later one is skipped`);
+          continue;
+        }
+        if (upsertLesson(db, id, packId, position, term, body)) {
           counts.lessons++;
           position++;
         } else counts.skipped.push(`a guide entry without a term: ${txt(b.id) || "?"}`);
@@ -143,6 +164,7 @@ export function importGuide(db: DatabaseSync, guide: unknown): ImportCounts {
 export function importAnswers(db: DatabaseSync, name: string, text: string): ImportCounts {
   const counts: ImportCounts = { packs: 0, lessons: 0, skipped: [] };
   const packId = `answers:${slug(name)}`;
+  const minted = new Set<string>();
   let position = 1;
   for (const block of text.split(/\n\s*\n/)) {
     const field: Record<string, string[]> = { Q: [], W: [], M: [], P: [], A: [], K: [] };
@@ -157,7 +179,11 @@ export function importAnswers(db: DatabaseSync, name: string, text: string): Imp
     const q = field.Q.join(" ").trim();
     const say = field.A.filter(Boolean);
     if (!q || say.length === 0) {
-      if (block.trim()) counts.skipped.push(`a block without a question and an answer: "${block.trim().slice(0, 40)}"`);
+      if (block.trim()) counts.skipped.push(`block ${position} of the file has no question or no answer line`);
+      continue;
+    }
+    if (!freshId(minted, `${packId}/${slug(q)}`)) {
+      counts.skipped.push(`two questions read the same once slugged (${slug(q)}): the later one is skipped`);
       continue;
     }
     if (counts.packs === 0) {

@@ -54,3 +54,8 @@ test("the spaced rhythm: again means tomorrow, good grows 1 then 3 then times ea
   const again = gradeLesson(db, l.id, "again", now);
   assert.equal(again.intervalDays, 1);
 });
+
+test("a lesson into a pack that was never made is refused in words, not a constraint crash (sweep)", () => {
+  const db = setup();
+  assert.throws(() => addLesson(db, "no-such-pack", "A title", {}), /no such pack/);
+});

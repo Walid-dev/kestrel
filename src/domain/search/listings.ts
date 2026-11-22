@@ -2,6 +2,7 @@
 // including right after the import. Priority is a rule, not a list of its own.
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
+import { Refused } from "../notes/documents.ts";
 import type { Item } from "./collect.ts";
 import { type Score, scoreJob } from "./score.ts";
 
@@ -146,9 +147,15 @@ export function listListings(db: DatabaseSync, filters: ListingFilters = {}, lim
 }
 
 export function setListingStatus(db: DatabaseSync, id: string, status: string): void {
-  db.prepare("UPDATE listings SET status = ?, updated = ? WHERE id = ?").run(status, new Date().toISOString(), id);
+  const got = db
+    .prepare("UPDATE listings SET status = ?, updated = ? WHERE id = ?")
+    .run(status, new Date().toISOString(), id);
+  if (got.changes === 0) throw new Refused("no such listing");
 }
 
 export function setListingStar(db: DatabaseSync, id: string, starred: number | null): void {
-  db.prepare("UPDATE listings SET starred = ?, updated = ? WHERE id = ?").run(starred, new Date().toISOString(), id);
+  const got = db
+    .prepare("UPDATE listings SET starred = ?, updated = ? WHERE id = ?")
+    .run(starred, new Date().toISOString(), id);
+  if (got.changes === 0) throw new Refused("no such listing");
 }

@@ -13,6 +13,9 @@ import { loadSpecs } from "../domain/search/specs.ts";
 
 export type SchedulerDirs = { specsDir: string; backupsDir: string; mirrorFile?: string };
 
+// an error's words, with any path turned generic: the run rows and the service log never carry folders
+const plainWords = (msg: string): string => msg.replaceAll(/\/[^\s"']+/g, "(a path)").slice(0, 120);
+
 let ticking = false; // one tick at a time: a slow collector must never stack duplicate runs behind itself
 
 export async function tick(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promise<string[]> {
@@ -38,7 +41,7 @@ async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promis
       // a crash still lands a run row, so the spec isn't due again every minute and the screen says what happened
       db.prepare(
         "INSERT INTO search_runs (id, search, started, ms, found, kept, problem) VALUES (?, ?, ?, 0, 0, 0, ?)",
-      ).run(randomUUID(), spec.id, now.toISOString(), `the run crashed: ${(e as Error).message.slice(0, 120)}`);
+      ).run(randomUUID(), spec.id, now.toISOString(), `the run crashed: ${plainWords((e as Error).message)}`);
     }
     did.push(`search:${spec.id}`);
   }
@@ -52,10 +55,12 @@ async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promis
       let problem = "";
       try {
         const counts = importV1(db, mirror.from, true);
-        found = counts.landed.new + counts.landed.updated + counts.landed.unchanged;
-        kept = counts.landed.new + counts.landed.updated;
+        const j = counts.landed;
+        const d = counts.deals.landed;
+        found = j.new + j.updated + j.unchanged + d.new + d.updated + d.unchanged;
+        kept = j.new + j.updated + d.new + d.updated;
       } catch (e) {
-        problem = `the mirror failed: ${(e as Error).message.slice(0, 120)}`;
+        problem = `the mirror failed: ${plainWords((e as Error).message)}`;
       }
       db.prepare(
         "INSERT INTO search_runs (id, search, started, ms, found, kept, problem) VALUES (?, ?, ?, 0, ?, ?, ?)",

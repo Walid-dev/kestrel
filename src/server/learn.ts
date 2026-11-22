@@ -56,6 +56,7 @@ export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
     zValidator("json", z.object({ lesson: z.string().min(1), grade: z.enum(["again", "good"]) })),
     (c) => {
       const { lesson, grade } = c.req.valid("json");
+      if (!getLesson(db, lesson)) return c.json({ error: "no such lesson" }, 400);
       return c.json(gradeLesson(db, lesson, grade, new Date()));
     },
   );
@@ -75,6 +76,12 @@ export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
   );
   app.post(
     "/api/learn/lessons",
+    async (c, next) => {
+      // a lesson is words, not a payload: refuse anything over the cap before reading it
+      if (Number(c.req.header("content-length") ?? "0") > 300_000)
+        return c.json({ error: "that lesson is too big to be a lesson" }, 400);
+      return next();
+    },
     zValidator(
       "json",
       z.object({
@@ -96,6 +103,9 @@ export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
   // Live: the phone's sound in the body, the heard words and the nearest prepared answer back
   app.post("/api/learn/live", async (c) => {
     const kind = c.req.header("content-type") ?? "application/octet-stream";
+    // the size is judged before the body is read, so a runaway recording never fills the memory
+    const said = Number(c.req.header("content-length") ?? "0");
+    if (said > MAX_SOUND_BYTES) return c.json({ error: "the recording is too long to send" }, 400);
     const sound = await c.req.arrayBuffer();
     if (sound.byteLength === 0) return c.json({ error: "no sound arrived" }, 400);
     if (sound.byteLength > MAX_SOUND_BYTES) return c.json({ error: "the recording is too long to send" }, 400);

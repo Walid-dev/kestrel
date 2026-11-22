@@ -149,3 +149,20 @@ test("an answer file becomes an answer-pack: say lines, the checked point, a jun
     "I look for the longest back on the busiest frame, checking the brood frames first.",
   );
 });
+
+test("two sources minting one id collide: the later is skipped by name, counted once (sweep)", () => {
+  const db = setup();
+  const twins = [
+    { id: "same", topic: "hive care", title: "First words", say: ["one"] },
+    { id: "same", topic: "hive care", title: "Second words", say: ["two"] },
+  ];
+  const got = importOldLearn(db, twins);
+  assert.equal(got.lessons, 1);
+  assert.equal(got.skipped.length, 1);
+  assert.match(got.skipped[0], /same/);
+  assert.equal(getLesson(db, "old:hive-care/same")?.title, "First words"); // the first stands
+  const answers = "Q: One question?\nA: First answer.\n\nQ: One question?\nA: Second answer.\n";
+  const a = importAnswers(db, "made-up twins", answers);
+  assert.equal(a.lessons, 1);
+  assert.equal(a.skipped.length, 1);
+});

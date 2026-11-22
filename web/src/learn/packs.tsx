@@ -44,7 +44,7 @@ export function LearnPacks() {
       />
       {q.trim().length > 1 &&
         (found.data?.lessons ?? []).map((l) => (
-          <Link key={l.id} to={`/learn/lesson/${l.id}`} className="card">
+          <Link key={l.id} to={`/learn/lesson/${encodeURIComponent(l.id)}`} className="card">
             <span className="font-cond font-bold">{l.title}</span>
           </Link>
         ))}
@@ -76,7 +76,9 @@ export function LearnPack() {
   const lessons = useQuery({
     queryKey: ["pack", id],
     queryFn: async () =>
-      (await (await fetch(`/api/learn/packs/${id}`)).json()) as { lessons: (LessonRow & { checks: number })[] },
+      (await (await fetch(`/api/learn/packs/${encodeURIComponent(id)}`)).json()) as {
+        lessons: (LessonRow & { checks: number })[];
+      },
   });
   return (
     <main className="grid gap-3">
@@ -86,7 +88,7 @@ export function LearnPack() {
         </Link>
       </p>
       {(lessons.data?.lessons ?? []).map((l, i) => (
-        <Link key={l.id} to={`/learn/lesson/${l.id}`} className="card flex items-baseline gap-3">
+        <Link key={l.id} to={`/learn/lesson/${encodeURIComponent(l.id)}`} className="card flex items-baseline gap-3">
           <span className="font-mono w-6 text-right text-xs" style={{ color: "var(--muted)" }}>
             {i + 1}
           </span>

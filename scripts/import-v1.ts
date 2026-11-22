@@ -13,10 +13,24 @@ if (process.argv[1]?.endsWith("import-v1.ts")) {
     console.error("import-v1: --from <the old hunts.db> [--write]");
     process.exit(2);
   }
+  if (!process.env.KESTREL_DATA_DIR?.trim()) {
+    console.error("set KESTREL_DATA_DIR to the data folder first, so real content lands only there");
+    process.exit(2);
+  }
   const file = join(dataDir(), "kestrel.db");
   const db = openDb(file);
   migrate(db, file);
-  const counts = importV1(db, values.from, values.write);
+  // one transaction: a crash midway leaves nothing half-landed (a rerun would heal it, but why make it)
+  db.exec("BEGIN");
+  let counts: ReturnType<typeof importV1>;
+  try {
+    counts = importV1(db, values.from, values.write);
+    db.exec(values.write ? "COMMIT" : "ROLLBACK");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    console.error(`the import failed and nothing landed: ${(e as Error).message}`);
+    process.exit(1);
+  }
   console.log(values.write ? "written:" : "dry run (nothing written):");
   console.log("  the old database by status:", JSON.stringify(counts.source));
   console.log(`  the old database: ${counts.sourceStarred} starred, ${counts.sourceScored} scored`);

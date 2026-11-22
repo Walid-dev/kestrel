@@ -13,6 +13,7 @@ export function LearnLive() {
   const [micWhy, setMicWhy] = useState("");
   const recorder = useRef<MediaRecorder | null>(null);
   const stream = useRef<MediaStream | null>(null);
+  const held = useRef(false); // the finger's truth: a lift during the mic grant must stop everything
   const ask = useMutation({
     mutationFn: async (sound: Blob) => {
       const res = await fetch("/api/learn/live", {
@@ -36,6 +37,11 @@ export function LearnLive() {
   const start = async () => {
     if (recorder.current) return;
     setMicWhy("");
+    if (!("mediaDevices" in navigator) || typeof MediaRecorder === "undefined") {
+      setMicWhy("this browser has no recorder — Live needs one");
+      setHolding(false);
+      return;
+    }
     try {
       stream.current ??= await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
@@ -43,6 +49,7 @@ export function LearnLive() {
       setHolding(false);
       return;
     }
+    if (!held.current) return; // the finger lifted while the mic was being granted: record nothing
     const mime = MIMES.find((m) => MediaRecorder.isTypeSupported(m)) ?? "";
     const rec = new MediaRecorder(stream.current, mime ? { mimeType: mime } : undefined);
     const parts: Blob[] = [];
@@ -54,10 +61,16 @@ export function LearnLive() {
       const sound = new Blob(parts, { type: rec.mimeType });
       if (sound.size > 0) ask.mutate(sound);
     };
+    rec.onerror = () => {
+      recorder.current = null;
+      setHolding(false);
+      setMicWhy("the recorder failed — hold again");
+    };
     recorder.current = rec;
     rec.start();
   };
   const stop = () => {
+    held.current = false;
     setHolding(false);
     if (recorder.current && recorder.current.state === "recording") recorder.current.stop();
   };
@@ -86,6 +99,7 @@ export function LearnLive() {
         }}
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId);
+          held.current = true;
           setHolding(true);
           void start();
         }}
@@ -123,7 +137,7 @@ export function LearnLive() {
                 </p>
               ))}
               <Link
-                to={`/learn/lesson/${got.lesson.id}`}
+                to={`/learn/lesson/${encodeURIComponent(got.lesson.id)}`}
                 className="font-mono text-xs"
                 style={{ color: "var(--accent)" }}
               >

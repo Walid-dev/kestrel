@@ -42,6 +42,7 @@ export function addLesson(
   const read = LessonBody.safeParse(body ?? {});
   if (!read.success) throw new Refused(`the lesson's shape is wrong: ${read.error.issues[0]?.message ?? ""}`);
   if (title.trim() === "") throw new Refused("a lesson needs its title");
+  if (!db.prepare("SELECT id FROM packs WHERE id = ?").get(pack)) throw new Refused("no such pack");
   db.prepare("INSERT INTO lessons (id, pack, position, title, body, added_at) VALUES (?, ?, ?, ?, ?, ?)").run(
     id,
     pack,

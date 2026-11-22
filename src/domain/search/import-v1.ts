@@ -117,7 +117,7 @@ export function importV1(db: DatabaseSync, from: string, write: boolean): Import
   let sourceScored = 0;
   const landed = { new: 0, updated: 0, unchanged: 0 };
   const get = db.prepare(
-    "SELECT id, status, starred, score FROM listings WHERE id = ? OR (search = ? AND dedupe = ?) OR link = ?",
+    "SELECT id, status, starred, score FROM listings WHERE id = ? OR (search = ? AND (dedupe = ? OR link = ?))",
   );
   const insert = db.prepare(
     `INSERT INTO listings (id, search, source, link, dedupe, status, starred, found, updated, score, match, data)

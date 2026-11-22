@@ -27,7 +27,7 @@ export function LearnLesson() {
   const lesson = useQuery({
     queryKey: ["lesson", id],
     queryFn: async () => {
-      const res = await fetch(`/api/learn/lessons/${id}`);
+      const res = await fetch(`/api/learn/lessons/${encodeURIComponent(id)}`);
       if (!res.ok) throw new Error(`lesson: ${res.status}`);
       return (await res.json()) as Lesson;
     },
@@ -35,7 +35,7 @@ export function LearnLesson() {
   const siblings = useQuery({
     queryKey: ["pack", lesson.data?.pack ?? ""],
     queryFn: async () =>
-      (await (await fetch(`/api/learn/packs/${lesson.data?.pack}`)).json()) as {
+      (await (await fetch(`/api/learn/packs/${encodeURIComponent(lesson.data?.pack ?? "")}`)).json()) as {
         lessons: { id: string; title: string }[];
       },
     enabled: Boolean(lesson.data),
@@ -81,6 +81,17 @@ export function LearnLesson() {
     sayLine(from);
   };
 
+  if (lesson.isError)
+    return (
+      <main className="grid gap-3">
+        <p className="text-sm" style={{ color: "var(--red)" }}>
+          the lesson could not load: {String((lesson.error as Error).message)}
+        </p>
+        <Link to="/learn" className="btn justify-self-start">
+          ← Learn
+        </Link>
+      </main>
+    );
   if (!lesson.data) return null;
   const b = lesson.data.body;
   const list = siblings.data?.lessons ?? [];
@@ -184,7 +195,7 @@ export function LearnLesson() {
                 {ask.data.drewOn.map((d, i) => (
                   <span key={d.id}>
                     {i > 0 && " · "}
-                    <Link to={`/learn/lesson/${d.id}`} style={{ color: "var(--accent)" }}>
+                    <Link to={`/learn/lesson/${encodeURIComponent(d.id)}`} style={{ color: "var(--accent)" }}>
                       {d.title}
                     </Link>
                   </span>
@@ -196,12 +207,12 @@ export function LearnLesson() {
       </section>
       <div className="flex gap-2">
         {at > 0 && (
-          <Link to={`/learn/lesson/${list[at - 1].id}`} className="btn btn-quiet">
+          <Link to={`/learn/lesson/${encodeURIComponent(list[at - 1].id)}`} className="btn btn-quiet">
             ← {list[at - 1].title}
           </Link>
         )}
         {at >= 0 && at < list.length - 1 && (
-          <Link to={`/learn/lesson/${list[at + 1].id}`} className="btn btn-quiet ml-auto">
+          <Link to={`/learn/lesson/${encodeURIComponent(list[at + 1].id)}`} className="btn btn-quiet ml-auto">
             {list[at + 1].title} →
           </Link>
         )}

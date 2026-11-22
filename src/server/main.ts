@@ -87,6 +87,8 @@ mountSearch(app, db);
 mountApply(app, db);
 mountTasks(app, db);
 mountBrief(app, db, settings);
+// an api path with no door answers so, in words — never the app's page with a 200
+app.all("/api/*", (c) => c.json({ error: "no such door" }, 404));
 mountEvents(app);
 startScheduler(db, {
   specsDir: join(dataDir(), "searches"),
@@ -99,7 +101,7 @@ startScheduler(db, {
 const root = new Hono();
 // a failed request logs one plain line, never a stack: the service log must stay free of paths and content
 root.onError((e, c) => {
-  console.error(`a request failed: ${e.name}: ${e.message.slice(0, 120)}`);
+  console.error(`a request failed: ${e.name}: ${e.message.replaceAll(/\/[^\s"']+/g, "(a path)").slice(0, 120)}`);
   return c.json({ error: "something went wrong on the computer's side" }, 500);
 });
 root.use("*", identity(settings.tailscaleLogin, isDeployed()));

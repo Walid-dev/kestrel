@@ -1,7 +1,6 @@
 // The morning brief: what waits, in plain sentences. Composed from the database alone, so it answers fast and
 // says nothing it cannot count.
 import type { DatabaseSync } from "node:sqlite";
-import { dueLessons, neverGraded } from "./learn/review.ts";
 
 const count = (db: DatabaseSync, sql: string, ...args: string[]): number =>
   (db.prepare(sql).get(...args) as { n: number }).n;
@@ -24,7 +23,13 @@ export function morningBrief(db: DatabaseSync, now: Date): string[] {
   if (needsMe) lines.push(`${needsMe} application${needsMe === 1 ? " waits" : "s wait"} on me.`);
   const queued = count(db, "SELECT COUNT(*) AS n FROM applications WHERE state = 'queued'");
   if (queued) lines.push(`${queued} ${queued === 1 ? "is" : "are"} queued to apply.`);
-  const due = new Set([...dueLessons(db, now), ...neverGraded(db)]).size;
+  const due =
+    count(db, "SELECT COUNT(*) AS n FROM reviews WHERE due <= ?", now.toISOString()) +
+    count(
+      db,
+      `SELECT COUNT(*) AS n FROM lessons l LEFT JOIN reviews r ON r.lesson = l.id
+       WHERE r.lesson IS NULL AND l.body LIKE '%"check":[{%'`,
+    );
   if (due) lines.push(`${due} lesson${due === 1 ? " is" : "s are"} due to practice.`);
   const tasks = count(db, "SELECT COUNT(*) AS n FROM tasks WHERE done = 0");
   if (tasks) lines.push(`${tasks} task${tasks === 1 ? " stays" : "s stay"} open.`);

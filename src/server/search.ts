@@ -6,6 +6,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import { z } from "zod";
+import { Refused } from "../domain/notes/documents.ts";
 import { listListings, setListingStar, setListingStatus } from "../domain/search/listings.ts";
 import { lastRun, runSearch } from "../domain/search/runs.ts";
 import { loadSpecs } from "../domain/search/specs.ts";
@@ -73,10 +74,15 @@ export function mountSearch(app: Hono, db: DatabaseSync) {
       }),
     ),
     (c) => {
-      const body = c.req.valid("json");
-      if (body.status) setListingStatus(db, c.req.param("id"), body.status);
-      if ("starred" in body) setListingStar(db, c.req.param("id"), body.starred ?? null);
-      return c.json({ ok: true });
+      try {
+        const body = c.req.valid("json");
+        if (body.status) setListingStatus(db, c.req.param("id"), body.status);
+        if ("starred" in body) setListingStar(db, c.req.param("id"), body.starred ?? null);
+        return c.json({ ok: true });
+      } catch (e) {
+        if (e instanceof Refused) return c.json({ error: e.message }, 400);
+        throw e;
+      }
     },
   );
   app.post("/api/search/run/:id", async (c) => {

@@ -10,11 +10,17 @@ const URL_BASE = process.env.KESTREL_URL ?? "http://127.0.0.1:8790";
 async function call(path: string, body?: unknown): Promise<unknown> {
   const login = (JSON.parse(readFileSync(join(dataDir(), "settings.json"), "utf8")) as { tailscaleLogin: string })
     .tailscaleLogin;
-  const res = await fetch(`${URL_BASE}${path}`, {
-    method: body === undefined ? "GET" : "POST",
-    headers: { "content-type": "application/json", "tailscale-user-login": login },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${URL_BASE}${path}`, {
+      method: body === undefined ? "GET" : "POST",
+      headers: { "content-type": "application/json", "tailscale-user-login": login },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+  } catch {
+    console.error(`kestrel isn't answering at ${URL_BASE}`);
+    process.exit(1);
+  }
   const data = (await res.json()) as { error?: string };
   if (!res.ok) {
     console.error(data.error ?? `the door answered ${res.status}`);

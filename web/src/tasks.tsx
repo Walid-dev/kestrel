@@ -20,11 +20,15 @@ export function Tasks() {
   const [unfold, setUnfold] = useState(false);
   const tasks = useQuery({
     queryKey: ["tasks"],
-    queryFn: async () => (await (await fetch("/api/tasks")).json()) as { tasks: Task[] },
+    queryFn: async () => {
+      const res = await fetch("/api/tasks");
+      if (!res.ok) throw new Error(`the tasks didn't load (${res.status})`);
+      return (await res.json()) as { tasks: Task[] };
+    },
   });
   const done = async (res: Response) => {
     const data = (await res.json()) as { error?: string };
-    if (!res.ok) throw new Error(data.error ?? `${res.status}`);
+    if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "the server refused it");
     return data;
   };
   const add = useMutation({
@@ -134,6 +138,11 @@ export function Tasks() {
           )}
         </section>
       ))}
+      {tasks.isError && (
+        <p className="text-sm" style={{ color: "var(--red)" }}>
+          {String((tasks.error as Error).message)}
+        </p>
+      )}
       {open.length === 0 && tasks.data && (
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           Nothing open.

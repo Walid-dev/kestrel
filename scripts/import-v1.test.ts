@@ -158,3 +158,24 @@ test("an old database without deal tables simply carries none", () => {
   const got = importV1(db, bare, true);
   assert.deepEqual(got.deals.landed, { new: 0, updated: 0, unchanged: 0 });
 });
+
+test("a link shared with another search's row is never clobbered: each hunt keeps its own (sweep)", () => {
+  const base = mkdtempSync(join(tmpdir(), "kestrel-import-scope-"));
+  const file = join(base, "t.db");
+  const db = new DatabaseSync(file);
+  migrate(db, file);
+  db.prepare(
+    `INSERT INTO listings (id, search, source, link, dedupe, status, starred, found, updated, score, match, data)
+     VALUES ('mine', 'another-hunt', 'made-up', 'https://example.com/1', 'other co|other role', 'interviewing', 1,
+       '2026-10-01', '2026-10-01', 90, 'great', '{}')`,
+  ).run();
+  const from = oldDb(base);
+  const wet = importV1(db, from, true);
+  assert.equal(wet.landed.new, 2); // o1 lands as its own row despite the shared link
+  const other = db.prepare("SELECT status, starred FROM listings WHERE id = 'mine'").get() as {
+    status: string;
+    starred: number;
+  };
+  assert.equal(other.status, "interviewing"); // untouched
+  assert.equal(other.starred, 1);
+});

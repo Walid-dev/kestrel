@@ -16,10 +16,13 @@ export function Models() {
   });
   const spent = useQuery({
     queryKey: ["model-calls"],
-    queryFn: async () =>
-      (await (await fetch("/api/models/calls")).json()) as {
+    queryFn: async () => {
+      const res = await fetch("/api/models/calls");
+      if (!res.ok) throw new Error(`${res.status}`);
+      return (await res.json()) as {
         calls: { purpose: string; model: string; calls: number; seconds: number; last: string; failed: number }[];
-      },
+      };
+    },
   });
   const set = useMutation({
     mutationFn: async (body: { use: string; model: string }) => {
@@ -43,7 +46,15 @@ export function Models() {
         </section>
       </main>
     );
-  if (!state.data) return null;
+  if (!state.data)
+    return (
+      <main className="grid gap-3.5">
+        <h2 className="font-cond text-xl font-bold">Models</h2>
+        <p className="text-sm" style={{ color: "var(--muted)" }}>
+          reading the picks…
+        </p>
+      </main>
+    );
   const { door, uses } = state.data;
   const switchWhy = set.isError ? String((set.error as Error).message) : "";
   return (
@@ -70,7 +81,7 @@ export function Models() {
             {u.what}
           </p>
           <div className="flex flex-wrap gap-2">
-            {(door.length ? door : [u.model]).map((m) => (
+            {(door.length ? (door.includes(u.model) ? door : [u.model, ...door]) : [u.model]).map((m) => (
               <button
                 key={m}
                 type="button"
@@ -89,7 +100,7 @@ export function Models() {
           </div>
         </section>
       ))}
-      {(spent.data?.calls.length ?? 0) > 0 && (
+      {(spent.data?.calls?.length ?? 0) > 0 && (
         <section className="card grid gap-2">
           <h3 className="font-cond text-lg font-bold">What they cost</h3>
           <p className="text-sm" style={{ color: "var(--muted)" }}>

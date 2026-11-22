@@ -9,6 +9,15 @@ import { migrate } from "../src/db/migrate.ts";
 import { importAnswers, importGuide, importOldLearn } from "../src/domain/learn/import-learn.ts";
 import { dataDir } from "../src/platform/paths.ts";
 
+const readJson = (file: string): unknown => {
+  try {
+    return JSON.parse(readFileSync(file, "utf8"));
+  } catch (e) {
+    console.error(`that file can't be read as JSON: ${(e as Error).message}`);
+    process.exit(1);
+  }
+};
+
 if (process.argv[1]?.endsWith("import-learn.ts")) {
   const { values } = parseArgs({
     options: {
@@ -19,6 +28,10 @@ if (process.argv[1]?.endsWith("import-learn.ts")) {
   });
   if (!values.from && !values.answers) {
     console.error("import-learn: --from <the old apps folder> [--answers <a folder of .txt answers>] [--write]");
+    process.exit(2);
+  }
+  if (!process.env.KESTREL_DATA_DIR?.trim()) {
+    console.error("set KESTREL_DATA_DIR to the data folder first, so real content lands only there");
     process.exit(2);
   }
   const file = join(dataDir(), "kestrel.db");
@@ -36,12 +49,11 @@ if (process.argv[1]?.endsWith("import-learn.ts")) {
   };
   if (values.from) {
     const lessonsFile = join(values.from, "learn", "lessons.json");
-    if (existsSync(lessonsFile))
-      add("the old lessons", importOldLearn(db, JSON.parse(readFileSync(lessonsFile, "utf8"))));
+    if (existsSync(lessonsFile)) add("the old lessons", importOldLearn(db, readJson(lessonsFile)));
     else console.log("  no learn/lessons.json there");
     const guidesDir = join(values.from, "guides");
     const guides = existsSync(guidesDir) ? readdirSync(guidesDir).filter((f) => f.endsWith(".guide.json")) : [];
-    for (const g of guides) add(g, importGuide(db, JSON.parse(readFileSync(join(guidesDir, g), "utf8"))));
+    for (const g of guides) add(g, importGuide(db, readJson(join(guidesDir, g))));
     if (guides.length === 0) console.log("  no guides/*.guide.json there");
   }
   if (values.answers) {

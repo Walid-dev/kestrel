@@ -88,7 +88,11 @@ const APPS: { name: string; what: string; when: string; to: string | null; color
 export function Home() {
   const brief = useQuery({
     queryKey: ["brief"],
-    queryFn: async () => (await (await fetch("/api/brief")).json()) as { lines: string[] },
+    queryFn: async () => {
+      const res = await fetch("/api/brief");
+      if (!res.ok) throw new Error(`${res.status}`);
+      return (await res.json()) as { lines: string[] };
+    },
     refetchInterval: 5 * 60_000,
   });
   return (
@@ -99,7 +103,7 @@ export function Home() {
           <p className="font-mono mb-1.5 text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--muted)" }}>
             This morning
           </p>
-          {brief.data.lines.map((line) => (
+          {(brief.data.lines ?? []).map((line) => (
             <p key={line} className="text-sm leading-relaxed">
               {line}
             </p>

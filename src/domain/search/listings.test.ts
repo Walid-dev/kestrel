@@ -143,3 +143,9 @@ test("two searches sharing one link each keep their own row and their own score 
   const scores = new Set(rows.map((r) => r.score));
   assert.equal(scores.size, 2); // each scored by its own spec
 });
+
+test("status and star on a listing that isn't there are refused in words (sweep)", () => {
+  const db = setup();
+  assert.throws(() => setListingStatus(db, "nope", "passed"), /no such listing/);
+  assert.throws(() => setListingStar(db, "nope", 1), /no such listing/);
+});
