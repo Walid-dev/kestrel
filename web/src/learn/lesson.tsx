@@ -29,7 +29,7 @@ type Lesson = {
   area: "learn" | "interview";
 };
 export const STATE_CHIP: Record<string, [string, string]> = {
-  due: ["Review today", "tone-yellow"],
+  due: ["Review today", "tone-cyan"],
   new: ["New", "tone-accent"],
   learning: ["Learning", "tone-purple"],
   known: ["Known", "tone-green"],
@@ -194,10 +194,7 @@ export function LearnLesson() {
   } else {
     const due = (L.state === "due" || L.state === "learning") && b.check.length > 0;
     const review = due ? (
-      <section
-        className="card grid gap-3"
-        style={{ borderColor: "color-mix(in srgb, var(--yellow) 45%, var(--line))" }}
-      >
+      <section className="card grid gap-3" style={{ borderColor: "color-mix(in srgb, var(--cyan) 45%, var(--line))" }}>
         <h3 className="font-cond m-0 text-lg font-bold">{heard("Review first: answer from memory", say)}</h3>
         {b.check.map((c) => {
           const k = `review:${c.q}`;

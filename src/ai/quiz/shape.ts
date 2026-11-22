@@ -12,3 +12,10 @@ export const Grade = z.object({
 export type Grade = z.infer<typeof Grade>;
 
 export const Made = z.object({ q: z.string().min(1), a: z.string().min(1) });
+
+// an explanation: the lesson's blocks (an unknown block is kept for the page to skip) and the line to remember
+export const Explained = z.object({
+  blocks: z.array(z.record(z.string(), z.unknown())).min(1),
+  remember: z.string().catch(""),
+});
+export type Explained = z.infer<typeof Explained>;

@@ -49,16 +49,16 @@ export const stageOf = (kind: "jobs" | "deals", status: string) =>
   STAGES[kind].find((s) => s.status === status) ?? { status, label: status, tone: "tone-muted" };
 
 export const MATCH: Record<string, { label: string; tone: string }> = {
-  great: { label: "Great match", tone: "tone-green" },
-  good: { label: "Good match", tone: "tone-accent" },
-  weak: { label: "Possible match", tone: "tone-yellow" },
-  poor: { label: "Weak match", tone: "tone-red" },
+  great: { label: "Great match", tone: "tone-great" },
+  good: { label: "Good match", tone: "tone-good" },
+  weak: { label: "Possible match", tone: "tone-fair" },
+  poor: { label: "Weak match", tone: "tone-poor" },
 };
 export const DEAL: Record<string, { label: string; tone: string }> = {
-  great: { label: "Great deal", tone: "tone-green" },
-  good: { label: "Good deal", tone: "tone-green" },
-  fair: { label: "Fair price", tone: "tone-yellow" },
-  over: { label: "Overpriced", tone: "tone-red" },
+  great: { label: "Great deal", tone: "tone-great" },
+  good: { label: "Good deal", tone: "tone-good" },
+  fair: { label: "Fair price", tone: "tone-fair" },
+  over: { label: "Overpriced", tone: "tone-poor" },
 };
 export const VERDICT: Record<string, { label: string; tone: string }> = {
   apply: { label: "Apply", tone: "tone-green" },
@@ -68,6 +68,18 @@ export const VERDICT: Record<string, { label: string; tone: string }> = {
   negotiate: { label: "Negotiate", tone: "tone-yellow" },
   unsure: { label: "Unsure", tone: "tone-muted" },
 };
+
+// a pay or price pill's colour: the match's (or the deal's) place on the money scale
+const MONEY: Record<string, string> = {
+  great: "great",
+  good: "good",
+  weak: "fair",
+  fair: "fair",
+  poor: "poor",
+  over: "poor",
+};
+export const moneyColour = (tier: string | undefined) =>
+  tier && MONEY[tier] ? `var(--${MONEY[tier]})` : "var(--good)";
 
 export const str = (v: unknown): string => (typeof v === "string" ? v : "");
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
@@ -116,21 +128,24 @@ function Ring({ tone }: { tone: string }) {
   );
 }
 
-// a 0–100 score on a red-to-green bar, the dot where it sits
+// a 0–100 score on the money scale (coral, amber, lime, mint), the dot where it sits in its own colour
 export function ScoreBar({ score }: { score: number }) {
   const at = Math.max(0, Math.min(100, score));
+  const dot = moneyColour(at >= 80 ? "great" : at >= 60 ? "good" : at >= 40 ? "fair" : "poor");
   return (
     <div
       className="relative mt-1 mb-4 h-1.5 rounded-full"
-      style={{ background: "linear-gradient(90deg, var(--red) 0%, var(--yellow) 45%, var(--green) 80%)" }}
+      style={{
+        background: "linear-gradient(90deg, var(--poor) 0%, var(--fair) 40%, var(--good) 65%, var(--great) 88%)",
+      }}
     >
       <span
         className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full"
         style={{
           left: `${at}%`,
-          background: "var(--green)",
+          background: dot,
           border: "3px solid var(--surface)",
-          boxShadow: "0 0 0 1px var(--green)",
+          boxShadow: `0 0 0 1px ${dot}`,
         }}
       />
       <span
@@ -151,7 +166,7 @@ export function PriceBar({ price, deal }: { price: number; deal: NonNullable<Lis
   return (
     <div
       className="relative mt-1 mb-5 h-1.5 rounded-full"
-      style={{ background: "linear-gradient(90deg, var(--green) 0%, var(--yellow) 50%, var(--red) 100%)" }}
+      style={{ background: "linear-gradient(90deg, var(--great) 0%, var(--fair) 50%, var(--poor) 100%)" }}
     >
       {[deal.p25, deal.p75].map((v) => (
         <span
@@ -166,9 +181,9 @@ export function PriceBar({ price, deal }: { price: number; deal: NonNullable<Lis
         className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full"
         style={{
           left: at(price),
-          background: "var(--green)",
+          background: moneyColour(deal.tier),
           border: "3px solid var(--surface)",
-          boxShadow: "0 0 0 1px var(--green)",
+          boxShadow: `0 0 0 1px ${moneyColour(deal.tier)}`,
         }}
       />
     </div>
@@ -179,20 +194,22 @@ export function ReadBox({
   label,
   chip,
   tone,
+  chipTone,
   children,
 }: {
   label: string;
   chip?: string;
   tone?: string;
+  chipTone?: string;
   children: ReactNode;
 }) {
   return (
     <div className={`read-box ${tone ?? "tone-accent"} grid gap-1.5`}>
       <div className="flex items-center gap-2">
-        <span className="eyebrow" style={{ color: "var(--accent)" }}>
+        <span className="eyebrow" style={{ color: "var(--tone)" }}>
           {label}
         </span>
-        {chip && <span className={`chip ${tone ?? "tone-accent"}`}>{chip}</span>}
+        {chip && <span className={`chip ${chipTone ?? tone ?? "tone-accent"}`}>{chip}</span>}
       </div>
       <div className="text-[14.5px] leading-relaxed" style={{ color: "var(--text)" }}>
         {children}
@@ -201,7 +218,7 @@ export function ReadBox({
   );
 }
 
-const fitTone = (fit: number) => (fit >= 7 ? "tone-green" : fit >= 4 ? "tone-yellow" : "tone-red");
+const fitTone = (fit: number) => (fit >= 7 ? "tone-great" : fit >= 4 ? "tone-fair" : "tone-poor");
 const APP_CHIP: Record<string, [string, string]> = {
   sent: ["Sent", "tone-accent"],
   "not-sent": ["Not sent", "tone-orange"],
@@ -226,7 +243,7 @@ function Head({ l }: { l: Listing }) {
 
 // the model's read stays on the card, words and all: it is short. The deep check shows only its verdict, as a chip —
 // the report waits in the open listing — or, with none yet, the blue button that starts one
-function Results({ l, onDeep }: { l: Listing; onDeep: () => void }) {
+function Results({ l, onDeep, busy }: { l: Listing; onDeep: () => void; busy?: string }) {
   let verdict = "";
   try {
     verdict = l.deepVerdict ? String((JSON.parse(l.deepVerdict) as { verdict?: string }).verdict ?? "") : "";
@@ -243,7 +260,8 @@ function Results({ l, onDeep }: { l: Listing; onDeep: () => void }) {
         <ReadBox
           label="Model's read"
           chip={fit != null ? `Fit ${fit}/10` : undefined}
-          tone={fit != null ? fitTone(fit) : undefined}
+          tone="tone-purple"
+          chipTone={fit != null ? fitTone(fit) : undefined}
         >
           {why}
         </ReadBox>
@@ -251,18 +269,27 @@ function Results({ l, onDeep }: { l: Listing; onDeep: () => void }) {
       <div className="flex flex-wrap items-center gap-1.5">
         {!why && fit != null && <span className={`chip ${fitTone(fit)}`}>Model's read {fit}/10</span>}
         {v && !running ? (
-          <span className={`chip ${v.tone}`}>Deep check · {v.label}</span>
+          <span className="chip tone-accent">
+            Deep check · <b>{v.label}</b>
+          </span>
         ) : (
           <button
             type="button"
-            className="btn btn-primary"
-            disabled={running}
+            className="btn btn-primary inline-flex items-center gap-2"
+            disabled={running || busy === "deep"}
             onClick={(e) => {
               e.stopPropagation();
               onDeep();
             }}
           >
-            {running ? "Deep check running…" : l.deepState === "failed" ? "Deep check again" : "Deep check"}
+            {(running || busy === "deep") && <span className="spin" />}
+            {busy === "deep"
+              ? "Starting…"
+              : running
+                ? "Deep check running…"
+                : l.deepState === "failed"
+                  ? "Deep check again"
+                  : "Deep check"}
           </button>
         )}
       </div>
@@ -278,7 +305,17 @@ const BUTTON_TONE: Record<string, string> = {
   closed: "tone-muted",
 };
 // the stage buttons under a card: the card stays where it is, a tap here never opens the sheet
-function Stages({ l, onStatus, extra }: { l: Listing; onStatus: (s: string) => void; extra?: ReactNode }) {
+function Stages({
+  l,
+  onStatus,
+  extra,
+  busy,
+}: {
+  l: Listing;
+  onStatus: (s: string) => void;
+  extra?: ReactNode;
+  busy?: string;
+}) {
   const set: [string, string][] =
     l.kind === "jobs"
       ? [
@@ -310,6 +347,7 @@ function Stages({ l, onStatus, extra }: { l: Listing; onStatus: (s: string) => v
           }}
           onClick={() => onStatus(l.status === s ? "new" : s)}
         >
+          {busy === `status:${s}` && <span className="spin mr-1.5 align-[-1px]" />}
           {label}
         </button>
       ))}
@@ -434,12 +472,14 @@ export function JobCard({
   onStatus,
   onQueue,
   onDeep,
+  busy,
 }: {
   l: Listing;
   onOpen: () => void;
   onStatus: (s: string) => void;
   onQueue: () => void;
   onDeep: () => void;
+  busy?: string; // what this card is waiting on: status:<stage>, deep or queue
 }) {
   const d = l.data;
   const pay = payOf(d);
@@ -448,6 +488,7 @@ export function JobCard({
   return (
     <article
       className="card card-link grid content-start gap-3 cursor-pointer"
+      aria-busy={Boolean(busy)}
       onClick={onOpen}
       onKeyDown={(e) => e.key === "Enter" && onOpen()}
     >
@@ -467,7 +508,7 @@ export function JobCard({
         {pay && (
           <span
             className="font-mono shrink-0 rounded-lg px-2.5 py-1.5 text-[15px] font-bold"
-            style={{ background: "var(--green)", color: "var(--bg)" }}
+            style={{ background: moneyColour(l.match), color: "var(--bg)" }}
           >
             {pay}
           </span>
@@ -484,9 +525,9 @@ export function JobCard({
       {(str(d.seniority) || str(d.employment)) && (
         <div className="flex flex-wrap gap-1.5">
           {str(d.seniority) && <span className="chip tone-muted">{str(d.seniority)}</span>}
-          {str(d.workMode).toLowerCase().includes("remote") && <span className="chip tone-green">Remote</span>}
+          {str(d.workMode).toLowerCase().includes("remote") && <span className="chip tone-cyan">Remote</span>}
           {str(d.employment) && !/full/i.test(str(d.employment)) && (
-            <span className="chip tone-yellow">{str(d.employment)}</span>
+            <span className="chip tone-purple">{str(d.employment)}</span>
           )}
         </div>
       )}
@@ -500,14 +541,21 @@ export function JobCard({
         </div>
       )}
       {l.score != null && <ScoreBar score={l.score} />}
-      <Results l={l} onDeep={onDeep} />
+      <Results l={l} onDeep={onDeep} busy={busy} />
       <Stages
         l={l}
         onStatus={onStatus}
+        busy={busy}
         extra={
           l.status !== "applied" && !l.app ? (
-            <button type="button" className="btn btn-primary ml-auto" onClick={onQueue}>
-              Apply
+            <button
+              type="button"
+              className="btn btn-primary ml-auto inline-flex items-center gap-2"
+              disabled={busy === "queue"}
+              onClick={onQueue}
+            >
+              {busy === "queue" && <span className="spin" />}
+              {busy === "queue" ? "Queuing…" : "Apply"}
             </button>
           ) : null
         }
@@ -521,27 +569,24 @@ export function DealCard({
   onOpen,
   onStatus,
   onDeep,
+  busy,
 }: {
   l: Listing;
   onOpen: () => void;
   onStatus: (s: string) => void;
   onDeep: () => void;
+  busy?: string;
 }) {
   const d = l.data;
   const price = num(d.price);
   const deal = l.deal;
   const t = deal ? DEAL[deal.tier] : null;
   const posted = str(d.posted);
-  const pill = !deal
-    ? "var(--surface-2)"
-    : deal.tier === "over"
-      ? "var(--red)"
-      : deal.tier === "fair"
-        ? "var(--yellow)"
-        : "var(--green)";
+  const pill = !deal ? "var(--surface-2)" : moneyColour(deal.tier);
   return (
     <article
       className="card card-link grid content-start gap-3 cursor-pointer"
+      aria-busy={Boolean(busy)}
       onClick={onOpen}
       onKeyDown={(e) => e.key === "Enter" && onOpen()}
     >
@@ -590,8 +635,8 @@ export function DealCard({
           </p>
         </>
       )}
-      <Results l={l} onDeep={onDeep} />
-      <Stages l={l} onStatus={onStatus} />
+      <Results l={l} onDeep={onDeep} busy={busy} />
+      <Stages l={l} onStatus={onStatus} busy={busy} />
     </article>
   );
 }

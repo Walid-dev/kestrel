@@ -1,15 +1,26 @@
 // Research keeps each link once across searches, numbers its pages so the report can cite them, reads a near-miss
 // answer, and a restart never leaves a report spinning. Made-up pages only.
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
-import { reportPrompt } from "../ai/research/prompt.ts";
+import { askPrompt, planPrompt, reportPrompt } from "../ai/research/prompt.ts";
 import { ResearchReport } from "../ai/research/shape.ts";
 import { migrate } from "../db/migrate.ts";
-import { deleteResearch, getResearch, listResearch, mergeHits, sweepResearch } from "./research.ts";
+import { dataDir } from "../platform/paths.ts";
+import {
+  answersText,
+  contextText,
+  deleteResearch,
+  getResearch,
+  listResearch,
+  mergeHits,
+  researchContext,
+  saveAbout,
+  sweepResearch,
+} from "./research.ts";
 
 const hit = (n: number) => ({ title: `Page ${n}`, url: `https://example.com/${n}`, snippet: `About ${n}` });
 
@@ -86,4 +97,24 @@ test("a report left running by a restart is marked failed; a finished one lists,
   deleteResearch(db, "r2");
   assert.equal(getResearch(db, "r2"), null);
   assert.throws(() => deleteResearch(db, "nope"), /no such research/);
+});
+
+test("what it knows about me: About me and the context files, cut to fit; the searches never see it", () => {
+  saveAbout("I am a made-up gardener who grows teapots.");
+  mkdirSync(join(dataDir(), "research", "context"), { recursive: true });
+  writeFileSync(join(dataDir(), "research", "context", "garden.md"), "The garden is made up too.");
+  const ctx = researchContext();
+  assert.match(ctx.about, /made-up gardener/);
+  assert.ok(ctx.files.some((f) => f.name === "garden.md"));
+  const text = contextText();
+  assert.match(text, /made-up gardener[\s\S]*\(garden\.md\)\nThe garden is made up too\./);
+  // the plan's prompt takes the question and my answers only: nothing kept about me reaches a search
+  const plan = planPrompt("Which watering can?", answersText([{ q: "Budget?", a: "Under 20" }]));
+  assert.match(plan, /Budget\? Under 20/);
+  assert.doesNotMatch(plan, /gardener/);
+  // the report and the questions do know me
+  assert.match(reportPrompt("Which watering can?", "quick", [], [], { about: text }), /made-up gardener/);
+  assert.match(askPrompt("Which watering can?", text), /made-up gardener/);
+  assert.match(askPrompt("Which watering can?", ""), /\(nothing yet\)/);
+  assert.equal(answersText([{ q: "Budget?", a: "  " }]), "");
 });

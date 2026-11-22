@@ -3,7 +3,7 @@
 // the role or model, the source and the order as pills, each part folding on its own and the whole panel too; then the
 // cards. The page opens on To review, best first. A card swipes right for Interested and left for Not for me, has the
 // same buttons under it, starts a deep check, and opens the whole listing on a tap.
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { ago, DEAL, DealCard, JobCard, type Listing, MATCH, Swipe } from "./cards.tsx";
@@ -228,6 +228,7 @@ export function Searches() {
       return (await res.json()) as Counts;
     },
     enabled: Boolean(hunt),
+    placeholderData: keepPreviousData,
   });
   const listings = useQuery({
     queryKey: ["listings", filtered.toString(), limit],
@@ -237,13 +238,17 @@ export function Searches() {
       return (await res.json()) as { listings: Listing[] };
     },
     enabled: Boolean(hunt),
+    placeholderData: keepPreviousData,
     refetchInterval: (query) =>
       busy || query.state.data?.listings.some((l) => l.deepState === "running") ? 5000 : 60_000,
   });
-  const refresh = () => {
-    queryClient.invalidateQueries({ queryKey: ["listings"] });
-    queryClient.invalidateQueries({ queryKey: ["search-counts"] });
-  };
+  const refresh = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["listings"] }),
+      queryClient.invalidateQueries({ queryKey: ["search-counts"] }),
+    ]);
+  // a stage pressed shows at once; the list's own answer replaces it when it comes
+  const [marked, setMarked] = useState<Record<string, string>>({});
   const act = useMutation({
     mutationFn: async (input: { id: string; body: Record<string, unknown> }) => {
       const res = await fetch(`/api/search/listings/${encodeURIComponent(input.id)}`, {
@@ -253,7 +258,14 @@ export function Searches() {
       });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
     },
-    onSettled: refresh,
+    onSettled: async (_data, _error, input) => {
+      await refresh();
+      setMarked((m) => {
+        const next = { ...m };
+        delete next[input.id];
+        return next;
+      });
+    },
   });
   const queue = useMutation({
     mutationFn: async (id: string) => {
@@ -290,6 +302,18 @@ export function Searches() {
     onSettled: refresh,
   });
 
+  const busyOf = (id: string) =>
+    act.isPending && act.variables?.id === id
+      ? `status:${String(act.variables.body.status ?? "")}`
+      : deep.isPending && deep.variables === id
+        ? "deep"
+        : queue.isPending && queue.variables === id
+          ? "queue"
+          : "";
+  // new results on their way after a filter changed: the old cards dim under a sweeping bar until they land
+  const refilling =
+    (listings.isFetching && listings.isPlaceholderData) || (counts.isFetching && counts.isPlaceholderData);
+
   // a deal's tier is reckoned from the usual price, so its menu counts the loaded cards
   const rows = (listings.data?.listings ?? []).filter((l) => kind === "jobs" || !match || l.deal?.tier === match);
   const tiers: Record<string, number> = {};
@@ -313,7 +337,10 @@ export function Searches() {
     setParams(next, { replace: true });
     setLimit(PAGE);
   };
-  const status = (l: Listing, s: string) => act.mutate({ id: l.id, body: { status: s } });
+  const status = (l: Listing, s: string) => {
+    setMarked((m) => ({ ...m, [l.id]: s }));
+    act.mutate({ id: l.id, body: { status: s } });
+  };
 
   return (
     <main className="grid gap-5">
@@ -417,7 +444,8 @@ export function Searches() {
         </header>
       )}
 
-      <section className="card grid gap-2.5 !p-3">
+      <section className="card relative grid gap-2.5 overflow-hidden !p-3">
+        {refilling && <div className="loading-bar absolute inset-x-0 bottom-0 !rounded-none" aria-hidden="true" />}
         <div className="flex gap-2">
           <input
             type="search"
@@ -593,34 +621,47 @@ export function Searches() {
         </p>
       ))}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-        {rows.map((l) => (
-          <Swipe
-            key={l.id}
-            onRight={() => status(l, "interested")}
-            onLeft={() => status(l, "passed")}
-            leftLabel={kind === "jobs" ? "Not for me" : "Not interested"}
-          >
-            {l.kind === "deals" ? (
-              <DealCard
-                l={l}
-                onOpen={() => setOpen(l.id)}
-                onStatus={(s) => status(l, s)}
-                onDeep={() => deep.mutate(l.id)}
-              />
-            ) : (
-              <JobCard
-                l={l}
-                onOpen={() => setOpen(l.id)}
-                onStatus={(s) => status(l, s)}
-                onQueue={() => queue.mutate(l.id)}
-                onDeep={() => deep.mutate(l.id)}
-              />
-            )}
-          </Swipe>
-        ))}
+      <section
+        className={`grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 ${refilling ? "busy" : ""}`}
+        aria-busy={refilling || listings.isLoading}
+      >
+        {/* the first load: the shape of the cards to come */}
+        {listings.isLoading &&
+          ["a", "b", "c", "d", "e", "f"].map((k) => (
+            <div key={k} className="card skeleton grid content-start gap-3" style={{ minHeight: 260 }} />
+          ))}
+        {rows.map((raw) => {
+          const l = marked[raw.id] ? { ...raw, status: marked[raw.id] } : raw;
+          return (
+            <Swipe
+              key={l.id}
+              onRight={() => status(l, "interested")}
+              onLeft={() => status(l, "passed")}
+              leftLabel={kind === "jobs" ? "Not for me" : "Not interested"}
+            >
+              {l.kind === "deals" ? (
+                <DealCard
+                  l={l}
+                  onOpen={() => setOpen(l.id)}
+                  onStatus={(s) => status(l, s)}
+                  onDeep={() => deep.mutate(l.id)}
+                  busy={busyOf(l.id)}
+                />
+              ) : (
+                <JobCard
+                  l={l}
+                  onOpen={() => setOpen(l.id)}
+                  onStatus={(s) => status(l, s)}
+                  onQueue={() => queue.mutate(l.id)}
+                  onDeep={() => deep.mutate(l.id)}
+                  busy={busyOf(l.id)}
+                />
+              )}
+            </Swipe>
+          );
+        })}
       </section>
-      {listings.data && rows.length === 0 && (
+      {listings.data && !refilling && rows.length === 0 && (
         <p className="m-0 text-sm" style={{ color: "var(--muted)" }}>
           Nothing here{q || source || group || match ? " with these filters" : ""}.
         </p>

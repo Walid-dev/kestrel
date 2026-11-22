@@ -40,7 +40,9 @@ test("the settings answer until a pick is made; the pick wins and survives a reo
       ["learn-ask", "careful-model"], // the live eval moved Ask's fallback to the careful model
       ["search-deep", "careful-model"],
       ["research", "careful-model"],
+      ["research-ask", "fast-model"], // its quick questions first: the fast model by default
       ["quiz", "careful-model"],
+      ["quiz-explain", "fast-model"], // written while I answer: the fast model
       ["letter", "careful-model"],
     ],
   );

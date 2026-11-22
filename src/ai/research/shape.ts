@@ -5,6 +5,7 @@ import { z } from "zod";
 const list = z.preprocess((v) => (typeof v === "string" ? [v] : v), z.array(z.string()).catch([])).default([]);
 
 export const Plan = z.object({ queries: list });
+export const Questions = z.object({ questions: list });
 
 export const ResearchReport = z.object({
   title: z.string().min(1),

@@ -2,7 +2,7 @@
 // entries with their example, diagram and check, callouts, tables, rules, code with its parts coloured, and the
 // hand-placed diagrams. Every line meant to be heard registers with `say`, so Listen reads the page in order and
 // lights the line it is on.
-import type { CSSProperties, ReactNode } from "react";
+import { type CSSProperties, createContext, type ReactNode, useContext } from "react";
 
 export type Say = {
   add: (text: string, opts?: { pause?: number }) => number;
@@ -17,16 +17,61 @@ const arr = (v: unknown): unknown[] => (v == null ? [] : Array.isArray(v) ? v : 
 // each item with its place and a key made from it: lists in a guide are fixed for the page's life
 const keyed = <T,>(list: T[], prefix: string) => list.map((v, i) => ({ v, i, key: `${prefix}${i}` }));
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
-export const plain = (s: string) => s.replaceAll(/`([^`]+)`/g, "$1").replaceAll(/\*\*([^*]+)\*\*/g, "$1");
+// what Listen reads: the marks gone, and a research answer's source numbers too
+export const plain = (s: string) =>
+  s
+    .replaceAll(/`([^`]+)`/g, "$1")
+    .replaceAll(/\*\*([^*]+)\*\*/g, "$1")
+    .replaceAll(/\s*\[\d+(?:\s*[,–-]\s*\d+)*\]/g, "");
 
-// `code` and **bold**, nothing else: the guides' inline marks
+// a research answer's sources by number: inside it, [2] becomes a link named for its site
+export type Cite = { title: string; url: string };
+export const Cites = createContext<Map<number, Cite> | null>(null);
+const site = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "source";
+  }
+};
+
+// `code` and **bold**, the guides' inline marks; inside a research answer, its [n] sources as links
 export function Inline({ text }: { text: string }) {
+  const cites = useContext(Cites);
   const out: ReactNode[] = [];
-  const re = /`([^`]+)`|\*\*([^*]+)\*\*/g;
+  const re = /`([^`]+)`|\*\*([^*]+)\*\*|\s?\[(\d+(?:\s*[,–-]\s*\d+)*)\]/g;
   let last = 0;
   let m: RegExpExecArray | null = re.exec(text);
   while (m) {
     if (m.index > last) out.push(text.slice(last, m.index));
+    if (m[3] !== undefined) {
+      // a source number: a link named for its site when the answer knows it, the number as written otherwise
+      const nums = m[3].split(/\s*[,–-]\s*/).map(Number);
+      const at = m.index;
+      if (cites)
+        for (const n of nums) {
+          const c = cites.get(n);
+          out.push(
+            c ? (
+              <a
+                key={`${at}-${n}`}
+                href={c.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="cite"
+                title={c.title || c.url}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {site(c.url)}
+              </a>
+            ) : null,
+          );
+        }
+      else out.push(m[0]);
+      last = m.index + m[0].length;
+      m = re.exec(text);
+      continue;
+    }
     out.push(
       m[1] !== undefined ? (
         <code key={m.index} className="inline">

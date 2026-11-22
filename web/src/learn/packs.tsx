@@ -59,7 +59,7 @@ function TopicRow({ r, mark }: { r: Row; mark: string }) {
         {mark}
       </span>
       <span className="flex-1">{r.title}</span>
-      {r.state === "due" && <span className="chip tone-yellow">Review today</span>}
+      {r.state === "due" && <span className="chip tone-cyan">Review today</span>}
       {done && <span style={{ color: "var(--green)" }}>✓</span>}
     </Link>
   );
@@ -122,6 +122,10 @@ function GuideContents({ rows }: { rows: Row[] }) {
     </div>
   );
 }
+
+// each parent's own colour, so the sidebar reads at a glance: the personal packs green, AI purple, the platform blue
+const GROUP_TONE: Record<string, string> = { Personal: "tone-green", AI: "tone-purple", Platform: "tone-accent" };
+const groupTone = (g: string) => GROUP_TONE[g] ?? (g ? "tone-cyan" : "tone-muted");
 
 export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" }) {
   const queryClient = useQueryClient();
@@ -282,9 +286,11 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
               <div key={g || "none"} className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  className="eyebrow mr-1"
+                  className={`eyebrow mr-1 ${groupTone(g)}`}
                   style={{
-                    color: pickGroup === g && !pick && g ? "var(--accent)" : undefined,
+                    color: "var(--tone)",
+                    textDecoration: pickGroup === g && !pick && g ? "underline" : undefined,
+                    textUnderlineOffset: 4,
                     cursor: g ? "pointer" : "default",
                   }}
                   onClick={() => g && setParams({ group: g })}
@@ -299,8 +305,9 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
                     aria-pressed={pick === p.id}
                     onClick={() => setParams({ pack: p.id })}
                   >
-                    {p.due > 0 && <span className="dot tone-yellow" />}
+                    <span className={`dot ${groupTone(g)}`} />
                     {titled(p.name)}
+                    {p.due > 0 && <b title={`${p.due} to review today`}>{p.due}</b>}
                   </button>
                 ))}
               </div>
@@ -408,7 +415,7 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
                     {STATE_CHIP[g.st][0]}{" "}
                     <span
                       className="font-mono text-sm"
-                      style={{ color: g.st === "due" ? "var(--yellow)" : "var(--muted)" }}
+                      style={{ color: g.st === "due" ? "var(--cyan)" : "var(--muted)" }}
                     >
                       {g.rows.length}
                     </span>

@@ -1,15 +1,18 @@
 // Quiz: questions from my lessons — their own Check yourself first, a written one for a lesson without — one at a
-// time. I answer in my words; the computer's model marks the meaning and says why, with the right answer, code shown
-// as code. What I missed lately comes back first; the end lists what to read again.
+// time. I answer in my words; the computer's model marks the meaning and says why. Then the answer explained, like a
+// small lesson: broken down, pictured, in code when it is technical, the usual mistake, a line to keep. The fast model
+// writes it while I answer (kept for next time), and Listen reads it. What I missed comes back first.
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router";
-import { Code, Inline } from "./learn/blocks.tsx";
+import { block, Code, Inline, type Say } from "./learn/blocks.tsx";
+import { type Spoken, useReader } from "./learn/voice.ts";
 
 type Area = "learn" | "interview";
 type Item = { lesson: string; title: string; packName: string; q: string | null; a: string | null };
 type Line = string | { code: string };
 type Mark = { verdict: "right" | "partly" | "wrong"; why: string; correct: Line[] };
+type Explained = { blocks: Record<string, unknown>[]; remember: string; kept: boolean };
 type Pack = { id: string; name: string; group: string };
 
 const VERDICT: Record<Mark["verdict"], [string, string]> = {
@@ -75,6 +78,14 @@ export function Quiz() {
   });
   const question = item?.q ?? made.data?.q ?? "";
   const expected = item?.a ?? made.data?.a ?? "";
+  // the explanation is written while I think: ready, most times, when my answer is marked
+  const explained = useQuery({
+    queryKey: ["quiz-explain", item?.lesson, question],
+    queryFn: () => post<Explained>("/api/learn/quiz/explain", { lesson: item?.lesson, question, expected }),
+    enabled: Boolean(item && question && expected),
+    staleTime: Number.POSITIVE_INFINITY,
+    retry: false,
+  });
   const grade = useMutation({
     mutationFn: () =>
       post<Mark>("/api/learn/quiz/grade", { lesson: item?.lesson, question, expected, answer: answer.trim() }),
@@ -187,13 +198,15 @@ export function Quiz() {
                   type="button"
                   className="btn"
                   disabled={!question || grade.isPending}
-                  onClick={() =>
+                  onClick={() => {
+                    // a miss, so the lesson comes back first next time; the explanation does the teaching
+                    void post("/api/learn/quiz/skip", { lesson: item.lesson, question }).catch(() => {});
                     setMarks((all) =>
                       all.map((x, i) =>
-                        i === at ? { verdict: "wrong", why: "You didn't know it yet.", correct: [expected] } : x,
+                        i === at ? { verdict: "wrong", why: "Here is how it works.", correct: [expected] } : x,
                       ),
-                    )
-                  }
+                    );
+                  }}
                 >
                   I don't know
                 </button>
@@ -222,18 +235,40 @@ export function Quiz() {
                 <span className="eyebrow" style={{ color: "var(--accent)" }}>
                   The answer
                 </span>
-                {mark.correct.map((l, i) =>
-                  typeof l === "string" ? (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: the answer's lines are fixed once marked
-                    <p key={i} className="m-0 text-[15px] leading-relaxed">
-                      <Inline text={l} />
-                    </p>
-                  ) : (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: the answer's lines are fixed once marked
-                    <Code key={i} text={l.code} />
-                  ),
-                )}
+                <p className="m-0 text-[15.5px] leading-relaxed" style={{ color: "var(--strong)" }}>
+                  <Inline text={expected} />
+                </p>
               </div>
+              {explained.data ? (
+                <Explanation e={explained.data} />
+              ) : explained.isError ? (
+                // no explanation this time: the mark's own lines stand in
+                <div className="grid gap-1">
+                  {mark.correct.map((l, i) =>
+                    typeof l === "string" ? (
+                      // biome-ignore lint/suspicious/noArrayIndexKey: the answer's lines are fixed once marked
+                      <p key={i} className="m-0 text-[15px] leading-relaxed">
+                        <Inline text={l} />
+                      </p>
+                    ) : (
+                      // biome-ignore lint/suspicious/noArrayIndexKey: the answer's lines are fixed once marked
+                      <Code key={i} text={l.code} />
+                    ),
+                  )}
+                  <p className="m-0 text-[13px]" style={{ color: "var(--muted)" }}>
+                    The explanation didn't come: {(explained.error as Error).message}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-2">
+                  <span className="eyebrow inline-flex items-center gap-2" style={{ color: "var(--purple)" }}>
+                    <span className="spin" /> Writing the explanation
+                  </span>
+                  {["w1", "w2", "w3"].map((k) => (
+                    <div key={k} className="skeleton h-4 rounded" style={{ width: k === "w3" ? "60%" : "100%" }} />
+                  ))}
+                </div>
+              )}
               <button type="button" className="btn btn-primary justify-self-start" onClick={next}>
                 {at + 1 < items.length ? "Next question →" : "See my score"}
               </button>
@@ -333,5 +368,53 @@ export function Quiz() {
         )}
       </section>
     </main>
+  );
+}
+
+// the answer explained: the lesson's blocks (subheads, lines, the analogy, code in colour, tables), Listen to hear it
+function Explanation({ e }: { e: Explained }) {
+  const reader = useReader();
+  const list = useRef<Spoken[]>([]);
+  const [opened, setOpened] = useState<Set<string>>(new Set());
+  const spoken: Spoken[] = [];
+  list.current = spoken;
+  const say: Say = {
+    add: (text, opts) => spoken.push({ text, pause: opts?.pause }) - 1,
+    spoken: reader.at,
+    from: (i) => reader.play(list.current, i),
+    isOpen: (k) => opened.has(k),
+    open: (k) => setOpened((s) => new Set(s).add(k)),
+  };
+  const body = e.blocks.map((b, i) => block(b, say, `x${i}`));
+  const remember = e.remember ? say.add(e.remember) : -1;
+  return (
+    <section
+      className="grid gap-3 rounded-2xl border p-4"
+      style={{ borderColor: "var(--line)", background: "var(--bg)" }}
+    >
+      <div className="flex items-center gap-2">
+        <span className="eyebrow" style={{ color: "var(--purple)" }}>
+          Explained
+        </span>
+        <button
+          type="button"
+          className="btn ml-auto !py-1 text-[13px]"
+          onClick={() => (reader.reading ? reader.stop() : reader.play(list.current))}
+        >
+          {reader.reading ? "■ Stop" : "▶ Listen"}
+        </button>
+      </div>
+      <div className="grid gap-2.5 text-[15.5px] leading-relaxed">{body}</div>
+      {e.remember && (
+        <div className={`callout tone-green grid gap-1 ${reader.at === remember ? "reading" : ""}`}>
+          <span className="eyebrow" style={{ color: "var(--green)" }}>
+            Remember
+          </span>
+          <p className="m-0 font-semibold" style={{ color: "var(--strong)" }}>
+            <Inline text={e.remember} />
+          </p>
+        </div>
+      )}
+    </section>
   );
 }

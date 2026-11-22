@@ -19,7 +19,7 @@ import {
   setPackGroup,
 } from "../domain/learn/lessons.ts";
 import { bestAnswer } from "../domain/learn/match.ts";
-import { gradeAnswer, makeQuestion, pickQuiz } from "../domain/learn/quiz.ts";
+import { explainAnswer, gradeAnswer, makeQuestion, pickQuiz, skipQuestion } from "../domain/learn/quiz.ts";
 import { dueLessons, gradeLesson, lessonStates, neverGraded } from "../domain/learn/review.ts";
 import { Refused } from "../domain/notes/documents.ts";
 import { record } from "../platform/activity.ts";
@@ -139,6 +139,36 @@ export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
     async (c) => {
       try {
         return c.json(await gradeAnswer(db, settings, c.req.valid("json")));
+      } catch (e) {
+        return refusing(c, e);
+      }
+    },
+  );
+  app.post(
+    "/api/learn/quiz/explain",
+    zValidator(
+      "json",
+      z.object({
+        lesson: z.string().min(1),
+        question: z.string().min(1).max(4000),
+        expected: z.string().max(8000),
+      }),
+    ),
+    async (c) => {
+      try {
+        return c.json(await explainAnswer(db, settings, c.req.valid("json")));
+      } catch (e) {
+        return refusing(c, e);
+      }
+    },
+  );
+  app.post(
+    "/api/learn/quiz/skip",
+    zValidator("json", z.object({ lesson: z.string().min(1), question: z.string().min(1).max(4000) })),
+    (c) => {
+      try {
+        skipQuestion(db, c.req.valid("json"));
+        return c.json({ ok: true });
       } catch (e) {
         return refusing(c, e);
       }

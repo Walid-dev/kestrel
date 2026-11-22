@@ -6,10 +6,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
-import { Grade } from "../../ai/quiz/shape.ts";
+import { explainPrompt } from "../../ai/quiz/prompt.ts";
+import { Explained, Grade } from "../../ai/quiz/shape.ts";
 import { migrate } from "../../db/migrate.ts";
 import { addLesson, addPack, setPackGroup } from "./lessons.ts";
-import { pickQuiz } from "./quiz.ts";
+import { keptExplanation, pickQuiz, skipQuestion } from "./quiz.ts";
 import { gradeLesson } from "./review.ts";
 
 const NOW = new Date("2026-11-22T12:00:00Z");
@@ -65,4 +66,34 @@ test("a mark reads tolerantly: an odd verdict is partly, one string is one line,
   assert.deepEqual(odd.correct, ["It pours."]);
   const code = Grade.parse({ verdict: "right", why: "Yes.", correct: ["Like this:", { code: "pour(tea)" }] });
   assert.deepEqual(code.correct, ["Like this:", { code: "pour(tea)" }]);
+});
+
+test("I don't know counts as a miss: that lesson comes back first next time", () => {
+  const db = setup();
+  skipQuestion(db, { lesson: "spout", question: "What does a spout do?" });
+  assert.equal(pickQuiz(db, { area: "learn", count: 10 }, new Date(), () => 0.5)[0].lesson, "spout");
+  assert.throws(() => skipQuestion(db, { lesson: "nope", question: "x" }), /no such lesson/);
+});
+
+test("an explanation is asked as a small lesson and kept by its question; an empty one doesn't read", () => {
+  const p = explainPrompt({
+    title: "Teapots",
+    question: "Why a spout?",
+    expected: "It pours.",
+    lesson: "A spout pours.",
+  });
+  for (const part of ["In one line", "Break it down", "Picture it", "In code", "Watch out", '"remember"'])
+    assert.ok(p.includes(part), part);
+  const db = setup();
+  assert.equal(keptExplanation(db, "spout", "Why a spout?"), null);
+  const body = { blocks: [{ type: "lines", lines: ["It pours."] }], remember: "Spouts pour." };
+  db.prepare("INSERT INTO quiz_explanations (lesson, question, body, model, at) VALUES (?, ?, ?, ?, ?)").run(
+    "spout",
+    "Why a spout?",
+    JSON.stringify(body),
+    "made-up-model",
+    "2026-11-22T12:00:00Z",
+  );
+  assert.deepEqual(keptExplanation(db, "spout", "Why a spout?"), body);
+  assert.equal(Explained.safeParse({ blocks: [], remember: "x" }).success, false);
 });

@@ -1,14 +1,27 @@
-// Research: I ask, the local model searches the web through the model door's own tools and writes the answer as a
-// lesson, kept. Quick: one search, three pages read. Deep: the model plans three or four more searches, six pages
-// read. One at a time, like the model itself; Live follows each step, and a restart marks an unfinished one failed.
+// Research: I ask anything, the local model searches the web through the model door's own tools and writes the answer
+// as a lesson, kept. Quick: one search, three pages read. Deep: the model plans three or four more searches, six pages
+// read. First, if it needs to, it asks me up to three questions. It writes for me: what I keep in About me and the files
+// in the context folder (both in the data folder, both read only on this computer, never put into a search). One at a
+// time, like the model itself; Live follows each step, and a restart marks an unfinished one failed.
 import { randomUUID } from "node:crypto";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { callModel } from "../ai/client.ts";
-import { type Level, planPrompt, RESEARCH_VERSION, type Read, reportPrompt, SYSTEM } from "../ai/research/prompt.ts";
-import { Plan, ResearchReport } from "../ai/research/shape.ts";
+import {
+  askPrompt,
+  type Level,
+  planPrompt,
+  RESEARCH_VERSION,
+  type Read,
+  reportPrompt,
+  SYSTEM,
+} from "../ai/research/prompt.ts";
+import { Plan, Questions, ResearchReport } from "../ai/research/shape.ts";
 import { fetchPage, type Hit, searchWeb } from "../ai/web.ts";
 import { begin } from "../platform/activity.ts";
 import type { Settings } from "../platform/config.ts";
+import { dataDir } from "../platform/paths.ts";
 import { recordCall } from "./calls.ts";
 import { modelFor } from "./models.ts";
 import { Refused } from "./notes/documents.ts";
@@ -31,9 +44,59 @@ export type ResearchRow = {
   finished: string | null;
   report: Kept | null;
   error: string;
+  answers: string;
 };
 
 let busy = false;
+
+// what Research knows about me: About me (one file I edit here) and the files I put in the context folder
+const home = () => join(dataDir(), "research");
+const CONTEXT_CHARS = 12_000;
+export function researchContext(): { about: string; files: { name: string; chars: number }[] } {
+  const about = existsSync(join(home(), "about-me.md")) ? readFileSync(join(home(), "about-me.md"), "utf8") : "";
+  const dir = join(home(), "context");
+  const files = existsSync(dir)
+    ? readdirSync(dir)
+        .filter((n) => /\.(md|txt)$/i.test(n))
+        .sort()
+        .slice(0, 20)
+        .map((name) => ({ name, chars: readFileSync(join(dir, name), "utf8").length }))
+    : [];
+  return { about, files };
+}
+export function saveAbout(text: string): void {
+  if (text.length > 20_000) throw new Refused("About me holds 20,000 characters at most");
+  mkdirSync(home(), { recursive: true });
+  const file = join(home(), "about-me.md");
+  writeFileSync(`${file}.tmp`, text);
+  renameSync(`${file}.tmp`, file);
+}
+// About me, then each context file under its name, cut to fit
+export function contextText(): string {
+  const { about, files } = researchContext();
+  const parts = [about.trim()];
+  for (const f of files) parts.push(`(${f.name})\n${readFileSync(join(home(), "context", f.name), "utf8").trim()}`);
+  return parts.filter(Boolean).join("\n\n").slice(0, CONTEXT_CHARS);
+}
+
+// before the research: up to three questions about me, when the answer depends on them; none when it doesn't
+export async function askFirst(db: DatabaseSync, settings: Settings, question: string): Promise<string[]> {
+  const q = question.trim();
+  if (!q) throw new Refused("ask something");
+  const model = modelFor(db, settings, "research-ask");
+  const effective = { ...settings.models, careful: model, fast: model };
+  const got = await callModel(
+    effective,
+    { model, system: SYSTEM, prompt: askPrompt(q, contextText()), maxTokens: 2000, thinking: true },
+    Questions,
+  );
+  recordCall(db, `research-ask:v${RESEARCH_VERSION}`, got);
+  if (!got.ok) return []; // no questions this time: the research goes on without them
+  return got.value.questions
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+}
 
 // the hits of every search, each link once, in the order found
 export function mergeHits(lists: Hit[][], perSearch: number): Hit[] {
@@ -43,20 +106,28 @@ export function mergeHits(lists: Hit[][], perSearch: number): Hit[] {
   return out;
 }
 
-export function startResearch(db: DatabaseSync, settings: Settings, input: { question: string; level: Level }): string {
+// my answers to its questions, as the prompts read them
+export const answersText = (answers: { q: string; a: string }[] = []) =>
+  answers
+    .filter((x) => x.a.trim())
+    .map((x) => `${x.q.trim()} ${x.a.trim()}`)
+    .join("\n");
+
+export function startResearch(
+  db: DatabaseSync,
+  settings: Settings,
+  input: { question: string; level: Level; answers?: { q: string; a: string }[] },
+): string {
   const question = input.question.trim();
   const level = input.level;
+  const answers = answersText(input.answers);
   if (!question) throw new Refused("ask something");
   if (question.length > 1000) throw new Refused("a question of 1,000 characters at most");
   if (busy) throw new Refused("a research is running: one at a time, like the model");
   const id = randomUUID();
-  db.prepare("INSERT INTO research (id, question, level, state, step, started) VALUES (?, ?, ?, 'running', ?, ?)").run(
-    id,
-    question,
-    level,
-    "Starting",
-    new Date().toISOString(),
-  );
+  db.prepare(
+    "INSERT INTO research (id, question, level, state, step, started, answers) VALUES (?, ?, ?, 'running', ?, ?, ?)",
+  ).run(id, question, level, "Starting", new Date().toISOString(), answers);
   busy = true;
   const live = begin("research", `Research: ${question}`.slice(0, 120), `/research?open=${id}`);
   const step = (s: string) => {
@@ -83,7 +154,7 @@ export function startResearch(db: DatabaseSync, settings: Settings, input: { que
         step("Planning the searches");
         const got = await callModel(
           effective,
-          { model, system: SYSTEM, prompt: planPrompt(question), maxTokens: 800, thinking: false },
+          { model, system: SYSTEM, prompt: planPrompt(question, answers), maxTokens: 800, thinking: false },
           Plan,
         );
         recordCall(db, `research-plan:v${RESEARCH_VERSION}`, got);
@@ -110,7 +181,7 @@ export function startResearch(db: DatabaseSync, settings: Settings, input: { que
         {
           model,
           system: SYSTEM,
-          prompt: reportPrompt(question, level, hits, pages),
+          prompt: reportPrompt(question, level, hits, pages, { about: contextText(), answers }),
           maxTokens: plan.maxTokens,
           thinking: true,
         },
@@ -143,6 +214,7 @@ const row = (r: Record<string, unknown>): ResearchRow => ({
   finished: r.finished == null ? null : String(r.finished),
   report: r.report ? (JSON.parse(String(r.report)) as Kept) : null,
   error: String(r.error),
+  answers: String(r.answers ?? ""),
 });
 
 export function listResearch(db: DatabaseSync, limit = 100) {
