@@ -108,11 +108,11 @@ function Days({ daily }: { daily: Report["daily"] }) {
                   {short(d.tokens)}
                 </text>
               )}
-              {i % 7 === 0 || i === daily.length - 1 ? (
+              {(i % 7 === 0 && i < daily.length - 4) || i === daily.length - 1 ? (
                 <text
-                  x={x + bar / 2}
+                  x={i === 0 ? 0 : i === daily.length - 1 ? W : x + bar / 2}
                   y={H + 16}
-                  textAnchor="middle"
+                  textAnchor={i === 0 ? "start" : i === daily.length - 1 ? "end" : "middle"}
                   fontSize="10.5"
                   fontFamily="var(--mono)"
                   style={{ fill: "var(--muted)" }}
