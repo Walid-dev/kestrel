@@ -16,6 +16,7 @@ const settings: Settings = {
   voice: { url: "http://127.0.0.1:1", name: "made-up" },
   profile: {},
   omlxHome: "",
+  apply: { folder: "", skill: "", pdf: "", check: "" },
   links: [],
 };
 
@@ -38,6 +39,9 @@ test("the settings answer until a pick is made; the pick wins and survives a reo
       ["notes-fast", "another-made-up"],
       ["learn-ask", "careful-model"], // the live eval moved Ask's fallback to the careful model
       ["search-deep", "careful-model"],
+      ["research", "careful-model"],
+      ["quiz", "careful-model"],
+      ["letter", "careful-model"],
     ],
   );
 });

@@ -19,6 +19,7 @@ import {
   setPackGroup,
 } from "../domain/learn/lessons.ts";
 import { bestAnswer } from "../domain/learn/match.ts";
+import { gradeAnswer, makeQuestion, pickQuiz } from "../domain/learn/quiz.ts";
 import { dueLessons, gradeLesson, lessonStates, neverGraded } from "../domain/learn/review.ts";
 import { Refused } from "../domain/notes/documents.ts";
 import { record } from "../platform/activity.ts";
@@ -97,6 +98,47 @@ export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
       try {
         const { lesson, question } = c.req.valid("json");
         return c.json(await askLesson(db, settings, lesson, question));
+      } catch (e) {
+        return refusing(c, e);
+      }
+    },
+  );
+  // the quiz: questions picked from the lessons, a question made for a lesson without one, an answer marked
+  app.get("/api/learn/quiz", (c) =>
+    c.json({
+      items: pickQuiz(
+        db,
+        {
+          area: area(c.req.query("area")) ?? "learn",
+          pack: c.req.query("pack") || undefined,
+          group: c.req.query("group") || undefined,
+          count: Number(c.req.query("count") ?? "10") || 10,
+        },
+        new Date(),
+      ),
+    }),
+  );
+  app.post("/api/learn/quiz/make", zValidator("json", z.object({ lesson: z.string().min(1) })), async (c) => {
+    try {
+      return c.json(await makeQuestion(db, settings, c.req.valid("json").lesson));
+    } catch (e) {
+      return refusing(c, e);
+    }
+  });
+  app.post(
+    "/api/learn/quiz/grade",
+    zValidator(
+      "json",
+      z.object({
+        lesson: z.string().min(1),
+        question: z.string().min(1).max(4000),
+        expected: z.string().max(8000),
+        answer: z.string().min(1).max(4000),
+      }),
+    ),
+    async (c) => {
+      try {
+        return c.json(await gradeAnswer(db, settings, c.req.valid("json")));
       } catch (e) {
         return refusing(c, e);
       }

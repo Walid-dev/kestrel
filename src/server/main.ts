@@ -16,9 +16,11 @@ import { mountCost } from "./cost.ts";
 import { mountEvents } from "./events.ts";
 import { identity } from "./identity.ts";
 import { mountLearn } from "./learn.ts";
+import { mountLetters } from "./letters.ts";
 import { mountLive } from "./live.ts";
 import { mountModels } from "./models.ts";
 import { mountNotes } from "./notes.ts";
+import { mountResearch } from "./research.ts";
 import { startScheduler } from "./scheduler.ts";
 import { mountSearch } from "./search.ts";
 import { mountTasks } from "./tasks.ts";
@@ -42,6 +44,8 @@ if (applied) console.log(`migrations: ${applied} applied${copy ? ", the database
 mountNotes(app, db, settings);
 mountModels(app, db, settings);
 mountLearn(app, db, settings);
+mountResearch(app, db, settings);
+mountLetters(app, db, settings);
 mountVoice(app, settings);
 // development gets one made-up pack, so Learn's screens have something honest to show
 if (!isDeployed() && (db.prepare("SELECT COUNT(*) AS n FROM packs").get() as { n: number }).n === 0) {

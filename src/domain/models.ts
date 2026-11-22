@@ -3,12 +3,15 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { Settings } from "../platform/config.ts";
 
-export type Use = "notes-careful" | "notes-fast" | "learn-ask" | "search-deep";
+export type Use = "notes-careful" | "notes-fast" | "learn-ask" | "search-deep" | "research" | "quiz" | "letter";
 export const USES: { use: Use; what: string }[] = [
   { use: "notes-careful", what: "Notes' careful asks: changes written with time to think" },
   { use: "notes-fast", what: "Notes' fast asks: changes in seconds" },
   { use: "learn-ask", what: "Learn's Ask: a question on the open lesson" },
   { use: "search-deep", what: "Searches' deep check: a longer look at one job or one deal" },
+  { use: "research", what: "Research: a question answered from the web, quick or deep" },
+  { use: "quiz", what: "Quiz: marking my answer to a lesson's question" },
+  { use: "letter", what: "Cover letters: a letter written the way an application writes it" },
 ];
 
 // learn-ask falls back to careful: the live eval (docs/eval/2026-11-21-learn-ask.md) showed the fast model

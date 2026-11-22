@@ -14,7 +14,10 @@ export type Kind =
   | "task"
   | "apply"
   | "notes"
-  | "listing";
+  | "listing"
+  | "research"
+  | "quiz"
+  | "letter";
 export type Activity = {
   id: string;
   kind: Kind;

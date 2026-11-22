@@ -24,6 +24,7 @@ function setup() {
     voice: { url: "http://127.0.0.1:1", name: "made-up" },
     profile: {},
     omlxHome: "",
+    apply: { folder: "", skill: "", pdf: "", check: "" },
     links: [],
   };
   return { base, inside, outside, db, settings };

@@ -42,6 +42,9 @@ const KIND: Record<string, [string, string]> = {
   apply: ["Application", "tone-orange"],
   notes: ["Notes", "tone-accent"],
   listing: ["Listing", "tone-purple"],
+  research: ["Research", "tone-yellow"],
+  quiz: ["Quiz", "tone-green"],
+  letter: ["Letter", "tone-orange"],
 };
 const FILTERS: [string, string][] = [
   ["", "Everything"],

@@ -1,5 +1,6 @@
 // The web, read from this computer through the model door's own tools: oMLX's search (DuckDuckGo, no account or key)
-// and its page fetch. Only a deep check uses them, with search words built from a listing, never from a profile.
+// and its page fetch. A deep check and Research use them, with search words from a listing or my question, never
+// from a profile.
 import type { ModelSettings } from "./client.ts";
 
 export type Hit = { title: string; url: string; snippet: string };

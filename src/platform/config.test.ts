@@ -27,6 +27,7 @@ test("a good settings file answers the settings, defaults filled", () => {
     profile: {},
     omlxHome: "",
     links: [],
+    apply: { folder: "", skill: "", pdf: "", check: "" },
   });
 });
 

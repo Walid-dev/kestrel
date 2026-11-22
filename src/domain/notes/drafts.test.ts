@@ -26,6 +26,7 @@ const settings = (url: string, contextChars = 100_000): Settings => ({
   voice: { url: "http://127.0.0.1:1", name: "made-up" },
   profile: {},
   omlxHome: "",
+  apply: { folder: "", skill: "", pdf: "", check: "" },
   links: [],
 });
 

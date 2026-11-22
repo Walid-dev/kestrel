@@ -67,6 +67,17 @@ export const Settings = z.object({
       }),
     )
     .default([]),
+  // the cover letter lab: the applications' folder (voice.md, stories.md, profile.md), the apply skill whose letter
+  // step it follows, and the applications' own two tools (the PDF's layout, the check). Empty: the lab says what's
+  // missing
+  apply: z
+    .object({
+      folder: z.string().default(""),
+      skill: z.string().default(""),
+      pdf: z.string().default(""),
+      check: z.string().default(""),
+    })
+    .default({ folder: "", skill: "", pdf: "", check: "" }),
   // who I am, for a deep check's read of a job: level, years, skills, a summary (personal: the data folder only)
   profile: z
     .object({
