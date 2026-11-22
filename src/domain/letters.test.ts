@@ -5,6 +5,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileS
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { LetterDraft } from "../ai/letter/shape.ts";
 import type { Settings } from "../platform/config.ts";
 import { dataDir } from "../platform/paths.ts";
 import { labMissing, letterPdf, letterStep, saveFile, tidy } from "./letters.ts";
@@ -70,4 +71,16 @@ test("a letter is tidied for the PDF tool; a try's PDF is found only under a rea
   );
   assert.equal(letterPdf("../../etc"), null);
   assert.equal(letterPdf("00000000-0000-0000-0000-000000000000"), null);
+});
+
+test("the letter comes as its paragraphs and is joined with a blank line between them; one string still reads", () => {
+  const d = LetterDraft.parse({
+    needs: "Pouring tea",
+    stories: ["The teapot story"],
+    letter: ["Dear team,", "  I pour tea well, every morning, for twelve years.  ", "", "Best,", "A. Person"],
+  });
+  assert.equal(d.letter, "Dear team,\n\nI pour tea well, every morning, for twelve years.\n\nBest,\n\nA. Person");
+  assert.deepEqual(d.needs, ["Pouring tea"]);
+  const one = LetterDraft.parse({ letter: "Dear team,\n\nI pour tea well, every morning, for twelve years." });
+  assert.match(one.letter, /^Dear team,/);
 });

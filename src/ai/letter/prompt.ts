@@ -40,7 +40,8 @@ export function letterPrompt(i: LetterInput): string {
     "",
     "Write letter.txt as the step says: the greeting, the paragraphs, the close and my name, a blank line between",
     "paragraphs; no HTML, letterhead or date. First name the job's two or three main needs and the story for each.",
-    'Answer: {"needs": ["<a need>"], "stories": ["<the story used for it>"], "letter": "<the whole letter, a blank line between paragraphs>"}',
+    "Give the letter as its paragraphs in order, one string each: the greeting, each paragraph, the close, my name.",
+    'Answer: {"needs": ["<a need>"], "stories": ["<the story used for it>"], "letter": ["<the greeting>", "<a paragraph>", "...", "<the close>", "<my name>"]}',
   ].join("\n");
 }
 
@@ -56,6 +57,6 @@ export function fixPrompt(i: LetterInput, letter: string, findings: string): str
     "",
     "Fix exactly what it names: take out or correct each fact my files don't back, rewrite each copied phrase in",
     "new words, replace dashes used as punctuation. Change nothing else.",
-    'Answer: {"letter": "<the fixed letter, a blank line between paragraphs>"}',
+    'Answer: {"letter": ["<the greeting>", "<a paragraph>", "...", "<the close>", "<my name>"]} (the fixed letter, its paragraphs in order)',
   ].join("\n");
 }

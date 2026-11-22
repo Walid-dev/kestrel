@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { z } from "zod";
-import { callModel } from "./client.ts";
+import { callModel, escapeRawBreaks } from "./client.ts";
 import { startStandIn } from "./stand-in.ts";
 
 const Shape = z.object({ answer: z.string() });
@@ -25,6 +25,15 @@ test("an answer in the wrong shape fails with the field named", async () => {
   await s.close();
   assert.ok(!got.ok && got.why === "shape");
   assert.match(got.detail, /answer/);
+});
+
+test("raw line breaks inside a string are repaired before the parse gives up; outside strings nothing moves", async () => {
+  const s = await startStandIn(() => ({ content: '{"answer": "Dear team,\n\nHello and \\"thanks\\".\tBest"}' }));
+  const got = await callModel(settings(s.url), ask, Shape);
+  await s.close();
+  assert.ok(got.ok);
+  assert.equal(got.value.answer, 'Dear team,\n\nHello and "thanks".\tBest');
+  assert.equal(escapeRawBreaks('{\n "a": "x\ty",\n "b": 1\n}'), '{\n "a": "x\\ty",\n "b": 1\n}');
 });
 
 test("a model that runs out of room while thinking says so, so the budget gets raised", async () => {

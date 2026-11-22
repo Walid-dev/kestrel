@@ -109,17 +109,22 @@ export async function callModel<T>(settings: ModelSettings, call: Call, shape: z
         : "the model answered nothing",
     );
   let raw: unknown;
+  const object = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
   try {
     raw = JSON.parse(text.trim());
   } catch {
     try {
-      raw = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+      raw = JSON.parse(object);
     } catch {
-      // the detail never carries the answer's words: a record of calls stays free of document content
-      return fail(
-        "shape",
-        `not JSON: the answer starts with ${JSON.stringify(text.trim().slice(0, 1))} and has ${text.length} characters`,
-      );
+      try {
+        raw = JSON.parse(escapeRawBreaks(object));
+      } catch {
+        // the detail never carries the answer's words: a record of calls stays free of document content
+        return fail(
+          "shape",
+          `not JSON: the answer starts with ${JSON.stringify(text.trim().slice(0, 1))} and has ${text.length} characters`,
+        );
+      }
     }
   }
   // some models wrap the one object in a one-element array: unwrap it, the shape still judges
@@ -128,4 +133,28 @@ export async function callModel<T>(settings: ModelSettings, call: Call, shape: z
   if (!read.success)
     return fail("shape", read.error.issues.map((i) => `${i.path.join(".") || "answer"}: ${i.message}`).join("; "));
   return { ok: true, value: read.data, ms: ms(), model: call.model, tokensIn, tokensOut };
+}
+
+// a long text in a JSON string often comes with its line breaks raw, which JSON forbids (the first live letter came
+// back that way): inside strings only, they are escaped before the parse gives up. Outside strings nothing changes.
+export function escapeRawBreaks(s: string): string {
+  let out = "";
+  let inString = false;
+  let escaped = false;
+  for (const ch of s) {
+    if (!inString) {
+      if (ch === '"') inString = true;
+      out += ch;
+    } else if (escaped) {
+      escaped = false;
+      out += ch;
+    } else if (ch === "\\") {
+      escaped = true;
+      out += ch;
+    } else if (ch === '"') {
+      inString = false;
+      out += ch;
+    } else out += ch === "\n" ? "\\n" : ch === "\r" ? "\\r" : ch === "\t" ? "\\t" : ch;
+  }
+  return out;
 }
