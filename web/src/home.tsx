@@ -63,7 +63,7 @@ const APPS: { name: string; what: string; when: string; to: string | null; color
   },
   {
     name: "Searches",
-    what: "Saved searches that run on their own: jobs first, deals later.",
+    what: "Job and deal hunts that run on their own, each listing whole, deep checks on a tap.",
     when: "v0.2",
     to: "/searches",
     color: "var(--purple)",

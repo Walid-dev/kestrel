@@ -32,20 +32,32 @@ test("what waits is counted: the fresh great match, the open task, the ungraded 
   ).run(NOW.toISOString(), NOW.toISOString());
   addTask(db, "mend the fence");
   const pack = addPack(db, "A made-up pack");
-  addLesson(db, pack, "Smoke first", { check: [{ q: "When?", a: "Before opening." }] }, 1);
+  const l = addLesson(db, pack, "Smoke first", { check: [{ q: "When?", a: "Before opening." }] }, 1);
+  addLesson(db, pack, "Never opened", { check: [{ q: "Why?", a: "Because." }] }, 2); // unread is not "to review"
+  db.prepare("INSERT INTO reviews (lesson, due, interval_days, ease, level) VALUES (?, ?, 1, 2.5, 1)").run(
+    l.id,
+    "2026-11-20T12:00:00Z",
+  );
   const lines = morningBrief(db, NOW);
   assert.deepEqual(lines, [
     "1 great match arrived since yesterday.",
     "The Priority list holds 1.",
-    "1 lesson is due to practice.",
+    "1 lesson is up for review today.",
     "1 task stays open.",
   ]);
 });
 
-test("the brief counts every due lesson, not the practice queue's first page (sweep)", () => {
+test("the brief counts every lesson up for review, past the practice queue's first page; Interview prep apart (sweep)", () => {
   const db = setup();
   const pack = addPack(db, "A made-up pack");
-  for (let i = 0; i < 25; i++) addLesson(db, pack, `Lesson ${i}`, { check: [{ q: "When?", a: "Now." }] }, i, `l-${i}`);
+  const other = addPack(db, "Made-up answers", "answer-pack"); // Interview prep: not Learn's review
+  const put = db.prepare("INSERT INTO reviews (lesson, due, interval_days, ease, level) VALUES (?, ?, 1, 2.5, 1)");
+  for (let i = 0; i < 25; i++) {
+    const l = addLesson(db, pack, `Lesson ${i}`, { check: [{ q: "When?", a: "Now." }] }, i, `l-${i}`);
+    put.run(l.id, "2026-11-20T12:00:00Z");
+  }
+  const a = addLesson(db, other, "An answer", { say: ["Yes."] }, 1, "a-1");
+  put.run(a.id, "2026-11-20T12:00:00Z");
   const lines = morningBrief(db, NOW);
-  assert.ok(lines.includes("25 lessons are due to practice."), lines.join(" | "));
+  assert.ok(lines.includes("25 lessons are up for review today."), lines.join(" | "));
 });

@@ -5,6 +5,28 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-22 · Port the old pages' strengths, not just their features.**
+  The first pass built thin screens; the second ports what v1 already does well, checked against its own pages:
+  Learn takes the old Learn's method (review from memory, Say it, Record me, the 1-1-3-7-16-35 ladder) and the
+  guides' pages (a topic per lesson with its blocks and hand-placed diagrams); Searches takes the hunt page (tabs,
+  stages with counts, cards with the pay or price pill, the match bar, the model's read, the whole listing on a
+  tap); Live and Cost come over whole. Rejected: inventing new layouts where v1's were already settled by use.
+
+- **2026-11-22 · Packs live in an area: Learn or Interview prep.**
+  Learn is for learning; work-specific content (the work topic, the answer files for jobs and projects) starts in
+  Interview prep, with the interview helper. One column and one tap move a pack either way, so where work content
+  finally lives stays my call. Rejected: deleting or splitting the content — the move is reversible.
+
+- **2026-11-22 · The import reads v1's owner column.**
+  v1 keeps my own marks apart from the listing: stars, notes, and every application attempt. The import now carries
+  them (193 attempts into Applications, the employer from `company`, the model's read, 42 deep checks), and a deal
+  spec's head (hunt, model) groups the deals; a retired spec joins the only deal hunt. Deep checks run here as in
+  v1: oMLX's own fetch and search, then the careful model, with a Models-screen use to pick it.
+
+- **2026-11-22 · The computer's voice and ears are one local server.**
+  Listen speaks with the Kokoro server v1 already runs (cached in the data folder), and the interview helper hears
+  with its Parakeet; both doors must be loopback, like the model door. The device's voice is the fallback.
+
 - **2026-11-21 · The v0.4+v0.5 sweep: one agent round, the rest triaged by hand.**
   The sweep's finders confirmed one serious miss — imported lesson ids hold slashes, so no imported lesson could
   open — plus a dozen honesty gaps (raw 500s for missing things, calm empty states over failed loads, a hot mic

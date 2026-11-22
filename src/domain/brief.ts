@@ -23,14 +23,14 @@ export function morningBrief(db: DatabaseSync, now: Date): string[] {
   if (needsMe) lines.push(`${needsMe} application${needsMe === 1 ? " waits" : "s wait"} on me.`);
   const queued = count(db, "SELECT COUNT(*) AS n FROM applications WHERE state = 'queued'");
   if (queued) lines.push(`${queued} ${queued === 1 ? "is" : "are"} queued to apply.`);
-  const due =
-    count(db, "SELECT COUNT(*) AS n FROM reviews WHERE due <= ?", now.toISOString()) +
-    count(
-      db,
-      `SELECT COUNT(*) AS n FROM lessons l LEFT JOIN reviews r ON r.lesson = l.id
-       WHERE r.lesson IS NULL AND l.body LIKE '%"check":[{%'`,
-    );
-  if (due) lines.push(`${due} lesson${due === 1 ? " is" : "s are"} due to practice.`);
+  // like the old Learn's "to review today": lessons in Learn whose review date has come, not every unread one
+  const due = count(
+    db,
+    `SELECT COUNT(*) AS n FROM reviews r JOIN lessons l ON l.id = r.lesson JOIN packs p ON p.id = l.pack
+     WHERE r.due <= ? AND p.area = 'learn'`,
+    now.toISOString(),
+  );
+  if (due) lines.push(`${due} lesson${due === 1 ? " is" : "s are"} up for review today.`);
   const tasks = count(db, "SELECT COUNT(*) AS n FROM tasks WHERE done = 0");
   if (tasks) lines.push(`${tasks} task${tasks === 1 ? " stays" : "s stay"} open.`);
   if (lines.length === 0) lines.push("Nothing waits. A quiet morning.");
