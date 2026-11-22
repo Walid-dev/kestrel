@@ -204,6 +204,19 @@ function importDeals(db: DatabaseSync, old: DatabaseSync, write: boolean, opts: 
     // no history table: each deal shows its one price
   }
   const heads = specHeads(opts.specsDir);
+  // each search's last good run: an undated ad it no longer found then is no longer listed (the old page's rule)
+  const lastOk = new Map<string, string>();
+  try {
+    for (const r of old
+      .prepare("SELECT spec, MAX(started) AS at FROM runs WHERE status = 'ok' GROUP BY spec")
+      .all() as {
+      spec: string;
+      at: string;
+    }[])
+      lastOk.set(r.spec, r.at);
+  } catch {
+    // no runs table: no listing is judged gone
+  }
   // a spec whose file is gone (an old model no longer hunted) joins the only deal hunt there is, when there is one;
   // its model is its name before the site ("embody-kijiji" → Embody)
   const onlyHunt = new Set([...heads.values()].map((h) => h.hunt).filter(Boolean));
@@ -235,9 +248,14 @@ function importDeals(db: DatabaseSync, old: DatabaseSync, write: boolean, opts: 
       ? "from a search you removed"
       : r.price != null && ((known.min != null && r.price < known.min) || (known.max != null && r.price > known.max))
         ? "outside your price limits"
-        : known.maxAge != null && age > known.maxAge
+        : known.maxAge != null && r.posted && age > known.maxAge
           ? `posted more than ${known.maxAge} days ago`
-          : null;
+          : known.maxAge != null &&
+              !r.posted &&
+              lastOk.has(r.spec) &&
+              String(r.last_seen ?? "") < String(lastOk.get(r.spec))
+            ? "no longer listed"
+            : null;
     const data = JSON.stringify({
       kind: "deals",
       source: r.source,
