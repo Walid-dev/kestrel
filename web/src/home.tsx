@@ -107,8 +107,6 @@ export function Home() {
       return (await res.json()) as { links: { name: string; what: string; desktop: string; phone?: string }[] };
     },
   });
-  // on a phone the chats open through the private network's name; on this computer, its own door
-  const coarse = typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches;
   const brief = useQuery({
     queryKey: ["brief"],
     queryFn: async () => {
@@ -182,24 +180,18 @@ export function Home() {
           </Link>
         );
       })}
-      {(links.data?.links ?? []).map((l) => (
-        <a
-          key={l.name}
-          href={coarse && l.phone ? l.phone : l.desktop}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="card card-link flex items-center gap-3"
-        >
+      {(links.data?.links ?? []).slice(0, 1).map((l) => (
+        <Link key={l.name} to="/chats" className="card card-link flex items-center gap-3">
           <span style={{ color: "var(--accent)" }}>
             <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
               <path d="M4.5 5.5h15v10h-9L6 19v-3.5H4.5z" />
             </svg>
           </span>
           <span className="font-cond text-lg font-bold">{l.name}</span>
-          <span className="ml-auto text-sm" style={{ color: "var(--muted)" }}>
-            {l.what} ↗
+          <span className="ml-auto truncate text-sm" style={{ color: "var(--muted)" }}>
+            the agent, in its own app
           </span>
-        </a>
+        </Link>
       ))}
       <Link to="/cost" className="card card-link flex items-center gap-3">
         <span style={{ color: "var(--yellow)" }}>
@@ -209,8 +201,8 @@ export function Home() {
           </svg>
         </span>
         <span className="font-cond text-lg font-bold">Cost</span>
-        <span className="ml-auto text-sm" style={{ color: "var(--muted)" }}>
-          what the models did, and what the cloud would have charged
+        <span className="ml-auto truncate text-sm" style={{ color: "var(--muted)" }}>
+          what the models cost
         </span>
       </Link>
       <Link

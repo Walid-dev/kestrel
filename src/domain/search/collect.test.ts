@@ -39,3 +39,20 @@ test("garbage, a missing script and a hang each name their problem", async () =>
   const hang = await runCollector(script("slow.mjs", `setTimeout(() => {}, 60000);`), [], { timeoutMs: 500 });
   assert.match(hang.problem, /stopped/);
 });
+
+test("a site that throttles is named, not mistaken for an empty page (429)", async () => {
+  const none = script(
+    "throttled.mjs",
+    `console.error("ERROR:made-up.board:response status code 429"); console.log("[]");`,
+  );
+  const got = await runCollector(none, []);
+  assert.deepEqual(got.items, []);
+  assert.match(got.problem, /throttling searches from this computer \(429\)/);
+  const some = script(
+    "partly.mjs",
+    `console.error("response status code 429 (blocked)"); console.log(JSON.stringify([{ source: "made-up-board", url: "https://example.com/2", title: "Made-up Keeper" }]));`,
+  );
+  const part = await runCollector(some, []);
+  assert.equal(part.items.length, 1);
+  assert.match(part.problem, /throttled part of the search/);
+});

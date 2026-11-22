@@ -26,11 +26,12 @@ function Section({ title, items, tone }: { title: string; items: string[]; tone?
       <span className="eyebrow" style={tone ? { color: `var(--${tone})` } : undefined}>
         {title}
       </span>
-      <ul className="m-0 grid gap-1 pl-5 text-[14.5px] leading-relaxed">
-        {items.map((x) => (
-          <li key={x}>{x}</li>
-        ))}
-      </ul>
+      {/* flush left: each point starts at the edge, no indent, so the width goes to the words */}
+      {items.map((x) => (
+        <p key={x} className="m-0 text-[14.5px] leading-relaxed">
+          <span style={{ color: tone ? `var(--${tone})` : "var(--muted)" }}>•</span> {x}
+        </p>
+      ))}
     </div>
   );
 }
@@ -120,6 +121,13 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
   const [note, setNote] = useState<string | null>(null);
   useEffect(() => {
     dialog.current?.showModal();
+    // while the listing is open, only the listing scrolls: the page behind stays where it was
+    const page = document.documentElement;
+    const before = page.style.overflow;
+    page.style.overflow = "hidden";
+    return () => {
+      page.style.overflow = before;
+    };
   }, []);
   const full = useQuery({
     queryKey: ["listing", id],
@@ -178,7 +186,7 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
       onClick={(e) => {
         if (e.target === dialog.current) dialog.current?.close();
       }}
-      className="m-auto max-h-[90dvh] w-[min(96vw,820px)] overflow-y-auto rounded-2xl border p-0 backdrop:bg-black/60"
+      className="m-auto max-h-[92dvh] w-[min(96vw,900px)] overflow-y-auto overscroll-contain rounded-2xl border p-0 backdrop:bg-black/60"
       style={{ borderColor: "var(--line)", background: "var(--bg)", color: "var(--text)" }}
     >
       {!l ? (
@@ -186,7 +194,7 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
           {why ? String((why.error as Error).message) : "Opening…"}
         </p>
       ) : (
-        <div className="grid gap-4 p-5 md:p-6">
+        <div className="grid gap-3 p-4 md:p-5">
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
               <span className="eyebrow">

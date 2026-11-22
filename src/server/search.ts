@@ -22,6 +22,7 @@ import {
 } from "../domain/search/listings.ts";
 import { lastRun, runSearch } from "../domain/search/runs.ts";
 import { loadSpecs } from "../domain/search/specs.ts";
+import { record } from "../platform/activity.ts";
 import type { Settings } from "../platform/config.ts";
 import { dataDir } from "../platform/paths.ts";
 
@@ -47,6 +48,7 @@ const filtersOf = (q: Record<string, string>): ListingFilters => ({
   search: q.search || undefined,
   group: q.group || undefined,
   priority: q.priority === "1",
+  stage: q.stage || undefined,
   q: q.q || undefined,
   sort: q.sort === "newest" || q.sort === "money" || q.sort === "best" ? q.sort : undefined,
 });
@@ -172,7 +174,26 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
     (c) => {
       try {
         const body = c.req.valid("json");
-        if (body.status) setListingStatus(db, c.req.param("id"), body.status);
+        if (body.status) {
+          setListingStatus(db, c.req.param("id"), body.status);
+          const l = getListing(db, c.req.param("id"));
+          const word: Record<string, string> = {
+            interested: "Interested",
+            passed: l?.kind === "deals" ? "Not interested" : "Not for me",
+            maybe: "Not sure",
+            applied: l?.kind === "deals" ? "Contacted" : "Applied",
+            interviewing: "Interviewing",
+            rejected: "Rejected",
+            fake: "Not real",
+            closed: l?.kind === "deals" ? "Sold" : "Closed",
+            new: "Back to review",
+          };
+          record(
+            "listing",
+            `${word[body.status] ?? body.status}: ${String(l?.data.title ?? "a listing")}`,
+            `/searches?open=${encodeURIComponent(c.req.param("id"))}`,
+          );
+        }
         if ("starred" in body) setListingStar(db, c.req.param("id"), body.starred ?? null);
         if (body.note !== undefined) setListingNote(db, c.req.param("id"), body.note);
         return c.json({ ok: true });

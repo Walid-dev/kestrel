@@ -1,10 +1,11 @@
 // Searches, the old hunt pages' layout: the hunts as tabs (jobs and deals); the masthead with the hunt's name, Search
-// now and what it looks for; the stages with their counts; search, source and sort; the match pills and the groups;
-// then the cards. A card opens the whole listing; a deal card's stages are one tap.
+// now and what it looks for; one filter panel — the search box on top, then the stage, the match, the role or model,
+// the source and the order as dropdowns with their counts, folding away when not wanted; then the cards. A card swipes
+// right for Interested and left for Not for me, has the same buttons under it, and opens the whole listing on a tap.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useSearchParams } from "react-router";
-import { ago, DEAL, DealCard, JobCard, type Listing, MATCH, STAGES } from "./cards.tsx";
+import { ago, DEAL, DealCard, JobCard, type Listing, MATCH, Swipe } from "./cards.tsx";
 import { ListingSheet } from "./sheet.tsx";
 
 type Run = { started: string; found: number; kept: number; problem: string } | null;
@@ -20,30 +21,71 @@ type Hunt = {
   mirrored: boolean;
 };
 type Counts = {
-  status: Record<string, number>;
-  priority: number;
-  all: number;
+  stages: Record<string, number>;
   match: Record<string, number>;
   group: Record<string, number>;
   source: Record<string, number>;
 };
 
+// the stages the page offers, in the old page's order (offers and closed jobs stay under All)
+const STAGE_LIST: Record<"jobs" | "deals", [string, string][]> = {
+  jobs: [
+    ["priority", "★ Priority"],
+    ["review", "To review"],
+    ["possible", "Possible"],
+    ["interested", "Interested"],
+    ["maybe", "Not sure"],
+    ["applied", "Applied"],
+    ["interviewing", "Interviewing"],
+    ["rejected", "Rejected"],
+    ["fake", "Not real"],
+    ["passed", "Not for me"],
+    ["all", "All"],
+    ["leftout", "Left out by the rules"],
+  ],
+  deals: [
+    ["new", "To review"],
+    ["interested", "Interested"],
+    ["maybe", "Not sure"],
+    ["applied", "Contacted"],
+    ["passed", "Not interested"],
+    ["closed", "Sold"],
+    ["all", "All"],
+    ["leftout", "Hidden by the rules"],
+  ],
+};
 const PAGE = 120;
+const FOLD = "kestrel-search-filters";
 const at = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
 
 export function Searches() {
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
-  // ?open=<id> opens a listing straight away: Live and the deep-check links land on the listing itself
+  // ?open=<id> opens a listing straight away: Live and the activity links land on the listing itself
   const [open, setOpen] = useState<string | null>(() => new URLSearchParams(location.search).get("open"));
   const [limit, setLimit] = useState(PAGE);
-  const [moreGroups, setMoreGroups] = useState(false);
+  const [shown, setShown] = useState(() => {
+    try {
+      return localStorage.getItem(FOLD) !== "folded";
+    } catch {
+      return true;
+    }
+  });
+  const fold = (v: boolean) => {
+    setShown(v);
+    try {
+      localStorage.setItem(FOLD, v ? "open" : "folded");
+    } catch {
+      // storage off: the panel opens each visit
+    }
+  };
   const set = (k: string, v: string) => {
     const next = new URLSearchParams(params);
     if (v) next.set(k, v);
     else next.delete(k);
     if (k === "hunt") for (const x of ["stage", "match", "group", "source", "q"]) next.delete(x);
+    next.delete("open");
     setParams(next, { replace: true });
     setLimit(PAGE);
   };
@@ -73,14 +115,11 @@ export function Searches() {
   if (source) base.set("source", source);
   if (group) base.set("group", group);
   if (kind === "jobs" && match) base.set("match", match);
-  const filtered = new URLSearchParams(base);
-  if (stage === "priority") filtered.set("priority", "1");
-  else if (stage !== "all") filtered.set("status", stage);
+  const counted = new URLSearchParams(base);
+  counted.set("stage", stage);
+  const filtered = new URLSearchParams(counted);
   filtered.set("sort", sort);
 
-  const counted = new URLSearchParams(base);
-  if (stage === "priority") counted.set("priority", "1");
-  else if (stage !== "all") counted.set("status", stage);
   const counts = useQuery({
     queryKey: ["search-counts", counted.toString()],
     queryFn: async () => {
@@ -115,6 +154,17 @@ export function Searches() {
     },
     onSettled: refresh,
   });
+  const queue = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch("/api/apply/queue", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ listing: id }),
+      });
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
+    },
+    onSettled: refresh,
+  });
   const runNow = useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/search/run/${encodeURIComponent(id)}`, { method: "POST" });
@@ -126,19 +176,20 @@ export function Searches() {
     },
   });
 
-  // a deal's tier is reckoned from the usual price, so its pills count the loaded cards
+  // a deal's tier is reckoned from the usual price, so its menu counts the loaded cards
   const rows = (listings.data?.listings ?? []).filter((l) => kind === "jobs" || !match || l.deal?.tier === match);
   const tiers: Record<string, number> = {};
   for (const l of listings.data?.listings ?? []) if (l.deal) tiers[l.deal.tier] = (tiers[l.deal.tier] ?? 0) + 1;
   const c = counts.data;
-  const failed = [hunts, counts, listings, act, runNow].find((x) => x.isError);
+  const failed = [hunts, counts, listings, act, queue, runNow].find((x) => x.isError);
   const spec = hunt?.specs.find((s) => s.enabled);
   const sources = Object.entries(c?.source ?? {}).sort((a, b) => b[1] - a[1]);
-  const groupsAll = Object.entries(c?.group ?? {})
+  const groups = Object.entries(c?.group ?? {})
     .filter(([g]) => g)
     .sort((a, b) => b[1] - a[1]);
-  // the main groups only, as the old page showed them; the long tail waits behind "more"
-  const groups = moreGroups ? groupsAll : groupsAll.filter(([g, n], i) => i < 10 && (n > 1 || g === group));
+  const active = [match, group, source].filter(Boolean).length + (sort !== "best" ? 1 : 0);
+  const stageName = STAGE_LIST[kind].find(([s]) => s === stage)?.[1] ?? stage;
+  const status = (l: Listing, s: string) => act.mutate({ id: l.id, body: { status: s } });
 
   return (
     <main className="grid gap-5">
@@ -173,7 +224,7 @@ export function Searches() {
             )}
           </div>
           {(hunt.about || kind === "deals") && (
-            <p className="m-0 max-w-3xl text-[16px]" style={{ color: "var(--muted)" }}>
+            <p className="m-0 max-w-4xl text-[16px]" style={{ color: "var(--muted)" }}>
               {hunt.about || (groups.length ? `${groups.length} models: ${groups.map(([g]) => g).join(", ")}.` : "")}
             </p>
           )}
@@ -203,113 +254,90 @@ export function Searches() {
         </header>
       )}
 
-      <div className="grid gap-3 pt-4" style={{ borderTop: "1px solid var(--line)" }}>
-        <div className="flex flex-wrap gap-2">
-          {kind === "jobs" && (
-            <button
-              type="button"
-              className="pill"
-              aria-pressed={stage === "priority"}
-              onClick={() => set("stage", "priority")}
-            >
-              <span style={{ color: "var(--yellow)" }}>★</span> Priority <b>{c?.priority ?? "·"}</b>
-            </button>
-          )}
-          {STAGES[kind].map((s) => (
-            <button
-              key={s.status}
-              type="button"
-              className={`pill ${s.tone}`}
-              aria-pressed={stage === s.status}
-              onClick={() => set("stage", s.status)}
-            >
-              <span className="dot" /> {s.label} <b>{c?.status[s.status] ?? 0}</b>
-            </button>
-          ))}
-          <button type="button" className="pill" aria-pressed={stage === "all"} onClick={() => set("stage", "all")}>
-            All <b>{c?.all ?? "·"}</b>
-          </button>
-        </div>
-        <div className="grid gap-2 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+      <section className="card grid gap-3 !p-3">
+        <div className="flex gap-2">
           <input
             type="search"
-            className="btn"
+            className="btn min-w-0 flex-1"
             placeholder={kind === "jobs" ? "Search title, company, location or note" : "Search title, area or note"}
             value={q}
             onChange={(e) => set("q", e.target.value)}
           />
-          <select className="btn" value={source} onChange={(e) => set("source", e.target.value)} aria-label="Source">
-            <option value="">All sources</option>
-            {sources.map(([s, n]) => (
-              <option key={s} value={s}>
-                {s.replaceAll("-", " ")} ({n})
-              </option>
-            ))}
-          </select>
-          <select className="btn" value={sort} onChange={(e) => set("sort", e.target.value)} aria-label="Sort">
-            <option value="best">{kind === "jobs" ? "Best matches first" : "Best deals first"}</option>
-            <option value="newest">Newest first</option>
-            <option value="money">{kind === "jobs" ? "Highest pay first" : "Lowest price first"}</option>
-          </select>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className="pill" aria-pressed={!match} onClick={() => set("match", "")}>
-            {kind === "jobs" ? "Match" : "Deal"}{" "}
-            <b>
-              {kind === "jobs"
-                ? Object.values(c?.match ?? {}).reduce((a, b) => a + b, 0)
-                : (listings.data?.listings.length ?? 0)}
-            </b>
+          <button type="button" className="btn shrink-0" aria-expanded={shown} onClick={() => fold(!shown)}>
+            {shown ? "Hide filters" : `Filters${active ? ` · ${active}` : ""}`}
           </button>
-          {(kind === "jobs"
-            ? (["great", "good", "weak", "poor"] as const).map((m) => ({
-                k: m,
-                ...MATCH[m],
-                n: c?.match[m] ?? 0,
-                label: { great: "Great 80+", good: "Good 60–79", weak: "Possible 40–59", poor: "Weak under 40" }[m],
-              }))
-            : (["great", "good", "fair", "over"] as const).map((m) => ({ k: m, ...DEAL[m], n: tiers[m] ?? 0 }))
-          ).map((m) => (
-            <button
-              key={m.k}
-              type="button"
-              className={`pill ${m.tone}`}
-              aria-pressed={match === m.k}
-              onClick={() => set("match", match === m.k ? "" : m.k)}
-            >
-              <span className="dot" /> {m.label} <b>{m.n}</b>
-            </button>
-          ))}
-          {kind === "deals" && (
-            <span className="text-[13px]" style={{ color: "var(--muted)" }}>
-              The bar on each card shows where the price sits against the usual price.
-            </span>
-          )}
         </div>
-        {groups.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className="pill" aria-pressed={!group} onClick={() => set("group", "")}>
-              {kind === "jobs" ? "Role" : "Model"} <b>{groupsAll.reduce((a, [, n]) => a + n, 0)}</b>
-            </button>
-            {groups.map(([g, n]) => (
-              <button
-                key={g}
-                type="button"
-                className="pill"
-                aria-pressed={group === g}
-                onClick={() => set("group", group === g ? "" : g)}
-              >
-                {g} <b>{n}</b>
-              </button>
-            ))}
-            {groupsAll.length > groups.length && (
-              <button type="button" className="pill" onClick={() => setMoreGroups(true)}>
-                +{groupsAll.length - groups.length} more
-              </button>
-            )}
+        {shown && (
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
+            <select className="btn" value={stage} onChange={(e) => set("stage", e.target.value)} aria-label="Stage">
+              {STAGE_LIST[kind].map(([s, label]) => (
+                <option key={s} value={s}>
+                  {label} ({c?.stages[s] ?? 0})
+                </option>
+              ))}
+            </select>
+            <select className="btn" value={match} onChange={(e) => set("match", e.target.value)} aria-label="Match">
+              {kind === "jobs" ? (
+                <>
+                  <option value="">Any match</option>
+                  {(["great", "good", "weak", "poor"] as const).map((m) => (
+                    <option key={m} value={m}>
+                      {{ great: "Great 80+", good: "Good 60–79", weak: "Possible 40–59", poor: "Weak under 40" }[m]} (
+                      {c?.match[m] ?? 0})
+                    </option>
+                  ))}
+                </>
+              ) : (
+                <>
+                  <option value="">Any price</option>
+                  {(["great", "good", "fair", "over"] as const).map((m) => (
+                    <option key={m} value={m}>
+                      {DEAL[m].label} ({tiers[m] ?? 0})
+                    </option>
+                  ))}
+                </>
+              )}
+            </select>
+            <select className="btn" value={group} onChange={(e) => set("group", e.target.value)} aria-label="Group">
+              <option value="">{kind === "jobs" ? "Every role" : "Every model"}</option>
+              {groups.map(([g, n]) => (
+                <option key={g} value={g}>
+                  {g} ({n})
+                </option>
+              ))}
+            </select>
+            <select className="btn" value={source} onChange={(e) => set("source", e.target.value)} aria-label="Source">
+              <option value="">All sources</option>
+              {sources.map(([s, n]) => (
+                <option key={s} value={s}>
+                  {s.replaceAll("-", " ")} ({n})
+                </option>
+              ))}
+            </select>
+            <select className="btn" value={sort} onChange={(e) => set("sort", e.target.value)} aria-label="Sort">
+              <option value="best">{kind === "jobs" ? "Best matches first" : "Best deals first"}</option>
+              <option value="newest">Newest first</option>
+              <option value="money">{kind === "jobs" ? "Highest pay first" : "Lowest price first"}</option>
+            </select>
           </div>
         )}
-      </div>
+        <p className="m-0 flex flex-wrap items-baseline gap-x-3 text-[13px]" style={{ color: "var(--muted)" }}>
+          <span>
+            <b style={{ color: "var(--strong)" }}>{stageName}</b> · {c?.stages[stage] ?? "…"}
+            {match && kind === "jobs" ? ` · ${MATCH[match]?.label ?? match}` : ""}
+            {match && kind === "deals" ? ` · ${DEAL[match]?.label ?? match}` : ""}
+            {group ? ` · ${group}` : ""}
+            {source ? ` · ${source.replaceAll("-", " ")}` : ""}
+          </span>
+          {stage === "leftout" ? (
+            <span>The rules set these aside: a weak match, pay far below the floor, a removed search, an old ad.</span>
+          ) : (
+            <span>
+              Swipe a card right for Interested, left for {kind === "jobs" ? "Not for me" : "Not interested"}.
+            </span>
+          )}
+        </p>
+      </section>
 
       {failed && (
         <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
@@ -322,19 +350,26 @@ export function Searches() {
         </p>
       ))}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {rows.map((l) =>
-          l.kind === "deals" ? (
-            <DealCard
-              key={l.id}
-              l={l}
-              onOpen={() => setOpen(l.id)}
-              onStatus={(s) => act.mutate({ id: l.id, body: { status: s } })}
-            />
-          ) : (
-            <JobCard key={l.id} l={l} onOpen={() => setOpen(l.id)} />
-          ),
-        )}
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        {rows.map((l) => (
+          <Swipe
+            key={l.id}
+            onRight={() => status(l, "interested")}
+            onLeft={() => status(l, "passed")}
+            leftLabel={kind === "jobs" ? "Not for me" : "Not interested"}
+          >
+            {l.kind === "deals" ? (
+              <DealCard l={l} onOpen={() => setOpen(l.id)} onStatus={(s) => status(l, s)} />
+            ) : (
+              <JobCard
+                l={l}
+                onOpen={() => setOpen(l.id)}
+                onStatus={(s) => status(l, s)}
+                onQueue={() => queue.mutate(l.id)}
+              />
+            )}
+          </Swipe>
+        ))}
       </section>
       {listings.data && rows.length === 0 && (
         <p className="m-0 text-sm" style={{ color: "var(--muted)" }}>

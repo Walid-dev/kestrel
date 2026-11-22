@@ -25,6 +25,7 @@ export type Pack = {
   name: string;
   kind: "lesson-pack" | "answer-pack";
   area: Area;
+  group: string; // the parent it sits under in Learn (AI, Platform, My stack…); empty: none yet
   lessons: number;
   due: number; // due today or never graded with a check
   known: number;
@@ -49,6 +50,11 @@ export function addPack(
 
 export function setPackArea(db: DatabaseSync, id: string, area: Area): void {
   const got = db.prepare("UPDATE packs SET area = ? WHERE id = ?").run(area, id);
+  if (got.changes === 0) throw new Refused("no such pack");
+}
+
+export function setPackGroup(db: DatabaseSync, id: string, group: string): void {
+  const got = db.prepare("UPDATE packs SET grp = ? WHERE id = ?").run(group.trim().slice(0, 40), id);
   if (got.changes === 0) throw new Refused("no such pack");
 }
 
@@ -89,7 +95,7 @@ const DUE = `(r.lesson IS NOT NULL AND r.due <= ?) OR (r.lesson IS NULL AND l.bo
 export function listPacks(db: DatabaseSync, area?: Area, now: Date = new Date()): Pack[] {
   const rows = db
     .prepare(
-      `SELECT p.id, p.name, p.kind, p.area, COUNT(l.id) AS lessons,
+      `SELECT p.id, p.name, p.kind, p.area, p.grp, COUNT(l.id) AS lessons,
               SUM(CASE WHEN l.id IS NOT NULL AND (${DUE}) THEN 1 ELSE 0 END) AS due,
               SUM(CASE WHEN r.level >= 3 THEN 1 ELSE 0 END) AS known
        FROM packs p LEFT JOIN lessons l ON l.pack = p.id LEFT JOIN reviews r ON r.lesson = l.id
@@ -102,6 +108,7 @@ export function listPacks(db: DatabaseSync, area?: Area, now: Date = new Date())
     name: String(r.name),
     kind: r.kind as Pack["kind"],
     area: r.area as Area,
+    group: String(r.grp ?? ""),
     lessons: Number(r.lessons),
     due: Number(r.due ?? 0),
     known: Number(r.known ?? 0),

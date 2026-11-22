@@ -23,14 +23,16 @@ export function useReader() {
 
   const url = (text: string, s: number) => `/api/voice?text=${encodeURIComponent(text.slice(0, 600))}&speed=${s}`;
 
-  const play = (lines: Spoken[], from = 0, s = speed) => {
+  // play the page's one list from a line, up to a last line when given: the lit line is always the line heard
+  const play = (lines: Spoken[], from = 0, until = lines.length - 1) => {
+    const s = speed;
     stop();
     const me = ++run.current;
     if (!audio.current) audio.current = new Audio();
     const el = audio.current;
     const next = (i: number) => {
       if (me !== run.current) return;
-      if (i >= lines.length) return stop();
+      if (i >= lines.length || i > until) return stop();
       const line = lines[i];
       const go = () => {
         if (me !== run.current) return;

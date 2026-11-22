@@ -4,7 +4,17 @@
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
 
-export type Kind = "search" | "deep" | "model" | "mirror" | "backup";
+export type Kind =
+  | "search"
+  | "deep"
+  | "model"
+  | "mirror"
+  | "backup"
+  | "lesson"
+  | "task"
+  | "apply"
+  | "notes"
+  | "listing";
 export type Activity = {
   id: string;
   kind: Kind;
@@ -51,6 +61,7 @@ export function begin(kind: Kind, title: string, link = "") {
       a.note = note.slice(0, 200);
       live.delete(a.id);
       ended.unshift(a);
+      activity.emit("ended", a);
       const cut = Date.now() - DAY;
       while (ended.length > 200 || (ended.length && Date.parse(ended[ended.length - 1].started) < cut)) ended.pop();
       activity.emit("change");
@@ -60,3 +71,9 @@ export function begin(kind: Kind, title: string, link = "") {
 
 export const running = (): Activity[] => [...live.values()];
 export const finished = (): Activity[] => ended.filter((a) => Date.parse(a.started) >= Date.now() - DAY);
+
+// a mark that takes no time (a lesson graded, a task done, a stage set): it lands in the log as it happens
+export function record(kind: Kind, title: string, link = "", note = "") {
+  const a = begin(kind, title, link);
+  a.end("done", note);
+}

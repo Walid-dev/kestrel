@@ -223,8 +223,12 @@ export function LearnLesson() {
       </section>
     ) : null;
     const sayHead = b.say.length ? heard("Say it", say) : null;
+    let sayFrom = -1;
+    let sayTo = -1;
     const sayRows = b.say.map((s) => {
       const i = say.add(s);
+      if (sayFrom < 0) sayFrom = i;
+      sayTo = i;
       return (
         <button
           key={s}
@@ -234,7 +238,7 @@ export function LearnLesson() {
             background: reader.at === i ? "var(--accent-soft)" : "var(--surface-2)",
             boxShadow: reader.at === i ? "0 0 0 1px var(--accent)" : undefined,
           }}
-          onClick={() => reader.play([{ text: s }], 0)}
+          onClick={() => reader.play(list.current, i, i)}
         >
           <span
             className="mt-1 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[9px]"
@@ -312,7 +316,7 @@ export function LearnLesson() {
                 <button
                   type="button"
                   className="btn btn-primary"
-                  onClick={() => (reader.reading ? reader.stop() : reader.play(b.say.map((text) => ({ text }))))}
+                  onClick={() => (reader.reading ? reader.stop() : reader.play(list.current, sayFrom, sayTo))}
                 >
                   {reader.reading ? "■ Stop" : "▶ Listen"}
                 </button>

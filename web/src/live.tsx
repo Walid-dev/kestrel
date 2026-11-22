@@ -1,14 +1,14 @@
-// Live, the old setup's: what runs now, step by step — a search, a deep check, a model writing, an agent applying, an
-// application waiting for me — each with its timer and its steps (the time small, before the text). Nothing running:
-// it says so, with the last thing that finished. History is the last day, each item folded to what it did last.
+// Live, the old setup's: Now is what runs this minute, step by step — a search, a deep check, a model writing, an
+// agent applying, an application waiting for me — each with its timer and steps; the last thing that finished opens
+// its work. Activity is the week: everything that ran and every mark I made (a lesson graded, a task done, a stage
+// set, an application sent), by day, each opening the work itself — the listing, the lesson, the task list, the note.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { useNavigate } from "react-router";
 import { useEvents } from "./events.ts";
-import { ago } from "./search/cards.tsx";
 import { ListingSheet } from "./search/sheet.tsx";
 
-type Activity = {
+type Item = {
   id: string;
   kind: string;
   title: string;
@@ -16,7 +16,7 @@ type Activity = {
   started: string;
   steps: { at: string; text: string }[];
   ended: string | null;
-  outcome: "done" | "failed" | null;
+  outcome: string | null;
   note: string;
 };
 type App = {
@@ -27,11 +27,9 @@ type App = {
   org: string;
   state: string;
   reason: string;
-  agent: string;
-  started: string;
   updated: string;
 };
-type Live = { at: string; now: Activity[]; apps: App[]; recent: Activity[]; ends: App[] };
+type Live = { at: string; now: Item[]; apps: App[]; recent: Item[] };
 
 const KIND: Record<string, [string, string]> = {
   search: ["Search", "tone-purple"],
@@ -39,8 +37,32 @@ const KIND: Record<string, [string, string]> = {
   model: ["Model", "tone-yellow"],
   mirror: ["Mirror", "tone-muted"],
   backup: ["Copy", "tone-muted"],
+  lesson: ["Lesson", "tone-green"],
+  task: ["Task", "tone-pink"],
+  apply: ["Application", "tone-orange"],
+  notes: ["Notes", "tone-accent"],
+  listing: ["Listing", "tone-purple"],
 };
+const FILTERS: [string, string][] = [
+  ["", "Everything"],
+  ["apply", "Applications"],
+  ["listing", "Listings"],
+  ["deep", "Deep checks"],
+  ["lesson", "Lessons"],
+  ["task", "Tasks"],
+  ["notes", "Notes"],
+  ["search", "Searches"],
+  ["model", "Models"],
+];
 const clock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+const dayName = (iso: string) => {
+  const d = new Date(iso);
+  const today = new Date();
+  const y = new Date(Date.now() - 86_400_000);
+  if (d.toDateString() === today.toDateString()) return "Today";
+  if (d.toDateString() === y.toDateString()) return "Yesterday";
+  return d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" });
+};
 const length = (from: string, to: string | number) => {
   const s = Math.max(0, Math.round(((typeof to === "number" ? to : Date.parse(to)) - Date.parse(from)) / 1000));
   return s < 60
@@ -49,8 +71,6 @@ const length = (from: string, to: string | number) => {
       ? `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`
       : `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
 };
-// a link inside kestrel opens its listing in place when it names one
-const opener = (link: string) => new URLSearchParams(link.split("?")[1] ?? "").get("open");
 
 function Steps({ steps }: { steps: { at: string; text: string }[] }) {
   return (
@@ -70,9 +90,43 @@ function Steps({ steps }: { steps: { at: string; text: string }[] }) {
   );
 }
 
+function Row({ a, go }: { a: Item; go: (link: string) => void }) {
+  return (
+    <button
+      type="button"
+      className="card card-link flex w-full items-center gap-3 !py-3 text-left"
+      onClick={() => go(a.link)}
+      style={{ cursor: a.link ? "pointer" : "default" }}
+    >
+      <span className={`chip chip-caps ${KIND[a.kind]?.[1] ?? "tone-muted"}`}>{KIND[a.kind]?.[0] ?? a.kind}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate" style={{ color: "var(--strong)" }}>
+          {a.title}
+        </span>
+        {a.note && (
+          <span
+            className="block truncate text-[12.5px]"
+            style={{ color: a.outcome === "failed" ? "var(--red)" : "var(--muted)" }}
+          >
+            {a.note}
+          </span>
+        )}
+      </span>
+      <span className="dot" style={{ background: a.outcome === "failed" ? "var(--red)" : "var(--green)" }} />
+      <span className="font-mono shrink-0 text-[12px]" style={{ color: "var(--muted)" }}>
+        {clock(a.ended ?? a.started)}
+        {a.ended && a.ended !== a.started && ` · ${length(a.started, a.ended)}`}
+      </span>
+      {a.link && <span style={{ color: "var(--accent)" }}>→</span>}
+    </button>
+  );
+}
+
 export function LivePage() {
   const queryClient = useQueryClient();
-  const [showHistory, setHistory] = useState(location.hash === "#history");
+  const navigate = useNavigate();
+  const [view, setView] = useState<"now" | "activity">(location.hash === "#activity" ? "activity" : "now");
+  const [kind, setKind] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [, tick] = useState(0);
   const live = useQuery({
@@ -84,10 +138,21 @@ export function LivePage() {
     },
     refetchInterval: (q) => ((q.state.data?.now.length ?? 0) > 0 ? 3000 : 15000),
   });
-  useEvents((p) => {
-    if (p.kind === "live" || p.kind === "apply") queryClient.invalidateQueries({ queryKey: ["live"] });
+  const log = useQuery({
+    queryKey: ["live-activity", kind],
+    queryFn: async () => {
+      const res = await fetch(`/api/live/activity?days=7${kind ? `&kind=${kind}` : ""}`);
+      if (!res.ok) throw new Error(`The activity didn't load (${res.status})`);
+      return (await res.json()) as { activity: Item[] };
+    },
+    enabled: view === "activity",
   });
-  // the timers move every second while something works
+  useEvents((p) => {
+    if (p.kind === "live" || p.kind === "apply") {
+      queryClient.invalidateQueries({ queryKey: ["live"] });
+      queryClient.invalidateQueries({ queryKey: ["live-activity"] });
+    }
+  });
   useEffect(() => {
     if (!live.data?.now.length) return;
     const t = setInterval(() => tick((n) => n + 1), 1000);
@@ -95,35 +160,51 @@ export function LivePage() {
   }, [live.data?.now.length]);
   // the address keeps the view, so Back and a shared link land where I was
   useEffect(() => {
-    const want = showHistory ? "#history" : "";
-    if (location.hash !== want) replaceHash(want);
-  }, [showHistory]);
+    const want = view === "activity" ? "#activity" : "";
+    if (location.hash !== want) window.history.replaceState(null, "", `${location.pathname}${location.search}${want}`);
+  }, [view]);
+
+  // a tap opens the work: a listing in place, anything else on its own page
+  const go = (link: string) => {
+    if (!link) return;
+    const id = new URLSearchParams(link.split("?")[1] ?? "").get("open");
+    if (id && link.startsWith("/searches")) setOpen(id);
+    else navigate(link);
+  };
 
   const d = live.data;
   const busy = (d?.now.length ?? 0) + (d?.apps.filter((a) => a.state !== "queued").length ?? 0);
   const last = d?.recent[0];
-  const openLink = (link: string) => {
-    const id = opener(link);
-    if (id) setOpen(id);
-  };
+  const days: [string, Item[]][] = [];
+  for (const a of log.data?.activity ?? []) {
+    const name = dayName(a.ended ?? a.started);
+    const at = days.find(([n]) => n === name);
+    if (at) at[1].push(a);
+    else days.push([name, [a]]);
+  }
 
   return (
-    <main className="mx-auto grid w-full max-w-3xl gap-4">
-      <div className="flex items-center gap-2">
-        <span className="text-xs" style={{ color: "var(--muted)" }}>
+    <main className="mx-auto grid w-full max-w-4xl gap-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" className="pill" aria-pressed={view === "now"} onClick={() => setView("now")}>
+          {busy > 0 && <span className="dot tone-green pulse" />} Now
+        </button>
+        <button type="button" className="pill" aria-pressed={view === "activity"} onClick={() => setView("activity")}>
+          Activity
+        </button>
+        <span className="ml-auto text-xs" style={{ color: "var(--muted)" }}>
           {d ? `Updated ${clock(d.at)}` : ""}
         </span>
-        <button type="button" className="btn ml-auto" aria-pressed={showHistory} onClick={() => setHistory((h) => !h)}>
-          {showHistory ? "← Now" : "The last 24 hours"}
-        </button>
       </div>
-      {live.isError && (
-        <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-          {String((live.error as Error).message)}
-        </p>
+      {[live, log].map((x) =>
+        x.isError ? (
+          <p key={String(x.error)} className="m-0 text-sm" style={{ color: "var(--red)" }}>
+            {String((x.error as Error).message)}
+          </p>
+        ) : null,
       )}
 
-      {!showHistory && d && (
+      {view === "now" && d && (
         <>
           {busy === 0 && d.apps.length === 0 && (
             <section className="grid justify-items-center gap-2 py-10 text-center">
@@ -151,16 +232,11 @@ export function LivePage() {
                 <span className="font-mono" style={{ color: "var(--muted)" }}>
                   {length(a.started, Date.now())}
                 </span>
-                {a.link &&
-                  (opener(a.link) ? (
-                    <button type="button" className="btn btn-quiet ml-auto" onClick={() => openLink(a.link)}>
-                      Open
-                    </button>
-                  ) : (
-                    <Link to={a.link} className="btn btn-quiet ml-auto">
-                      Open
-                    </Link>
-                  ))}
+                {a.link && (
+                  <button type="button" className="btn btn-quiet ml-auto" onClick={() => go(a.link)}>
+                    Open
+                  </button>
+                )}
               </div>
               <Steps steps={a.steps} />
             </section>
@@ -209,70 +285,51 @@ export function LivePage() {
           {busy === 0 && last && (
             <section className="grid gap-2">
               <span className="eyebrow">Last finished</span>
-              <div className="card flex items-center gap-3 !py-3">
-                <span className="min-w-0 flex-1 truncate">{last.title}</span>
-                <span className={`chip ${last.outcome === "failed" ? "tone-red" : "tone-muted"}`}>
-                  {last.outcome === "failed" ? "Stopped" : "Done"}
-                </span>
-                <span className="font-mono text-[12px]" style={{ color: "var(--muted)" }}>
-                  {last.ended ? clock(last.ended) : ""}
-                </span>
-              </div>
+              <Row a={last} go={go} />
               <button
                 type="button"
                 className="justify-self-center text-sm underline"
                 style={{ color: "var(--accent)" }}
-                onClick={() => setHistory(true)}
+                onClick={() => setView("activity")}
               >
-                See the last 24 hours
+                See the whole week
               </button>
             </section>
           )}
         </>
       )}
 
-      {showHistory && d && (
-        <section className="grid gap-2">
-          <h2 className="font-cond m-0 text-[24px] font-bold">The last 24 hours</h2>
-          {d.ends.map((a) => (
-            <div key={a.id} className="card flex flex-wrap items-center gap-3 !py-3">
-              <span className={`chip ${a.state === "sent" ? "tone-green" : "tone-orange"}`}>
-                {a.state === "sent" ? "Applied" : "Not sent"}
-              </span>
-              <span className="min-w-0 flex-1 truncate">
-                {a.title} <span style={{ color: "var(--muted)" }}>· {a.org}</span>
-              </span>
-              <span className="font-mono text-[12px]" style={{ color: "var(--muted)" }}>
-                {ago(a.updated)}
-              </span>
+      {view === "activity" && (
+        <section className="grid gap-3">
+          <div className="flex flex-wrap gap-2">
+            {FILTERS.map(([k, label]) => (
+              <button
+                key={k || "all"}
+                type="button"
+                className="pill"
+                aria-pressed={kind === k}
+                onClick={() => setKind(k)}
+              >
+                {k && <span className={`dot ${KIND[k]?.[1] ?? "tone-muted"}`} />} {label}
+              </button>
+            ))}
+          </div>
+          {days.map(([name, items]) => (
+            <div key={name} className="grid gap-2">
+              <h3 className="font-cond m-0 mt-2 text-lg font-bold">
+                {name}{" "}
+                <span className="font-mono text-sm" style={{ color: "var(--muted)" }}>
+                  {items.length}
+                </span>
+              </h3>
+              {items.map((a) => (
+                <Row key={a.id} a={a} go={go} />
+              ))}
             </div>
           ))}
-          {d.recent.map((a) => (
-            <details key={a.id} className="card !py-3">
-              <summary className="flex cursor-pointer list-none flex-wrap items-center gap-3">
-                <span className={`chip chip-caps ${KIND[a.kind]?.[1] ?? "tone-muted"}`}>
-                  {KIND[a.kind]?.[0] ?? a.kind}
-                </span>
-                <span className="min-w-0 flex-1 truncate">{a.title}</span>
-                <span className="dot" style={{ background: a.outcome === "failed" ? "var(--red)" : "var(--green)" }} />
-                <span className="font-mono text-[12px]" style={{ color: "var(--muted)" }}>
-                  {clock(a.started)}
-                  {a.ended && ` · ${length(a.started, a.ended)}`}
-                </span>
-              </summary>
-              <div className="grid gap-2 pt-3">
-                {a.note && (
-                  <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-                    {a.note}
-                  </p>
-                )}
-                <Steps steps={a.steps} />
-              </div>
-            </details>
-          ))}
-          {d.recent.length === 0 && d.ends.length === 0 && (
+          {log.data && log.data.activity.length === 0 && (
             <p className="m-0 text-sm" style={{ color: "var(--muted)" }}>
-              Nothing ran in the last day.
+              Nothing in the last week{kind ? " of this kind" : ""}.
             </p>
           )}
         </section>
@@ -281,6 +338,3 @@ export function LivePage() {
     </main>
   );
 }
-
-const replaceHash = (hash: string) =>
-  window.history.replaceState(null, "", `${location.pathname}${location.search}${hash}`);

@@ -194,7 +194,18 @@ export function Applications() {
                 </span>
                 <span className="eyebrow ml-auto truncate">{a.agent}</span>
               </div>
-              <h4 className="font-cond m-0 text-[19px] font-bold leading-tight">{a.title || a.link}</h4>
+              <h4 className="font-cond m-0 text-[19px] font-bold leading-tight">
+                <a
+                  href={a.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline"
+                  style={{ color: "var(--strong)", textUnderlineOffset: 3 }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {a.title || a.link}
+                </a>
+              </h4>
               {a.org && (
                 <p className="m-0 text-[14px]" style={{ color: "var(--text)" }}>
                   {a.org}

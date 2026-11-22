@@ -1,7 +1,7 @@
 // The hunt cards, the old Job Hunt and Deal Hunt's: status, group and source on top; the title with its pay or price
 // in a coloured pill; where and when; the match line with its bar (a deal: where its price sits against the usual);
 // the model's read and the deep check. A tap anywhere opens the whole listing.
-import type { ReactNode } from "react";
+import { type ReactNode, useRef, useState } from "react";
 
 export type Listing = {
   id: string;
@@ -238,7 +238,170 @@ function Deep({ report }: { report: string | null }) {
   );
 }
 
-export function JobCard({ l, onOpen }: { l: Listing; onOpen: () => void }) {
+// the stage buttons under a card: the card stays where it is, a tap here never opens the sheet
+function Stages({ l, onStatus, extra }: { l: Listing; onStatus: (s: string) => void; extra?: ReactNode }) {
+  const set: [string, string][] =
+    l.kind === "jobs"
+      ? [
+          ["passed", "Not for me"],
+          ["maybe", "? Not sure"],
+          ["interested", "✓ Interested"],
+        ]
+      : [
+          ["passed", "Not interested"],
+          ["maybe", "? Not sure"],
+          ["interested", "✓ Interested"],
+          ["applied", "Contacted"],
+          ["closed", "Sold"],
+        ];
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: the wrapper only stops the card's own tap
+    <div className="flex flex-wrap gap-2 pt-1" onClick={(e) => e.stopPropagation()} onKeyDown={undefined}>
+      {set.map(([s, label]) => (
+        <button
+          key={s}
+          type="button"
+          className="btn"
+          aria-pressed={l.status === s}
+          style={
+            l.status === s
+              ? {
+                  borderColor: s === "passed" ? "var(--muted)" : "var(--green)",
+                  color: s === "passed" ? "var(--muted)" : "var(--green)",
+                }
+              : undefined
+          }
+          onClick={() => onStatus(l.status === s ? "new" : s)}
+        >
+          {label}
+        </button>
+      ))}
+      {extra}
+    </div>
+  );
+}
+
+// the title opens the posting or the ad itself; the rest of the card opens the whole listing
+function Title({ l, text }: { l: Listing; text: string }) {
+  return (
+    <h3 className="font-cond m-0 text-[21px] font-bold leading-tight">
+      <a
+        href={l.link}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="hover:underline"
+        style={{ color: "var(--strong)", textUnderlineOffset: 3 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {text}
+      </a>
+    </h3>
+  );
+}
+
+// a card that swipes: right for Interested, left for Not for me — the old Tinder-like triage. A horizontal drag past
+// a third of the card decides; a short one springs back; vertical scrolling stays the page's
+export function Swipe({
+  children,
+  onRight,
+  onLeft,
+  leftLabel,
+}: {
+  children: ReactNode;
+  onRight: () => void;
+  onLeft: () => void;
+  leftLabel: string;
+}) {
+  const [dx, setDx] = useState(0);
+  const [gone, setGone] = useState<0 | 1 | -1>(0);
+  const start = useRef<{ x: number; y: number; id: number; dragging: boolean } | null>(null);
+  const width = useRef(320);
+  const reset = () => {
+    start.current = null;
+    setDx(0);
+  };
+  return (
+    <div
+      className="relative"
+      style={{ touchAction: "pan-y" }}
+      onPointerDown={(e) => {
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        if ((e.target as HTMLElement).closest("a, button, input, textarea, select")) return;
+        start.current = { x: e.clientX, y: e.clientY, id: e.pointerId, dragging: false };
+        width.current = e.currentTarget.getBoundingClientRect().width;
+      }}
+      onPointerMove={(e) => {
+        const s = start.current;
+        if (!s || s.id !== e.pointerId) return;
+        const mx = e.clientX - s.x;
+        const my = e.clientY - s.y;
+        if (!s.dragging) {
+          if (Math.abs(my) > 12 && Math.abs(my) > Math.abs(mx)) return reset(); // a scroll, not a swipe
+          if (Math.abs(mx) < 12) return;
+          s.dragging = true;
+          e.currentTarget.setPointerCapture(e.pointerId);
+        }
+        setDx(mx);
+      }}
+      onPointerUp={() => {
+        const s = start.current;
+        if (s?.dragging) {
+          const decide = Math.abs(dx) > width.current / 3;
+          if (decide) {
+            setGone(dx > 0 ? 1 : -1);
+            setTimeout(() => (dx > 0 ? onRight() : onLeft()), 180);
+          }
+        }
+        reset();
+      }}
+      onPointerCancel={reset}
+      onClickCapture={(e) => {
+        // a drag never counts as a tap that opens the sheet
+        if (Math.abs(dx) > 4) e.stopPropagation();
+      }}
+    >
+      {dx !== 0 && (
+        <div
+          className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-2xl"
+          style={{
+            background:
+              dx > 0
+                ? "color-mix(in srgb, var(--green) 18%, transparent)"
+                : "color-mix(in srgb, var(--red) 16%, transparent)",
+            opacity: Math.min(1, Math.abs(dx) / (width.current / 3)),
+          }}
+        >
+          <span className="font-cond text-2xl font-bold" style={{ color: dx > 0 ? "var(--green)" : "var(--red)" }}>
+            {dx > 0 ? "✓ Interested" : leftLabel}
+          </span>
+        </div>
+      )}
+      <div
+        style={{
+          transform: gone
+            ? `translateX(${gone * 120}%) rotate(${gone * 8}deg)`
+            : `translateX(${dx}px) rotate(${dx / 40}deg)`,
+          transition: start.current?.dragging ? "none" : "transform 0.2s ease",
+          opacity: gone ? 0 : 1,
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function JobCard({
+  l,
+  onOpen,
+  onStatus,
+  onQueue,
+}: {
+  l: Listing;
+  onOpen: () => void;
+  onStatus: (s: string) => void;
+  onQueue: () => void;
+}) {
   const d = l.data;
   const pay = payOf(d);
   const fit = num(d.fit);
@@ -253,7 +416,7 @@ export function JobCard({ l, onOpen }: { l: Listing; onOpen: () => void }) {
       <Head l={l} />
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="font-cond m-0 text-[21px] font-bold leading-tight">{str(d.title)}</h3>
+          <Title l={l} text={str(d.title)} />
           <p className="m-0 mt-1 text-[14.5px]" style={{ color: "var(--text)" }}>
             {str(d.org)}
             <span style={{ color: "var(--muted)" }}>
@@ -305,6 +468,17 @@ export function JobCard({ l, onOpen }: { l: Listing; onOpen: () => void }) {
         </ReadBox>
       )}
       <Deep report={l.deepVerdict} />
+      <Stages
+        l={l}
+        onStatus={onStatus}
+        extra={
+          l.status !== "applied" && !l.app ? (
+            <button type="button" className="btn btn-primary ml-auto" onClick={onQueue}>
+              Apply
+            </button>
+          ) : null
+        }
+      />
     </article>
   );
 }
@@ -332,7 +506,7 @@ export function DealCard({ l, onOpen, onStatus }: { l: Listing; onOpen: () => vo
       <Head l={l} />
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="font-cond m-0 text-[21px] font-bold leading-tight">{str(d.title)}</h3>
+          <Title l={l} text={str(d.title)} />
           <p className="m-0 mt-1 text-[14.5px]" style={{ color: "var(--muted)" }}>
             {str(d.location)}
           </p>
@@ -385,26 +559,7 @@ export function DealCard({ l, onOpen, onStatus }: { l: Listing; onOpen: () => vo
         </ReadBox>
       )}
       <Deep report={l.deepVerdict} />
-      {/* one-tap stages: the card stays where it is, the tap doesn't open the sheet */}
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: the wrapper only stops the card's own tap */}
-      <div className="flex flex-wrap gap-2 pt-1" onClick={(e) => e.stopPropagation()} onKeyDown={undefined}>
-        {[
-          ["passed", "Not interested"],
-          ["maybe", "? Not sure"],
-          ["interested", "✓ Interested"],
-        ].map(([s, label]) => (
-          <button
-            key={s}
-            type="button"
-            className="btn"
-            aria-pressed={l.status === s}
-            style={l.status === s ? { borderColor: "var(--strong)", color: "var(--strong)" } : undefined}
-            onClick={() => onStatus(l.status === s ? "new" : s)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <Stages l={l} onStatus={onStatus} />
     </article>
   );
 }

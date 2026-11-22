@@ -67,6 +67,15 @@ export function keepItems(
   const iso = now.toISOString();
   for (const item of items.slice(0, perRun)) {
     const scored: Score = scoreJob(scoring, item, now);
+    // the rules set some aside until I mark them: a weak job match, a deal over its price cap
+    const leftOut =
+      kind === "deals"
+        ? item.price != null && scored.parts.pay === 0
+          ? "over your price cap"
+          : null
+        : scored.score < 40
+          ? "weak match"
+          : null;
     // a job reposted under a new link is the same job (org|title); a deal is its link — two
     // same-titled chairs from sellers with no name are two chairs
     const dedupe = kind === "deals" ? item.url : normalizeDedupe(item.org, item.title);
@@ -78,6 +87,7 @@ export function keepItems(
     if (have) {
       const data = JSON.parse(have.data) as Record<string, unknown>;
       data.lastSeen = iso;
+      data.leftOut = leftOut;
       // a deal's price over time: a change is kept, so the card can show the drop
       if (kind === "deals" && item.price != null && item.price !== data.price) {
         const prices = Array.isArray(data.prices) ? (data.prices as unknown[]) : [];
@@ -114,6 +124,7 @@ export function keepItems(
         prices: kind === "deals" && item.price != null ? [{ at: iso, price: item.price }] : [],
         why: scored.why,
         parts: scored.parts,
+        leftOut,
         lastSeen: iso,
       }),
       kind,
@@ -133,6 +144,9 @@ export type ListingFilters = {
   q?: string;
   search?: string;
   group?: string; // a job's family (Full-stack, AI engineering) or a deal's category (the model)
+  // the old hunt page's stages: review (new, a great or good match), possible (new, a weaker one), leftout (new, set
+  // aside by the rules until I mark or note it), priority, all (everything but the left out), or a status
+  stage?: string;
   sort?: "best" | "newest" | "money";
 };
 
@@ -140,6 +154,16 @@ export type ListingFilters = {
 const HUNT = "COALESCE(NULLIF(json_extract(data, '$.hunt'), ''), search)";
 const GROUP = "COALESCE(NULLIF(json_extract(data, '$.family'), ''), NULLIF(json_extract(data, '$.category'), ''), '')";
 const PRIORITY = "(starred = 1 OR (starred IS NULL AND match = 'great' AND status NOT IN ('passed', 'fake')))";
+// left out: new, set aside by the rules (a weak match, pay far below the floor, a removed search, an old ad) and not
+// yet marked or noted — the old page's "Left out", hidden from everything else
+export const LEFT = `(status = 'new' AND json_extract(data, '$.leftOut') IS NOT NULL AND json_extract(data, '$.leftOut') NOT IN (0, '') AND COALESCE(json_extract(data, '$.note'), '') = '')`;
+const STAGE: Record<string, string> = {
+  review: `(status = 'new' AND match IN ('great', 'good') AND NOT ${LEFT})`,
+  possible: `(status = 'new' AND match NOT IN ('great', 'good') AND NOT ${LEFT})`,
+  leftout: LEFT,
+  priority: `(${PRIORITY} AND NOT ${LEFT})`,
+  all: `(NOT ${LEFT})`,
+};
 
 // the filters as SQL, all of them before the limit — an old starred listing must never fall off the Priority view
 function where(filters: ListingFilters, skip: (keyof ListingFilters)[] = []): { sql: string; params: string[] } {
@@ -175,6 +199,14 @@ function where(filters: ListingFilters, skip: (keyof ListingFilters)[] = []): { 
     params.push(String(filters.group));
   }
   if (filters.priority && !skip.includes("priority")) w.push(PRIORITY);
+  if (on("stage")) {
+    const s = String(filters.stage);
+    if (STAGE[s]) w.push(STAGE[s]);
+    else {
+      w.push(`status = ? AND NOT ${LEFT}`);
+      params.push(s);
+    }
+  }
   if (on("q")) {
     w.push("lower(data) LIKE ?");
     params.push(`%${String(filters.q).toLowerCase().replaceAll("%", "").replaceAll("_", " ")}%`);
@@ -231,7 +263,26 @@ export function listingCounts(db: DatabaseSync, filters: ListingFilters) {
       .get(...pri.params) as { n: number }
   ).n;
   const all = scope(["status", "priority"]);
+  const stageCount = (s: string) => {
+    const { sql, params } = where({ ...filters, stage: s }, ["status", "priority"]);
+    return (db.prepare(`SELECT COUNT(*) AS n FROM listings ${sql}`).get(...params) as { n: number }).n;
+  };
+  const stages: Record<string, number> = {};
+  for (const s of ["priority", "review", "possible", "leftout", "all"]) stages[s] = stageCount(s);
+  const byStatus = (() => {
+    const { sql, params } = where({ ...filters, stage: "all" }, ["status", "priority", "stage"]);
+    const scoped = sql ? `${sql} AND NOT ${LEFT}` : `WHERE NOT ${LEFT}`;
+    return Object.fromEntries(
+      (
+        db.prepare(`SELECT status AS k, COUNT(*) AS n FROM listings ${scoped} GROUP BY k`).all(...params) as {
+          k: string;
+          n: number;
+        }[]
+      ).map((r) => [r.k, r.n]),
+    ) as Record<string, number>;
+  })();
   return {
+    stages: { ...byStatus, ...stages },
     status: count("status", ["status", "priority"]),
     priority,
     all: (db.prepare(`SELECT COUNT(*) AS n FROM listings ${all.sql}`).get(...all.params) as { n: number }).n,

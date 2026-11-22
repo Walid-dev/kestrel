@@ -54,15 +54,23 @@ const DEAL_STATUS: Record<string, string> = {
   sold: "closed",
 };
 
-// an old spec's head: `hunt: Office chair`, `category: Aeron`
-function specHeads(dir: string | undefined): Map<string, { hunt: string; category: string }> {
-  const out = new Map<string, { hunt: string; category: string }>();
+type Head = { hunt: string; category: string; min?: number; max?: number; maxAge?: number };
+// an old spec's head: `hunt: Office chair`, `category: Aeron`, its price limits and how old an ad may be
+function specHeads(dir: string | undefined): Map<string, Head> {
+  const out = new Map<string, Head>();
   if (!dir || !existsSync(dir)) return out;
   for (const f of readdirSync(dir).filter((n) => n.endsWith(".md"))) {
     const head = readFileSync(join(dir, f), "utf8").slice(0, 2000);
-    const hunt = head.match(/^hunt:\s*(.+)$/m)?.[1]?.trim() ?? "";
-    const category = head.match(/^category:\s*(.+)$/m)?.[1]?.trim() ?? "";
-    if (hunt || category) out.set(basename(f, ".md"), { hunt, category });
+    const get = (k: string) => head.match(new RegExp(`^${k}:\\s*(.+)$`, "m"))?.[1]?.trim() ?? "";
+    const num = (k: string) => (get(k) && Number.isFinite(Number(get(k))) ? Number(get(k)) : undefined);
+    if (get("hunt") || get("category"))
+      out.set(basename(f, ".md"), {
+        hunt: get("hunt"),
+        category: get("category"),
+        min: num("min_price"),
+        max: num("max_price"),
+        maxAge: num("max_age_days"),
+      });
   }
   return out;
 }
@@ -219,7 +227,17 @@ function importDeals(db: DatabaseSync, old: DatabaseSync, write: boolean, opts: 
     counts.source[status] = (counts.source[status] ?? 0) + 1;
     const score = r.score === null ? null : Math.round(r.score * 10); // the old 0–10 onto the 0–100 card
     const match = score === null ? "" : score >= 80 ? "great" : score >= 60 ? "good" : score >= 40 ? "weak" : "poor";
-    const head = heads.get(r.spec) ?? orphanHead(r.spec);
+    const known = heads.get(r.spec);
+    const head = known ?? orphanHead(r.spec);
+    // the old page's hiding rules: a removed search, a price outside the search's limits, an ad older than it allows
+    const age = r.posted ? (Date.now() - Date.parse(r.posted)) / 86_400_000 : 0;
+    const leftOut = !known
+      ? "from a search you removed"
+      : r.price != null && ((known.min != null && r.price < known.min) || (known.max != null && r.price > known.max))
+        ? "outside your price limits"
+        : known.maxAge != null && age > known.maxAge
+          ? `posted more than ${known.maxAge} days ago`
+          : null;
     const data = JSON.stringify({
       kind: "deals",
       source: r.source,
@@ -233,6 +251,7 @@ function importDeals(db: DatabaseSync, old: DatabaseSync, write: boolean, opts: 
       category: head?.category ?? "",
       fit: r.fit,
       fitWhy: r.fit_reason ?? "",
+      leftOut,
       why: "",
       note: r.my_note ?? "",
       twin: r.twin_of ?? "",
@@ -283,7 +302,7 @@ export function importV1(db: DatabaseSync, from: string, write: boolean, opts: I
   const landed: Landed = { new: 0, updated: 0, unchanged: 0 };
   // a link match stays inside its own search: another hunt's row with the same link is its own (the sweep's finding)
   const get = db.prepare(
-    "SELECT id, status, starred, score, data FROM listings WHERE id = ? OR (search = ? AND (dedupe = ? OR link = ?))",
+    "SELECT id, status, starred, score, match, data FROM listings WHERE id = ? OR (search = ? AND (dedupe = ? OR link = ?))",
   );
   const insert = db.prepare(
     `INSERT INTO listings (id, search, source, link, dedupe, status, starred, found, updated, score, match, data, kind)
@@ -305,7 +324,8 @@ export function importV1(db: DatabaseSync, from: string, write: boolean, opts: I
     if (starred === 1) sourceStarred++;
     const score = typeof data.score === "number" ? Math.round(data.score) : null;
     if (score !== null) sourceScored++;
-    const match = String(data.match ?? "");
+    // the old setup's "fair" is kestrel's possible tier
+    const match = String(data.match ?? "") === "fair" ? "weak" : String(data.match ?? "");
     const updatedAt = String(data.lastSeen ?? r.found);
     const carried = JSON.stringify({
       ...data,
@@ -318,7 +338,7 @@ export function importV1(db: DatabaseSync, from: string, write: boolean, opts: I
       interviewAt: own.interviewAt ?? null,
     });
     const have = get.get(r.id, r.hunt, r.dedupe_key, r.link) as
-      | { id: string; status: string; starred: number | null; score: number | null; data: string }
+      | { id: string; status: string; starred: number | null; score: number | null; match: string; data: string }
       | undefined;
     if (!have) {
       landed.new++;
@@ -339,7 +359,13 @@ export function importV1(db: DatabaseSync, from: string, write: boolean, opts: I
         );
       continue;
     }
-    if (have.status === r.status && have.starred === starred && have.score === score && have.data === carried) {
+    if (
+      have.status === r.status &&
+      have.starred === starred &&
+      have.score === score &&
+      have.match === match &&
+      have.data === carried
+    ) {
       landed.unchanged++;
       continue;
     }

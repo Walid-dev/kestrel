@@ -61,7 +61,7 @@ export function App() {
   const health = useHealth();
   const busy = useBusy();
   return (
-    <div className="mx-auto min-h-dvh w-full max-w-xl px-5 pb-16 md:max-w-3xl lg:max-w-6xl lg:px-8">
+    <div className="mx-auto min-h-dvh w-full max-w-xl px-4 pb-16 md:max-w-4xl md:px-6 lg:max-w-[1440px] lg:px-10 2xl:max-w-[1760px]">
       <header className="flex items-center gap-2.5 py-5">
         <Link to="/" className="flex items-center gap-2.5" aria-label="Home">
           <Mark size={26} />

@@ -6,6 +6,7 @@ import type { Hono } from "hono";
 import { z } from "zod";
 import { Refused } from "../domain/notes/documents.ts";
 import { addTask, closeTask, listTasks, reopenTask } from "../domain/tasks/tasks.ts";
+import { record } from "../platform/activity.ts";
 
 export function mountTasks(app: Hono, db: DatabaseSync) {
   const refusing = (c: { json: (o: unknown, s: 400 | 500) => Response }, e: unknown) => {
@@ -23,7 +24,9 @@ export function mountTasks(app: Hono, db: DatabaseSync) {
     (c) => {
       try {
         const { text, who } = c.req.valid("json");
-        return c.json(addTask(db, text, who));
+        const made = addTask(db, text, who);
+        record("task", `New task: ${made.text}`, "/tasks");
+        return c.json(made);
       } catch (e) {
         return refusing(c, e);
       }
@@ -31,7 +34,9 @@ export function mountTasks(app: Hono, db: DatabaseSync) {
   );
   app.post("/api/tasks/:id/close", zValidator("json", z.object({ note: z.string().min(1).max(500) })), (c) => {
     try {
-      return c.json(closeTask(db, c.req.param("id"), c.req.valid("json").note));
+      const done = closeTask(db, c.req.param("id"), c.req.valid("json").note);
+      record("task", `Done: ${done.text}`, "/tasks", done.note);
+      return c.json(done);
     } catch (e) {
       return refusing(c, e);
     }

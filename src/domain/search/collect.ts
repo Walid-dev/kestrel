@@ -72,7 +72,16 @@ export function runCollector(
             items: [],
             problem: `the collector's items miss the shape: ${read.error.issues[0]?.message ?? ""}`,
           });
-        resolve({ items: read.data, problem: "" });
+        // a site that throttles this computer still exits clean: name it, whether some items came or none
+        const throttled = /\b429\b|too many requests|blocked/i.test(stderr || "");
+        resolve({
+          items: read.data,
+          problem: throttled
+            ? read.data.length
+              ? "the site throttled part of the search (429): the next run tries again"
+              : "the site is throttling searches from this computer (429): the next run tries again"
+            : "",
+        });
       },
     );
   });

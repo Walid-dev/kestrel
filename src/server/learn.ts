@@ -16,10 +16,12 @@ import {
   listPacks,
   searchLessons,
   setPackArea,
+  setPackGroup,
 } from "../domain/learn/lessons.ts";
 import { bestAnswer } from "../domain/learn/match.ts";
 import { dueLessons, gradeLesson, lessonStates, neverGraded } from "../domain/learn/review.ts";
 import { Refused } from "../domain/notes/documents.ts";
+import { record } from "../platform/activity.ts";
 import type { Settings } from "../platform/config.ts";
 
 const MAX_SOUND_BYTES = 2_000_000; // the ears take 2 MB at most: about a minute of 16 kHz speech
@@ -45,6 +47,14 @@ export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
   app.post("/api/learn/packs/:id/area", zValidator("json", z.object({ area: z.enum(["learn", "interview"]) })), (c) => {
     try {
       setPackArea(db, c.req.param("id"), c.req.valid("json").area);
+      return c.json({ ok: true });
+    } catch (e) {
+      return refusing(c, e);
+    }
+  });
+  app.post("/api/learn/packs/:id/group", zValidator("json", z.object({ group: z.string().max(40) })), (c) => {
+    try {
+      setPackGroup(db, c.req.param("id"), c.req.valid("json").group);
       return c.json({ ok: true });
     } catch (e) {
       return refusing(c, e);
@@ -111,7 +121,15 @@ export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
     (c) => {
       const { lesson, grade } = c.req.valid("json");
       if (!getLesson(db, lesson)) return c.json({ error: "no such lesson" }, 400);
-      return c.json(gradeLesson(db, lesson, grade, new Date()));
+      const got = gradeLesson(db, lesson, grade, new Date());
+      const title = getLesson(db, lesson)?.title ?? "a lesson";
+      record(
+        "lesson",
+        `${grade === "good" ? "Knew it" : "Again"}: ${title}`,
+        `/learn/lesson/${encodeURIComponent(lesson)}`,
+        `next review in ${got.intervalDays} day${got.intervalDays === 1 ? "" : "s"}`,
+      );
+      return c.json(got);
     },
   );
   app.post(

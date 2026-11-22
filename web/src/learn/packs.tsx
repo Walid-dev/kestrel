@@ -6,7 +6,16 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { STATE_CHIP } from "./lesson.tsx";
 
-type Pack = { id: string; name: string; kind: string; area: string; lessons: number; due: number; known: number };
+type Pack = {
+  id: string;
+  name: string;
+  kind: string;
+  area: string;
+  group: string;
+  lessons: number;
+  due: number;
+  known: number;
+};
 type Row = {
   id: string;
   title: string;
@@ -118,6 +127,7 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
   const pick = params.get("pack") ?? "";
+  const pickGroup = params.get("group") ?? "";
   const [q, setQ] = useState("");
   const overview = useQuery({
     queryKey: ["learn-overview", area],
@@ -151,12 +161,33 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
     },
   });
 
+  const regroup = useMutation({
+    mutationFn: async (input: { id: string; group: string }) => {
+      const res = await fetch(`/api/learn/packs/${encodeURIComponent(input.id)}/group`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ group: input.group }),
+      });
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["learn-overview"] }),
+  });
   const o = overview.data;
   const s = o?.summary ?? { due: 0, new: 0, learning: 0, known: 0 };
   const total = s.due + s.new + s.learning + s.known || 1;
   const packs = o?.packs ?? [];
   const chosen = packs.find((p) => p.id === pick);
-  const rows = (o?.lessons ?? []).filter((l) => !pick || l.pack === pick);
+  const inGroup = new Set(packs.filter((p) => p.group === pickGroup).map((p) => p.id));
+  const rows = (o?.lessons ?? []).filter((l) => (pick ? l.pack === pick : pickGroup ? inGroup.has(l.pack) : true));
+  // the packs under their parents, in the order each parent first appears; packs with none come last
+  const parents: [string, Pack[]][] = [];
+  for (const p of packs) {
+    const at = parents.find(([g]) => g === p.group);
+    if (at) at[1].push(p);
+    else parents.push([p.group, [p]]);
+  }
+  parents.sort((a, b) => (a[0] === "" ? 1 : b[0] === "" ? -1 : a[0].localeCompare(b[0])));
+  const known = [...new Set(packs.map((p) => p.group).filter(Boolean))];
   const isGuide = rows.some((r) => r.part);
   const groups = ["due", "new", "learning", "known"].map((st) => ({ st, rows: rows.filter((r) => r.state === st) }));
   const other = area === "learn" ? "interview" : "learn";
@@ -211,21 +242,43 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className="pill" aria-pressed={!pick} onClick={() => setParams({})}>
+        <div className="grid gap-3">
+          <button
+            type="button"
+            className="pill justify-self-start"
+            aria-pressed={!pick && !pickGroup}
+            onClick={() => setParams({})}
+          >
             All
           </button>
-          {packs.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              className="pill"
-              aria-pressed={pick === p.id}
-              onClick={() => setParams({ pack: p.id })}
-            >
-              {p.due > 0 && <span className="dot tone-yellow" />}
-              {titled(p.name)}
-            </button>
+          {parents.map(([g, list]) => (
+            <div key={g || "none"} className="grid gap-1.5">
+              <button
+                type="button"
+                className="eyebrow justify-self-start text-left"
+                style={{
+                  color: pickGroup === g && !pick && g ? "var(--accent)" : undefined,
+                  cursor: g ? "pointer" : "default",
+                }}
+                onClick={() => g && setParams({ group: g })}
+              >
+                {g || "Not grouped yet"}
+              </button>
+              <div className="flex flex-wrap gap-2">
+                {list.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className="pill"
+                    aria-pressed={pick === p.id}
+                    onClick={() => setParams({ pack: p.id })}
+                  >
+                    {p.due > 0 && <span className="dot tone-yellow" />}
+                    {titled(p.name)}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
         {area === "learn" ? (
@@ -248,16 +301,35 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
       <section className="grid content-start gap-4">
         <div className="flex flex-wrap items-baseline gap-3">
           <h2 className="font-cond m-0 text-[26px] font-bold">
-            {chosen ? titled(chosen.name) : area === "learn" ? "Learn" : "Interview prep"}
+            {chosen ? titled(chosen.name) : pickGroup || (area === "learn" ? "Learn" : "Interview prep")}
           </h2>
           {chosen && (
             <>
               <span className="font-mono text-xs" style={{ color: "var(--muted)" }}>
                 {chosen.lessons} lessons · {chosen.known} known
               </span>
+              <label className="ml-auto flex items-center gap-2 text-[13px]" style={{ color: "var(--muted)" }}>
+                Under
+                <input
+                  className="btn w-36"
+                  list="learn-groups"
+                  defaultValue={chosen.group}
+                  key={chosen.id}
+                  placeholder="a parent"
+                  onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+                  onBlur={(e) =>
+                    e.target.value.trim() !== chosen.group && regroup.mutate({ id: chosen.id, group: e.target.value })
+                  }
+                />
+                <datalist id="learn-groups">
+                  {known.map((g) => (
+                    <option key={g} value={g} />
+                  ))}
+                </datalist>
+              </label>
               <button
                 type="button"
-                className="btn btn-quiet ml-auto"
+                className="btn btn-quiet"
                 disabled={move.isPending}
                 onClick={() => move.mutate({ id: chosen.id, to: other })}
               >
@@ -266,7 +338,7 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
             </>
           )}
         </div>
-        {[overview, move].map((x) =>
+        {[overview, move, regroup].map((x) =>
           x.isError ? (
             <p key={String(x.error)} className="m-0 text-sm" style={{ color: "var(--red)" }}>
               {String((x.error as Error).message)}

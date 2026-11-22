@@ -7,7 +7,15 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { migrate } from "../../db/migrate.ts";
 import type { Item } from "./collect.ts";
-import { isPriority, keepItems, listListings, normalizeDedupe, setListingStar, setListingStatus } from "./listings.ts";
+import {
+  isPriority,
+  keepItems,
+  listingCounts,
+  listListings,
+  normalizeDedupe,
+  setListingStar,
+  setListingStatus,
+} from "./listings.ts";
 
 const NOW = new Date("2026-11-21T12:00:00Z");
 const scoring = {
@@ -148,4 +156,34 @@ test("status and star on a listing that isn't there are refused in words (sweep)
   const db = setup();
   assert.throws(() => setListingStatus(db, "nope", "passed"), /no such listing/);
   assert.throws(() => setListingStar(db, "nope", 1), /no such listing/);
+});
+
+test("the old page's stages: review takes good matches, possible the weaker ones, left out stays apart until marked", () => {
+  const db = setup();
+  const put = db.prepare(
+    `INSERT INTO listings (id, search, source, link, dedupe, status, starred, found, updated, score, match, data, kind)
+     VALUES (?, 's1', 'made-up', ?, ?, ?, NULL, '2026-11-20', '2026-11-20', ?, ?, ?, 'jobs')`,
+  );
+  const row = (id: string, status: string, score: number, match: string, data: Record<string, unknown>) =>
+    put.run(id, `https://example.com/${id}`, `co|${id}`, status, score, match, JSON.stringify(data));
+  row("great", "new", 85, "great", {});
+  row("good", "new", 65, "good", {});
+  row("fair", "new", 50, "weak", {});
+  row("out", "new", 30, "poor", { leftOut: "weak match" });
+  row("noted", "new", 30, "poor", { leftOut: "weak match", note: "worth a look" }); // a note brings it back
+  row("seen", "interested", 30, "poor", { leftOut: "weak match" }); // a stage brings it back too
+  const ids = (stage: string) =>
+    listListings(db, { stage })
+      .map((r) => r.id)
+      .sort();
+  assert.deepEqual(ids("review"), ["good", "great"]);
+  assert.deepEqual(ids("possible"), ["fair", "noted"]);
+  assert.deepEqual(ids("leftout"), ["out"]);
+  assert.deepEqual(ids("all"), ["fair", "good", "great", "noted", "seen"]);
+  assert.deepEqual(ids("interested"), ["seen"]);
+  const c = listingCounts(db, {});
+  assert.equal(c.stages.review, 2);
+  assert.equal(c.stages.possible, 2);
+  assert.equal(c.stages.leftout, 1);
+  assert.equal(c.stages.all, 5);
 });

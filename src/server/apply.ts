@@ -13,6 +13,7 @@ import {
   retryApplication,
 } from "../domain/apply/apply.ts";
 import { Refused } from "../domain/notes/documents.ts";
+import { record } from "../platform/activity.ts";
 import { bus } from "./events.ts";
 
 export function mountApply(app: Hono, db: DatabaseSync) {
@@ -55,6 +56,18 @@ export function mountApply(app: Hono, db: DatabaseSync) {
         const { id, state, reason } = c.req.valid("json");
         const r = reportApplication(db, id, state, reason);
         ring();
+        const words: Record<string, string> = {
+          sent: "Applied",
+          "not-sent": "Not sent",
+          "needs-me": "Needs me",
+          applying: "Applying",
+        };
+        record(
+          "apply",
+          `${words[state] ?? state}: ${r.title || r.link}${r.org ? ` · ${r.org}` : ""}`,
+          r.listing ? `/searches?open=${encodeURIComponent(r.listing)}` : "/applications",
+          reason ?? "",
+        );
         return c.json(r);
       } catch (e) {
         return refusing(c, e);
