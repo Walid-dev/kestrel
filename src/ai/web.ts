@@ -17,17 +17,24 @@ async function web<T>(settings: ModelSettings, path: "search" | "fetch", body: R
   return j;
 }
 
-export async function searchWeb(settings: ModelSettings, query: string): Promise<Hit[]> {
-  try {
-    const j = await web<{ results?: { title?: string; url?: string; snippet?: string }[] }>(settings, "search", {
-      query,
-    });
-    return (j.results ?? [])
-      .map((r) => ({ title: String(r.title ?? ""), url: String(r.url ?? ""), snippet: String(r.snippet ?? "") }))
-      .filter((r) => /^https?:\/\//.test(r.url));
-  } catch {
-    return []; // no web this time: the check goes on with what kestrel knows
+export async function searchWeb(settings: ModelSettings, query: string, pauseMs = 2000): Promise<Hit[]> {
+  // the search engine turns a request away now and then (the first Research came back empty, the same words worked
+  // a minute later): one more try after a short pause before calling it empty
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const j = await web<{ results?: { title?: string; url?: string; snippet?: string }[] }>(settings, "search", {
+        query,
+      });
+      const hits = (j.results ?? [])
+        .map((r) => ({ title: String(r.title ?? ""), url: String(r.url ?? ""), snippet: String(r.snippet ?? "") }))
+        .filter((r) => /^https?:\/\//.test(r.url));
+      if (hits.length) return hits;
+    } catch {
+      // tried again below
+    }
+    if (attempt === 0) await new Promise((r) => setTimeout(r, pauseMs));
   }
+  return []; // no web this time: the work goes on with what kestrel knows
 }
 
 // a page as plain text: links become their words, menus and short link lines go

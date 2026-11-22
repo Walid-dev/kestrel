@@ -76,7 +76,17 @@ try {
 } catch {
   // not loaded yet
 }
-sh("launchctl", ["bootstrap", `gui/${uid}`, plistFile]);
+// bootout returns before launchd has let the old service go, and a bootstrap right after fails with status 5
+// (input/output error): the first deploy after a change always did. It tries again, a second apart, for ten seconds.
+for (let i = 0; ; i++) {
+  try {
+    sh("launchctl", ["bootstrap", `gui/${uid}`, plistFile]);
+    break;
+  } catch (e) {
+    if (i >= 9) throw e;
+    execFileSync("sleep", ["1"]);
+  }
+}
 
 // on the tailnet, never public
 console.log("deploy: tailscale serve");
