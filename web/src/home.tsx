@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
+import { useChatLink } from "./chats.tsx";
 import { LiveStrip } from "./live-strip.tsx";
 
 export const STROKE = {
@@ -69,10 +70,10 @@ export const ICONS: Record<string, ReactNode> = {
       <path d="M12 16.6v.1" />
     </svg>
   ),
-  "Cover letters": (
+  Writing: (
     <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-      <rect x="3.5" y="5.5" width="17" height="13" rx="2" />
-      <path d="m4 7 8 6 8-6" />
+      <path d="M4 20h4L19 9l-4-4L4 16z" />
+      <path d="m13.5 6.5 4 4" />
     </svg>
   ),
 };
@@ -136,10 +137,10 @@ const APPS: { name: string; what: string; when: string; to: string | null; color
     color: "var(--orange)",
   },
   {
-    name: "Cover letters",
-    what: "A letter for a real job, written the way an application writes it: change my voice, write again, compare.",
+    name: "Writing",
+    what: "A cover letter, a form's answer or any text for a job, written the way an application writes it.",
     when: "v0.6",
-    to: "/letters",
+    to: "/writing",
     color: "var(--orange)",
   },
   {
@@ -152,6 +153,7 @@ const APPS: { name: string; what: string; when: string; to: string | null; color
 ];
 
 export function Home() {
+  const chat = useChatLink();
   const brief = useQuery({
     queryKey: ["brief"],
     queryFn: async () => {
@@ -217,6 +219,12 @@ export function Home() {
             </p>
           </section>
         );
+        if (app.to === "/chats" && chat.external)
+          return (
+            <a key={app.name} href={chat.href} target="_blank" rel="noopener noreferrer" aria-label="Open Chat">
+              {card}
+            </a>
+          );
         return app.to === null ? (
           card
         ) : (

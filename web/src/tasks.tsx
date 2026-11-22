@@ -1,4 +1,7 @@
-// Tasks: one line each. Enter adds; closing asks for the short note of what was done; done rows fold below.
+// Tasks: my to-do list, for me and for the agents to pick later, the old Hub's way. A box to write the task and whom
+// it is for (any agent, Claude Code, dsh, me); Enter adds and the newest comes first. A tap on a task's words edits them
+// in place (Enter or leaving saves, Escape puts them back); its who, when and note under it; a round box ticks it off.
+// Done tasks fold below. Agents read the same list through the kestrel command and close one with a note.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -10,22 +13,41 @@ type Task = {
   note: string;
   added: string;
   closed: string | null;
+  edited: string | null;
 };
 
-// each person's tasks wear one colour, so a glance tells whose they are
-const TONES = ["tone-accent", "tone-purple", "tone-yellow", "tone-orange", "tone-green", "tone-pink"];
-const hash = (s: string) => [...s].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
-const ago = (iso: string) => {
-  const days = Math.floor((Date.now() - Date.parse(iso)) / 86_400_000);
-  return Number.isNaN(days) ? "" : days <= 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`;
-};
+// whom a task is for, each in its own colour
+const WHO: [string, string, string][] = [
+  ["any", "any agent", "tone-accent"],
+  ["claude", "Claude Code", "tone-purple"],
+  ["dsh", "dsh", "tone-cyan"],
+  ["me", "me", "tone-green"],
+];
+const whoOf = (w: string) => WHO.find(([k]) => k === (w || "any")) ?? [w, w, "tone-pink"];
+const when = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+async function call(url: string, method: string, body?: unknown) {
+  const res = await fetch(url, {
+    method,
+    headers: body ? { "content-type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) throw new Error(data.error ?? `${res.status}`);
+  return data;
+}
 
 export function Tasks() {
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
-  const [closing, setClosing] = useState(""); // the task whose note box is open
-  const [note, setNote] = useState("");
-  const [unfold, setUnfold] = useState(false);
+  const [who, setWho] = useState("any");
   const tasks = useQuery({
     queryKey: ["tasks"],
     queryFn: async () => {
@@ -34,164 +56,236 @@ export function Tasks() {
       return (await res.json()) as { tasks: Task[] };
     },
   });
-  const done = async (res: Response) => {
-    const data = (await res.json()) as { error?: string };
-    if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "the server refused it");
-    return data;
-  };
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["tasks"] });
   const add = useMutation({
-    mutationFn: async (words: string) =>
-      done(
-        await fetch("/api/tasks", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ text: words }),
-        }),
-      ),
+    mutationFn: () => call("/api/tasks", "POST", { text: text.trim(), who }),
     onSuccess: () => {
       setText("");
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      refresh();
     },
   });
-  const close = useMutation({
-    mutationFn: async (input: { id: string; note: string }) =>
-      done(
-        await fetch(`/api/tasks/${input.id}/close`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ note: input.note }),
-        }),
-      ),
-    onSuccess: () => {
-      setClosing("");
-      setNote("");
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
+  const act = useMutation({
+    mutationFn: (a: { id: string; how: "check" | "reopen" | "delete" | "edit"; change?: Partial<Task> }) =>
+      a.how === "delete"
+        ? call(`/api/tasks/${a.id}`, "DELETE")
+        : a.how === "edit"
+          ? call(`/api/tasks/${a.id}`, "PATCH", a.change)
+          : call(`/api/tasks/${a.id}/${a.how}`, "POST"),
+    onSettled: refresh,
   });
-  const reopen = useMutation({
-    mutationFn: async (id: string) => done(await fetch(`/api/tasks/${id}/reopen`, { method: "POST" })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
-  });
-  const open = (tasks.data?.tasks ?? []).filter((t) => !t.done);
-  const closed = (tasks.data?.tasks ?? []).filter((t) => t.done);
-  const why = [add, close, reopen].find((m) => m.isError);
+  const all = tasks.data?.tasks ?? [];
+  const open = all.filter((t) => !t.done);
+  const done = all.filter((t) => t.done);
+  const failed = [tasks, add, act].find((x) => x.isError);
+
   return (
-    <main className="grid gap-3.5">
-      <div className="flex flex-wrap items-baseline gap-3">
+    <main className="grid max-w-3xl gap-3.5">
+      <div className="flex items-baseline gap-3">
         <h2 className="font-cond m-0 text-[34px] font-bold uppercase leading-none tracking-tight">Tasks</h2>
-        <span className="chip tone-pink">{open.length} open</span>
-        <span className="chip tone-green">{closed.length} done</span>
+        <span className="text-[13px]" style={{ color: "var(--muted)" }}>
+          {open.length} open{done.length ? ` · ${done.length} done` : ""}
+        </span>
       </div>
-      <form
-        className="flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (text.trim()) add.mutate(text);
-        }}
-      >
-        <input
-          type="text"
-          className="btn min-w-0 flex-1"
-          placeholder="one line: what needs doing"
+
+      {/* the new task: its words, whom it is for, Enter adds */}
+      <section className="card grid gap-2.5 !p-3" style={{ boxShadow: "0 1px 0 rgba(0,0,0,0.12)" }}>
+        <textarea
+          className="min-h-[46px] w-full resize-none bg-transparent px-1 py-1 text-[16px] leading-relaxed outline-none"
+          style={{ color: "var(--strong)", fieldSizing: "content" } as React.CSSProperties}
+          rows={1}
+          placeholder="What needs doing?"
+          aria-label="New task"
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey && text.trim()) {
+              e.preventDefault();
+              add.mutate();
+            }
+          }}
         />
-        <button type="submit" className="btn btn-primary" disabled={add.isPending || !text.trim()}>
-          Add
-        </button>
-      </form>
-      {why && (
-        <p className="text-sm" style={{ color: "var(--red)" }}>
-          {String((why.error as Error).message)}
-        </p>
-      )}
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {open.map((t) => (
-          <section
-            key={t.id}
-            className={`card card-link grid content-start gap-2 ${TONES[hash(t.who || "me") % TONES.length]}`}
-            style={{ borderLeft: "3px solid var(--tone)" }}
-          >
-            <div className="flex items-center gap-2">
-              <span className="chip">{t.who ? `for ${t.who}` : "for me"}</span>
-              <span className="text-[12px]" style={{ color: "var(--muted)" }}>
-                {ago(t.added)}
-              </span>
-            </div>
-            <p className="font-cond m-0 text-[18px] font-bold leading-snug" style={{ color: "var(--strong)" }}>
-              {t.text}
-            </p>
-            <div className="flex justify-end">
-              <button
-                type="button"
-                className="btn shrink-0"
-                style={{ borderColor: "var(--green)", color: "var(--green)" }}
-                onClick={() => {
-                  setClosing((v) => (v === t.id ? "" : t.id));
-                  setNote("");
-                }}
-              >
-                ✓ Done
-              </button>
-            </div>
-            {closing === t.id && (
-              <form
-                className="flex gap-2"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (note.trim()) close.mutate({ id: t.id, note });
-                }}
-              >
-                <input
-                  type="text"
-                  className="btn min-w-0 flex-1"
-                  placeholder="what was done, in a few words (Enter saves)"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  // the note box just opened; the keyboard should be there already
-                  // biome-ignore lint/a11y/noAutofocus: the box exists only after the Done tap
-                  autoFocus
-                />
-                <button type="submit" className="btn btn-primary" disabled={close.isPending || !note.trim()}>
-                  Save
-                </button>
-              </form>
-            )}
-          </section>
-        ))}
-      </div>
-      {tasks.isError && (
-        <p className="text-sm" style={{ color: "var(--red)" }}>
-          {String((tasks.error as Error).message)}
-        </p>
-      )}
-      {open.length === 0 && tasks.data && (
-        <p className="text-sm" style={{ color: "var(--muted)" }}>
-          Nothing open.
-        </p>
-      )}
-      {closed.length > 0 && !unfold && (
-        <button type="button" className="btn btn-quiet" onClick={() => setUnfold(true)}>
-          {closed.length} done
-        </button>
-      )}
-      {unfold &&
-        closed.map((t) => (
-          <section key={t.id} className="card flex items-baseline gap-3" style={{ opacity: 0.75 }}>
-            <p className="text-sm" style={{ color: "var(--muted)" }}>
-              {t.text}
-              {t.note && <span> — {t.note}</span>}
-            </p>
-            <button type="button" className="btn btn-quiet ml-auto shrink-0" onClick={() => reopen.mutate(t.id)}>
-              Reopen
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="eyebrow">For</span>
+          {WHO.map(([k, label, tone]) => (
+            <button key={k} type="button" className={`pill ${tone}`} aria-pressed={who === k} onClick={() => setWho(k)}>
+              <span className="dot" /> {label}
             </button>
-          </section>
-        ))}
-      {unfold && (
-        <button type="button" className="btn btn-quiet" onClick={() => setUnfold(false)}>
-          fold the done away
-        </button>
+          ))}
+          <button
+            type="button"
+            className="btn btn-primary ml-auto inline-flex items-center gap-2"
+            disabled={!text.trim() || add.isPending}
+            onClick={() => add.mutate()}
+          >
+            {add.isPending && <span className="spin" />}
+            Add
+          </button>
+        </div>
+        <p className="m-0 text-[12px]" style={{ color: "var(--muted)" }}>
+          Enter adds · Shift+Enter for a new line
+        </p>
+      </section>
+
+      {failed && (
+        <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
+          {(failed.error as Error).message}
+        </p>
       )}
+
+      {tasks.data && open.length === 0 && (
+        <p
+          className="m-0 rounded-xl border border-dashed p-5 text-center text-sm"
+          style={{ color: "var(--muted)", borderColor: "var(--line)" }}
+        >
+          Nothing open. Write the next thing above.
+        </p>
+      )}
+      <ol className="m-0 grid list-none gap-2 p-0">
+        {open.map((t) => (
+          <Row key={t.id} t={t} act={act.mutate} busy={act.isPending && act.variables?.id === t.id} />
+        ))}
+      </ol>
+
+      {done.length > 0 && (
+        <details>
+          <summary className="cursor-pointer text-[13.5px]" style={{ color: "var(--muted)" }}>
+            Done · {done.length}
+          </summary>
+          <ol className="m-0 mt-2 grid list-none gap-2 p-0">
+            {done.map((t) => (
+              <Row key={t.id} t={t} act={act.mutate} busy={act.isPending && act.variables?.id === t.id} />
+            ))}
+          </ol>
+        </details>
+      )}
+      <p className="m-0 text-[12px]" style={{ color: "var(--muted)" }}>
+        Tap a task to edit it. Agents read this list through the kestrel command, pick a task only when you ask, and
+        close it with a short note of what was done.
+      </p>
     </main>
+  );
+}
+
+type Act = (a: { id: string; how: "check" | "reopen" | "delete" | "edit"; change?: Partial<Task> }) => void;
+
+// one task: the round box, its words (a tap edits them), whom it is for (a tap changes it), when, its note, delete
+function Row({ t, act, busy }: { t: Task; act: Act; busy: boolean }) {
+  const [draft, setDraft] = useState<string | null>(null); // the words being edited, or null
+  const [label, , tone] = whoOf(t.who);
+  const save = () => {
+    const next = (draft ?? "").trim();
+    setDraft(null);
+    if (next && next !== t.text) act({ id: t.id, how: "edit", change: { text: next } });
+  };
+  const nextWho = () => {
+    const i = WHO.findIndex(([k]) => k === (t.who || "any"));
+    act({ id: t.id, how: "edit", change: { who: WHO[(i + 1) % WHO.length][0] } });
+  };
+  return (
+    <li className={`card grid grid-cols-[auto_1fr_auto] items-start gap-3 !p-3 ${busy ? "busy" : ""}`}>
+      <button
+        type="button"
+        aria-label={t.done ? "Not done" : "Done"}
+        aria-pressed={t.done}
+        className="mt-0.5 grid h-[22px] w-[22px] place-items-center rounded-full border-2"
+        style={{
+          borderColor: t.done ? "var(--green)" : "var(--line)",
+          background: t.done ? "var(--green)" : "transparent",
+          color: "var(--bg)",
+        }}
+        onClick={() => act({ id: t.id, how: t.done ? "reopen" : "check" })}
+      >
+        {t.done && (
+          <svg
+            viewBox="0 0 24 24"
+            width="13"
+            height="13"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3.4"
+            aria-hidden="true"
+          >
+            <path d="m5 12.5 4.5 4.5L19 7.5" />
+          </svg>
+        )}
+      </button>
+      <div className="min-w-0">
+        {draft === null ? (
+          <button
+            type="button"
+            title="Tap to edit"
+            className="-mx-1 block w-full cursor-text rounded-md px-1 text-left text-[15.5px] leading-relaxed"
+            style={{
+              whiteSpace: "pre-wrap",
+              overflowWrap: "anywhere",
+              color: t.done ? "var(--muted)" : "var(--strong)",
+              textDecoration: t.done ? "line-through" : undefined,
+            }}
+            onClick={() => setDraft(t.text)}
+          >
+            {t.text}
+          </button>
+        ) : (
+          <textarea
+            // biome-ignore lint/a11y/noAutofocus: the tap that opened it asked for the words
+            autoFocus
+            aria-label="The task's words"
+            className="-mx-1 w-full resize-none rounded-md px-1 text-[15.5px] leading-relaxed outline-none"
+            style={
+              {
+                fieldSizing: "content",
+                color: "var(--strong)",
+                background: "var(--surface-2)",
+                boxShadow: "0 0 0 2px var(--accent)",
+              } as React.CSSProperties
+            }
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onFocus={(e) =>
+              e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)
+            }
+            onBlur={save}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                save();
+              }
+              if (e.key === "Escape") setDraft(null);
+            }}
+          />
+        )}
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[12px]" style={{ color: "var(--muted)" }}>
+          <button
+            type="button"
+            className={`chip ${t.done ? "tone-muted" : tone}`}
+            title="Tap to change whom it is for"
+            onClick={nextWho}
+          >
+            {label}
+          </button>
+          <span>
+            {when(t.edited ?? t.added)}
+            {t.edited ? " · edited" : ""}
+          </span>
+          {t.note && (
+            <span className="basis-full" style={{ color: "var(--green)" }}>
+              {t.note}
+            </span>
+          )}
+        </div>
+      </div>
+      <button
+        type="button"
+        aria-label="Delete"
+        title="Delete"
+        className="rounded-lg px-2 py-0.5 text-[18px] leading-none"
+        style={{ color: "var(--muted)" }}
+        onClick={() => {
+          if (confirm(`Delete "${t.text.slice(0, 60)}"?`)) act({ id: t.id, how: "delete" });
+        }}
+      >
+        ×
+      </button>
+    </li>
   );
 }

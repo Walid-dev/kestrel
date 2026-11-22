@@ -13,7 +13,7 @@ import { InterviewHelper } from "./learn/helper.tsx";
 import { LearnLesson } from "./learn/lesson.tsx";
 import { LearnPack, LearnPacks } from "./learn/packs.tsx";
 import { LearnPractice } from "./learn/practice.tsx";
-import { Letters } from "./letters.tsx";
+import { Writing } from "./letters.tsx";
 import { LivePage } from "./live.tsx";
 import { Models } from "./models.tsx";
 import { NotesList } from "./notes/list.tsx";
@@ -55,7 +55,8 @@ if (rootEl)
               <Route path="chats" element={<Chats />} />
               <Route path="research" element={<Research />} />
               <Route path="quiz" element={<Quiz />} />
-              <Route path="letters" element={<Letters />} />
+              <Route path="writing" element={<Writing />} />
+              <Route path="letters" element={<Writing />} />
               <Route path="notes/set" element={<NotesSet />} />
               <Route path="notes/:id" element={<Reader />} />
             </Route>

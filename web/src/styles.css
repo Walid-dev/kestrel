@@ -348,6 +348,123 @@ pre.code .f {
   cursor: pointer;
 }
 /* a moving thing: the dot that glows while something runs */
+/* the computer's dock: a thin zone at the screen's right edge; the pointer there slides the dock in, a frosted column
+   of the apps, each with its name beside it on hover; it never covers the page until called */
+.dock-zone {
+  display: none;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  z-index: 40;
+}
+@media (min-width: 768px) and (hover: hover) {
+  .dock-zone {
+    display: block;
+  }
+}
+.dock {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  display: grid;
+  gap: 4px;
+  padding: 10px 8px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 18px 50px -12px rgba(0, 0, 0, 0.55);
+  transform: translate(calc(100% + 24px), -50%);
+  opacity: 0;
+  transition:
+    transform 0.22s ease,
+    opacity 0.18s ease;
+  pointer-events: none;
+}
+.dock-shown {
+  transform: translate(0, -50%);
+  opacity: 1;
+  pointer-events: auto;
+}
+.dock-item {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  color: var(--muted);
+  transition:
+    background 0.15s,
+    color 0.15s,
+    transform 0.15s;
+}
+.dock-item:hover {
+  color: var(--strong);
+  background: var(--surface-2);
+  transform: scale(1.08);
+}
+.dock-item.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.dock-label {
+  position: absolute;
+  right: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 4px 10px;
+  border-radius: 8px;
+  white-space: nowrap;
+  font: 600 13px var(--sans);
+  color: var(--strong);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s;
+}
+.dock-item:hover .dock-label,
+.dock-item:focus-visible .dock-label {
+  opacity: 1;
+}
+/* the Notes reader: a page to read, not a wall — each paragraph a block with a soft edge in the accent, breathing room
+   between them, the text in full ink; code on its own ground; in note mode a paragraph lights under the pointer */
+.reader {
+  font-size: 16.5px;
+  line-height: 1.75;
+  color: var(--text);
+}
+.reader-line {
+  position: relative;
+  margin: 2px 0 10px;
+  padding: 4px 12px;
+  border-left: 3px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 0 8px 8px 0;
+  color: var(--strong);
+  max-width: 78ch;
+}
+.reader-line.pl-6::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 0.85em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.reader-code {
+  padding: 1px 12px;
+  background: var(--surface-2);
+}
+.reader.noting .reader-line:hover {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  border-left-color: var(--accent);
+  cursor: text;
+}
 /* a research answer's source, inline: the site's name, a small link that opens the page */
 .cite {
   display: inline-block;

@@ -1,7 +1,7 @@
-// The cover letter lab: a letter for a real job, written the way an application writes it (the apply skill's own
-// letter step, my voice, my stories, the posting), then checked with the applications' own check — each problem it
-// names goes back to the model to fix, twice at most — and laid out with the applications' own PDF tool, so what I
-// see here is what an employer would get. My voice and stories are edited here: each save keeps the previous version
+// Writing: a text for a real job, written the way an application writes it (the apply skill's own step for its texts,
+// my voice, my stories, the posting) — a cover letter, the answer to a form's question, or any text I describe — then
+// checked with the applications' own check — each problem it names goes back to the model to fix, twice at most — and,
+// for a letter, laid out with the applications' own PDF tool, so what I see here is what an employer would get. My voice and stories are edited here: each save keeps the previous version
 // in the data folder. Each try keeps its folder: the letter, the posting, the PDF, the voice it was written with.
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -19,7 +19,7 @@ import {
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { callModel } from "../ai/client.ts";
-import { fixPrompt, LETTER_VERSION, type LetterInput, letterPrompt, SYSTEM } from "../ai/letter/prompt.ts";
+import { fixPrompt, type Kind, LETTER_VERSION, type LetterInput, letterPrompt, SYSTEM } from "../ai/letter/prompt.ts";
 import { LetterDraft, LetterFix } from "../ai/letter/shape.ts";
 import { fetchPage } from "../ai/web.ts";
 import { begin } from "../platform/activity.ts";
@@ -103,22 +103,33 @@ export const tidy = (s: string) =>
 
 let busy = false;
 
-export function startLetter(db: DatabaseSync, settings: Settings, listingId: string): string {
+const WHAT: Record<Kind, string> = { letter: "the letter", answer: "the answer", text: "the text" };
+
+export function startLetter(
+  db: DatabaseSync,
+  settings: Settings,
+  listingId: string,
+  kind: Kind = "letter",
+  askFor = "",
+): string {
   const missing = labMissing(settings);
   if (missing) throw new Refused(missing);
   const l = getListing(db, listingId);
   if (!l) throw new Refused("no such job");
-  if (busy) throw new Refused("a letter is being written: one at a time, like the model");
+  const ask = askFor.trim();
+  if (kind !== "letter" && !ask)
+    throw new Refused(kind === "answer" ? "paste the form's question first" : "say what to write first");
+  if (busy) throw new Refused("a text is being written: one at a time, like the model");
   const id = randomUUID();
   const title = str(l.data.title);
   const org = str(l.data.org) || str(l.data.company);
   db.prepare(
-    "INSERT INTO letters (id, listing, title, state, step, started) VALUES (?, ?, ?, 'running', 'Starting', ?)",
-  ).run(id, listingId, org ? `${title} · ${org}` : title, new Date().toISOString());
+    "INSERT INTO letters (id, listing, title, state, step, started, kind, ask) VALUES (?, ?, ?, 'running', 'Starting', ?, ?, ?)",
+  ).run(id, listingId, org ? `${title} · ${org}` : title, new Date().toISOString(), kind, ask);
   busy = true;
   const dir = join(dataDir(), "letters", id);
   mkdirSync(dir, { recursive: true });
-  const live = begin("letter", `Cover letter: ${title}`.slice(0, 120), `/letters?try=${id}`);
+  const live = begin("letter", `Writing ${WHAT[kind]}: ${title}`.slice(0, 120), `/writing?try=${id}`);
   const step = (s: string) => {
     db.prepare("UPDATE letters SET step = ? WHERE id = ?").run(s, id);
     live.step(s);
@@ -161,17 +172,17 @@ export function startLetter(db: DatabaseSync, settings: Settings, listingId: str
       writeFileSync(jobFile, job);
       writeFileSync(join(dir, "voice.md"), input.voice); // the voice this try was written with, to compare later
 
-      step("Writing the letter");
+      step(`Writing ${WHAT[kind]}`);
       const draft = await callModel(
         effective,
         // the files are long and the model thinks before it writes: room for both (3,000 ran out while thinking)
-        { model, system: SYSTEM, prompt: letterPrompt(input), maxTokens: 12_000, thinking: true },
+        { model, system: SYSTEM, prompt: letterPrompt(input, kind, ask), maxTokens: 12_000, thinking: true },
         LetterDraft,
       );
       recordCall(db, `letter:v${LETTER_VERSION}`, draft);
       if (!draft.ok)
         return finish("failed", "", { model }, `the model didn't write it well: ${draft.why} (${draft.detail})`);
-      let letter = tidy(draft.value.letter);
+      let letter = tidy(draft.value.text);
       const fixed: string[] = []; // what each check named before a fix
       let findings = "";
       for (let round = 0; check && round < 3; round++) {
@@ -189,12 +200,13 @@ export function startLetter(db: DatabaseSync, settings: Settings, listingId: str
         );
         recordCall(db, `letter-fix:v${LETTER_VERSION}`, fix);
         if (!fix.ok) break;
-        letter = tidy(fix.value.letter);
+        letter = tidy(fix.value.text);
       }
       writeFileSync(letterFile, `${letter}\n`);
-      step("Laying out the PDF");
-      const laid = pdf ? await run(pdf, [letterFile], { APPLY_HOME: folder }, 120_000) : null;
-      const file = readdirSync(dir).find((f) => f.endsWith(".pdf")) ?? null;
+      // only a letter is laid out as a document; an answer or a text goes on a form as it is
+      if (kind === "letter") step("Laying out the PDF");
+      const laid = kind === "letter" && pdf ? await run(pdf, [letterFile], { APPLY_HOME: folder }, 120_000) : null;
+      const file = kind === "letter" ? (readdirSync(dir).find((f) => f.endsWith(".pdf")) ?? null) : null;
       finish("done", letter, {
         model,
         needs: draft.value.needs,
@@ -203,11 +215,14 @@ export function startLetter(db: DatabaseSync, settings: Settings, listingId: str
         findings,
         checked: Boolean(check),
         pdf: file,
-        pdfNote: !pdf
-          ? "set apply.pdf in settings.json to see the PDF"
-          : laid && laid.code !== 0
-            ? laid.out.slice(-600)
-            : "",
+        pdfNote:
+          kind !== "letter"
+            ? ""
+            : !pdf
+              ? "set apply.pdf in settings.json to see the PDF"
+              : laid && laid.code !== 0
+                ? laid.out.slice(-600)
+                : "",
         stepFound: Boolean(stepText),
       });
     } catch (e) {
@@ -215,7 +230,7 @@ export function startLetter(db: DatabaseSync, settings: Settings, listingId: str
         "failed",
         "",
         { model },
-        `the letter stopped: ${(e instanceof Error ? e.message : String(e)).slice(0, 160)}`,
+        `the writing stopped: ${(e instanceof Error ? e.message : String(e)).slice(0, 160)}`,
       );
     } finally {
       busy = false;
@@ -227,7 +242,7 @@ export function startLetter(db: DatabaseSync, settings: Settings, listingId: str
 export function listLetters(db: DatabaseSync, listing?: string) {
   return db
     .prepare(
-      `SELECT id, listing, title, state, step, started, finished, error, json_extract(notes, '$.pdf') AS pdf
+      `SELECT id, listing, title, state, step, started, finished, error, kind, ask, json_extract(notes, '$.pdf') AS pdf
        FROM letters ${listing ? "WHERE listing = ?" : ""} ORDER BY started DESC LIMIT 100`,
     )
     .all(...(listing ? [listing] : [])) as Record<string, unknown>[];

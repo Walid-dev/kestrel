@@ -7,7 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { migrate } from "../../db/migrate.ts";
 import { Refused } from "../notes/documents.ts";
-import { addTask, closeTask, importOldTasks, listTasks, reopenTask } from "./tasks.ts";
+import { addTask, checkTask, closeTask, deleteTask, editTask, importOldTasks, listTasks, reopenTask } from "./tasks.ts";
 
 function setup() {
   const base = mkdtempSync(join(tmpdir(), "kestrel-tasks-"));
@@ -50,4 +50,20 @@ test("the old Hub's file lands once: a rerun updates, junk is skipped by name, o
   assert.equal(again.landed, 2);
   assert.equal(listTasks(db).length, 2); // never doubled
   assert.equal(listTasks(db, "done").length, 2); // the old file stayed the authority for done
+});
+
+test("my own tick needs no note; words and whom it is for change in place; a delete removes it", () => {
+  const db = setup();
+  const made = addTask(db, "water the made-up plants", "any");
+  const edited = editTask(db, made.id, { text: "water the plants twice", who: "me" });
+  assert.equal(edited.text, "water the plants twice");
+  assert.equal(edited.who, "me");
+  assert.ok(edited.edited);
+  assert.throws(() => editTask(db, made.id, { text: "  " }), Refused);
+  const ticked = checkTask(db, made.id);
+  assert.equal(ticked.done, true);
+  assert.equal(ticked.note, "");
+  deleteTask(db, made.id);
+  assert.equal(listTasks(db).length, 0);
+  assert.throws(() => deleteTask(db, made.id), Refused);
 });

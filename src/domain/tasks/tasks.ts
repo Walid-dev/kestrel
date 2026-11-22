@@ -1,4 +1,6 @@
-// Tasks: one line each. An agent closes one with a short note of what was done; nothing here decides for me.
+// Tasks: my to-do list, for me and for the agents to pick later, as the old Hub's was: each task for someone (any
+// agent, Claude Code, dsh, me), its words edited in place. An agent closes one with a short note of what was done;
+// I tick mine off without one. Nothing here decides for me.
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { Refused } from "../notes/documents.ts";
@@ -11,6 +13,7 @@ export type Task = {
   note: string;
   added: string;
   closed: string | null;
+  edited: string | null;
 };
 
 const row = (r: Record<string, unknown>): Task => ({
@@ -21,6 +24,7 @@ const row = (r: Record<string, unknown>): Task => ({
   note: String(r.note),
   added: String(r.added),
   closed: r.closed === null ? null : String(r.closed),
+  edited: r.edited == null ? null : String(r.edited),
 });
 
 export function addTask(db: DatabaseSync, text: string, who = "", id: string = randomUUID()): Task {
@@ -52,6 +56,36 @@ export function closeTask(db: DatabaseSync, id: string, note: string): Task {
     id,
   );
   return row(db.prepare("SELECT * FROM tasks WHERE id = ?").get(id) as Record<string, unknown>);
+}
+
+// my own tick: done, no note asked (an agent's close keeps its note)
+export function checkTask(db: DatabaseSync, id: string): Task {
+  const had = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+  if (!had) throw new Refused("no such task");
+  db.prepare("UPDATE tasks SET done = 1, closed = ? WHERE id = ?").run(new Date().toISOString(), id);
+  return row(db.prepare("SELECT * FROM tasks WHERE id = ?").get(id) as Record<string, unknown>);
+}
+
+// its words or whom it is for, changed in place
+export function editTask(db: DatabaseSync, id: string, change: { text?: string; who?: string }): Task {
+  const had = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+  if (!had) throw new Refused("no such task");
+  if (change.text !== undefined) {
+    const text = change.text.trim();
+    if (!text) throw new Refused("a task needs its words");
+    db.prepare("UPDATE tasks SET text = ?, edited = ? WHERE id = ?").run(
+      text.slice(0, 2000),
+      new Date().toISOString(),
+      id,
+    );
+  }
+  if (change.who !== undefined) db.prepare("UPDATE tasks SET who = ? WHERE id = ?").run(change.who.trim(), id);
+  return row(db.prepare("SELECT * FROM tasks WHERE id = ?").get(id) as Record<string, unknown>);
+}
+
+export function deleteTask(db: DatabaseSync, id: string): void {
+  const gone = db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
+  if (gone.changes === 0) throw new Refused("no such task");
 }
 
 export function reopenTask(db: DatabaseSync, id: string): Task {

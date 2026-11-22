@@ -5,6 +5,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileS
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { letterPrompt, whatToWrite } from "../ai/letter/prompt.ts";
 import { LetterDraft } from "../ai/letter/shape.ts";
 import type { Settings } from "../platform/config.ts";
 import { dataDir } from "../platform/paths.ts";
@@ -73,14 +74,35 @@ test("a letter is tidied for the PDF tool; a try's PDF is found only under a rea
   assert.equal(letterPdf("00000000-0000-0000-0000-000000000000"), null);
 });
 
-test("the letter comes as its paragraphs and is joined with a blank line between them; one string still reads", () => {
+test("the text comes as its paragraphs and is joined with a blank line between them; one string still reads", () => {
   const d = LetterDraft.parse({
     needs: "Pouring tea",
     stories: ["The teapot story"],
     letter: ["Dear team,", "  I pour tea well, every morning, for twelve years.  ", "", "Best,", "A. Person"],
   });
-  assert.equal(d.letter, "Dear team,\n\nI pour tea well, every morning, for twelve years.\n\nBest,\n\nA. Person");
+  assert.equal(d.text, "Dear team,\n\nI pour tea well, every morning, for twelve years.\n\nBest,\n\nA. Person");
   assert.deepEqual(d.needs, ["Pouring tea"]);
   const one = LetterDraft.parse({ letter: "Dear team,\n\nI pour tea well, every morning, for twelve years." });
-  assert.match(one.letter, /^Dear team,/);
+  assert.match(one.text, /^Dear team,/);
+});
+
+test("three kinds of text, each asked in the step's own terms; an older answer under letter still reads", () => {
+  assert.match(whatToWrite("letter", ""), /letter\.txt/);
+  assert.match(whatToWrite("answer", "Why this team?"), /question on the application form: Why this team\?/);
+  assert.match(
+    whatToWrite("text", "a two-line note to the recruiter"),
+    /Write this, for this application: a two-line note/,
+  );
+  const input = {
+    step: "3. Write the texts.",
+    voice: "v",
+    stories: "s",
+    profile: "p",
+    title: "Teapot maker",
+    org: "Made Co",
+    job: "j",
+  };
+  assert.match(letterPrompt(input, "answer", "Why us?"), /"text": \[/);
+  const old = LetterDraft.parse({ letter: ["Dear team,", "I pour tea well, every morning, for twelve years."] });
+  assert.match(old.text, /^Dear team,\n\nI pour tea/);
 });

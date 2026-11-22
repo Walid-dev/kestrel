@@ -1,7 +1,9 @@
 // The frame every screen sits in: the bar with the app's name and the health chip, and the asleep banner when the
 // computer doesn't answer (the service worker then serves the last copies).
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router";
+import { useChatLink } from "./chats.tsx";
 import { useEvents } from "./events.ts";
 import { ICONS, STROKE } from "./home.tsx";
 import { Mark } from "./mark.tsx";
@@ -101,6 +103,7 @@ export function App() {
         </p>
       )}
       <Outlet />
+      <Dock live={busy} />
       {/* on a phone, the main places one tap away under the thumb: Home is always the first */}
       <nav
         className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t px-1 pt-1.5 md:hidden"
@@ -161,3 +164,83 @@ const BAR = [
     ),
   },
 ];
+
+// on a computer, every app at the screen's right edge, the old pages' dock: the pointer at the edge slides it in, a
+// click goes there, leaving lets it slide away. Phones keep the bottom bar.
+const DOCK: { to: string; label: string; icon: React.ReactNode }[] = [
+  { to: "/", label: "Home", icon: null },
+  { to: "/searches", label: "Searches", icon: ICONS.Searches },
+  { to: "/chats", label: "Chat", icon: ICONS.Chat },
+  { to: "/learn", label: "Learn", icon: ICONS.Learn },
+  { to: "/notes", label: "Notes", icon: ICONS.Notes },
+  { to: "/tasks", label: "Tasks", icon: ICONS.Tasks },
+  { to: "/research", label: "Research", icon: ICONS.Research },
+  { to: "/quiz", label: "Quiz", icon: ICONS.Quiz },
+  { to: "/applications", label: "Applications", icon: ICONS.Applications },
+  { to: "/writing", label: "Writing", icon: ICONS.Writing },
+  { to: "/interview", label: "Interview prep", icon: ICONS["Interview prep"] },
+  { to: "/live", label: "Live", icon: null },
+];
+
+function Dock({ live }: { live: { working: number; waiting: number } }) {
+  const chat = useChatLink();
+  const [shown, setShown] = useState(false);
+  const leave = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const show = () => {
+    if (leave.current) clearTimeout(leave.current);
+    setShown(true);
+  };
+  const hide = () => {
+    if (leave.current) clearTimeout(leave.current);
+    leave.current = setTimeout(() => setShown(false), 350);
+  };
+  useEffect(
+    () => () => {
+      if (leave.current) clearTimeout(leave.current);
+    },
+    [],
+  );
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: the edge only reveals the dock under the pointer; the keyboard reaches its links by Tab, and focus shows it
+    <div className="dock-zone" onMouseEnter={show} onMouseLeave={hide}>
+      <nav className={`dock ${shown ? "dock-shown" : ""}`} aria-label="Every app" onFocus={show} onBlur={hide}>
+        {DOCK.map((d) =>
+          d.to === "/chats" && chat.external ? (
+            <a
+              key={d.to}
+              href={chat.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="dock-item"
+              title={d.label}
+              onClick={() => setShown(false)}
+            >
+              {d.icon}
+              <span className="dock-label">{d.label}</span>
+            </a>
+          ) : (
+            <NavLink
+              key={d.to}
+              to={d.to}
+              end={d.to === "/"}
+              className="dock-item"
+              onClick={() => setShown(false)}
+              title={d.label}
+            >
+              <span className="relative grid place-items-center">
+                {d.to === "/" ? BAR[0].icon : d.to === "/live" ? BAR[4].icon : d.icon}
+                {d.to === "/live" && (live.working > 0 || live.waiting > 0) && (
+                  <span
+                    className={`absolute -top-0.5 -right-1 block h-2 w-2 rounded-full ${live.working ? "pulse" : ""}`}
+                    style={{ background: live.waiting ? "var(--pink)" : "var(--green)" }}
+                  />
+                )}
+              </span>
+              <span className="dock-label">{d.label}</span>
+            </NavLink>
+          ),
+        )}
+      </nav>
+    </div>
+  );
+}

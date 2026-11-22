@@ -56,7 +56,9 @@ export const Settings = z.object({
     .default({ url: "http://127.0.0.1:8798", name: "af_heart" }),
   // oMLX's home, where its hourly usage table lives: the Cost page reads it, read only (empty: Cost says so)
   omlxHome: z.string().default(""),
-  // the other apps Home opens: my chats (the DeepSeek Harness), on this computer and on the phone
+  // the other apps Home opens: my chats (the DeepSeek Harness). desktop: opened in its own tab on a computer, where
+  // that address is signed in; phone: its own window on a phone (dsh's door); phoneFrame: shown inside kestrel on a
+  // phone
   links: z
     .array(
       z.object({
@@ -64,6 +66,7 @@ export const Settings = z.object({
         what: z.string().default(""),
         desktop: z.string().url(),
         phone: z.string().url().optional(),
+        phoneFrame: z.string().url().optional(),
       }),
     )
     .default([]),

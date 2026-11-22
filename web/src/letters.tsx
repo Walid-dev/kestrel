@@ -1,12 +1,14 @@
-// Cover letters: a letter for a real job, written the way an application writes it — the apply skill's letter step,
-// my voice and stories, the posting — checked by the applications' own check (what it names goes back to be fixed)
-// and laid out by their own PDF tool, so this is what an employer would get. My voice and stories are edited here,
-// each save keeping the old words; write again and compare the tries.
+// Writing: a text for a real job, written the way an application writes it — the apply skill's step for its texts,
+// my voice and stories, the posting — a cover letter, the answer to a form's question, or any text I describe. It is
+// checked by the applications' own check (what it names goes back to be fixed) and a letter is laid out by their own
+// PDF tool, so this is what an employer would get. My voice and stories are edited here, each save keeping the old
+// words; write again and compare the tries.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 
 type Job = { id: string; title: string; org: string; state: string; at: string };
+type Kind = "letter" | "answer" | "text";
 type TryRow = {
   id: string;
   listing: string;
@@ -15,7 +17,15 @@ type TryRow = {
   step: string;
   started: string;
   error: string;
+  kind: Kind;
+  ask: string;
 };
+const KINDS: [Kind, string, string][] = [
+  ["letter", "Cover letter", ""],
+  ["answer", "An answer", "Paste the form's question, like: Why do you want to work here?"],
+  ["text", "Any text", "Say what to write, like: a three-line note to the recruiter about my start date"],
+];
+const KIND_NAME: Record<Kind, string> = { letter: "Letter", answer: "Answer", text: "Text" };
 type Try = TryRow & {
   text: string;
   voice: string;
@@ -51,12 +61,14 @@ async function send(url: string, method: string, body: unknown) {
   return j;
 }
 
-export function Letters() {
+export function Writing() {
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
   const pickedTry = params.get("try");
   const [job, setJob] = useState(params.get("listing") ?? "");
   const [q, setQ] = useState("");
+  const [kind, setKind] = useState<Kind>("letter");
+  const [ask, setAsk] = useState("");
 
   const files = useQuery({
     queryKey: ["letter-files"],
@@ -88,7 +100,7 @@ export function Letters() {
     if (one.data && !job) setJob(one.data.listing);
   }, [one.data, job]);
   const write = useMutation({
-    mutationFn: () => send("/api/letters", "POST", { listing: job }),
+    mutationFn: () => send("/api/letters", "POST", { listing: job, kind, ask }),
     onSuccess: (j) => {
       setParams(j.id ? { try: j.id } : {});
       queryClient.invalidateQueries({ queryKey: ["letters"] });
@@ -102,10 +114,10 @@ export function Letters() {
   return (
     <main className="grid gap-4">
       <header className="grid gap-1">
-        <h2 className="font-cond m-0 text-[34px] font-bold uppercase leading-none tracking-tight">Cover letters</h2>
+        <h2 className="font-cond m-0 text-[34px] font-bold uppercase leading-none tracking-tight">Writing</h2>
         <p className="m-0 text-[15px]" style={{ color: "var(--muted)" }}>
-          A letter for a real job, written exactly the way an application writes it, checked and laid out the same.
-          Change your voice or stories below, write again, compare.
+          A cover letter, the answer to a form's question, or any text for a job, written exactly the way an application
+          writes it and checked the same. Change your voice or stories below, write again, compare.
         </p>
       </header>
       {files.data && !files.data.ready && (
@@ -153,13 +165,31 @@ export function Letters() {
                 </button>
               ))}
             </div>
+            <span className="eyebrow mt-1">What to write</span>
+            <div className="flex flex-wrap gap-1.5">
+              {KINDS.map(([k, label]) => (
+                <button key={k} type="button" className="pill" aria-pressed={kind === k} onClick={() => setKind(k)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {kind !== "letter" && (
+              <textarea
+                className="btn min-h-[72px] text-[14px] leading-relaxed"
+                placeholder={KINDS.find(([k]) => k === kind)?.[2]}
+                value={ask}
+                maxLength={4000}
+                onChange={(e) => setAsk(e.target.value)}
+              />
+            )}
             <button
               type="button"
-              className="btn btn-primary"
-              disabled={!job || !files.data?.ready || write.isPending || running}
+              className="btn btn-primary inline-flex items-center justify-center gap-2"
+              disabled={!job || !files.data?.ready || write.isPending || running || (kind !== "letter" && !ask.trim())}
               onClick={() => write.mutate()}
             >
-              {running ? "Writing…" : tries.data?.length && job ? "Write it again" : "Write the letter"}
+              {(running || write.isPending) && <span className="spin" />}
+              {running ? "Writing…" : "Write it"}
             </button>
             {write.isError && (
               <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
@@ -181,9 +211,10 @@ export function Letters() {
                   <span
                     className={`dot ${x.state === "done" ? "tone-green" : x.state === "failed" ? "tone-red" : "tone-yellow pulse"}`}
                   />
-                  {when(x.started)}
-                  <span className="ml-auto text-[12.5px]" style={{ color: "var(--muted)" }}>
-                    {x.state === "running" ? x.step : x.state}
+                  <span className="chip tone-purple shrink-0">{KIND_NAME[x.kind] ?? "Letter"}</span>
+                  <span className="min-w-0 flex-1 truncate">{x.ask || when(x.started)}</span>
+                  <span className="shrink-0 text-[12.5px]" style={{ color: "var(--muted)" }}>
+                    {x.state === "running" ? x.step : x.state === "done" ? when(x.started) : x.state}
                   </span>
                 </button>
               ))}
@@ -195,7 +226,7 @@ export function Letters() {
         <section className="grid content-start gap-3">
           {!t && (
             <p className="m-0 text-sm" style={{ color: "var(--muted)" }}>
-              Pick a job and write its letter.
+              Pick a job, choose what to write, and write it.
             </p>
           )}
           {t && t.state === "running" && (
@@ -252,14 +283,20 @@ export function Letters() {
                   ))}
                 </div>
               )}
-              <div className="grid gap-3 xl:grid-cols-2">
+              {t.kind !== "letter" && t.ask && (
+                <p className="m-0 text-[14px]" style={{ color: "var(--muted)" }}>
+                  {t.kind === "answer" ? "The question: " : "Asked for: "}
+                  <span style={{ color: "var(--text)" }}>{t.ask}</span>
+                </p>
+              )}
+              <div className={`grid gap-3 ${t.kind === "letter" ? "xl:grid-cols-2" : ""}`}>
                 <article
                   className="card whitespace-pre-wrap text-[15px] leading-relaxed"
                   style={{ color: "var(--strong)" }}
                 >
                   {t.text}
                 </article>
-                {t.notes.pdf ? (
+                {t.kind !== "letter" ? null : t.notes.pdf ? (
                   <div className="grid gap-1.5">
                     <iframe
                       title="The PDF"

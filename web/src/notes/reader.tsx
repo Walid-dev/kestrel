@@ -1,5 +1,7 @@
-// The reader: the document as written, styled line by line, my notes as marks in the text and as a list below.
-// Selecting words offers a note on them; a button takes a note on the whole document; the sheet is a native dialog.
+// The reader: the document as written, styled line by line for reading — each paragraph a block of its own with a
+// coloured edge, headings in colour, code on its own ground — my notes as marks in the text and as a list beside.
+// In note mode, selecting words notes exactly those words; a tap on a paragraph notes the paragraph; a button takes a
+// note on the whole document; the sheet is a native dialog.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
@@ -10,15 +12,16 @@ import { NotesList } from "./notes-list.tsx";
 import { Review } from "./review.tsx";
 
 const LOOK: Record<Line["kind"], string> = {
-  h1: "font-cond text-2xl font-bold mt-4",
-  h2: "font-cond text-xl font-bold mt-3",
-  h3: "font-cond text-lg font-bold mt-2",
-  bullet: "",
-  fence: "font-mono text-sm",
-  code: "font-mono text-sm",
-  blank: "h-4",
-  plain: "",
+  h1: "font-cond text-[28px] font-bold leading-tight mt-5 mb-1",
+  h2: "font-cond text-[22px] font-bold leading-snug mt-4 mb-1",
+  h3: "font-cond text-[18px] font-bold mt-3",
+  bullet: "reader-line pl-6",
+  fence: "font-mono text-[13.5px]",
+  code: "font-mono text-[13.5px] reader-code",
+  blank: "h-2.5",
+  plain: "reader-line",
 };
+const INK: Partial<Record<Line["kind"], string>> = { h1: "var(--strong)", h2: "var(--purple)", h3: "var(--cyan)" };
 
 // where the selection sits in the whole text: the line div's offset, plus the text before the node inside it
 function offsetIn(article: HTMLElement, node: Node, offset: number): number | null {
@@ -171,11 +174,21 @@ export function Reader() {
     wasMaking.current = current?.status === "making";
   }, [current?.status]);
 
-  const onSelect = () => {
+  const onSelect = (ev: React.MouseEvent | React.TouchEvent) => {
     if (!noteMode) return;
     const sel = getSelection();
     const el = article.current;
-    if (!sel || sel.isCollapsed || !el || !doc.data) return;
+    if (!sel || !el || !doc.data) return;
+    // a tap, no words selected: the paragraph under it (a mark keeps its own way). It is decided here, once — a click
+    // handler came after the note box took the focus, found the selection gone and swapped the words for the paragraph
+    if (sel.isCollapsed) {
+      const target = ev.target as HTMLElement;
+      if (target.closest("button")) return;
+      const lineEl = target.closest("[data-at]") as HTMLElement | null;
+      const ln = lineEl ? lines.find((x) => x.at === Number(lineEl.dataset.at)) : undefined;
+      if (ln && ln.text.trim() !== "") setSheet({ kind: "new", quote: ln.text, start: ln.at });
+      return;
+    }
     const r = sel.getRangeAt(0);
     const a = offsetIn(el, r.startContainer, r.startOffset);
     const b = offsetIn(el, r.endContainer, r.endOffset);
@@ -302,25 +315,15 @@ export function Reader() {
         ref={article}
         onMouseUp={onSelect}
         onTouchEnd={onSelect}
-        className="rounded-2xl border p-5 leading-relaxed"
+        className={`reader rounded-2xl border p-4 md:p-6 ${noteMode ? "noting" : ""}`}
         style={{ borderColor: "var(--line)", background: "var(--surface)" }}
       >
         {lines.map((ln) => (
-          // biome-ignore lint/a11y/useKeyWithClickEvents: tapping a line is a shortcut; the same note comes from selecting words
-          // biome-ignore lint/a11y/noStaticElementInteractions: as above — the keyboard path is the selection
           <div
             key={ln.n}
             data-at={ln.at}
             className={LOOK[ln.kind]}
-            style={ln.kind === "code" || ln.kind === "fence" ? { color: "var(--muted)" } : undefined}
-            onClick={(e) => {
-              // in note mode, a tap on plain words notes the line; a mark (a button) and a selection keep their ways
-              if (!noteMode) return;
-              if ((e.target as HTMLElement).closest("button")) return;
-              if (!getSelection()?.isCollapsed) return;
-              if (ln.text.trim() === "") return;
-              setSheet({ kind: "new", quote: ln.text, start: ln.at });
-            }}
+            style={{ color: INK[ln.kind] ?? (ln.kind === "fence" ? "var(--muted)" : undefined) }}
           >
             {segments(ln, placed).map((seg) => {
               const open = () => {

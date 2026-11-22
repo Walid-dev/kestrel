@@ -1,5 +1,6 @@
-// The cover letter lab's routes: my voice and stories (read, and saved with the previous version kept), the jobs a
-// letter can be tried for, a try (it runs in the background, Live follows it), the tries, one try whole, its PDF.
+// Writing's routes: my voice and stories (read, and saved with the previous version kept), the jobs a text can be
+// written for, a try (a cover letter, an answer or any text; it runs in the background and Live follows it), the
+// tries, one try whole, and a letter's PDF.
 import { readFileSync } from "node:fs";
 import type { DatabaseSync } from "node:sqlite";
 import { zValidator } from "@hono/zod-validator";
@@ -40,13 +41,25 @@ export function mountLetters(app: Hono, db: DatabaseSync, settings: Settings) {
     }
   });
   app.get("/api/letters/jobs", (c) => c.json({ jobs: letterJobs(db) }));
-  app.post("/api/letters", zValidator("json", z.object({ listing: z.string().min(1) })), (c) => {
-    try {
-      return c.json({ id: startLetter(db, settings, c.req.valid("json").listing) }, 202);
-    } catch (e) {
-      return refusing(c, e);
-    }
-  });
+  app.post(
+    "/api/letters",
+    zValidator(
+      "json",
+      z.object({
+        listing: z.string().min(1),
+        kind: z.enum(["letter", "answer", "text"]).default("letter"),
+        ask: z.string().max(4000).default(""),
+      }),
+    ),
+    (c) => {
+      try {
+        const { listing, kind, ask } = c.req.valid("json");
+        return c.json({ id: startLetter(db, settings, listing, kind, ask) }, 202);
+      } catch (e) {
+        return refusing(c, e);
+      }
+    },
+  );
   app.get("/api/letters", (c) => c.json({ letters: listLetters(db, c.req.query("listing") || undefined) }));
   app.get("/api/letters/:id", (c) => {
     const r = getLetter(db, c.req.param("id"));

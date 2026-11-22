@@ -44,7 +44,7 @@ const KIND: Record<string, [string, string]> = {
   listing: ["Listing", "tone-purple"],
   research: ["Research", "tone-yellow"],
   quiz: ["Quiz", "tone-green"],
-  letter: ["Letter", "tone-orange"],
+  letter: ["Writing", "tone-orange"],
 };
 const FILTERS: [string, string][] = [
   ["", "Everything"],

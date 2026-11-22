@@ -1,9 +1,25 @@
-// The cover letter's prompts, the way an application writes one: the apply skill's own letter step, followed as
-// written, with my voice, my stories and my facts, and the posting. A second prompt fixes exactly what the
-// applications' check named, with the same files at hand.
-export const LETTER_VERSION = 1;
+// Writing's prompts, the way an application writes its texts: the apply skill's own step for them, followed as
+// written, with my voice, my stories and my facts, and the posting. A text is a cover letter, the answer to a form's
+// question, or any text I describe. A second prompt fixes exactly what the applications' check named, with the same
+// files at hand.
+export const LETTER_VERSION = 2;
 export const SYSTEM =
-  "You write one cover letter for one person, in their voice, from their own files only. Reply with ONE JSON OBJECT only, no prose around it.";
+  "You write for one person applying to a job, in their voice, from their own files only. Reply with ONE JSON OBJECT only, no prose around it.";
+
+export type Kind = "letter" | "answer" | "text";
+// what to write, in the step's own terms: the letter as letter.txt, an answer in voice.md's shape of an answer
+export function whatToWrite(kind: Kind, ask: string): string {
+  if (kind === "answer")
+    return [
+      `Write the answer to this question on the application form: ${ask}`,
+      "In voice.md's shape and length of an answer: plain, direct, from one story when one fits.",
+    ].join("\n");
+  if (kind === "text") return `Write this, for this application: ${ask}`;
+  return [
+    "Write letter.txt as the step says: the greeting, the paragraphs, the close and my name, a blank line between",
+    "paragraphs; no HTML, letterhead or date.",
+  ].join("\n");
+}
 
 export type LetterInput = {
   step: string; // the apply skill's letter step, as written
@@ -34,14 +50,14 @@ const context = (i: LetterInput) =>
     i.job,
   ].join("\n");
 
-export function letterPrompt(i: LetterInput): string {
+export function letterPrompt(i: LetterInput, kind: Kind = "letter", ask = ""): string {
   return [
     context(i),
     "",
-    "Write letter.txt as the step says: the greeting, the paragraphs, the close and my name, a blank line between",
-    "paragraphs; no HTML, letterhead or date. First name the job's two or three main needs and the story for each.",
-    "Give the letter as its paragraphs in order, one string each: the greeting, each paragraph, the close, my name.",
-    'Answer: {"needs": ["<a need>"], "stories": ["<the story used for it>"], "letter": ["<the greeting>", "<a paragraph>", "...", "<the close>", "<my name>"]}',
+    whatToWrite(kind, ask),
+    "First name the two or three needs the text answers and the story for each.",
+    "Give the text as its paragraphs in order, one string each.",
+    'Answer: {"needs": ["<a need>"], "stories": ["<the story used for it>"], "text": ["<a paragraph>", "..."]}',
   ].join("\n");
 }
 
@@ -49,7 +65,7 @@ export function fixPrompt(i: LetterInput, letter: string, findings: string): str
   return [
     context(i),
     "",
-    "The letter:",
+    "The text:",
     letter,
     "",
     "The applications' check named these problems:",
@@ -57,6 +73,6 @@ export function fixPrompt(i: LetterInput, letter: string, findings: string): str
     "",
     "Fix exactly what it names: take out or correct each fact my files don't back, rewrite each copied phrase in",
     "new words, replace dashes used as punctuation. Change nothing else.",
-    'Answer: {"letter": ["<the greeting>", "<a paragraph>", "...", "<the close>", "<my name>"]} (the fixed letter, its paragraphs in order)',
+    'Answer: {"text": ["<a paragraph>", "..."]} (the fixed text, its paragraphs in order)',
   ].join("\n");
 }
