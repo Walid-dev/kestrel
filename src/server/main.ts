@@ -97,9 +97,10 @@ mountTasks(app, db);
 mountLive(app, db);
 mountCost(app, settings);
 mountBrief(app, db, settings);
-// an api path with no door answers so, in words — never the app's page with a 200
-app.all("/api/*", (c) => c.json({ error: "no such door" }, 404));
 mountEvents(app);
+// an api path with no door answers so, in words — never the app's page with a 200. It comes last: a route mounted
+// after it is never reached (the live stream was, until 2026-11-22, so every screen fell back to its timer)
+app.all("/api/*", (c) => c.json({ error: "no such door" }, 404));
 startScheduler(db, {
   specsDir: join(dataDir(), "searches"),
   backupsDir: join(dataDir(), "backups"),
