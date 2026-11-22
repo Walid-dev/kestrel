@@ -34,6 +34,8 @@ function offsetIn(article: HTMLElement, node: Node, offset: number): number | nu
   return Number(lineEl.dataset.at) + before; // the selection edge sits at the line's end
 }
 
+export const LAST_DOC = "kestrel-notes-last";
+
 export function Reader() {
   const { id = "" } = useParams();
   const queryClient = useQueryClient();
@@ -43,6 +45,14 @@ export function Reader() {
   const [noteMode, setNoteMode] = useState(false);
   const [review, setReview] = useState(false);
   const [askWhy, setAskWhy] = useState("");
+  // the last document opened is where Notes opens next time, on this device
+  useEffect(() => {
+    try {
+      localStorage.setItem(LAST_DOC, id);
+    } catch {
+      // storage off: Notes opens on its list instead
+    }
+  }, [id]);
 
   const doc = useQuery({
     queryKey: ["doc", id],
@@ -190,12 +200,8 @@ export function Reader() {
   return (
     <main className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6">
       <div className="mb-1 flex flex-wrap items-center gap-3 lg:col-start-1">
-        <Link
-          to="/notes"
-          className="font-mono text-[11px] uppercase tracking-[0.18em]"
-          style={{ color: "var(--accent)" }}
-        >
-          ← Notes
+        <Link to="/notes?list=1" className="btn">
+          Documents
         </Link>
         <p
           className="font-mono min-w-0 flex-1 truncate text-[11px] uppercase tracking-[0.18em]"

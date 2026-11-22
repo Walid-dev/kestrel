@@ -1,9 +1,10 @@
-// Notes' front door: the documents already here, the files my folders offer, and Upload. Opening either leads to the
-// reader.
+// Notes' documents: the ones already here, the files my folders offer, and Upload. Notes itself opens on the last
+// document I worked on; this list is its switcher, and the start when nothing is open yet.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import type { DocumentMeta } from "../../../src/shared/notes.ts";
+import { LAST_DOC } from "./reader.tsx";
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -55,13 +56,24 @@ export function NotesList() {
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["docs"] }),
   });
+  // Notes opens on the document I last worked on; the list is the switcher (?list=1), or the start when none is open
+  useEffect(() => {
+    if (!docs.data || new URLSearchParams(location.search).has("list")) return;
+    let last = "";
+    try {
+      last = localStorage.getItem(LAST_DOC) ?? "";
+    } catch {
+      // storage off: the list it is
+    }
+    if (last && docs.data.documents.some((d) => d.id === last)) navigate(`/notes/${last}`, { replace: true });
+  }, [docs.data, navigate]);
   const opened = new Set((docs.data?.documents ?? []).map((d) => d.path).filter(Boolean));
   const offered = (files.data?.files ?? []).filter((f) => !opened.has(f.path));
 
   return (
     <main className="grid gap-3.5">
       <div className="flex items-baseline">
-        <h2 className="font-cond text-xl font-bold">Notes</h2>
+        <h2 className="font-cond text-xl font-bold">Documents</h2>
         <button type="button" className="btn ml-auto" onClick={() => file.current?.click()}>
           Upload a text
         </button>

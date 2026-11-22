@@ -12,6 +12,7 @@ import { dataDir, isDeployed } from "../platform/paths.ts";
 import { app } from "./app.ts";
 import { mountApply } from "./apply.ts";
 import { mountBrief } from "./brief.ts";
+import { mountCost } from "./cost.ts";
 import { mountEvents } from "./events.ts";
 import { identity } from "./identity.ts";
 import { mountLearn } from "./learn.ts";
@@ -90,6 +91,7 @@ mountSearch(app, db, settings);
 mountApply(app, db);
 mountTasks(app, db);
 mountLive(app, db);
+mountCost(app, settings);
 mountBrief(app, db, settings);
 // an api path with no door answers so, in words — never the app's page with a 200
 app.all("/api/*", (c) => c.json({ error: "no such door" }, 404));

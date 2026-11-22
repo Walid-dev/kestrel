@@ -25,6 +25,8 @@ test("a good settings file answers the settings, defaults filled", () => {
     models: MODEL_DEFAULTS,
     voice: { url: "http://127.0.0.1:8798", name: "af_heart" },
     profile: {},
+    omlxHome: "",
+    links: [],
   });
 });
 

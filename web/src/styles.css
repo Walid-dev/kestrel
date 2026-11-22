@@ -46,6 +46,7 @@
   --muted: #8a919e;
   --accent: #61afef;
   --accent-soft: rgba(97, 175, 239, 0.15);
+  --chart-bar: #4a94dc; /* the accent a step deeper: in the dark band, 3:1 on the surface (checked) */
   --glow: rgba(97, 175, 239, 0.06);
   --pink: #ff757f;
   --pink-soft: rgba(255, 117, 127, 0.16);
@@ -75,6 +76,7 @@
     --muted: #696c77;
     --accent: #3d74f0;
     --accent-soft: rgba(61, 116, 240, 0.1);
+    --chart-bar: #3d74f0;
     --glow: rgba(61, 116, 240, 0.04);
     --pink: #c7324f;
     --pink-soft: rgba(199, 50, 79, 0.1);

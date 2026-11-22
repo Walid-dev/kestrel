@@ -15,6 +15,8 @@ const settings: Settings = {
   models: { url: "http://127.0.0.1:1/v1", careful: "careful-model", fast: "fast-model", contextChars: 1000 },
   voice: { url: "http://127.0.0.1:1", name: "made-up" },
   profile: {},
+  omlxHome: "",
+  links: [],
 };
 
 test("the settings answer until a pick is made; the pick wins and survives a reopen", () => {

@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
 import { App } from "./app.tsx";
 import { Applications } from "./apply/applications.tsx";
+import { Cost } from "./cost.tsx";
 import { Home } from "./home.tsx";
 import { InterviewHelper } from "./learn/helper.tsx";
 import { LearnLesson } from "./learn/lesson.tsx";
@@ -44,6 +45,7 @@ if (rootEl)
               <Route path="interview/helper" element={<InterviewHelper />} />
               <Route path="tasks" element={<Tasks />} />
               <Route path="live" element={<LivePage />} />
+              <Route path="cost" element={<Cost />} />
               <Route path="notes/set" element={<NotesSet />} />
               <Route path="notes/:id" element={<Reader />} />
             </Route>

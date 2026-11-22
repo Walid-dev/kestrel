@@ -25,6 +25,8 @@ const settings = (url: string, contextChars = 100_000): Settings => ({
   models: { url, careful: "careful-model", fast: "fast-model", contextChars },
   voice: { url: "http://127.0.0.1:1", name: "made-up" },
   profile: {},
+  omlxHome: "",
+  links: [],
 });
 
 test("a draft is made, placed, and still there until discarded", async () => {

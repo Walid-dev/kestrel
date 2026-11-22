@@ -99,6 +99,16 @@ const APPS: { name: string; what: string; when: string; to: string | null; color
 ];
 
 export function Home() {
+  const links = useQuery({
+    queryKey: ["links"],
+    queryFn: async () => {
+      const res = await fetch("/api/links");
+      if (!res.ok) throw new Error(`${res.status}`);
+      return (await res.json()) as { links: { name: string; what: string; desktop: string; phone?: string }[] };
+    },
+  });
+  // on a phone the chats open through the private network's name; on this computer, its own door
+  const coarse = typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches;
   const brief = useQuery({
     queryKey: ["brief"],
     queryFn: async () => {
@@ -172,6 +182,37 @@ export function Home() {
           </Link>
         );
       })}
+      {(links.data?.links ?? []).map((l) => (
+        <a
+          key={l.name}
+          href={coarse && l.phone ? l.phone : l.desktop}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="card card-link flex items-center gap-3"
+        >
+          <span style={{ color: "var(--accent)" }}>
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
+              <path d="M4.5 5.5h15v10h-9L6 19v-3.5H4.5z" />
+            </svg>
+          </span>
+          <span className="font-cond text-lg font-bold">{l.name}</span>
+          <span className="ml-auto text-sm" style={{ color: "var(--muted)" }}>
+            {l.what} ↗
+          </span>
+        </a>
+      ))}
+      <Link to="/cost" className="card card-link flex items-center gap-3">
+        <span style={{ color: "var(--yellow)" }}>
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
+            <circle cx="9" cy="9" r="5.5" />
+            <path d="M14.5 9.6a5.5 5.5 0 1 1-4.9 4.9" />
+          </svg>
+        </span>
+        <span className="font-cond text-lg font-bold">Cost</span>
+        <span className="ml-auto text-sm" style={{ color: "var(--muted)" }}>
+          what the models did, and what the cloud would have charged
+        </span>
+      </Link>
       <Link
         to="/models"
         className="card flex items-center gap-3 transition-all duration-200 hover:-translate-y-px md:col-span-2"

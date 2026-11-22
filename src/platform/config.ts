@@ -54,6 +54,19 @@ export const Settings = z.object({
       name: z.string().default("af_heart"),
     })
     .default({ url: "http://127.0.0.1:8798", name: "af_heart" }),
+  // oMLX's home, where its hourly usage table lives: the Cost page reads it, read only (empty: Cost says so)
+  omlxHome: z.string().default(""),
+  // the other apps Home opens: my chats (the DeepSeek Harness), on this computer and on the phone
+  links: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        what: z.string().default(""),
+        desktop: z.string().url(),
+        phone: z.string().url().optional(),
+      }),
+    )
+    .default([]),
   // who I am, for a deep check's read of a job: level, years, skills, a summary (personal: the data folder only)
   profile: z
     .object({
