@@ -23,9 +23,9 @@ const slug = (s: string) =>
     .slice(0, 60);
 // the collector's knobs this page names; any other stays as written
 const KNOBS: [string, string, string][] = [
-  ["TERM_WORDS", "Search words", "full-stack engineer"],
+  ["TERM_WORDS", "Search words", "what the sites are asked for"],
   ["LOCATION", "Place", "a city, or remote"],
-  ["HOURS_OLD", "Posted within (hours)", "72"],
+  ["HOURS_OLD", "Posted within (hours)", "older postings are skipped"],
 ];
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {

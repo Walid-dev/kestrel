@@ -4,14 +4,20 @@ import { z } from "zod";
 
 // a spec file is written by hand: a lone string where a list belongs still reads (split on commas or semicolons),
 // and anything unreadable falls back to a harmless default instead of a crash
+const splitWords = (s: string) =>
+  s
+    .split(/[;,]/)
+    .map((x) => x.trim())
+    .filter(Boolean);
 const words = z.preprocess(
   (v) =>
     typeof v === "string"
-      ? v
-          .split(/[;,]/)
-          .map((s) => s.trim())
-          .filter(Boolean)
-      : v,
+      ? splitWords(v)
+      : // a list of single letters is a string that was split letter by letter by mistake: joined back, then split
+        // on its commas (a corrupted list once scored every posting as naming most of 123 "skills")
+        Array.isArray(v) && v.length > 3 && v.every((x) => typeof x === "string" && x.length <= 1)
+        ? splitWords(v.join(""))
+        : v,
   z.array(z.string()).catch([]),
 );
 export const ScoringShape = z

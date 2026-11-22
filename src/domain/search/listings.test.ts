@@ -13,6 +13,7 @@ import {
   listingCounts,
   listListings,
   normalizeDedupe,
+  rescoreSearch,
   setListingStar,
   setListingStatus,
 } from "./listings.ts";
@@ -186,4 +187,19 @@ test("the old page's stages: review takes good matches, possible the weaker ones
   assert.equal(c.stages.possible, 2);
   assert.equal(c.stages.leftout, 1);
   assert.equal(c.stages.all, 5);
+});
+
+test("new scoring rules rescore what the search already found; the old setup's own scores stay", () => {
+  const db = setup();
+  keepItems(db, "s1", [item()], { title: { want: ["nothing"] } }, NOW);
+  db.prepare(
+    `INSERT INTO listings (id, search, source, link, dedupe, status, starred, found, updated, score, match, data, kind)
+     VALUES ('old', 's1', 'made-up', 'https://example.com/old', 'old|row', 'new', NULL, '2026-11-01', '2026-11-01', 61, 'good', '{"title":"Keeper"}', 'jobs')`,
+  ).run();
+  const before = listListings(db).find((r) => r.id !== "old")?.score ?? 0;
+  const moved = rescoreSearch(db, "s1", scoring, "jobs", NOW);
+  assert.equal(moved, 1); // only the listing kestrel scored
+  const after = listListings(db).find((r) => r.id !== "old")?.score ?? 0;
+  assert.ok(after > before, `${after} > ${before}`);
+  assert.equal(listListings(db).find((r) => r.id === "old")?.score, 61);
 });

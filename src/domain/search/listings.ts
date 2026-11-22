@@ -187,7 +187,7 @@ function where(filters: ListingFilters, skip: (keyof ListingFilters)[] = []): { 
     params.push(String(filters.match));
   }
   if (on("source")) {
-    w.push("source = ?");
+    w.push("lower(source) = lower(?)");
     params.push(String(filters.source));
   }
   if (on("search")) {
@@ -288,7 +288,7 @@ export function listingCounts(db: DatabaseSync, filters: ListingFilters) {
     all: (db.prepare(`SELECT COUNT(*) AS n FROM listings ${all.sql}`).get(...all.params) as { n: number }).n,
     match: count("match", ["match"]),
     group: count(GROUP, ["group"]),
-    source: count("source", ["source"]),
+    source: count("lower(source)", ["source"]),
   };
 }
 
@@ -334,6 +334,43 @@ export function usualPrices(
     out.set(cat, { median: q(0.5), p25: q(0.25), p75: q(0.75), n: s.length });
   }
   return out;
+}
+
+// a search's scoring changed: every listing kestrel scored for it is scored again (the old setup's own scores stay
+// as they came); answers how many moved
+export function rescoreSearch(
+  db: DatabaseSync,
+  searchId: string,
+  scoring: unknown,
+  kind: "jobs" | "deals",
+  now: Date,
+): number {
+  const rows = db
+    .prepare("SELECT id, data FROM listings WHERE search = ? AND json_extract(data, '$.parts') IS NOT NULL")
+    .all(searchId) as {
+    id: string;
+    data: string;
+  }[];
+  const put = db.prepare("UPDATE listings SET score = ?, match = ?, data = ? WHERE id = ?");
+  for (const r of rows) {
+    const data = JSON.parse(r.data) as Record<string, unknown>;
+    const scored = scoreJob(scoring, data as unknown as Item, now);
+    const leftOut =
+      kind === "deals"
+        ? typeof data.price === "number" && scored.parts.pay === 0
+          ? "over your price cap"
+          : null
+        : scored.score < 40
+          ? "weak match"
+          : null;
+    put.run(
+      scored.score,
+      scored.match,
+      JSON.stringify({ ...data, why: scored.why, parts: scored.parts, leftOut }),
+      r.id,
+    );
+  }
+  return rows.length;
 }
 
 export function setListingNote(db: DatabaseSync, id: string, note: string): void {

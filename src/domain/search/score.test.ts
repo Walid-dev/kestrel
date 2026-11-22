@@ -109,3 +109,13 @@ test("a deal scores by its cap: under earns the pay part, over says so, no price
   const unpriced = scoreJob(deals, { title: "A fine chair", posted: "2026-11-20" }, NOW);
   assert.equal(unpriced.parts.pay, 6);
 });
+
+test("a skills list split letter by letter is read back as its words (a corrupted file once named 123 skills)", () => {
+  const letters = [..."Apiary, Smoker"];
+  const got = scoreJob(
+    { title: { want: ["keeper"] }, skills: letters },
+    { title: "Head Keeper", posted: "2026-11-20", excerpt: "Apiary work." },
+    NOW,
+  );
+  assert.match(got.why, /1 of 2 skills named/);
+});

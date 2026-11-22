@@ -15,6 +15,7 @@ import {
   listHunts,
   listingCounts,
   listListings,
+  rescoreSearch,
   setListingNote,
   setListingStar,
   setListingStatus,
@@ -222,7 +223,9 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
       return c.json({ error: "that is too big to be a search" }, 400);
     try {
       const spec = writeSpecFile(c.req.param("id"), await c.req.json(), specsDir());
-      return c.json({ ok: true, id: spec.id });
+      // new scoring rules apply to what this search already found, not only to what it finds next
+      const rescored = rescoreSearch(db, spec.id, spec.scoring ?? {}, spec.kind, new Date());
+      return c.json({ ok: true, id: spec.id, rescored });
     } catch (e) {
       return c.json({ error: e instanceof Error ? e.message : String(e) }, 400);
     }
