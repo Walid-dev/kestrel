@@ -5,6 +5,42 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-22 · Research, Quiz and the letter lab reuse what exists.**
+  Research answers in the lesson shape (the blocks Learn already draws, read by Listen), from the model door's own
+  search and fetch: quick reads three pages from one search, deep reads six from the searches the model plans; each
+  answer is kept. Quiz asks the lessons' own checks (missed lately first, then due, then the rest); the model only
+  marks, or writes a question for a lesson without one; the answers are kept so misses come back. The letter lab reads
+  the apply skill's letter step from the skill file at run time, writes with my voice, stories and facts, runs the
+  applications' own check (each finding back to the model, two fixes at most) and their own PDF tool; voice and
+  stories are edited in place, the old words kept in the data folder. Rejected: a letter prompt of kestrel's own (it
+  would drift from the skill); a quiz that moves Learn's review ladder (not asked; the answers are kept for later).
+- **2026-11-22 · The chair hunt runs in kestrel when asked, with the old collectors.**
+  `convert-v1-specs --deals` turns the 20 old deal specs into kestrel searches that run the old collectors through
+  node with the old engine's knobs (term, pages, price range, age), under the same file names, so each owns the
+  listings the import brought. `auto: false` keeps them off the clock while the old setup still runs them twice a
+  day; Search now runs every search of a hunt in the background and counts them down. The deal rules follow the old
+  specs: required and excluded title words, a price floor and cap, the ad's age. Rejected: porting the collectors
+  (they work, and Facebook's needs the agent's Chrome as it is); both setups on the clock (twice the load on the
+  sites).
+- **2026-11-22 · Cards keep the model's read; the page opens on To review.**
+  The model's read is short and stays on the card; the deep check shows its verdict as a chip, or a blue button that
+  starts one, and its report waits in the open listing. The page opens on To review, best first (Priority also counts
+  jobs already applied to). Reset is a round button by the search box, always there, lit when a filter differs.
+- **2026-11-22 · Chat frames dsh's chats page, in kestrel's look.**
+  The chats page sent `frame-ancestors 'none'`, which blanked kestrel's Chat. It now allows the same machine name on
+  any port, and nothing else, and wears kestrel's colours and IBM Plex fonts; the old app menu is gone. The page
+  lives in the local dsh additions, outside this repo; the frame rule needs a dsh restart.
+- **2026-11-22 · v1's stages, the activity log, Learn's parents, the phone bar.**
+  To review, Possible and Left out follow v1's rules exactly (left out: new, set aside by a rule, no note; v1's fair
+  is weak). An ended activity is kept, so Live's Activity shows the week with a link to each piece of work, and Live
+  opens on it when nothing runs. Packs sit under a parent (Personal first, then the technical ones). The phone has a
+  bottom bar: Home, Searches, Chat, Learn, Live. A search's settings page writes its file and rescores what it found;
+  a skills list split into letters reads back as words (it had scored every posting great).
+- **2026-11-22 · Two flakes fixed at the root, and room to think.**
+  The deploy retries `launchctl bootstrap` for ten seconds: bootout returns before launchd lets the old service go,
+  so every first deploy failed with status 5. A web search that comes back empty or refused is tried once more after
+  two seconds. A model answer that ran out of room while thinking says so (the stream's finish reason), and the letter
+  and Research budgets cover the thinking and the answer.
 - **2026-11-22 · Port the old pages' strengths, not just their features.**
   The first pass built thin screens; the second ports what v1 already does well, checked against its own pages:
   Learn takes the old Learn's method (review from memory, Say it, Record me, the 1-1-3-7-16-35 ladder) and the
