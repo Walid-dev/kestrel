@@ -5,6 +5,14 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-21 · The v0.4+v0.5 sweep: one agent round, the rest triaged by hand.**
+  The sweep's finders confirmed one serious miss — imported lesson ids hold slashes, so no imported lesson could
+  open — plus a dozen honesty gaps (raw 500s for missing things, calm empty states over failed loads, a hot mic
+  when the finger lifted during the grant, the brief capped at the practice queue's first page, import CLIs able
+  to land real content in the dev folder). All are closed in one commit with tests. Process change, his ask
+  ("do not overuse our usage"): verification fan-outs are done — findings are triaged in the main conversation
+  by reading the named lines, and the independent read stays with the second model's review rounds.
+
 - **2026-11-21 · A deal is its link; a job is its org and title.**
   The real deal items broke UNIQUE (search, dedupe): second-hand posts share titles and carry no seller name, so
   org|title is the wrong identity there. The engine's dedupe now follows the spec's kind — jobs keep org|title (a
