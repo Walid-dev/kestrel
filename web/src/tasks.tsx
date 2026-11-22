@@ -171,7 +171,7 @@ type Act = (a: { id: string; how: "check" | "reopen" | "delete" | "edit"; change
 // one task: the round box, its words (a tap edits them), whom it is for (a tap changes it), when, its note, delete
 function Row({ t, act, busy }: { t: Task; act: Act; busy: boolean }) {
   const [draft, setDraft] = useState<string | null>(null); // the words being edited, or null
-  const [label, , tone] = whoOf(t.who);
+  const [, label, tone] = whoOf(t.who);
   const save = () => {
     const next = (draft ?? "").trim();
     setDraft(null);
