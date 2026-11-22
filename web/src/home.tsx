@@ -5,14 +5,14 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { LiveStrip } from "./live-strip.tsx";
 
-const STROKE = {
+export const STROKE = {
   fill: "none",
   stroke: "currentColor",
   strokeWidth: 1.7,
   strokeLinecap: "round",
   strokeLinejoin: "round",
 } as const;
-const ICONS: Record<string, ReactNode> = {
+export const ICONS: Record<string, ReactNode> = {
   Notes: (
     <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
       <path d="M6 3.5h8.5L19 8v12.5H6z" />

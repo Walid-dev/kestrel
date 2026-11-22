@@ -100,7 +100,7 @@ export function importOldProgress(db: DatabaseSync, progress: unknown): { landed
   let landed = 0;
   if (progress === null || typeof progress !== "object")
     return { landed, skipped: ["the progress file is not an object"] };
-  const find = db.prepare("SELECT id FROM lessons WHERE id LIKE 'old:%' AND id LIKE ?");
+  const find = db.prepare("SELECT id FROM lessons WHERE (id LIKE 'old:%' OR id LIKE 'prep:%') AND id LIKE ?");
   const put = db.prepare(
     `INSERT INTO reviews (lesson, due, interval_days, ease, level) VALUES (?, ?, ?, 2.5, ?)
      ON CONFLICT (lesson) DO UPDATE SET due = excluded.due, interval_days = excluded.interval_days, level = excluded.level`,

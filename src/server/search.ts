@@ -21,7 +21,7 @@ import {
   usualPrices,
 } from "../domain/search/listings.ts";
 import { lastRun, runSearch } from "../domain/search/runs.ts";
-import { loadSpecs } from "../domain/search/specs.ts";
+import { listCollectors, loadSpecs, readSpecFile, writeSpecFile } from "../domain/search/specs.ts";
 import { record } from "../platform/activity.ts";
 import type { Settings } from "../platform/config.ts";
 import { dataDir } from "../platform/paths.ts";
@@ -209,6 +209,22 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
     } catch (e) {
       if (e instanceof Refused) return c.json({ error: e.message }, 400);
       throw e;
+    }
+  });
+  // the settings page: one search's file as written, the collectors there are, and a write (checked first)
+  app.get("/api/search/specs/:id", (c) => {
+    const spec = readSpecFile(c.req.param("id"), specsDir());
+    return spec ? c.json({ spec, collectors: listCollectors() }) : c.json({ error: "no such search" }, 404);
+  });
+  app.get("/api/search/collectors", (c) => c.json({ collectors: listCollectors() }));
+  app.put("/api/search/specs/:id", async (c) => {
+    if (Number(c.req.header("content-length") ?? "0") > 100_000)
+      return c.json({ error: "that is too big to be a search" }, 400);
+    try {
+      const spec = writeSpecFile(c.req.param("id"), await c.req.json(), specsDir());
+      return c.json({ ok: true, id: spec.id });
+    } catch (e) {
+      return c.json({ error: e instanceof Error ? e.message : String(e) }, 400);
     }
   });
   app.post("/api/search/run/:id", async (c) => {

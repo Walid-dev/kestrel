@@ -222,22 +222,32 @@ function Head({ l }: { l: Listing }) {
   );
 }
 
-function Deep({ report }: { report: string | null }) {
-  if (!report) return null;
-  let r: { verdict?: string; headline?: string } = {};
+// the card shows only the results — the model's read and the deep check's verdict — as small chips; their words wait
+// in the open listing
+function Results({ fit, report }: { fit: number | null; report: string | null }) {
+  let verdict = "";
   try {
-    r = JSON.parse(report) as typeof r;
+    verdict = report ? String((JSON.parse(report) as { verdict?: string }).verdict ?? "") : "";
   } catch {
-    return null;
+    verdict = "";
   }
-  const v = VERDICT[r.verdict ?? ""];
+  const v = VERDICT[verdict];
+  if (fit == null && !v) return null;
   return (
-    <ReadBox label="Deep check" chip={v?.label} tone={v?.tone}>
-      {r.headline}
-    </ReadBox>
+    <div className="flex flex-wrap gap-1.5">
+      {fit != null && <span className={`chip ${fitTone(fit)}`}>Model's read {fit}/10</span>}
+      {v && <span className={`chip ${v.tone}`}>Deep check · {v.label}</span>}
+    </div>
   );
 }
 
+const BUTTON_TONE: Record<string, string> = {
+  passed: "tone-red",
+  maybe: "tone-yellow",
+  interested: "tone-green",
+  applied: "tone-accent",
+  closed: "tone-muted",
+};
 // the stage buttons under a card: the card stays where it is, a tap here never opens the sheet
 function Stages({ l, onStatus, extra }: { l: Listing; onStatus: (s: string) => void; extra?: ReactNode }) {
   const set: [string, string][] =
@@ -261,16 +271,14 @@ function Stages({ l, onStatus, extra }: { l: Listing; onStatus: (s: string) => v
         <button
           key={s}
           type="button"
-          className="btn"
+          className={`btn ${BUTTON_TONE[s] ?? "tone-muted"}`}
           aria-pressed={l.status === s}
-          style={
-            l.status === s
-              ? {
-                  borderColor: s === "passed" ? "var(--muted)" : "var(--green)",
-                  color: s === "passed" ? "var(--muted)" : "var(--green)",
-                }
-              : undefined
-          }
+          style={{
+            borderColor: `color-mix(in srgb, var(--tone) ${l.status === s ? 90 : 45}%, var(--line))`,
+            color: "var(--tone)",
+            background: l.status === s ? "color-mix(in srgb, var(--tone) 16%, var(--surface))" : undefined,
+            fontWeight: l.status === s ? 600 : undefined,
+          }}
           onClick={() => onStatus(l.status === s ? "new" : s)}
         >
           {label}
@@ -462,12 +470,7 @@ export function JobCard({
         </div>
       )}
       {l.score != null && <ScoreBar score={l.score} />}
-      {fit != null && (
-        <ReadBox label="Model's read" chip={`Fit ${fit}/10`} tone={fitTone(fit)}>
-          {str(d.fitWhy)}
-        </ReadBox>
-      )}
-      <Deep report={l.deepVerdict} />
+      <Results fit={fit} report={l.deepVerdict} />
       <Stages
         l={l}
         onStatus={onStatus}
@@ -528,7 +531,6 @@ export function DealCard({ l, onOpen, onStatus }: { l: Listing; onOpen: () => vo
         )}
         Found <b style={{ color: "var(--text)" }}>{day(l.found)}</b>
       </p>
-      {fit != null && <span className={`chip ${fitTone(fit)} justify-self-start`}>Fit {fit}/10</span>}
       {deal && t && price != null && (
         <>
           <div className="flex items-start gap-2 text-[14px]">
@@ -549,16 +551,7 @@ export function DealCard({ l, onOpen, onStatus }: { l: Listing; onOpen: () => vo
           </p>
         </>
       )}
-      {str(d.fitWhy) && (
-        <ReadBox
-          label="Model's read"
-          chip={fit != null ? `Fit ${fit}/10` : undefined}
-          tone={fit != null ? fitTone(fit) : undefined}
-        >
-          {str(d.fitWhy)}
-        </ReadBox>
-      )}
-      <Deep report={l.deepVerdict} />
+      <Results fit={fit} report={l.deepVerdict} />
       <Stages l={l} onStatus={onStatus} />
     </article>
   );

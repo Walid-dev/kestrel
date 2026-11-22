@@ -1,8 +1,9 @@
 // The frame every screen sits in: the bar with the app's name and the health chip, and the asleep banner when the
 // computer doesn't answer (the service worker then serves the last copies).
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, Outlet } from "react-router";
+import { Link, NavLink, Outlet } from "react-router";
 import { useEvents } from "./events.ts";
+import { ICONS, STROKE } from "./home.tsx";
 import { Mark } from "./mark.tsx";
 
 const LAST_SEEN = "kestrel-last-seen";
@@ -61,7 +62,7 @@ export function App() {
   const health = useHealth();
   const busy = useBusy();
   return (
-    <div className="mx-auto min-h-dvh w-full max-w-xl px-4 pb-16 md:max-w-4xl md:px-6 lg:max-w-[1440px] lg:px-10 2xl:max-w-[1760px]">
+    <div className="mx-auto min-h-dvh w-full max-w-xl px-4 pb-28 md:max-w-4xl md:px-6 md:pb-16 lg:max-w-[1440px] lg:px-10 2xl:max-w-[1760px]">
       <header className="flex items-center gap-2.5 py-5">
         <Link to="/" className="flex items-center gap-2.5" aria-label="Home">
           <Mark size={26} />
@@ -100,6 +101,63 @@ export function App() {
         </p>
       )}
       <Outlet />
+      {/* on a phone, the main places one tap away under the thumb: Home is always the first */}
+      <nav
+        className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t px-1 pt-1.5 md:hidden"
+        style={{
+          background: "color-mix(in srgb, var(--bg) 92%, transparent)",
+          backdropFilter: "blur(10px)",
+          borderColor: "var(--line)",
+          paddingBottom: "max(8px, env(safe-area-inset-bottom))",
+        }}
+        aria-label="The main places"
+      >
+        {BAR.map((b) => (
+          <NavLink
+            key={b.to}
+            to={b.to}
+            end={b.to === "/"}
+            className="flex min-w-14 flex-col items-center gap-0.5 rounded-lg px-2 py-1 text-[10.5px]"
+            style={({ isActive }) => ({ color: isActive ? "var(--accent)" : "var(--muted)" })}
+          >
+            <span className="relative">
+              {b.icon}
+              {b.to === "/live" && (busy.working > 0 || busy.waiting > 0) && (
+                <span
+                  className={`absolute -top-0.5 -right-1 block h-2 w-2 rounded-full ${busy.working ? "pulse" : ""}`}
+                  style={{ background: busy.waiting ? "var(--pink)" : "var(--green)" }}
+                />
+              )}
+            </span>
+            {b.label}
+          </NavLink>
+        ))}
+      </nav>
     </div>
   );
 }
+
+const BAR = [
+  {
+    to: "/",
+    label: "Home",
+    icon: (
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
+        <path d="M4 11.5 12 5l8 6.5" />
+        <path d="M6.5 10v9h11v-9" />
+      </svg>
+    ),
+  },
+  { to: "/searches", label: "Searches", icon: ICONS.Searches },
+  { to: "/applications", label: "Applied", icon: ICONS.Applications },
+  { to: "/learn", label: "Learn", icon: ICONS.Learn },
+  {
+    to: "/live",
+    label: "Live",
+    icon: (
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
+        <path d="M3 12h4l2.5-6 4 12 2.5-6H21" />
+      </svg>
+    ),
+  },
+];

@@ -205,6 +205,71 @@ export function importGuide(db: DatabaseSync, guide: unknown): ImportCounts {
   return counts;
 }
 
+// The old Learn's job preps, kept in its store as "job:<id>": what one role wants and what I have, and five short
+// lessons written for it. Each becomes an Interview prep pack: an overview page (the role, then what they want beside
+// what I have), then its lessons in the one shape.
+export function importJobPreps(db: DatabaseSync, store: unknown): ImportCounts {
+  const counts: ImportCounts = { packs: 0, lessons: 0, skipped: [] };
+  if (store === null || typeof store !== "object") return counts;
+  for (const [key, value] of Object.entries(store)) {
+    if (!key.startsWith("job:") || !value || typeof value !== "object") continue;
+    const v = value as Record<string, unknown>;
+    const title = txt(v.title);
+    const company = txt(v.company);
+    if (!title) {
+      counts.skipped.push(`a job prep without a title: ${key}`);
+      continue;
+    }
+    const packId = `prep:${slug(txt(v.id) || key.slice(4))}`;
+    upsertPack(db, packId, `Prep: ${title}${company ? ` · ${company}` : ""}`, "lesson-pack", "interview");
+    counts.packs++;
+    const minted = new Set<string>();
+    const needs = (Array.isArray(v.needs) ? v.needs : [])
+      .map((n) => (n && typeof n === "object" ? (n as Record<string, unknown>) : null))
+      .filter((n) => n !== null)
+      .map((n) => [txt(n.need), txt(n.have)])
+      .filter(([need]) => need);
+    const overview = {
+      eyebrow: company,
+      short: lines(v.about)[0] ?? "",
+      blocks: [
+        { type: "lines", lines: lines(v.about).slice(1) },
+        ...(needs.length ? [{ type: "table", head: ["They want", "I have"], rows: needs }] : []),
+      ],
+    };
+    minted.add(`${packId}/overview`);
+    if (upsertLesson(db, `${packId}/overview`, packId, 0, "What they want, and what I have", overview))
+      counts.lessons++;
+    let position = 1;
+    for (const raw of Array.isArray(v.lessons) ? v.lessons : []) {
+      const o = (raw ?? {}) as Record<string, unknown>;
+      const lt = txt(o.title);
+      const id = `${packId}/${txt(o.id) || slug(lt)}`;
+      if (!lt || !freshId(minted, id)) {
+        counts.skipped.push(lt ? `two prep lessons share the id ${txt(o.id)}` : "a prep lesson without a title");
+        continue;
+      }
+      const body = {
+        eyebrow: company,
+        short: txt(o.short),
+        say: lines(o.say),
+        explain: lines(o.explain),
+        example: txt(o.example),
+        words: (Array.isArray(o.words) ? o.words : [])
+          .map((w) => pair(w, "w", "m"))
+          .filter((w) => w !== null)
+          .map((w) => ({ w: w.q, m: w.a })),
+        check: (Array.isArray(o.check) ? o.check : []).map((c) => pair(c, "q", "a")).filter((c) => c !== null),
+      };
+      if (upsertLesson(db, id, packId, position, lt, body)) {
+        counts.lessons++;
+        position++;
+      }
+    }
+  }
+  return counts;
+}
+
 // An interview answer file: blocks split by blank lines, each a question with its spoken answer.
 //   Q: the question · W: what they check · M: what the question asks · P: the plain words
 //   A: a line to say (repeatable) · K: a key point (repeatable)

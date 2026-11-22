@@ -129,6 +129,21 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
   const pick = params.get("pack") ?? "";
   const pickGroup = params.get("group") ?? "";
   const [q, setQ] = useState("");
+  const [showPacks, setShowPacks] = useState(() => {
+    try {
+      return localStorage.getItem("kestrel-learn-packs") !== "folded";
+    } catch {
+      return true;
+    }
+  });
+  const foldPacks = (v: boolean) => {
+    setShowPacks(v);
+    try {
+      localStorage.setItem("kestrel-learn-packs", v ? "open" : "folded");
+    } catch {
+      // storage off: the packs show each visit
+    }
+  };
   const overview = useQuery({
     queryKey: ["learn-overview", area],
     queryFn: async () => {
@@ -186,7 +201,7 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
     if (at) at[1].push(p);
     else parents.push([p.group, [p]]);
   }
-  parents.sort((a, b) => (a[0] === "" ? 1 : b[0] === "" ? -1 : a[0].localeCompare(b[0])));
+  parents.sort((a, b) => (a[0] === "" ? 1 : b[0] === "" ? -1 : 0));
   const known = [...new Set(packs.map((p) => p.group).filter(Boolean))];
   const isGuide = rows.some((r) => r.part);
   const groups = ["due", "new", "learning", "known"].map((st) => ({ st, rows: rows.filter((r) => r.state === st) }));
@@ -219,7 +234,7 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
             </span>
           </div>
         </section>
-        <details className="card" open={area === "learn"}>
+        <details className="card">
           <summary className="font-cond cursor-pointer text-lg font-bold">How to learn here</summary>
           <ol className="mt-2 mb-0 grid gap-1.5 pl-5 text-[14.5px] leading-relaxed">
             <li>Read the lesson once, slowly.</li>
@@ -235,36 +250,47 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
             </li>
           </ol>
         </details>
-        <input
-          type="search"
-          className="btn"
-          placeholder="Search the lessons"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-        <div className="grid gap-3">
+        {/* the search and All on one line; each parent with its packs on one line; the packs fold away */}
+        <div className="flex gap-2">
+          <input
+            type="search"
+            className="btn min-w-0 flex-1"
+            placeholder="Search the lessons"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
           <button
             type="button"
-            className="pill justify-self-start"
+            className="pill shrink-0"
             aria-pressed={!pick && !pickGroup}
             onClick={() => setParams({})}
           >
             All
           </button>
-          {parents.map(([g, list]) => (
-            <div key={g || "none"} className="grid gap-1.5">
-              <button
-                type="button"
-                className="eyebrow justify-self-start text-left"
-                style={{
-                  color: pickGroup === g && !pick && g ? "var(--accent)" : undefined,
-                  cursor: g ? "pointer" : "default",
-                }}
-                onClick={() => g && setParams({ group: g })}
-              >
-                {g || "Not grouped yet"}
-              </button>
-              <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn shrink-0"
+            aria-expanded={showPacks}
+            onClick={() => foldPacks(!showPacks)}
+          >
+            {showPacks ? "Hide" : "Packs"}
+          </button>
+        </div>
+        {showPacks && (
+          <div className="grid gap-2">
+            {parents.map(([g, list]) => (
+              <div key={g || "none"} className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className="eyebrow mr-1"
+                  style={{
+                    color: pickGroup === g && !pick && g ? "var(--accent)" : undefined,
+                    cursor: g ? "pointer" : "default",
+                  }}
+                  onClick={() => g && setParams({ group: g })}
+                >
+                  {g || "Not grouped"}
+                </button>
                 {list.map((p) => (
                   <button
                     key={p.id}
@@ -278,9 +304,9 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
                   </button>
                 ))}
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
         {area === "learn" ? (
           <Link to="/interview" className="card card-link grid gap-1">
             <span className="font-cond text-lg font-bold">Interview prep →</span>

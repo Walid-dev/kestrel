@@ -4,7 +4,7 @@
 // right for Interested and left for Not for me, has the same buttons under it, and opens the whole listing on a tap.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { ago, DEAL, DealCard, JobCard, type Listing, MATCH, Swipe } from "./cards.tsx";
 import { ListingSheet } from "./sheet.tsx";
 
@@ -59,12 +59,106 @@ const FOLD = "kestrel-search-filters";
 const at = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
 
+// each filter is its own part: a label with what is picked, its pills under it, folding on its own
+function Part({
+  name,
+  label,
+  value,
+  open,
+  toggle,
+  children,
+}: {
+  name: string;
+  label: string;
+  value: string;
+  open: boolean;
+  toggle: (name: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid gap-1.5">
+      <button
+        type="button"
+        className="flex items-center gap-2 text-left"
+        onClick={() => toggle(name)}
+        aria-expanded={open}
+      >
+        <span
+          className="text-[10px]"
+          style={{
+            color: "var(--muted)",
+            transform: open ? "rotate(90deg)" : undefined,
+            transition: "transform 0.15s",
+          }}
+        >
+          ▶
+        </span>
+        <span className="eyebrow">{label}</span>
+        {!open && (
+          <span className="text-[13px]" style={{ color: "var(--text)" }}>
+            {value}
+          </span>
+        )}
+      </button>
+      {open && <div className="flex flex-wrap gap-2">{children}</div>}
+    </div>
+  );
+}
+
+const STAGE_TONE: Record<string, string> = {
+  review: "tone-accent",
+  possible: "tone-yellow",
+  interested: "tone-green",
+  maybe: "tone-yellow",
+  applied: "tone-accent",
+  interviewing: "tone-orange",
+  rejected: "tone-red",
+  fake: "tone-red",
+  passed: "tone-muted",
+  new: "tone-accent",
+  closed: "tone-muted",
+  leftout: "tone-muted",
+};
+const SORTS: Record<"jobs" | "deals", [string, string][]> = {
+  jobs: [
+    ["best", "Best matches first"],
+    ["newest", "Newest first"],
+    ["money", "Highest pay first"],
+  ],
+  deals: [
+    ["best", "Best deals first"],
+    ["newest", "Newest first"],
+    ["money", "Lowest price first"],
+  ],
+};
+const PARTS = "kestrel-search-parts";
+
 export function Searches() {
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
   // ?open=<id> opens a listing straight away: Live and the activity links land on the listing itself
   const [open, setOpen] = useState<string | null>(() => new URLSearchParams(location.search).get("open"));
   const [limit, setLimit] = useState(PAGE);
+  const [moreGroups, setMoreGroups] = useState(false);
+  const [closed, setClosed] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(PARTS) ?? "[]") as string[]);
+    } catch {
+      return new Set();
+    }
+  });
+  const toggle = (name: string) =>
+    setClosed((s) => {
+      const next = new Set(s);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      try {
+        localStorage.setItem(PARTS, JSON.stringify([...next]));
+      } catch {
+        // storage off: every part opens each visit
+      }
+      return next;
+    });
   const [shown, setShown] = useState(() => {
     try {
       return localStorage.getItem(FOLD) !== "folded";
@@ -189,11 +283,20 @@ export function Searches() {
     .sort((a, b) => b[1] - a[1]);
   const active = [match, group, source].filter(Boolean).length + (sort !== "best" ? 1 : 0);
   const stageName = STAGE_LIST[kind].find(([s]) => s === stage)?.[1] ?? stage;
+  const defaultStage = kind === "jobs" ? "priority" : "new";
+  // Reset: every filter back to the start, the hunt and the panel as they are
+  const reset = () => {
+    const next = new URLSearchParams();
+    const h = params.get("hunt");
+    if (h) next.set("hunt", h);
+    setParams(next, { replace: true });
+    setLimit(PAGE);
+  };
   const status = (l: Listing, s: string) => act.mutate({ id: l.id, body: { status: s } });
 
   return (
     <main className="grid gap-5">
-      {all.length > 1 && (
+      {all.length > 0 && (
         <nav className="flex flex-wrap gap-2">
           {all.map((h) => (
             <button
@@ -208,6 +311,9 @@ export function Searches() {
               <b>{h.count}</b>
             </button>
           ))}
+          <Link to="/searches/settings?new=jobs" className="pill">
+            + New search
+          </Link>
         </nav>
       )}
 
@@ -222,6 +328,33 @@ export function Searches() {
                 {runNow.isPending ? "Searching…" : "Search now"}
               </button>
             )}
+            <Link
+              to={
+                hunt.specs[0]
+                  ? `/searches/settings?spec=${encodeURIComponent(hunt.specs[0].id)}`
+                  : `/searches/settings?new=${kind}`
+              }
+              className="btn"
+              aria-label="This search's settings"
+              title={
+                hunt.specs[0] ? "This search's settings" : "This hunt runs in the old setup: make its kestrel search"
+              }
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                aria-hidden="true"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+            </Link>
           </div>
           {(hunt.about || kind === "deals") && (
             <p className="m-0 max-w-4xl text-[16px]" style={{ color: "var(--muted)" }}>
@@ -254,7 +387,7 @@ export function Searches() {
         </header>
       )}
 
-      <section className="card grid gap-3 !p-3">
+      <section className="card grid gap-2.5 !p-3">
         <div className="flex gap-2">
           <input
             type="search"
@@ -263,79 +396,134 @@ export function Searches() {
             value={q}
             onChange={(e) => set("q", e.target.value)}
           />
+          {(active > 0 || q || stage !== defaultStage) && (
+            <button type="button" className="btn shrink-0" onClick={reset}>
+              Reset
+            </button>
+          )}
           <button type="button" className="btn shrink-0" aria-expanded={shown} onClick={() => fold(!shown)}>
             {shown ? "Hide filters" : `Filters${active ? ` · ${active}` : ""}`}
           </button>
         </div>
         {shown && (
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
-            <select className="btn" value={stage} onChange={(e) => set("stage", e.target.value)} aria-label="Stage">
+          <div className="grid gap-2">
+            <Part
+              name="stage"
+              label="Stage"
+              value={`${stageName} ${c?.stages[stage] ?? ""}`}
+              open={!closed.has("stage")}
+              toggle={toggle}
+            >
               {STAGE_LIST[kind].map(([s, label]) => (
-                <option key={s} value={s}>
-                  {label} ({c?.stages[s] ?? 0})
-                </option>
+                <button
+                  key={s}
+                  type="button"
+                  className={`pill ${STAGE_TONE[s] ?? ""}`}
+                  aria-pressed={stage === s}
+                  onClick={() => set("stage", s)}
+                >
+                  {STAGE_TONE[s] && <span className="dot" />} {label} <b>{c?.stages[s] ?? 0}</b>
+                </button>
               ))}
-            </select>
-            <select className="btn" value={match} onChange={(e) => set("match", e.target.value)} aria-label="Match">
-              {kind === "jobs" ? (
-                <>
-                  <option value="">Any match</option>
-                  {(["great", "good", "weak", "poor"] as const).map((m) => (
-                    <option key={m} value={m}>
-                      {{ great: "Great 80+", good: "Good 60–79", weak: "Possible 40–59", poor: "Weak under 40" }[m]} (
-                      {c?.match[m] ?? 0})
-                    </option>
-                  ))}
-                </>
-              ) : (
-                <>
-                  <option value="">Any price</option>
-                  {(["great", "good", "fair", "over"] as const).map((m) => (
-                    <option key={m} value={m}>
-                      {DEAL[m].label} ({tiers[m] ?? 0})
-                    </option>
-                  ))}
-                </>
-              )}
-            </select>
-            <select className="btn" value={group} onChange={(e) => set("group", e.target.value)} aria-label="Group">
-              <option value="">{kind === "jobs" ? "Every role" : "Every model"}</option>
-              {groups.map(([g, n]) => (
-                <option key={g} value={g}>
-                  {g} ({n})
-                </option>
+            </Part>
+            <Part
+              name="match"
+              label={kind === "jobs" ? "Match" : "Price"}
+              value={match ? ((kind === "jobs" ? MATCH[match]?.label : DEAL[match]?.label) ?? match) : "any"}
+              open={!closed.has("match")}
+              toggle={toggle}
+            >
+              {(kind === "jobs"
+                ? (["great", "good", "weak", "poor"] as const).map((m) => ({
+                    k: m,
+                    tone: MATCH[m].tone,
+                    label: { great: "Great 80+", good: "Good 60–79", weak: "Possible 40–59", poor: "Weak under 40" }[m],
+                    n: c?.match[m] ?? 0,
+                  }))
+                : (["great", "good", "fair", "over"] as const).map((m) => ({
+                    k: m,
+                    tone: DEAL[m].tone,
+                    label: DEAL[m].label,
+                    n: tiers[m] ?? 0,
+                  }))
+              ).map((m) => (
+                <button
+                  key={m.k}
+                  type="button"
+                  className={`pill ${m.tone}`}
+                  aria-pressed={match === m.k}
+                  onClick={() => set("match", match === m.k ? "" : m.k)}
+                >
+                  <span className="dot" /> {m.label} <b>{m.n}</b>
+                </button>
               ))}
-            </select>
-            <select className="btn" value={source} onChange={(e) => set("source", e.target.value)} aria-label="Source">
-              <option value="">All sources</option>
+            </Part>
+            {groups.length > 0 && (
+              <Part
+                name="group"
+                label={kind === "jobs" ? "Role" : "Model"}
+                value={group || "every"}
+                open={!closed.has("group")}
+                toggle={toggle}
+              >
+                {(moreGroups ? groups : groups.filter(([g, n], i) => i < 12 && (n > 1 || g === group))).map(
+                  ([g, n]) => (
+                    <button
+                      key={g}
+                      type="button"
+                      className="pill"
+                      aria-pressed={group === g}
+                      onClick={() => set("group", group === g ? "" : g)}
+                    >
+                      {g} <b>{n}</b>
+                    </button>
+                  ),
+                )}
+                {!moreGroups && groups.length > 12 && (
+                  <button type="button" className="pill" onClick={() => setMoreGroups(true)}>
+                    +{groups.length - 12} more
+                  </button>
+                )}
+              </Part>
+            )}
+            <Part
+              name="source"
+              label="Source"
+              value={source ? source.replaceAll("-", " ") : "all"}
+              open={!closed.has("source")}
+              toggle={toggle}
+            >
               {sources.map(([s, n]) => (
-                <option key={s} value={s}>
-                  {s.replaceAll("-", " ")} ({n})
-                </option>
+                <button
+                  key={s}
+                  type="button"
+                  className="pill"
+                  aria-pressed={source === s}
+                  onClick={() => set("source", source === s ? "" : s)}
+                >
+                  {s.replaceAll("-", " ")} <b>{n}</b>
+                </button>
               ))}
-            </select>
-            <select className="btn" value={sort} onChange={(e) => set("sort", e.target.value)} aria-label="Sort">
-              <option value="best">{kind === "jobs" ? "Best matches first" : "Best deals first"}</option>
-              <option value="newest">Newest first</option>
-              <option value="money">{kind === "jobs" ? "Highest pay first" : "Lowest price first"}</option>
-            </select>
+            </Part>
+            <Part
+              name="sort"
+              label="Order"
+              value={SORTS[kind].find(([k]) => k === sort)?.[1] ?? sort}
+              open={!closed.has("sort")}
+              toggle={toggle}
+            >
+              {SORTS[kind].map(([k, label]) => (
+                <button key={k} type="button" className="pill" aria-pressed={sort === k} onClick={() => set("sort", k)}>
+                  {label}
+                </button>
+              ))}
+            </Part>
           </div>
         )}
-        <p className="m-0 flex flex-wrap items-baseline gap-x-3 text-[13px]" style={{ color: "var(--muted)" }}>
-          <span>
-            <b style={{ color: "var(--strong)" }}>{stageName}</b> · {c?.stages[stage] ?? "…"}
-            {match && kind === "jobs" ? ` · ${MATCH[match]?.label ?? match}` : ""}
-            {match && kind === "deals" ? ` · ${DEAL[match]?.label ?? match}` : ""}
-            {group ? ` · ${group}` : ""}
-            {source ? ` · ${source.replaceAll("-", " ")}` : ""}
-          </span>
-          {stage === "leftout" ? (
-            <span>The rules set these aside: a weak match, pay far below the floor, a removed search, an old ad.</span>
-          ) : (
-            <span>
-              Swipe a card right for Interested, left for {kind === "jobs" ? "Not for me" : "Not interested"}.
-            </span>
-          )}
+        <p className="m-0 text-[13px]" style={{ color: "var(--muted)" }}>
+          {stage === "leftout"
+            ? "The rules set these aside: a weak match, pay far below the floor, a removed search, an old ad."
+            : `Swipe a card right for Interested, left for ${kind === "jobs" ? "Not for me" : "Not interested"}.`}
         </p>
       </section>
 

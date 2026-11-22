@@ -37,6 +37,8 @@ export function Applications() {
   const [pick, setPick] = useState<string | null>(null);
   const [limit, setLimit] = useState(PAGE);
   const [open, setOpen] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [period, setPeriod] = useState<"7" | "30" | "all">("all");
   const lists = useQuery({
     queryKey: ["apply"],
     queryFn: async () => {
@@ -72,7 +74,13 @@ export function Applications() {
   const counts = lists.data?.counts ?? {};
   const state =
     pick ?? ((counts["needs-me"] ?? 0) > 0 ? "needs-me" : (counts["not-sent"] ?? 0) > 0 ? "not-sent" : "sent");
-  const rows = lists.data?.byState[state] ?? [];
+  // the picked state, then the words and the period
+  const since = period === "all" ? 0 : Date.now() - Number(period) * 86_400_000;
+  const needle = q.trim().toLowerCase();
+  const rows = (lists.data?.byState[state] ?? []).filter(
+    (a) =>
+      Date.parse(a.updated) >= since && (!needle || `${a.title} ${a.org} ${a.reason}`.toLowerCase().includes(needle)),
+  );
   const week = Date.now() - 7 * 86_400_000;
   const all = Object.values(lists.data?.byState ?? {}).flat();
   const sentWeek = all.filter((a) => a.state === "sent" && Date.parse(a.updated) >= week).length;
@@ -98,12 +106,13 @@ export function Applications() {
         )}
       </div>
 
-      <section className="grid grid-cols-2 gap-2 md:grid-cols-5">
+      <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
         {STATES.map((x) => (
           <button
             key={x.state}
             type="button"
-            className={`card ${x.tone} grid gap-1 text-left`}
+            title={x.what}
+            className={`card ${x.tone} flex items-center gap-2 !px-3 !py-2 text-left`}
             style={
               state === x.state
                 ? { borderColor: "var(--tone)", boxShadow: "0 0 0 1px var(--tone)" }
@@ -114,15 +123,36 @@ export function Applications() {
               setLimit(PAGE);
             }}
           >
-            <span className="flex items-center gap-2 text-[13px]" style={{ color: "var(--muted)" }}>
-              <span className="dot" /> {x.title}
+            <span className="dot" />
+            <span className="min-w-0 flex-1 truncate text-[13px]" style={{ color: "var(--muted)" }}>
+              {x.title}
             </span>
-            <span className="font-cond text-[34px] font-bold leading-none" style={{ color: "var(--strong)" }}>
+            <span className="font-cond text-[22px] font-bold leading-none" style={{ color: "var(--strong)" }}>
               {counts[x.state] ?? 0}
             </span>
-            <span className="text-[12px]" style={{ color: "var(--muted)" }}>
-              {x.what}
-            </span>
+          </button>
+        ))}
+      </section>
+      <section className="flex flex-wrap gap-2">
+        <input
+          type="search"
+          className="btn min-w-0 flex-1"
+          placeholder="Search title, company or reason"
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setLimit(PAGE);
+          }}
+        />
+        {(
+          [
+            ["7", "This week"],
+            ["30", "30 days"],
+            ["all", "All time"],
+          ] as const
+        ).map(([k, label]) => (
+          <button key={k} type="button" className="pill" aria-pressed={period === k} onClick={() => setPeriod(k)}>
+            {label}
           </button>
         ))}
       </section>

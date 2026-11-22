@@ -8,7 +8,7 @@ import { basename, join } from "node:path";
 import { parseArgs } from "node:util";
 import { openDb } from "../src/db/db.ts";
 import { migrate } from "../src/db/migrate.ts";
-import { importAnswers, importGuide, importOldLearn } from "../src/domain/learn/import-learn.ts";
+import { importAnswers, importGuide, importJobPreps, importOldLearn } from "../src/domain/learn/import-learn.ts";
 import { importOldProgress } from "../src/domain/learn/review.ts";
 import { dataDir } from "../src/platform/paths.ts";
 
@@ -76,6 +76,7 @@ if (process.argv[1]?.endsWith("import-learn.ts")) {
       );
       const progressFile = join(values.from, "learn", "data.json");
       if (existsSync(progressFile)) {
+        add("the old job preps", importJobPreps(db, readJson(progressFile)));
         const got = importOldProgress(db, readJson(progressFile));
         console.log(
           `  the old progress: ${got.landed} reviews${got.skipped.length ? `, ${got.skipped.length} skipped` : ""}`,

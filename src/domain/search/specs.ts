@@ -1,6 +1,6 @@
 // The search specs: files in the data folder (searches/*.json) — what I hunt and where is personal, so it never
 // enters the repo. The file's name is the spec's id.
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { basename, isAbsolute, join } from "node:path";
 import { z } from "zod";
 import { dataDir } from "../../platform/paths.ts";
@@ -49,3 +49,40 @@ export function loadSpecs(dir = join(dataDir(), "searches")): { specs: Spec[]; p
 
 export const collectorPath = (spec: Spec): string =>
   isAbsolute(spec.collector) ? spec.collector : join(dataDir(), spec.collector);
+
+// a spec's id is its file name: lowercase words and dashes, so it reads well in a path and a link
+export const SPEC_ID = /^[a-z0-9][a-z0-9-]{0,59}$/;
+
+export function readSpecFile(id: string, dir = join(dataDir(), "searches")): Record<string, unknown> | null {
+  if (!SPEC_ID.test(id)) return null;
+  const file = join(dir, `${id}.json`);
+  if (!existsSync(file)) return null;
+  return JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
+}
+
+// write a spec, checked first: a bad one is refused with the field named, never half-written
+export function writeSpecFile(id: string, raw: unknown, dir = join(dataDir(), "searches")): Spec {
+  if (!SPEC_ID.test(id)) throw new Error("a search's id is lowercase words and dashes, like full-stack-ai-engineer");
+  const read = Spec.safeParse(raw);
+  if (!read.success)
+    throw new Error(
+      `the search's settings miss: ${read.error.issues.map((i) => `${i.path.join(".") || "the file"} ${i.message}`).join("; ")}`,
+    );
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, `${id}.json`);
+  writeFileSync(`${file}.tmp`, `${JSON.stringify(raw, null, 2)}\n`);
+  renameSync(`${file}.tmp`, file);
+  return { ...read.data, id };
+}
+
+// the collectors in the data folder: the scripts a search can run
+export function listCollectors(dir = join(dataDir(), "collectors")): string[] {
+  try {
+    return readdirSync(dir)
+      .filter((n) => /\.(mjs|js|py|sh)$/.test(n))
+      .map((n) => `collectors/${n}`)
+      .sort();
+  } catch {
+    return [];
+  }
+}

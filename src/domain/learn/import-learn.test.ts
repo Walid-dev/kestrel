@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { migrate } from "../../db/migrate.ts";
-import { importAnswers, importGuide, importOldLearn } from "./import-learn.ts";
+import { importAnswers, importGuide, importJobPreps, importOldLearn } from "./import-learn.ts";
 import { getLesson, listLessons, listPacks } from "./lessons.ts";
 import { importOldProgress } from "./review.ts";
 
@@ -200,4 +200,37 @@ test("two sources minting one id collide: the later is skipped by name, counted 
   const a = importAnswers(db, "made-up twins", answers);
   assert.equal(a.lessons, 1);
   assert.equal(a.skipped.length, 1);
+});
+
+test("a job prep becomes an Interview prep pack: the overview beside its lessons, and its progress lands", () => {
+  const db = setup();
+  const store = {
+    "job:j-made-1": {
+      id: "j-made-1",
+      title: "Hive Keeper",
+      company: "Made-up Co",
+      about: ["A made-up farm with forty hives.", "They sell wax and honey."],
+      needs: [{ need: "Smoker skills", have: "Two summers of smoking hives", lessons: [] }],
+      lessons: [
+        {
+          id: "job-made-1-1",
+          title: "Calm hives",
+          short: "Smoke first.",
+          say: ["Puff twice."],
+          check: [{ q: "When?", a: "First." }],
+        },
+      ],
+    },
+    "p:job-made-1-1": { level: 1, due: "2026-11-23" },
+  };
+  const got = importJobPreps(db, store);
+  assert.deepEqual([got.packs, got.lessons], [1, 2]);
+  assert.deepEqual(
+    listPacks(db).map((p) => [p.name, p.area]),
+    [["Prep: Hive Keeper · Made-up Co", "interview"]],
+  );
+  const overview = getLesson(db, "prep:j-made-1/overview");
+  assert.equal(overview?.body.short, "A made-up farm with forty hives.");
+  assert.equal(overview?.body.blocks.length, 2); // the rest of the about, then the wants-and-haves table
+  assert.equal(importOldProgress(db, store).landed, 1);
 });

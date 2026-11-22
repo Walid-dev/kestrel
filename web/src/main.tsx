@@ -19,6 +19,7 @@ import { NotesList } from "./notes/list.tsx";
 import { Reader } from "./notes/reader.tsx";
 import { NotesSet } from "./notes/set.tsx";
 import { Searches } from "./search/searches.tsx";
+import { SearchSettings } from "./search/settings.tsx";
 import { Tasks } from "./tasks.tsx";
 import "./styles.css";
 
@@ -36,6 +37,7 @@ if (rootEl)
               <Route path="notes" element={<NotesList />} />
               <Route path="models" element={<Models />} />
               <Route path="searches" element={<Searches />} />
+              <Route path="searches/settings" element={<SearchSettings />} />
               <Route path="applications" element={<Applications />} />
               <Route path="learn" element={<LearnPacks />} />
               <Route path="learn/pack/:id" element={<LearnPack />} />
