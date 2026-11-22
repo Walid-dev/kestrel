@@ -217,7 +217,7 @@ function Head({ l }: { l: Listing }) {
       <span className={`chip chip-caps ${app ? app[1] : stage.tone}`}>{app ? app[0] : stage.label}</span>
       {group && <span className="eyebrow truncate">{group}</span>}
       <span className="eyebrow ml-auto truncate">{l.source.replaceAll("-", " ")}</span>
-      {(l.priority || l.starred === 1) && <span style={{ color: "var(--yellow)" }}>★</span>}
+      {(l.starred === 1 || (l.kind === "jobs" && l.priority)) && <span style={{ color: "var(--yellow)" }}>★</span>}
     </div>
   );
 }

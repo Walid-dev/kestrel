@@ -196,6 +196,16 @@ function importDeals(db: DatabaseSync, old: DatabaseSync, write: boolean, opts: 
     // no history table: each deal shows its one price
   }
   const heads = specHeads(opts.specsDir);
+  // a spec whose file is gone (an old model no longer hunted) joins the only deal hunt there is, when there is one;
+  // its model is its name before the site ("embody-kijiji" → Embody)
+  const onlyHunt = new Set([...heads.values()].map((h) => h.hunt).filter(Boolean));
+  const orphanHead = (spec: string) => {
+    const model = spec.replace(/-[^-]+$/, "");
+    return {
+      hunt: onlyHunt.size === 1 ? [...onlyHunt][0] : "",
+      category: model ? model[0].toUpperCase() + model.slice(1).replaceAll("-", " ") : "",
+    };
+  };
   const get = db.prepare("SELECT id, status, score, data FROM listings WHERE id = ? OR (search = ? AND link = ?)");
   const insert = db.prepare(
     `INSERT INTO listings (id, search, source, link, dedupe, status, starred, found, updated, score, match, data, kind)
@@ -209,7 +219,7 @@ function importDeals(db: DatabaseSync, old: DatabaseSync, write: boolean, opts: 
     counts.source[status] = (counts.source[status] ?? 0) + 1;
     const score = r.score === null ? null : Math.round(r.score * 10); // the old 0–10 onto the 0–100 card
     const match = score === null ? "" : score >= 80 ? "great" : score >= 60 ? "good" : score >= 40 ? "weak" : "poor";
-    const head = heads.get(r.spec);
+    const head = heads.get(r.spec) ?? orphanHead(r.spec);
     const data = JSON.stringify({
       kind: "deals",
       source: r.source,
@@ -243,6 +253,12 @@ function importDeals(db: DatabaseSync, old: DatabaseSync, write: boolean, opts: 
     }
     counts.landed.updated++; // the old setup stays the authority until the cutover
     if (write) update.run(status, score, match, data, updatedAt, have.id);
+  }
+  // every search the old runs name is a deal search: a row the old setup has since dropped still reads as a deal
+  if (write) {
+    const specs = [...new Set(rows.map((r) => r.spec))];
+    const mark = db.prepare("UPDATE listings SET kind = 'deals' WHERE search = ? AND kind != 'deals'");
+    for (const s of specs) mark.run(s);
   }
   return counts;
 }

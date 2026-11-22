@@ -37,6 +37,7 @@ export function Searches() {
   const [params, setParams] = useSearchParams();
   const [open, setOpen] = useState<string | null>(null);
   const [limit, setLimit] = useState(PAGE);
+  const [moreGroups, setMoreGroups] = useState(false);
   const set = (k: string, v: string) => {
     const next = new URLSearchParams(params);
     if (v) next.set(k, v);
@@ -76,10 +77,13 @@ export function Searches() {
   else if (stage !== "all") filtered.set("status", stage);
   filtered.set("sort", sort);
 
+  const counted = new URLSearchParams(base);
+  if (stage === "priority") counted.set("priority", "1");
+  else if (stage !== "all") counted.set("status", stage);
   const counts = useQuery({
-    queryKey: ["search-counts", base.toString()],
+    queryKey: ["search-counts", counted.toString()],
     queryFn: async () => {
-      const res = await fetch(`/api/search/counts?${base}`);
+      const res = await fetch(`/api/search/counts?${counted}`);
       if (!res.ok) throw new Error(`${res.status}`);
       return (await res.json()) as Counts;
     },
@@ -129,9 +133,11 @@ export function Searches() {
   const failed = [hunts, counts, listings, act, runNow].find((x) => x.isError);
   const spec = hunt?.specs.find((s) => s.enabled);
   const sources = Object.entries(c?.source ?? {}).sort((a, b) => b[1] - a[1]);
-  const groups = Object.entries(c?.group ?? {})
+  const groupsAll = Object.entries(c?.group ?? {})
     .filter(([g]) => g)
     .sort((a, b) => b[1] - a[1]);
+  // the main groups only, as the old page showed them; the long tail waits behind "more"
+  const groups = moreGroups ? groupsAll : groupsAll.filter(([g, n], i) => i < 10 && (n > 1 || g === group));
 
   return (
     <main className="grid gap-5">
@@ -282,7 +288,7 @@ export function Searches() {
         {groups.length > 0 && (
           <div className="flex flex-wrap gap-2">
             <button type="button" className="pill" aria-pressed={!group} onClick={() => set("group", "")}>
-              {kind === "jobs" ? "Role" : "Model"} <b>{groups.reduce((a, [, n]) => a + n, 0)}</b>
+              {kind === "jobs" ? "Role" : "Model"} <b>{groupsAll.reduce((a, [, n]) => a + n, 0)}</b>
             </button>
             {groups.map(([g, n]) => (
               <button
@@ -295,6 +301,11 @@ export function Searches() {
                 {g} <b>{n}</b>
               </button>
             ))}
+            {groupsAll.length > groups.length && (
+              <button type="button" className="pill" onClick={() => setMoreGroups(true)}>
+                +{groupsAll.length - groups.length} more
+              </button>
+            )}
           </div>
         )}
       </div>
