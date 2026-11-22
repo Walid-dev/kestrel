@@ -39,6 +39,12 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M12 6v14.5" />
     </svg>
   ),
+  "Interview prep": (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
+      <path d="M5 5.5h14v9.5H9.5L5 19z" />
+      <path d="M9 9.5h6M9 12h4" />
+    </svg>
+  ),
   Tasks: (
     <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
       <rect x="4" y="4" width="16" height="16" rx="3" />
@@ -75,6 +81,13 @@ const APPS: { name: string; what: string; when: string; to: string | null; color
     when: "v0.4",
     to: "/learn",
     color: "var(--green)",
+  },
+  {
+    name: "Interview prep",
+    what: "Answers to say for a job or a project, and the helper that finds them while you're asked.",
+    when: "v0.4",
+    to: "/interview",
+    color: "var(--yellow)",
   },
   {
     name: "Tasks",

@@ -14,6 +14,18 @@ export const MODEL_DEFAULTS = {
   contextChars: 160_000,
 };
 
+// a door kestrel calls must stay on this computer: documents, notes and sound never leave it (review R2-1)
+const onThisComputer = (u: string): boolean => {
+  try {
+    const { hostname, protocol } = new URL(u);
+    return (
+      (protocol === "http:" || protocol === "https:") && ["127.0.0.1", "localhost", "::1", "[::1]"].includes(hostname)
+    );
+  } catch {
+    return false;
+  }
+};
+
 export const Settings = z.object({
   // who may reach kestrel: my Tailscale login, which Serve stamps on every request (step 7 enforces it)
   tailscaleLogin: z.string().min(1),
@@ -24,28 +36,24 @@ export const Settings = z.object({
     .object({
       // the door must stay on this computer: a remote URL would send documents and notes off it (review R2-1).
       // Remote models, if ever wanted, are a separate decision with its own explicit opt-in.
-      url: z
-        .string()
-        .default(MODEL_DEFAULTS.url)
-        .refine(
-          (u) => {
-            try {
-              const { hostname, protocol } = new URL(u);
-              return (
-                (protocol === "http:" || protocol === "https:") &&
-                ["127.0.0.1", "localhost", "::1", "[::1]"].includes(hostname)
-              );
-            } catch {
-              return false;
-            }
-          },
-          { message: "models.url must stay on this computer (http://127.0.0.1:…): kestrel never sends documents away" },
-        ),
+      url: z.string().default(MODEL_DEFAULTS.url).refine(onThisComputer, {
+        message: "models.url must stay on this computer (http://127.0.0.1:…): kestrel never sends documents away",
+      }),
       careful: z.string().default(MODEL_DEFAULTS.careful),
       fast: z.string().default(MODEL_DEFAULTS.fast),
       contextChars: z.number().int().positive().default(MODEL_DEFAULTS.contextChars),
     })
     .default(MODEL_DEFAULTS),
+  // the computer's own voice and ears (a small Kokoro + Parakeet server): Listen speaks with it, the interview
+  // helper hears with it; down, the pages fall back to the device's voice
+  voice: z
+    .object({
+      url: z.string().default("http://127.0.0.1:8798").refine(onThisComputer, {
+        message: "voice.url must stay on this computer (http://127.0.0.1:…): sound never leaves it",
+      }),
+      name: z.string().default("af_heart"),
+    })
+    .default({ url: "http://127.0.0.1:8798", name: "af_heart" }),
 });
 export type Settings = z.infer<typeof Settings>;
 

@@ -44,7 +44,7 @@ const CHANGED = "changed since the draft was made: open the document again, chec
 
 export function saveDraft(db: DatabaseSync, draftId: string, documentId: string): { where: string } {
   const draft = getDraft(db, draftId);
-  if (!draft || draft.status !== "ready") throw new Refused("no ready draft to save");
+  if (draft?.status !== "ready") throw new Refused("no ready draft to save");
   const basis = JSON.parse(
     String((db.prepare("SELECT request FROM drafts WHERE id = ?").get(draftId) as { request: string }).request),
   ) as {

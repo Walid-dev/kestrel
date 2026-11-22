@@ -23,6 +23,7 @@ const settings = (url: string, contextChars = 100_000): Settings => ({
   tailscaleLogin: "made-up",
   notes: { folders: [] },
   models: { url, careful: "careful-model", fast: "fast-model", contextChars },
+  voice: { url: "http://127.0.0.1:1", name: "made-up" },
 });
 
 test("a draft is made, placed, and still there until discarded", async () => {

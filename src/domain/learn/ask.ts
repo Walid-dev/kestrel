@@ -8,7 +8,7 @@ import type { Settings } from "../../platform/config.ts";
 import { recordCall } from "../calls.ts";
 import { modelFor } from "../models.ts";
 import { Refused } from "../notes/documents.ts";
-import { getLesson, listLessons } from "./lessons.ts";
+import { getLesson, lessonText, listLessons } from "./lessons.ts";
 
 export async function askLesson(
   db: DatabaseSync,
@@ -25,7 +25,7 @@ export async function askLesson(
       id: lesson.id,
       title: lesson.title,
       say: lesson.body.say,
-      explain: lesson.body.explain,
+      explain: lesson.body.blocks.length ? lessonText(lesson.body) : lesson.body.explain,
       words: lesson.body.words,
     },
     packMap,

@@ -1,19 +1,29 @@
-// The Learn routes, mounted on the one app by main.ts: packs, lessons, search, Ask, the spaced rhythm, and Live —
-// sound in, the nearest prepared answer out. A Refused from the domain answers 400 with its reason.
+// The Learn routes, mounted on the one app by main.ts: packs by area (Learn, Interview prep), the front page's
+// overview, lessons, search, Ask, the review ladder, and the interview helper's ears — sound in, the nearest prepared
+// answer out. A Refused from the domain answers 400 with its reason.
 import type { DatabaseSync } from "node:sqlite";
 import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import { z } from "zod";
-import { EAR, transcribe } from "../ai/asr.ts";
+import { hear } from "../ai/asr.ts";
 import { askLesson } from "../domain/learn/ask.ts";
-import { addLesson, addPack, getLesson, listLessons, listPacks, searchLessons } from "../domain/learn/lessons.ts";
+import type { Area } from "../domain/learn/lessons.ts";
+import {
+  addLesson,
+  addPack,
+  getLesson,
+  listLessons,
+  listPacks,
+  searchLessons,
+  setPackArea,
+} from "../domain/learn/lessons.ts";
 import { bestAnswer } from "../domain/learn/match.ts";
-import { dueLessons, gradeLesson, neverGraded } from "../domain/learn/review.ts";
-import { doorModels } from "../domain/models.ts";
+import { dueLessons, gradeLesson, lessonStates, neverGraded } from "../domain/learn/review.ts";
 import { Refused } from "../domain/notes/documents.ts";
 import type { Settings } from "../platform/config.ts";
 
-const MAX_SOUND_BYTES = 25_000_000; // a minute of phone audio is well under this
+const MAX_SOUND_BYTES = 2_000_000; // the ears take 2 MB at most: about a minute of 16 kHz speech
+const area = (v: string | undefined): Area | undefined => (v === "learn" || v === "interview" ? v : undefined);
 
 export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
   const refusing = (c: { json: (o: unknown, s: 400 | 500) => Response }, e: unknown) => {
@@ -21,18 +31,54 @@ export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
     throw e;
   };
 
-  app.get("/api/learn/packs", (c) => c.json({ packs: listPacks(db) }));
+  app.get("/api/learn/packs", (c) => c.json({ packs: listPacks(db, area(c.req.query("area"))) }));
+  app.get("/api/learn/overview", (c) => {
+    const where = area(c.req.query("area")) ?? "learn";
+    const lessons = lessonStates(db, where, new Date());
+    const count = (s: string) => lessons.filter((l) => l.state === s).length;
+    return c.json({
+      summary: { due: count("due"), new: count("new"), learning: count("learning"), known: count("known") },
+      packs: listPacks(db, where),
+      lessons,
+    });
+  });
+  app.post("/api/learn/packs/:id/area", zValidator("json", z.object({ area: z.enum(["learn", "interview"]) })), (c) => {
+    try {
+      setPackArea(db, c.req.param("id"), c.req.valid("json").area);
+      return c.json({ ok: true });
+    } catch (e) {
+      return refusing(c, e);
+    }
+  });
   app.get("/api/learn/packs/:id", (c) =>
     c.json({
-      lessons: listLessons(db, c.req.param("id")).map(({ body, ...l }) => ({ ...l, checks: body.check.length })),
+      lessons: listLessons(db, c.req.param("id")).map(({ body, ...l }) => ({
+        ...l,
+        part: body.part,
+        short: body.short,
+        checks: body.check.length,
+      })),
     }),
   );
   app.get("/api/learn/lessons/:id", (c) => {
     const lesson = getLesson(db, c.req.param("id"));
-    return lesson ? c.json(lesson) : c.json({ error: "no such lesson" }, 404);
+    if (!lesson) return c.json({ error: "no such lesson" }, 404);
+    const r = db.prepare("SELECT due, level FROM reviews WHERE lesson = ?").get(lesson.id) as
+      | { due: string; level: number }
+      | undefined;
+    const pack = db.prepare("SELECT name, area FROM packs WHERE id = ?").get(lesson.pack) as
+      | { name: string; area: Area }
+      | undefined;
+    const state = !r ? "new" : r.due <= new Date().toISOString() ? "due" : r.level >= 3 ? "known" : "learning";
+    return c.json({ ...lesson, state, packName: pack?.name ?? "", area: pack?.area ?? "learn" });
   });
   app.get("/api/learn/search", (c) =>
-    c.json({ lessons: searchLessons(db, c.req.query("q") ?? "").map(({ body, ...l }) => l) }),
+    c.json({
+      lessons: searchLessons(db, c.req.query("q") ?? "", area(c.req.query("area"))).map(({ body, ...l }) => ({
+        ...l,
+        short: body.short,
+      })),
+    }),
   );
   app.post(
     "/api/learn/ask",
@@ -47,8 +93,16 @@ export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
     },
   );
   app.get("/api/learn/due", (c) => {
-    const ids = [...new Set([...dueLessons(db, new Date()), ...neverGraded(db)])].slice(0, 20);
-    const lessons = ids.map((id) => getLesson(db, id)).filter((l) => l !== null);
+    const ids = [...new Set([...dueLessons(db, new Date()), ...neverGraded(db)])];
+    const which = area(c.req.query("area")) ?? "learn";
+    const lessons = ids
+      .map((id) => getLesson(db, id))
+      .filter((l) => l !== null)
+      .filter((l) => {
+        const p = db.prepare("SELECT area FROM packs WHERE id = ?").get(l.pack) as { area: string } | undefined;
+        return p?.area === which;
+      })
+      .slice(0, 20);
     return c.json({ lessons });
   });
   app.post(
@@ -100,18 +154,17 @@ export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
       }
     },
   );
-  // Live: the phone's sound in the body, the heard words and the nearest prepared answer back
-  app.post("/api/learn/live", async (c) => {
-    const kind = c.req.header("content-type") ?? "application/octet-stream";
+  // the interview helper: the phone's recording (a 16 kHz WAV) in, the heard words and the nearest prepared answer out
+  app.post("/api/interview/hear", async (c) => {
+    const kind = c.req.header("content-type") ?? "audio/wav";
     // the size is judged before the body is read, so a runaway recording never fills the memory
-    const said = Number(c.req.header("content-length") ?? "0");
-    if (said > MAX_SOUND_BYTES) return c.json({ error: "the recording is too long to send" }, 400);
+    if (Number(c.req.header("content-length") ?? "0") > MAX_SOUND_BYTES)
+      return c.json({ error: "the recording is too long: a question fits in a minute" }, 400);
     const sound = await c.req.arrayBuffer();
     if (sound.byteLength === 0) return c.json({ error: "no sound arrived" }, 400);
-    if (sound.byteLength > MAX_SOUND_BYTES) return c.json({ error: "the recording is too long to send" }, 400);
-    const ear = (await doorModels(settings)).find((id) => EAR.test(id));
-    if (!ear) return c.json({ error: "the model door lists no ear right now" }, 502);
-    const heard = await transcribe(settings, sound, kind, ear);
+    if (sound.byteLength > MAX_SOUND_BYTES)
+      return c.json({ error: "the recording is too long: a question fits in a minute" }, 400);
+    const heard = await hear(settings, sound, kind);
     if (heard.outcome !== "ok") return c.json({ error: heard.why }, 502);
     const near = bestAnswer(db, heard.text);
     return c.json({

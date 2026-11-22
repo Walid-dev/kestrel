@@ -1,8 +1,9 @@
-// The one-time import from the old setup: the old Learn lessons by topic, a guide's term entries with its
-// glossary, and the interview answer files. Ids are stable, so a rerun updates — it never doubles. A reworded
-// title mints a new id, so the old lesson stays beside it until deleted by hand; two sources minting the same id
-// in one run collide, and the later one is skipped by name rather than silently overwriting the first.
+// The one-time import from the old setup: the old Learn lessons by topic, each guide as its topics (one lesson per
+// topic page, its blocks and diagrams kept as written), and the interview answer files. Ids are stable, so a rerun
+// updates — it never doubles. Two sources minting the same id in one run collide, and the later one is skipped by
+// name rather than silently overwriting the first. A guide owns its pack: a topic it no longer has is removed.
 import type { DatabaseSync } from "node:sqlite";
+import type { Area } from "./lessons.ts";
 import { LessonBody } from "./lessons.ts";
 
 export type ImportCounts = { packs: number; lessons: number; skipped: string[] };
@@ -20,23 +21,25 @@ const txt = (v: unknown): string =>
     : v !== null && typeof v === "object" && "like" in v
       ? txt((v as { like: unknown }).like)
       : "";
-const lines = (v: unknown): string[] => (Array.isArray(v) ? v.map(txt).filter(Boolean) : []);
+const lines = (v: unknown): string[] => (Array.isArray(v) ? v.map(txt).filter(Boolean) : txt(v) ? [txt(v)] : []);
 const pair = (v: unknown, a: string, b: string): { q: string; a: string } | null => {
   if (v === null || typeof v !== "object") return null;
   const o = v as Record<string, unknown>;
   const q = txt(o[a]);
-  const ans = txt(o[b]);
+  const ans = Array.isArray(o[b]) ? lines(o[b]).join(" ") : txt(o[b]);
   return q && ans ? { q, a: ans } : null;
 };
+// the first letter up, the rest as written: "work" reads "Work", "AI models" stays
+const titled = (s: string): string => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
-function upsertPack(db: DatabaseSync, id: string, name: string, kind: "lesson-pack" | "answer-pack"): void {
+function upsertPack(db: DatabaseSync, id: string, name: string, kind: "lesson-pack" | "answer-pack", area: Area) {
   db.prepare(
-    `INSERT INTO packs (id, name, kind, added_at) VALUES (?, ?, ?, ?)
+    `INSERT INTO packs (id, name, kind, area, added_at) VALUES (?, ?, ?, ?, ?)
      ON CONFLICT (id) DO UPDATE SET name = excluded.name, kind = excluded.kind`,
-  ).run(id, name, kind, new Date().toISOString());
+  ).run(id, name, kind, area, new Date().toISOString());
 }
 
-// one run's minted ids, per pack: a second lesson minting the same id is a collision, skipped by name
+// one run's minted ids: a second lesson minting the same id is a collision, skipped by name
 function freshId(minted: Set<string>, id: string): boolean {
   if (minted.has(id)) return false;
   minted.add(id);
@@ -61,9 +64,14 @@ function upsertLesson(
   return true;
 }
 
+export type OldLearnOptions = {
+  labels?: Record<string, string>; // topic id → its display name ("ai" → "AI models")
+  interviewTopics?: string[]; // topics that belong in Interview prep, not Learn
+};
+
 // The old Learn app's lessons.json: a list of { id, topic, title, short, say, explain, example, words, check }.
-// Each topic becomes a pack; the one-line short opens the explanation.
-export function importOldLearn(db: DatabaseSync, old: unknown): ImportCounts {
+// Each topic becomes a pack named by its label; the one-line short stays the lede under the title.
+export function importOldLearn(db: DatabaseSync, old: unknown, opts: OldLearnOptions = {}): ImportCounts {
   const counts: ImportCounts = { packs: 0, lessons: 0, skipped: [] };
   if (!Array.isArray(old)) {
     counts.skipped.push("the lessons file is not a list");
@@ -74,18 +82,19 @@ export function importOldLearn(db: DatabaseSync, old: unknown): ImportCounts {
   for (const raw of old) {
     const o = (raw ?? {}) as Record<string, unknown>;
     const topic = txt(o.topic) || "untopiced";
+    const label = titled(opts.labels?.[topic] ?? topic);
     const packId = `old:${slug(topic)}`;
     if (!packs.has(packId)) {
-      upsertPack(db, packId, topic, "lesson-pack");
+      upsertPack(db, packId, label, "lesson-pack", opts.interviewTopics?.includes(topic) ? "interview" : "learn");
       counts.packs++;
       packs.set(packId, 1);
     }
     const position = packs.get(packId) ?? 1;
-    const short = txt(o.short);
-    const explain = lines(o.explain);
     const body = {
+      eyebrow: label,
+      short: txt(o.short),
       say: lines(o.say),
-      explain: short && short !== explain[0] ? [short, ...explain] : explain,
+      explain: lines(o.explain),
       example: txt(o.example),
       words: (Array.isArray(o.words) ? o.words : [])
         .map((w) => pair(w, "w", "m"))
@@ -107,8 +116,11 @@ export function importOldLearn(db: DatabaseSync, old: unknown): ImportCounts {
   return counts;
 }
 
-// A guide file: its term entries become the lessons, its glossary becomes a closing "The words" lesson. The
-// prose around the entries stays in the old guide page, which keeps working.
+const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+
+// A guide file: { meta, intro, parts[{ title, sections[{ id, num, eyebrow, title, short, blocks }] }], glossary,
+// references }. Each topic page is one lesson with its blocks as written — entries, examples, diagrams, tables — and
+// its entries' checks gathered for Practice. The glossary closes the pack; the references follow it.
 export function importGuide(db: DatabaseSync, guide: unknown): ImportCounts {
   const counts: ImportCounts = { packs: 0, lessons: 0, skipped: [] };
   const g = (guide ?? {}) as Record<string, unknown>;
@@ -119,57 +131,95 @@ export function importGuide(db: DatabaseSync, guide: unknown): ImportCounts {
     return counts;
   }
   const packId = `guide:${slug(name)}`;
-  upsertPack(db, packId, name, "lesson-pack");
+  upsertPack(db, packId, name, "lesson-pack", "learn");
   counts.packs++;
   const minted = new Set<string>();
   let position = 1;
-  for (const part of Array.isArray(g.parts) ? g.parts : []) {
-    const sections = (part as Record<string, unknown>)?.sections;
-    for (const section of Array.isArray(sections) ? sections : []) {
-      const blocks = (section as Record<string, unknown>)?.blocks;
-      for (const block of Array.isArray(blocks) ? blocks : []) {
-        const b = (block ?? {}) as Record<string, unknown>;
-        if (b.type !== "entry") continue;
-        const check = pair(b.check, "q", "a");
-        const body = {
-          explain: lines(b.explain),
-          example: lines(b.example).join(" "),
-          check: check ? [check] : [],
-        };
-        const term = txt(b.term);
-        const id = `${packId}/${txt(b.id) || slug(term)}`;
-        if (term && !freshId(minted, id)) {
-          counts.skipped.push(`two guide entries share the id ${txt(b.id) || slug(term)}: the later one is skipped`);
-          continue;
-        }
-        if (upsertLesson(db, id, packId, position, term, body)) {
-          counts.lessons++;
-          position++;
-        } else counts.skipped.push(`a guide entry without a term: ${txt(b.id) || "?"}`);
-      }
+  const checksOf = (blocks: unknown[]) =>
+    blocks
+      .map((b) => (b && typeof b === "object" ? pair((b as Record<string, unknown>).check, "q", "a") : null))
+      .filter((c) => c !== null);
+  const topic = (s: Record<string, unknown>, part: string, fallbackEyebrow: string) => {
+    const title = txt(s.title);
+    const own = txt(s.id) || slug(title);
+    const id = `${packId}/${own}`;
+    if (!title || !freshId(minted, id)) {
+      counts.skipped.push(
+        title ? `two topics share the id ${own}: the later one is skipped` : "a topic without a title",
+      );
+      return;
     }
-  }
+    const blocks = (Array.isArray(s.blocks) ? s.blocks : []).filter((b) => b && typeof b === "object");
+    const body = {
+      eyebrow: txt(s.eyebrow) || fallbackEyebrow,
+      part,
+      short: txt(s.short),
+      blocks,
+      check: checksOf(blocks),
+    };
+    if (upsertLesson(db, id, packId, position, title, body)) {
+      counts.lessons++;
+      position++;
+    }
+  };
+  if (g.intro && typeof g.intro === "object") topic(g.intro as Record<string, unknown>, "", "Start here");
+  (Array.isArray(g.parts) ? g.parts : []).forEach((p, i) => {
+    const part = (p ?? {}) as Record<string, unknown>;
+    const label = `Part ${ROMAN[i] ?? i + 1} · ${txt(part.title)}`;
+    for (const s of Array.isArray(part.sections) ? part.sections : [])
+      if (s && typeof s === "object") {
+        const num = txt((s as Record<string, unknown>).num);
+        topic(s as Record<string, unknown>, label, `Part ${ROMAN[i] ?? i + 1}${num ? ` · Topic ${num}` : ""}`);
+      }
+  });
   const glossary = (Array.isArray(g.glossary) ? g.glossary : [])
     .map((w) => pair(w, "term", "meaning"))
     .filter((w) => w !== null)
     .map((w) => ({ w: w.q, m: w.a }));
-  if (glossary.length > 0 && upsertLesson(db, `${packId}/words`, packId, position, "The words", { words: glossary }))
-    counts.lessons++;
+  if (glossary.length > 0) {
+    minted.add(`${packId}/words`);
+    if (upsertLesson(db, `${packId}/words`, packId, position++, "Glossary", { eyebrow: "Look up", words: glossary }))
+      counts.lessons++;
+  }
+  const refs = (Array.isArray(g.references) ? g.references : [])
+    .map((r) => (r && typeof r === "object" ? (r as Record<string, unknown>) : null))
+    .filter((r) => r !== null && typeof r.url === "string")
+    .map((r) => ({ title: txt(r?.title) || String(r?.url), url: String(r?.url) }));
+  if (refs.length > 0) {
+    minted.add(`${packId}/references`);
+    if (
+      upsertLesson(db, `${packId}/references`, packId, position++, "References", {
+        eyebrow: "Look up",
+        short: txt(g.references_note),
+        blocks: [{ type: "links", items: refs }],
+      })
+    )
+      counts.lessons++;
+  }
+  // the guide owns its pack: a lesson it no longer mints goes (its reviews with it)
+  const gone = (db.prepare("SELECT id FROM lessons WHERE pack = ?").all(packId) as { id: string }[]).filter(
+    (r) => !minted.has(r.id),
+  );
+  for (const r of gone) db.prepare("DELETE FROM lessons WHERE id = ?").run(r.id);
+  if (gone.length) counts.skipped.push(`${gone.length} older lessons of this guide were replaced by its topics`);
   return counts;
 }
 
 // An interview answer file: blocks split by blank lines, each a question with its spoken answer.
 //   Q: the question · W: what they check · M: what the question asks · P: the plain words
 //   A: a line to say (repeatable) · K: a key point (repeatable)
+// Answer files belong in Interview prep.
 export function importAnswers(db: DatabaseSync, name: string, text: string): ImportCounts {
   const counts: ImportCounts = { packs: 0, lessons: 0, skipped: [] };
   const packId = `answers:${slug(name)}`;
   const minted = new Set<string>();
   let position = 1;
-  for (const block of text.split(/\n\s*\n/)) {
+  let block = 0;
+  for (const chunk of text.split(/\n\s*\n/)) {
+    block++;
     const field: Record<string, string[]> = { Q: [], W: [], M: [], P: [], A: [], K: [] };
     let last = "";
-    for (const line of block.split("\n")) {
+    for (const line of chunk.split("\n")) {
       const m = line.match(/^([QWMPAK]):\s*(.*)$/);
       if (m) {
         last = m[1];
@@ -179,7 +229,7 @@ export function importAnswers(db: DatabaseSync, name: string, text: string): Imp
     const q = field.Q.join(" ").trim();
     const say = field.A.filter(Boolean);
     if (!q || say.length === 0) {
-      if (block.trim()) counts.skipped.push(`block ${position} of the file has no question or no answer line`);
+      if (chunk.trim()) counts.skipped.push(`block ${block} of the file has no question or no answer line`);
       continue;
     }
     if (!freshId(minted, `${packId}/${slug(q)}`)) {
@@ -187,14 +237,14 @@ export function importAnswers(db: DatabaseSync, name: string, text: string): Imp
       continue;
     }
     if (counts.packs === 0) {
-      upsertPack(db, packId, name, "answer-pack");
+      upsertPack(db, packId, titled(name), "answer-pack", "interview");
       counts.packs++;
     }
     const body = {
+      eyebrow: field.W.join(" "),
+      short: field.M.join(" "),
       say,
-      explain: [field.M.join(" "), field.P.join(" "), field.W.length ? `They check: ${field.W.join(" ")}` : ""]
-        .map((s) => s.trim())
-        .filter(Boolean),
+      explain: [field.P.join(" ")].map((s) => s.trim()).filter(Boolean),
       example: field.K.filter(Boolean).join(" · "),
       check: [{ q, a: say[0] }],
     };

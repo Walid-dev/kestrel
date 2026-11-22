@@ -6,7 +6,17 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { migrate } from "../../db/migrate.ts";
-import { addLesson, addPack, getLesson, listLessons, listPacks, searchLessons } from "./lessons.ts";
+import {
+  addLesson,
+  addPack,
+  getLesson,
+  LessonBody,
+  lessonText,
+  listLessons,
+  listPacks,
+  searchLessons,
+  setPackArea,
+} from "./lessons.ts";
 import { dueLessons, gradeLesson, neverGraded } from "./review.ts";
 
 function setup() {
@@ -38,21 +48,67 @@ test("a pack holds its lessons in order, the shape is kept, search finds by word
   assert.throws(() => addLesson(db, pack, "  ", BODY), /needs its title/);
 });
 
-test("the spaced rhythm: again means tomorrow, good grows 1 then 3 then times ease", () => {
+test("the old Learn's ladder: each known climbs 1, 3, 7, 16, 35 days; again starts over tomorrow", () => {
   const db = setup();
   const pack = addPack(db, "P");
   const l = addLesson(db, pack, "L", BODY);
   const now = new Date("2026-11-21T12:00:00Z");
   assert.deepEqual(neverGraded(db), [l.id]); // it has a check, so it is due from birth
-  const g1 = gradeLesson(db, l.id, "good", now);
-  assert.equal(g1.intervalDays, 1);
-  const g2 = gradeLesson(db, l.id, "good", now);
-  assert.equal(g2.intervalDays, 3);
-  const g3 = gradeLesson(db, l.id, "good", now);
-  assert.equal(g3.intervalDays, 7.5);
-  assert.deepEqual(dueLessons(db, new Date("2026-12-01T12:00:00Z")), [l.id]);
+  const climbs = [1, 2, 3, 4, 5, 6].map(() => gradeLesson(db, l.id, "good", now));
+  assert.deepEqual(
+    climbs.map((g) => g.intervalDays),
+    [1, 3, 7, 16, 35, 35], // the top step holds
+  );
+  assert.deepEqual(
+    climbs.map((g) => g.level),
+    [1, 2, 3, 4, 5, 5],
+  );
+  assert.deepEqual(dueLessons(db, new Date("2027-01-01T12:00:00Z")), [l.id]);
   const again = gradeLesson(db, l.id, "again", now);
-  assert.equal(again.intervalDays, 1);
+  assert.deepEqual([again.intervalDays, again.level], [1, 0]);
+});
+
+test("packs live in an area; moving one is one call, and a missing pack is refused in words", () => {
+  const db = setup();
+  const a = addPack(db, "Lessons");
+  const b = addPack(db, "Answers", "answer-pack");
+  assert.deepEqual(
+    listPacks(db, "learn").map((p) => p.name),
+    ["Lessons"],
+  );
+  assert.deepEqual(
+    listPacks(db, "interview").map((p) => p.name),
+    ["Answers"], // an answer-pack starts in Interview prep
+  );
+  setPackArea(db, a, "interview");
+  assert.equal(listPacks(db, "interview").length, 2);
+  setPackArea(db, b, "learn");
+  assert.deepEqual(
+    listPacks(db, "learn").map((p) => p.name),
+    ["Answers"],
+  );
+  assert.throws(() => setPackArea(db, "nope", "learn"), /no such pack/);
+});
+
+test("lessonText reads a guide topic's blocks as plain lines, analogies and terms included", () => {
+  const text = lessonText(
+    LessonBody.parse({
+      short: "A lede.",
+      blocks: [
+        { type: "lines", lines: ["One `code` line.", { like: "Like a box." }, { code: "never read" }] },
+        { type: "entry", term: "VPC", full: "Virtual Private Cloud", explain: ["Your **own** network."] },
+        { type: "table", head: ["a", "b"], rows: [["k", "v"]] },
+      ],
+    }),
+  );
+  assert.deepEqual(text, [
+    "A lede.",
+    "One code line.",
+    "Like a box.",
+    "VPC (Virtual Private Cloud)",
+    "Your own network.",
+    "k: v",
+  ]);
 });
 
 test("a lesson into a pack that was never made is refused in words, not a constraint crash (sweep)", () => {

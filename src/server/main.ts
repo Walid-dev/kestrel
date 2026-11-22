@@ -20,6 +20,7 @@ import { mountNotes } from "./notes.ts";
 import { startScheduler } from "./scheduler.ts";
 import { mountSearch } from "./search.ts";
 import { mountTasks } from "./tasks.ts";
+import { mountVoice } from "./voice.ts";
 
 // the settings first: a missing or wrong file stops here, with the example in the message
 let settings: ReturnType<typeof loadSettings>;
@@ -39,6 +40,7 @@ if (applied) console.log(`migrations: ${applied} applied${copy ? ", the database
 mountNotes(app, db, settings);
 mountModels(app, db, settings);
 mountLearn(app, db, settings);
+mountVoice(app, settings);
 // development gets one made-up pack, so Learn's screens have something honest to show
 if (!isDeployed() && (db.prepare("SELECT COUNT(*) AS n FROM packs").get() as { n: number }).n === 0) {
   const { addLesson, addPack } = await import("../domain/learn/lessons.ts");

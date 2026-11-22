@@ -7,8 +7,8 @@ import { BrowserRouter, Route, Routes } from "react-router";
 import { App } from "./app.tsx";
 import { Applications } from "./apply/applications.tsx";
 import { Home } from "./home.tsx";
+import { InterviewHelper } from "./learn/helper.tsx";
 import { LearnLesson } from "./learn/lesson.tsx";
-import { LearnLive } from "./learn/live.tsx";
 import { LearnPack, LearnPacks } from "./learn/packs.tsx";
 import { LearnPractice } from "./learn/practice.tsx";
 import { Models } from "./models.tsx";
@@ -38,7 +38,9 @@ if (rootEl)
               <Route path="learn/pack/:id" element={<LearnPack />} />
               <Route path="learn/lesson/:id" element={<LearnLesson />} />
               <Route path="learn/practice" element={<LearnPractice />} />
-              <Route path="learn/live" element={<LearnLive />} />
+              <Route path="learn/live" element={<InterviewHelper />} />
+              <Route path="interview" element={<LearnPacks area="interview" />} />
+              <Route path="interview/helper" element={<InterviewHelper />} />
               <Route path="tasks" element={<Tasks />} />
               <Route path="notes/set" element={<NotesSet />} />
               <Route path="notes/:id" element={<Reader />} />

@@ -21,6 +21,7 @@ function setup() {
     tailscaleLogin: "made-up",
     notes: { folders: [inside] },
     models: { url: "http://127.0.0.1:1/v1", careful: "c", fast: "f", contextChars: 1000 },
+    voice: { url: "http://127.0.0.1:1", name: "made-up" },
   };
   return { base, inside, outside, db, settings };
 }

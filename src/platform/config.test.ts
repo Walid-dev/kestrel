@@ -23,7 +23,17 @@ test("a good settings file answers the settings, defaults filled", () => {
     tailscaleLogin: "made-up-login",
     notes: { folders: [] },
     models: MODEL_DEFAULTS,
+    voice: { url: "http://127.0.0.1:8798", name: "af_heart" },
   });
+});
+
+test("a voice door off this computer is refused: sound never leaves", () => {
+  const dir = mkdtempSync(join(tmpdir(), "kestrel-cfg-"));
+  writeFileSync(
+    join(dir, "settings.json"),
+    JSON.stringify({ tailscaleLogin: "made-up-login", voice: { url: "https://voice.example.com" } }),
+  );
+  assert.throws(() => loadSettings(dir), /must stay on this computer/);
 });
 
 test("a model door off this computer is refused: documents never leave (R2-1)", () => {

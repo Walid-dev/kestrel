@@ -11,7 +11,7 @@ export function LearnPractice() {
   const due = useQuery({
     queryKey: ["due"],
     queryFn: async () => {
-      const res = await fetch("/api/learn/due");
+      const res = await fetch(`/api/learn/due?area=${new URLSearchParams(location.search).get("area") ?? "learn"}`);
       if (!res.ok) throw new Error(`the due list didn't load (${res.status})`);
       return (await res.json()) as { lessons: Lesson[] };
     },

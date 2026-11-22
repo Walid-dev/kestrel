@@ -139,6 +139,186 @@ h3 {
   border-radius: 16px;
   padding: 16px;
 }
+/* a card that opens something: it lifts a hair under the pointer */
+.card-link {
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease;
+}
+.card-link:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+
+/* tones: one colour per meaning, set once and read by chips, bars, callouts and diagram parts */
+.tone-accent {
+  --tone: var(--accent);
+}
+.tone-green {
+  --tone: var(--green);
+}
+.tone-yellow {
+  --tone: var(--yellow);
+}
+.tone-orange {
+  --tone: var(--orange);
+}
+.tone-red {
+  --tone: var(--red);
+}
+.tone-purple {
+  --tone: var(--purple);
+}
+.tone-pink {
+  --tone: var(--pink);
+}
+.tone-muted {
+  --tone: var(--muted);
+}
+
+/* a chip: a small coloured label (a state, a match, a source) */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 600 11.5px / 1 var(--sans);
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--tone, var(--muted));
+  background: color-mix(in srgb, var(--tone, var(--muted)) 15%, transparent);
+  white-space: nowrap;
+}
+.chip-caps {
+  font: 600 10.5px / 1 var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+/* a filter pill: quiet until picked; a dot in its tone; its count beside */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: 500 13.5px / 1.2 var(--sans);
+  padding: 7px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pill b {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--strong);
+}
+.pill[aria-pressed="true"] {
+  border-color: var(--strong);
+  background: var(--surface-2);
+  color: var(--strong);
+}
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 99px;
+  background: var(--tone, var(--muted));
+  flex: none;
+}
+.eyebrow {
+  font: 500 11px / 1.3 var(--mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* reading: the guides' blocks */
+.callout {
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.example {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--green);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.read-box {
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--tone, var(--accent));
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.like {
+  color: var(--muted);
+}
+code.inline {
+  font: 13.5px var(--mono);
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+pre.code {
+  font: 13px / 1.55 var(--mono);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  margin: 0;
+}
+pre.code .k {
+  color: var(--purple);
+}
+pre.code .s {
+  color: var(--green);
+}
+pre.code .n {
+  color: var(--orange);
+}
+pre.code .c {
+  color: var(--muted);
+  font-style: italic;
+}
+pre.code .f {
+  color: var(--accent);
+}
+/* the line Listen is saying */
+.reading {
+  background: var(--accent-soft);
+  box-shadow:
+    0 0 0 3px var(--accent-soft),
+    0 0 0 4px var(--accent);
+  border-radius: 5px;
+}
+.say-tap {
+  cursor: pointer;
+}
+/* a moving thing: the dot that glows while something runs */
+@keyframes kestrel-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 55%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--green) 0%, transparent);
+  }
+}
+.pulse {
+  animation: kestrel-pulse 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    animation: none;
+  }
+  .card-link:hover {
+    transform: none;
+  }
+}
 body {
   margin: 0;
   background: radial-gradient(120% 50% at 50% -10%, var(--glow), transparent 70%) var(--bg);

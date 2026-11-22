@@ -18,6 +18,7 @@ const settings = (folder: string, url: string): Settings => ({
   tailscaleLogin: "made-up",
   notes: { folders: [folder] },
   models: { url, careful: "careful-model", fast: "fast-model", contextChars: 100_000 },
+  voice: { url: "http://127.0.0.1:1", name: "made-up" },
 });
 
 async function draftOn(fileBytes: Buffer) {

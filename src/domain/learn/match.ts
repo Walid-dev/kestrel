@@ -35,7 +35,7 @@ export function bestAnswer(db: DatabaseSync, heard: string): { lesson: string; s
   const rows = db
     .prepare(
       `SELECT l.id, l.title, l.body FROM lessons l JOIN packs p ON p.id = l.pack
-       WHERE p.kind = 'answer-pack' ORDER BY l.pack, l.position`,
+       WHERE p.area = 'interview' ORDER BY l.pack, l.position`,
     )
     .all() as { id: string; title: string; body: string }[];
   let best: { lesson: string; score: number } | null = null;
