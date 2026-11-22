@@ -257,8 +257,14 @@ function importDeals(db: DatabaseSync, old: DatabaseSync, write: boolean, opts: 
   // every search the old runs name is a deal search: a row the old setup has since dropped still reads as a deal
   if (write) {
     const specs = [...new Set(rows.map((r) => r.spec))];
-    const mark = db.prepare("UPDATE listings SET kind = 'deals' WHERE search = ? AND kind != 'deals'");
-    for (const s of specs) mark.run(s);
+    const mark = db.prepare(
+      `UPDATE listings SET kind = 'deals', data = json_set(data, '$.hunt', ?, '$.category', ?)
+       WHERE search = ? AND (kind != 'deals' OR COALESCE(json_extract(data, '$.hunt'), '') = '')`,
+    );
+    for (const s of specs) {
+      const head = heads.get(s) ?? orphanHead(s);
+      mark.run(head.hunt, head.category, s);
+    }
   }
   return counts;
 }
