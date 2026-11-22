@@ -6,6 +6,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { changesPrompt, PROMPT_VERSION } from "../../ai/changes/prompt.ts";
 import { Answer, type Change } from "../../ai/changes/shape.ts";
 import { callModel } from "../../ai/client.ts";
+import { begin } from "../../platform/activity.ts";
 import type { Settings } from "../../platform/config.ts";
 import type { DocumentFull } from "../../shared/notes.ts";
 import { recordCall } from "../calls.ts";
@@ -119,7 +120,14 @@ export function startDraft(
     JSON.stringify(request),
   );
   const done = (async () => {
+    const live = begin(
+      "model",
+      `Notes: changes for ${documents.map((d) => d.name).join(", ")}`.slice(0, 120),
+      "/notes",
+    );
+    live.step(`${model} reads ${notes.length} note${notes.length === 1 ? "" : "s"}`);
     const got = await callModel(effective, { model, system, prompt, thinking: true, maxTokens: 8000 }, Answer);
+    live.end(got.ok ? "done" : "failed", got.ok ? "" : got.why);
     recordCall(db, `changes:v${PROMPT_VERSION}`, got);
     if (!got.ok) {
       db.prepare("UPDATE drafts SET status = 'failed', error = ? WHERE id = ?").run(

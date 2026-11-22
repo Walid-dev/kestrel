@@ -15,6 +15,7 @@ import { mountBrief } from "./brief.ts";
 import { mountEvents } from "./events.ts";
 import { identity } from "./identity.ts";
 import { mountLearn } from "./learn.ts";
+import { mountLive } from "./live.ts";
 import { mountModels } from "./models.ts";
 import { mountNotes } from "./notes.ts";
 import { startScheduler } from "./scheduler.ts";
@@ -88,6 +89,7 @@ if (!isDeployed() && (db.prepare("SELECT COUNT(*) AS n FROM packs").get() as { n
 mountSearch(app, db, settings);
 mountApply(app, db);
 mountTasks(app, db);
+mountLive(app, db);
 mountBrief(app, db, settings);
 // an api path with no door answers so, in words — never the app's page with a 200
 app.all("/api/*", (c) => c.json({ error: "no such door" }, 404));

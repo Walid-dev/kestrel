@@ -11,6 +11,7 @@ import { InterviewHelper } from "./learn/helper.tsx";
 import { LearnLesson } from "./learn/lesson.tsx";
 import { LearnPack, LearnPacks } from "./learn/packs.tsx";
 import { LearnPractice } from "./learn/practice.tsx";
+import { LivePage } from "./live.tsx";
 import { Models } from "./models.tsx";
 import { NotesList } from "./notes/list.tsx";
 import { Reader } from "./notes/reader.tsx";
@@ -42,6 +43,7 @@ if (rootEl)
               <Route path="interview" element={<LearnPacks area="interview" />} />
               <Route path="interview/helper" element={<InterviewHelper />} />
               <Route path="tasks" element={<Tasks />} />
+              <Route path="live" element={<LivePage />} />
               <Route path="notes/set" element={<NotesSet />} />
               <Route path="notes/:id" element={<Reader />} />
             </Route>

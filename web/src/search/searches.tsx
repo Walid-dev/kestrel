@@ -35,7 +35,8 @@ const at = (iso: string) =>
 export function Searches() {
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
-  const [open, setOpen] = useState<string | null>(null);
+  // ?open=<id> opens a listing straight away: Live and the deep-check links land on the listing itself
+  const [open, setOpen] = useState<string | null>(() => new URLSearchParams(location.search).get("open"));
   const [limit, setLimit] = useState(PAGE);
   const [moreGroups, setMoreGroups] = useState(false);
   const set = (k: string, v: string) => {

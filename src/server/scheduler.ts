@@ -10,6 +10,7 @@ import { snapshot } from "../db/db.ts";
 import { importV1 } from "../domain/search/import-v1.ts";
 import { lastRun, runSearch } from "../domain/search/runs.ts";
 import { loadSpecs } from "../domain/search/specs.ts";
+import { begin } from "../platform/activity.ts";
 
 export type SchedulerDirs = { specsDir: string; backupsDir: string; mirrorFile?: string };
 
@@ -53,7 +54,9 @@ async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promis
       let found = 0;
       let kept = 0;
       let problem = "";
+      const live = begin("mirror", "The nightly mirror from the old setup", "/searches");
       try {
+        live.step("Reading the old database");
         const counts = importV1(db, mirror.from, true, { specsDir: mirror.specs });
         const j = counts.landed;
         const d = counts.deals.landed;
@@ -62,6 +65,8 @@ async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promis
       } catch (e) {
         problem = `the mirror failed: ${plainWords((e as Error).message)}`;
       }
+      live.step(`${found} seen, ${kept} refreshed`);
+      live.end(problem ? "failed" : "done", problem);
       db.prepare(
         "INSERT INTO search_runs (id, search, started, ms, found, kept, problem) VALUES (?, ?, ?, 0, ?, ?, ?)",
       ).run(randomUUID(), "mirror:v1", now.toISOString(), found, kept, problem);
@@ -70,7 +75,9 @@ async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promis
   }
   if (backupDue(dirs.backupsDir, now)) {
     mkdirSync(dirs.backupsDir, { recursive: true });
+    const copy = begin("backup", "The nightly copy of the database");
     snapshot(db, join(dirs.backupsDir, `kestrel-${now.toISOString().slice(0, 10)}.db`));
+    copy.end("done");
     const files = readdirSync(dirs.backupsDir)
       .filter((f) => f.startsWith("kestrel-"))
       .sort();

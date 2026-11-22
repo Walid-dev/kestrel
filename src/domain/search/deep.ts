@@ -8,6 +8,7 @@ import { callModel } from "../../ai/client.ts";
 import { DEEP_VERSION, dealPrompt, jobPrompt, SYSTEM, type Wants } from "../../ai/deep/prompt.ts";
 import { DealReport, JobReport } from "../../ai/deep/shape.ts";
 import { fetchPage, searchWeb } from "../../ai/web.ts";
+import { begin } from "../../platform/activity.ts";
 import type { Settings } from "../../platform/config.ts";
 import { recordCall } from "../calls.ts";
 import { modelFor } from "../models.ts";
@@ -82,14 +83,26 @@ export function startDeepCheck(
     new Date().toISOString(),
   );
   busy = listingId;
+  const live = begin(
+    "deep",
+    `Deep check: ${String(l.data.title ?? "a listing")}`,
+    `/searches?open=${encodeURIComponent(listingId)}`,
+  );
   const step = (s: string) => {
     db.prepare("UPDATE deep_checks SET step = ? WHERE id = ?").run(s, id);
+    live.step(s);
     onStep(s);
   };
-  const finish = (state: "done" | "failed", report: unknown, error = "") =>
-    db
-      .prepare("UPDATE deep_checks SET state = ?, step = '', finished = ?, report = ?, error = ? WHERE id = ?")
-      .run(state, new Date().toISOString(), report ? JSON.stringify(report) : null, error, id);
+  const finish = (state: "done" | "failed", report: unknown, error = "") => {
+    db.prepare("UPDATE deep_checks SET state = ?, step = '', finished = ?, report = ?, error = ? WHERE id = ?").run(
+      state,
+      new Date().toISOString(),
+      report ? JSON.stringify(report) : null,
+      error,
+      id,
+    );
+    live.end(state, error);
+  };
   void (async () => {
     try {
       const d = l.data;

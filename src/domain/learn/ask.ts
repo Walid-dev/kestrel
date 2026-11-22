@@ -4,6 +4,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { callModel } from "../../ai/client.ts";
 import { ASK_VERSION, askPrompt } from "../../ai/learn/prompt.ts";
 import { AskAnswer } from "../../ai/learn/shape.ts";
+import { begin } from "../../platform/activity.ts";
 import type { Settings } from "../../platform/config.ts";
 import { recordCall } from "../calls.ts";
 import { modelFor } from "../models.ts";
@@ -33,7 +34,10 @@ export async function askLesson(
   );
   const model = modelFor(db, settings, "learn-ask");
   const effective = { ...settings.models, fast: model, careful: model };
+  const live = begin("model", `Ask: ${lesson.title}`.slice(0, 120), `/learn/lesson/${encodeURIComponent(lesson.id)}`);
+  live.step(`${model} answers a question`);
   const got = await callModel(effective, { model, system, prompt, maxTokens: 2000, thinking: true }, AskAnswer);
+  live.end(got.ok ? "done" : "failed", got.ok ? "" : got.why);
   recordCall(db, `learn-ask:v${ASK_VERSION}`, got);
   if (!got.ok) throw new Refused(`the model didn't answer well: ${got.why}`);
   const titles = new Map(packMap.map((l) => [l.id, l.title]));

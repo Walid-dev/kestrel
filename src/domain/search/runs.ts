@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { dirname } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
+import { begin } from "../../platform/activity.ts";
 import { runCollector } from "./collect.ts";
 import { keepItems } from "./listings.ts";
 import type { Scoring } from "./score.ts";
@@ -31,6 +32,8 @@ export function runSearch(db: DatabaseSync, spec: Spec, now: Date): Promise<Run>
 async function runSearchNow(db: DatabaseSync, spec: Spec, now: Date): Promise<Run> {
   const t0 = Date.now();
   const script = collectorPath(spec);
+  const live = begin("search", `Search: ${spec.hunt || spec.name}`, "/searches");
+  live.step("Running the collector");
   const collected = await runCollector(script, spec.args, {
     timeoutMs: spec.limits.timeoutMs,
     maxBytes: spec.limits.maxBytes,
@@ -48,6 +51,8 @@ async function runSearchNow(db: DatabaseSync, spec: Spec, now: Date): Promise<Ru
     { hunt: spec.hunt || spec.name, category: spec.category },
   );
   const problem = collected.problem || (found === 0 ? "the page answered empty" : "");
+  live.step(`${found} found, ${kept} new`);
+  live.end(problem ? "failed" : "done", problem);
   const run: Run = {
     id: randomUUID(),
     search: spec.id,
