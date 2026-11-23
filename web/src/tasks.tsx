@@ -6,6 +6,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Ask } from "./ask.tsx";
+import { useConfirm } from "./ui/confirm.tsx";
 
 type Task = {
   id: string;
@@ -181,6 +182,7 @@ type Act = (a: { id: string; how: "check" | "reopen" | "delete" | "edit"; change
 // one task: the round box, its words (a tap edits them), whom it is for (a tap changes it), when, its note, delete
 function Row({ t, act, busy }: { t: Task; act: Act; busy: boolean }) {
   const [draft, setDraft] = useState<string | null>(null); // the words being edited, or null
+  const sure = useConfirm();
   const [, label, tone] = whoOf(t.who);
   const save = () => {
     const next = (draft ?? "").trim();
@@ -290,8 +292,14 @@ function Row({ t, act, busy }: { t: Task; act: Act; busy: boolean }) {
         title="Delete"
         className="rounded-lg px-2 py-0.5 text-[18px] leading-none"
         style={{ color: "var(--muted)" }}
-        onClick={() => {
-          if (confirm(`Delete "${t.text.slice(0, 60)}"?`)) act({ id: t.id, how: "delete" });
+        onClick={async () => {
+          const yes = await sure({
+            title: "Delete this task?",
+            body: `“${t.text.length > 80 ? `${t.text.slice(0, 80)}…` : t.text}”`,
+            yes: "Delete",
+            danger: true,
+          });
+          if (yes) act({ id: t.id, how: "delete" });
         }}
       >
         ×

@@ -414,6 +414,184 @@ h3 {
 .seg-modes button[data-mode="paused"][aria-pressed="true"] {
   --mode: var(--poor);
 }
+
+/* ── The shared parts (web/src/ui/, shown on /design) ── */
+/* Pills: a choice shown whole. The row wraps; a long name wraps inside its pill, so thirty lessons never push the
+   page sideways on a phone */
+.pills {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.pills-legend {
+  display: block;
+  padding: 0;
+  margin-bottom: 8px;
+}
+.pills-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pills .pill {
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
+}
+.pill-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pills .pill small {
+  font: 500 12px / 1.2 var(--sans);
+  color: var(--muted);
+}
+.pills .pill:hover:not([aria-pressed="true"]) {
+  border-color: color-mix(in srgb, var(--strong) 30%, var(--line));
+}
+/* the action that can't be undone, filled: Confirm's Delete */
+.btn-primary.btn-danger {
+  background: var(--red);
+  border-color: var(--red);
+  color: var(--bg);
+}
+/* Dialog: the sheets' look, one place. Centred on the phone and the computer; the box scrolls, never the page behind */
+.dialog {
+  margin: auto;
+  width: min(calc(100vw - 32px), 460px);
+  max-height: min(88dvh, 760px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.6);
+}
+.dialog-wide {
+  width: min(calc(100vw - 16px), 900px);
+  max-height: 92dvh;
+  background: var(--bg);
+}
+/* the box takes the focus when it opens: no ring around the whole box */
+.dialog:focus-visible {
+  outline: none;
+}
+.dialog::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+.dialog[open] {
+  animation: dialog-in 0.16s ease-out;
+}
+.dialog[open]::backdrop {
+  animation: dialog-fade 0.16s ease-out;
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+}
+@keyframes dialog-fade {
+  from {
+    opacity: 0;
+  }
+}
+.dialog-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 18px 0 20px;
+}
+.dialog-title {
+  margin: 0;
+  font: 700 20px / 1.25 var(--cond);
+  color: var(--strong);
+  overflow-wrap: anywhere;
+}
+.dialog-x {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  margin: -4px -6px 0 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.dialog-x:hover {
+  background: var(--surface-2);
+  color: var(--strong);
+}
+.dialog-body {
+  padding: 8px 20px 0;
+  font-size: 15px;
+  line-height: 1.55;
+}
+.dialog-body > p {
+  margin: 0;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 18px 20px 18px;
+}
+.dialog-head:only-child,
+.dialog-body:last-child {
+  padding-bottom: 20px;
+}
+/* the phone: the thumb's size for every control in a box and every pill */
+@media (pointer: coarse) {
+  .pills .pill {
+    min-height: 44px;
+  }
+  .dialog-x {
+    width: 44px;
+    height: 44px;
+    margin: -10px -12px 0 0;
+  }
+  .dialog-actions .btn {
+    flex: 1;
+    min-height: 44px;
+    font-size: 15px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog[open],
+  .dialog[open]::backdrop {
+    animation: none;
+  }
+}
+/* /design: the swatches of the tokens */
+.swatch {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+.swatch i {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+.swatch span {
+  display: grid;
+  min-width: 0;
+  font-size: 13.5px;
+  line-height: 1.3;
+}
+.swatch code {
+  font: 12px var(--mono);
+  color: var(--muted);
+}
 /* the buttons on a page's title line: a size up from the others */
 .btn-head {
   font-size: 15px;

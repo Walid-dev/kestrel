@@ -7,6 +7,7 @@ import { useChatLink } from "./chats.tsx";
 import { useEvents } from "./events.ts";
 import { ICONS, STROKE } from "./home.tsx";
 import { Mark } from "./mark.tsx";
+import { ConfirmProvider } from "./ui/confirm.tsx";
 
 const LAST_SEEN = "kestrel-last-seen";
 
@@ -60,7 +61,16 @@ function useBusy() {
   };
 }
 
+// one Confirm for every page: any screen asks with useConfirm, the box itself lives here
 export function App() {
+  return (
+    <ConfirmProvider>
+      <Shell />
+    </ConfirmProvider>
+  );
+}
+
+function Shell() {
   const health = useHealth();
   const busy = useBusy();
   return (

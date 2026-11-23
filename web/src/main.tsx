@@ -8,6 +8,7 @@ import { App } from "./app.tsx";
 import { Applications } from "./apply/applications.tsx";
 import { Chats } from "./chats.tsx";
 import { Cost } from "./cost.tsx";
+import { Design } from "./design.tsx";
 import { Home } from "./home.tsx";
 import { InterviewHelper } from "./learn/helper.tsx";
 import { LearnLesson } from "./learn/lesson.tsx";
@@ -52,6 +53,7 @@ if (rootEl)
               <Route path="tasks" element={<Tasks />} />
               <Route path="live" element={<LivePage />} />
               <Route path="cost" element={<Cost />} />
+              <Route path="design" element={<Design />} />
               <Route path="chats" element={<Chats />} />
               <Route path="research" element={<Research />} />
               <Route path="quiz" element={<Quiz />} />

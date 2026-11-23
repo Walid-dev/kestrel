@@ -10,6 +10,7 @@ import { Ask as AskBox } from "./ask.tsx";
 import { enterSends } from "./keys.ts";
 import { block, type Cite, Cites, heard, type Say } from "./learn/blocks.tsx";
 import { type Spoken, useReader } from "./learn/voice.ts";
+import { useConfirm } from "./ui/confirm.tsx";
 
 type Level = "quick" | "deep";
 type Row = {
@@ -61,6 +62,14 @@ async function send(url: string, method: string, body?: unknown) {
   return j;
 }
 
+// the same question from the card's ✕ and from the report's Delete
+const deleteAnswer = (title: string) => ({
+  title: "Delete this answer?",
+  body: `“${title}” and its sources are deleted for good.`,
+  yes: "Delete",
+  danger: true,
+});
+
 export function Research() {
   const [params, setParams] = useSearchParams();
   const open = params.get("open");
@@ -85,6 +94,7 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
     refetchInterval: (q) => (q.state.data?.research.some((r) => r.state === "running") ? 2000 : false),
   });
   // a kept answer goes with the ✕ on its card
+  const sure = useConfirm();
   const forget = useMutation({
     mutationFn: (id: string) => send(`/api/research/${encodeURIComponent(id)}`, "DELETE"),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["research"] }),
@@ -259,7 +269,9 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
                   className="card-remove"
                   aria-label={`Delete "${r.title || r.question}"`}
                   title="Delete"
-                  onClick={() => confirm("Delete this answer?") && forget.mutate(r.id)}
+                  onClick={async () => {
+                    if (await sure(deleteAnswer(r.title || r.question))) forget.mutate(r.id);
+                  }}
                 >
                   ✕
                 </button>
@@ -301,6 +313,7 @@ function ReportView({ id, onBack }: { id: string; onBack: () => void }) {
     },
     refetchInterval: (q) => (q.state.data?.state === "running" ? 2000 : false),
   });
+  const sure = useConfirm();
   const drop = useMutation({
     mutationFn: () => send(`/api/research/${encodeURIComponent(id)}`, "DELETE"),
     onSuccess: () => {
@@ -462,8 +475,8 @@ function ReportView({ id, onBack }: { id: string; onBack: () => void }) {
               type="button"
               className="underline"
               style={{ color: "var(--red)" }}
-              onClick={() => {
-                if (confirm("Delete this answer?")) drop.mutate();
+              onClick={async () => {
+                if (await sure(deleteAnswer(rep.title))) drop.mutate();
               }}
             >
               Delete

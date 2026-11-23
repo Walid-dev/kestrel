@@ -7,6 +7,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { type ReactNode, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Ask } from "../ask.tsx";
+import { Dialog } from "../ui/dialog.tsx";
+import { Pills } from "../ui/pills.tsx";
 import { ago, DEAL, DealCard, JobCard, type Listing, MATCH, Swipe } from "./cards.tsx";
 import { ListingSheet } from "./sheet.tsx";
 
@@ -293,6 +295,7 @@ export function Searches() {
   }, [open]);
   const [limit, setLimit] = useState(PAGE);
   const [moreGroups, setMoreGroups] = useState(false);
+  const [switching, setSwitching] = useState(false);
   const [closed, setClosed] = useState<Set<string>>(() => {
     try {
       return new Set(JSON.parse(localStorage.getItem(PARTS) ?? "[]") as string[]);
@@ -592,24 +595,43 @@ export function Searches() {
               </svg>
               Ask
             </button>
-            {/* the other hunts: a menu in the corner, not a row of tabs over the title */}
+            {/* the other hunts: a button in the corner, not a row of tabs over the title; it opens them as pills */}
             {all.length > 1 && (
-              <select
-                className="btn btn-head ml-auto"
-                // as wide as its own words: a menu otherwise takes its longest hunt's width and drops to a new line
-                style={{ width: 150 }}
-                aria-label="Switch hunt"
-                value=""
-                onChange={(e) => e.target.value && set("hunt", e.target.value)}
+              <button
+                type="button"
+                className="btn btn-head ml-auto inline-flex items-center gap-1.5"
+                aria-haspopup="dialog"
+                onClick={() => setSwitching(true)}
               >
-                <option value="">Switch hunt</option>
-                {all.map((h) => (
-                  <option key={`${h.kind}:${h.key}`} value={`${h.kind}:${h.key}`} disabled={h === hunt}>
-                    {h.name} · {h.count}
-                  </option>
-                ))}
-              </select>
+                Switch hunt
+                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                  <path
+                    d="m7 10 5 5 5-5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
             )}
+            <Dialog open={switching} onClose={() => setSwitching(false)} title="Switch hunt">
+              <Pills
+                label="The hunts"
+                options={all.map((h) => ({
+                  value: `${h.kind}:${h.key}`,
+                  label: h.name,
+                  count: h.count,
+                  tone: h.kind === "jobs" ? "accent" : "orange",
+                }))}
+                value={`${hunt.kind}:${hunt.key}`}
+                onChange={(v) => {
+                  if (v !== `${hunt.kind}:${hunt.key}`) set("hunt", v);
+                  setSwitching(false);
+                }}
+              />
+            </Dialog>
           </div>
           {/* the same Ask as every page, under the title: closed until I open it, here or with the Ask button */}
           {
