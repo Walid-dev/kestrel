@@ -555,7 +555,9 @@ export function Searches() {
             {/* the other hunts: a menu in the corner, not a row of tabs over the title */}
             {all.length > 1 && (
               <select
-                className="btn btn-head ml-auto max-w-full"
+                className="btn btn-head ml-auto"
+                // as wide as its own words: a menu otherwise takes its longest hunt's width and drops to a new line
+                style={{ width: 150 }}
                 aria-label="Switch hunt"
                 value=""
                 onChange={(e) => e.target.value && set("hunt", e.target.value)}
