@@ -12,7 +12,7 @@ import { chatModel, type Turn } from "../../ai/client.ts";
 import { begin } from "../../platform/activity.ts";
 import type { Settings } from "../../platform/config.ts";
 import { recordCall } from "../calls.ts";
-import { lessonPage } from "../learn/ask.ts";
+import { lessonPage, lessonTools, quizTools } from "../learn/ask.ts";
 import { quizPage } from "../learn/quiz.ts";
 import { modelFor } from "../models.ts";
 import { notesHelper } from "../notes/ask.ts";
@@ -36,13 +36,14 @@ type Helper = {
   };
   // the answer's words before they are kept (a link to something that isn't there becomes plain words)
   tidy?: (db: DatabaseSync, ref: string, words: string) => string;
-  // the shared read tools this page allows (tools.ts); read alone when unsaid: a page of my own gets no web tool
-  tools?: ToolName[];
+  // the shared read tools this page allows (tools.ts), for the app or per page; read alone when unsaid: a page of my
+  // own gets no web tool
+  tools?: ToolName[] | ((db: DatabaseSync, ref: string) => ToolName[]);
 };
 const WEB: ToolName[] = ["read", "web", "page"];
 const HELPERS: Record<string, Helper> = {
-  learn: { page: lessonPage, tools: WEB },
-  quiz: { page: quizPage, tools: WEB },
+  learn: { page: lessonPage, tools: lessonTools },
+  quiz: { page: quizPage, tools: quizTools },
   searches: { ...searchesHelper, tools: WEB },
   notes: notesHelper,
   tasks: tasksHelper,
@@ -135,7 +136,8 @@ export function askPage(
   if (!question) throw new Refused("ask something");
   const shown = helper.page(db, input.ref);
   if (!shown) throw new Refused("that page isn't there any more");
-  const page = { ...shown, tools: [shown.tools, toolsText(helper.tools ?? ["read"])].filter(Boolean).join("\n\n") };
+  const tools = typeof helper.tools === "function" ? helper.tools(db, input.ref) : (helper.tools ?? ["read"]);
+  const page = { ...shown, tools: [shown.tools, toolsText(tools)].filter(Boolean).join("\n\n") };
   const before = conversation(db, input.app, input.ref);
   if (before.some((m) => m.state === "writing")) throw new Refused("the model is still answering: wait for it");
   // the turns so far, each answer with the cards it proposed and what became of them
@@ -163,6 +165,7 @@ export function askPage(
     settings,
     { id: answer, app: input.app, ref: input.ref, model },
     helper,
+    tools,
     page,
     history,
     question,
@@ -177,13 +180,14 @@ async function write(
   settings: Settings,
   row: { id: string; app: string; ref: string; model: string },
   helper: Helper,
+  tools: ToolName[],
   page: AskPage,
   history: Turn[],
   question: string,
 ): Promise<void> {
   const live = begin("model", `Ask: ${page.title}`.slice(0, 120), page.link);
   try {
-    await answer(db, settings, row, helper, page, history, question, live);
+    await answer(db, settings, row, helper, tools, page, history, question, live);
   } catch {
     // anything that breaks while the answer is written (a page's find, its tidy, a record) ends it as failed: a row
     // left writing would refuse every question and Start over until a restart. Live first: if the database itself
@@ -201,6 +205,7 @@ async function answer(
   settings: Settings,
   row: { id: string; app: string; ref: string; model: string },
   helper: Helper,
+  tools: ToolName[],
   page: AskPage,
   history: Turn[],
   question: string,
@@ -234,7 +239,7 @@ async function answer(
     const { looks, actions, words } = blocksOf(got.value);
     // its looks (through the page's data, or with a shared tool the page allows): what they return goes back to the
     // model, which answers from it. A tool the page doesn't allow is not run.
-    const allowed = new Set<string>([...(helper.find ? ["find"] : []), ...(helper.tools ?? ["read"])]);
+    const allowed = new Set<string>([...(helper.find ? ["find"] : []), ...tools]);
     const runnable = looks.filter((l) => allowed.has(l.tool)).slice(0, LOOKS);
     if (runnable.length && round < FIND_ROUNDS) {
       const found: string[] = [];
@@ -244,7 +249,7 @@ async function answer(
           found.push(helper.find?.(db, row.ref, l.args) ?? "");
         } else {
           live.step(TOOLS[l.tool].doing);
-          found.push(await runTool(db, settings, l.tool, l.args));
+          found.push(await runTool(db, settings, l.tool, l.args, tools));
         }
       }
       messages.push(

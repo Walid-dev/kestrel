@@ -11,7 +11,8 @@ import { startStandIn } from "../../ai/stand-in.ts";
 import { migrate } from "../../db/migrate.ts";
 import type { Settings } from "../../platform/config.ts";
 import { claimNext, getApplication, queueApplication, reportApplication } from "../apply/apply.ts";
-import { addLesson, addPack } from "../learn/lessons.ts";
+import { addLesson, addPack, setPackGroup } from "../learn/lessons.ts";
+import { startQuiz } from "../learn/quiz.ts";
 import { addUpload, Refused } from "../notes/documents.ts";
 import { listNotes } from "../notes/notes.ts";
 import { findListings } from "../search/ask.ts";
@@ -306,6 +307,64 @@ test("an answer that breaks while it is written fails, so the page takes the nex
     const failed = conversation(db, "searches", "jobs:beekeeping")[1];
     assert.equal(failed.state, "failed");
     assert.match(failed.error, /went wrong/);
+  } finally {
+    await s.close();
+  }
+});
+
+test("my own words never reach the web: Interview prep, the Personal group and interview quizzes get read alone (review)", async () => {
+  const db = setup();
+  const answers = addPack(db, "Made-up interview", "answer-pack");
+  addLesson(
+    db,
+    answers,
+    "Why did you leave Made-up Corp?",
+    { say: ["The team moved."], check: [{ q: "Why?", a: "Moved." }] },
+    0,
+    "why-leave",
+  );
+  const mine = addPack(db, "My made-up setup");
+  setPackGroup(db, mine, "Personal");
+  addLesson(db, mine, "My made-up shelf", { say: ["The shelf holds jars."] }, 0, "shelf");
+  const quiz = startQuiz(db, { area: "interview", count: 1 });
+  const doc = addUpload(db, "secret.md", "A made-up private line.\n");
+  const seen: { messages?: { content: string }[]; query?: string; url?: string }[] = [];
+  let web = true; // the web looks, or the read alone
+  const s = await startStandIn((body) => {
+    seen.push(body as never);
+    return {
+      content: [
+        "I will check.",
+        ...(web
+          ? [
+              '```web\n{"query": "Made-up Corp reorg"}\n```',
+              '```page\n{"url": "https://example.com/?q=Made-up+Corp"}\n```',
+            ]
+          : []),
+        `\`\`\`read\n{"ref": "document:${doc.id}"}\n\`\`\``,
+      ].join("\n"),
+    };
+  });
+  try {
+    for (const [app, ref] of [
+      ["learn", "why-leave"],
+      ["learn", "shelf"],
+      ["quiz", `${quiz.id}:0`],
+    ]) {
+      seen.length = 0;
+      await askPage(db, settings(s.url), { app, ref, text: "Tell me more" }).done;
+      assert.doesNotMatch(seen[0].messages?.[0].content ?? "", /```web/, `${app} ${ref} offers the web`);
+      assert.deepEqual(
+        seen.filter((b) => b.query || b.url),
+        [],
+        `${app} ${ref} sent my words to the web`,
+      );
+    }
+    // a page that has the web can't pull a Notes document into the conversation
+    seen.length = 0;
+    web = false;
+    await askPage(db, settings(s.url), { app: "learn", ref: "spout", text: "Tell me more" }).done;
+    assert.doesNotMatch(seen.at(-1)?.messages?.at(-1)?.content ?? "", /private line/);
   } finally {
     await s.close();
   }
