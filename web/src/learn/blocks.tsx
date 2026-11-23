@@ -4,6 +4,8 @@
 // lights the line it is on.
 import { type CSSProperties, createContext, type ReactNode, useContext } from "react";
 import { Link, useLocation } from "react-router";
+import { readDrawing } from "../../../src/shared/blocks.ts";
+import { Drawing } from "../drawing.tsx";
 
 export type Say = {
   add: (text: string, opts?: { pause?: number }) => number;
@@ -612,7 +614,12 @@ export function block(b: Block, say: Say, key: string | number): ReactNode {
           })}
         </ul>
       );
-    case "compare":
+    case "compare": {
+      // options with points are the catalog's comparison (a report's); a lesson's own compares code
+      const drawn = arr(b.items).some((x) => x && typeof x === "object" && "points" in x)
+        ? readDrawing("compare", b)
+        : null;
+      if (drawn) return <Drawing key={key} d={drawn} />;
       return (
         <div key={key} className="grid gap-3 md:grid-cols-2">
           {keyed(arr(b.items) as Block[], "div8-").map(({ v: c, key }) => (
@@ -627,6 +634,7 @@ export function block(b: Block, say: Say, key: string | number): ReactNode {
           ))}
         </div>
       );
+    }
     case "links":
       return (
         <ul key={key} className="m-0 grid list-none gap-2 p-0">
@@ -685,7 +693,10 @@ export function block(b: Block, say: Say, key: string | number): ReactNode {
         </div>
       );
     }
-    default:
-      return null;
+    default: {
+      // the catalog's other drawings (a flow, a tree, a timeline, a chart, a callout, a check), as Research writes them
+      const drawn = readDrawing(str(b.type), b);
+      return drawn ? <Drawing key={key} d={drawn} /> : null;
+    }
   }
 }

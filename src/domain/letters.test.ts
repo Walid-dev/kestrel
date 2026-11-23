@@ -1,17 +1,18 @@
 // The lab follows the skill's own letter step, says what's missing in words, keeps a file's previous words before a
 // save, and serves a try's PDF only from its own folder. Made-up files only, in a made-up folder.
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { letterPrompt, whatToWrite } from "../ai/letter/prompt.ts";
-import { LetterDraft } from "../ai/letter/shape.ts";
+import { LetterDraft, LetterReview } from "../ai/letter/shape.ts";
+import { startStandIn } from "../ai/stand-in.ts";
 import { migrate } from "../db/migrate.ts";
 import type { Settings } from "../platform/config.ts";
 import { dataDir } from "../platform/paths.ts";
-import { deleteLetter, labMissing, letterPdf, letterStep, tidy } from "./letters.ts";
+import { deleteLetter, labMissing, letterPdf, letterStep, reviewForApplication, tidy } from "./letters.ts";
 
 const SKILL = `# Applying
 1. Open the posting.
@@ -116,4 +117,64 @@ test("a try is deleted with its folder; one still being written, and one that is
   assert.equal(existsSync(join(dataDir(), "letters", done)), false);
   assert.throws(() => deleteLetter(db, running), /still being written/);
   assert.throws(() => deleteLetter(db, "../../etc"), /no such try/);
+});
+
+test("the review: the better version is read by the check; a letter not naming its company is marked, whatever the model says", async () => {
+  const base = mkdtempSync(join(tmpdir(), "kestrel-review-"));
+  const db = new DatabaseSync(join(base, "t.db"));
+  migrate(db, join(base, "t.db"));
+  const folder = join(base, "apply");
+  mkdirSync(folder);
+  for (const f of ["voice.md", "stories.md", "profile.md"]) writeFileSync(join(folder, f), `# ${f}\nMade-up words.\n`);
+  writeFileSync(join(base, "SKILL.md"), SKILL);
+  // a stand-in check: it fails a text that says "always"
+  const check = join(base, "check.sh");
+  writeFileSync(check, '#!/bin/sh\nif grep -q always "$1"; then echo "a word it does not back: always"; exit 1; fi\n');
+  chmodSync(check, 0o755);
+  let better =
+    "Dear team,\n\nI kept forty hives healthy through a cold winter, and I would bring that care to Made-up Honey.";
+  const s = await startStandIn(() => ({
+    content: JSON.stringify({
+      verdict: "better",
+      match: { company: true, job: true, note: "Right company." },
+      issues: [
+        { quote: "I am passionate", why: "Any company could get it.", fix: "Name a real story." },
+        { quote: "x" },
+      ],
+      better: better.split("\n\n"),
+    }),
+  }));
+  const settings = {
+    models: { url: s.url, careful: "careful-model", fast: "fast-model", contextChars: 100_000 },
+    apply: { folder, skill: join(base, "SKILL.md"), pdf: "", check },
+  } as unknown as Settings;
+  const job = "A made-up posting for a beekeeper. ".repeat(10);
+  const got = await reviewForApplication(db, settings, {
+    text: "Dear team,\n\nI am passionate about bees.",
+    job,
+    org: "Made-up Honey",
+  });
+  assert.equal(got.verdict, "better");
+  assert.equal(got.issues.length, 1); // the issue without a why is dropped
+  assert.equal(got.findings, ""); // the better version passed the check
+  assert.equal(got.match.company, false); // the text reviewed never named the company
+  assert.match(got.match.note, /doesn't name Made-up Honey/);
+  better = "Dear team,\n\nI always kept forty hives healthy at Made-up Honey.";
+  const held = await reviewForApplication(db, settings, {
+    text: "Dear team at Made-up Honey,\n\nBees.",
+    job,
+    org: "Made-up Honey",
+  });
+  assert.match(held.findings, /always/);
+  assert.equal(held.match.company, true);
+  await s.close();
+  // a review reads tolerantly: a missing match is right, a lone string is the text
+  assert.deepEqual(
+    LetterReview.parse({ better: "A made-up better text, long enough to be a text of its own." }).match,
+    {
+      company: true,
+      job: true,
+      note: "",
+    },
+  );
 });

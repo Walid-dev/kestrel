@@ -5,6 +5,17 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-23 · One catalog of drawings (v0.8, steps 1 and 2); a review of every text an application sends.**
+  Seven kinds (flow, compare, tree, timeline, chart, callout, check) live in `src/shared/blocks.ts`: when each helps,
+  its shape, and a reader that keeps what fits; one that doesn't read shows as words. One renderer draws them for
+  Ask, Research and the lessons. Ask's prompt (v4) and Research's (v3) list them from the catalog; Markdown keeps
+  text, lists, code and tables. The readers are plain TypeScript, not zod, since the page reads the same file. The
+  image and video link waits: local models invent addresses. Eval: 15 of 18 live runs pass on both models
+  (`docs/eval/2026-11-23-blocks.md`). Writing reviews each try as the company would read it (the match, the fit,
+  generic lines, the voice, the facts); the review's better version replaces the draft only when the applications'
+  check passes it, and the first draft stays in the try's notes. The apply skill's `apply-review` calls the same
+  review (`POST /api/letters/review`). v0.9 is the design system, after v0.8. Rejected: a model-only match check (a
+  letter that doesn't name its company is marked by code, whatever the model says).
 - **2026-11-23 · Stop and Pause from kestrel; Enter sends; About me in Notes; deletes on every list.**
   Live's chat card and the Chat page carry Stop. On an application it asks: only this one (the next queued one
   starts), or this one and the queue (the queue pauses first, so nothing starts between). The queue line on Live has

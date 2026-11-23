@@ -1,8 +1,9 @@
 // Research's prompts: the plan (which searches to run, for a deep look) and the report, written like a lesson — the
 // point first, short lines read aloud one by one, each technical word explained, only what the numbered pages say.
+import { catalogLines } from "../../shared/blocks.ts";
 import { type Hit, hitsText } from "../web.ts";
 
-export const RESEARCH_VERSION = 2;
+export const RESEARCH_VERSION = 3;
 export const SYSTEM = "You research for one person. Reply with ONE JSON OBJECT only, no prose around it.";
 
 export type Level = "quick" | "deep";
@@ -83,6 +84,8 @@ export function reportPrompt(
     '  "unsure": ["<what the pages did not settle>"],',
     '  "sources": [<the numbers of the pages the answer used>]',
     "}",
+    "A block can also be a drawing the page draws, only when the subject has its shape, at most two in a report:",
+    ...catalogLines(["flow", "compare", "tree", "timeline", "chart"], "typed"),
     "",
     "The search results:",
     hitsText(hits),

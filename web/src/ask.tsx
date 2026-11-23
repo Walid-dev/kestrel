@@ -5,19 +5,10 @@
 // learn page has a good design with the little boxes"): the direct answer first in its own tile, each section under
 // a lesson's heading, each point of a list in a tile of its own, a quote in the example's box, code in colour.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type CSSProperties, type ReactNode, useState } from "react";
+import { type ReactNode, useState } from "react";
+import { type Drawing as D, isKind, readDrawing } from "../../src/shared/blocks.ts";
+import { Drawing } from "./drawing.tsx";
 import { Code, Inline } from "./learn/blocks.tsx";
-
-// a flow's steps each take a colour of their own, in this order, so the eye follows one step to the next
-const FLOW_COLOURS = [
-  "var(--accent)",
-  "var(--green)",
-  "var(--purple)",
-  "var(--orange)",
-  "var(--cyan)",
-  "var(--yellow)",
-  "var(--pink)",
-];
 
 type Card = { label: string; state: "open" | "done" | "failed"; result: string };
 type Message = {
@@ -308,8 +299,7 @@ type Part =
   | { k: "code"; text: string }
   | { k: "table"; head: string[]; rows: string[][] }
   | { k: "hr" }
-  | { k: "flow"; title: string; steps: string[] }
-  | { k: "compare"; items: { title: string; points: string[] }[] }
+  | { k: "drawn"; d: D } // a drawing of the catalog's (src/shared/blocks.ts)
   | { k: "drawing" }; // a drawing still being written
 
 const cells = (line: string) =>
@@ -319,23 +309,18 @@ const cells = (line: string) =>
     .split("|")
     .map((c) => c.trim());
 
-const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x) => typeof x === "string") : []);
-
-// a drawing's JSON as its part; while the answer still writes it (or when it doesn't read), a placeholder or nothing
-function drawing(lang: "flow" | "compare", body: string, closed: boolean): Part {
-  let d: Record<string, unknown> | null = null;
+// a drawing's JSON as its part, read by the catalog; while the answer still writes it, a placeholder; once whole, one
+// that doesn't read shows what it said
+function drawing(kind: string, body: string, closed: boolean): Part {
+  let d: unknown = null;
   try {
-    d = JSON.parse(body) as Record<string, unknown>;
+    d = JSON.parse(body);
   } catch {
     d = null;
   }
-  if (!d) return closed ? { k: "code", text: body } : { k: "drawing" }; // a broken drawing shows what it said
-  if (lang === "flow") return { k: "flow", title: String(d.title ?? ""), steps: strings(d.steps).slice(0, 9) };
-  const items = (Array.isArray(d.items) ? d.items : [])
-    .filter((x): x is Record<string, unknown> => Boolean(x) && typeof x === "object")
-    .slice(0, 3)
-    .map((x) => ({ title: String(x.title ?? ""), points: strings(x.points).slice(0, 8) }));
-  return { k: "compare", items };
+  const drawn = d === null ? null : readDrawing(kind, d);
+  if (drawn) return { k: "drawn", d: drawn };
+  return closed ? { k: "code", text: body } : { k: "drawing" };
 }
 
 // line by line; an answer still being written parses too (an open fence is code so far). A line in bold alone
@@ -354,12 +339,21 @@ export function parseMarkdown(src: string): Part[] {
     if (/^\s*```/.test(line)) {
       flush();
       const body: string[] = [];
-      for (i++; i < lines.length && !/^\s*```/.test(lines[i]); i++) body.push(lines[i]);
       const lang = line.replace(/^\s*```\s*/, "").split(/\s/)[0];
+      const json = isKind(lang) || lang === "find" || lang === "action";
+      for (i++; i < lines.length && !/^\s*```/.test(lines[i]); i++) {
+        // a block of JSON may close its fence at the end of its last line (`…]}```), as models write it too
+        const end = json ? lines[i].match(/^(.*\S)\s*```\s*$/) : null;
+        if (end) {
+          body.push(end[1]);
+          break;
+        }
+        body.push(lines[i]);
+      }
       const closed = i < lines.length;
       // the model's own blocks (a find it runs, a change it proposes) are for kestrel, never shown as code; its
-      // drawings (a flow, a comparison) become one once their JSON is whole
-      if (lang === "flow" || lang === "compare") out.push(drawing(lang, body.join("\n"), closed));
+      // drawings (the catalog's kinds) become one once their JSON is whole
+      if (isKind(lang)) out.push(drawing(lang, body.join("\n"), closed));
       else if (lang !== "find" && lang !== "action") out.push({ k: "code", text: body.join("\n") });
       i++;
       continue;
@@ -504,42 +498,8 @@ function Answer({ text, writing }: { text: string; writing: boolean }) {
             );
           case "code":
             return <Code key={key} text={p.text} />;
-          case "flow":
-            return (
-              <figure key={key} className="ask-flow">
-                {p.title && <figcaption className="eyebrow">{p.title}</figcaption>}
-                <ol>
-                  {p.steps.map((st, j) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: a drawing's steps are fixed once written
-                    <li key={j} style={{ "--c": FLOW_COLOURS[j % FLOW_COLOURS.length] } as CSSProperties}>
-                      <span className="ask-step">{j + 1}</span>
-                      <span className="min-w-0 pt-0.5">
-                        <Inline text={st} />
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </figure>
-            );
-          case "compare":
-            return (
-              <div key={key} className="ask-compare">
-                {p.items.map((it, j) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: a comparison's columns are fixed once written
-                  <section key={j}>
-                    <h5>
-                      <Inline text={it.title} />
-                    </h5>
-                    {it.points.map((pt, k) => (
-                      // biome-ignore lint/suspicious/noArrayIndexKey: a column's points are fixed once written
-                      <p key={k}>
-                        <Inline text={pt} />
-                      </p>
-                    ))}
-                  </section>
-                ))}
-              </div>
-            );
+          case "drawn":
+            return <Drawing key={key} d={p.d} />;
           case "drawing":
             return (
               <span key={key} className="ask-thinking">

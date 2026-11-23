@@ -9,8 +9,17 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { callModel } from "../ai/client.ts";
-import { fixPrompt, type Kind, LETTER_VERSION, type LetterInput, letterPrompt, SYSTEM } from "../ai/letter/prompt.ts";
-import { LetterDraft, LetterFix } from "../ai/letter/shape.ts";
+import {
+  fixPrompt,
+  type Kind,
+  LETTER_VERSION,
+  type LetterInput,
+  letterPrompt,
+  REVIEW_VERSION,
+  reviewPrompt,
+  SYSTEM,
+} from "../ai/letter/prompt.ts";
+import { LetterDraft, LetterFix, LetterReview } from "../ai/letter/shape.ts";
 import { fetchPage } from "../ai/web.ts";
 import { begin } from "../platform/activity.ts";
 import type { Settings } from "../platform/config.ts";
@@ -76,6 +85,100 @@ export const tidy = (s: string) =>
     .replaceAll("\r\n", "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+
+// the review a reader gives (reviewPrompt): the match, what to make better, the better version. A letter that doesn't
+// name the company it goes to is marked so, whatever the model says.
+export type Reviewed = LetterReview & { better: string };
+async function reviewText(
+  db: DatabaseSync,
+  models: Settings["models"],
+  model: string,
+  input: LetterInput,
+  text: string,
+  kind: Kind,
+  ask: string,
+): Promise<{ ok: true; review: Reviewed } | { ok: false; why: string }> {
+  const got = await callModel(
+    { ...models, careful: model, fast: model },
+    { model, system: SYSTEM, prompt: reviewPrompt(input, text, kind, ask), maxTokens: 12_000, thinking: true },
+    LetterReview,
+  );
+  recordCall(db, `letter-review:v${REVIEW_VERSION}`, got);
+  if (!got.ok) return { ok: false, why: `${got.why} (${got.detail})`.slice(0, 200) };
+  const r = got.value;
+  const named = !input.org || kind !== "letter" || text.toLowerCase().includes(input.org.toLowerCase());
+  return {
+    ok: true,
+    review: {
+      ...r,
+      better: tidy(r.better),
+      match: {
+        ...r.match,
+        company: r.match.company && named,
+        note: named ? r.match.note : `It doesn't name ${input.org}. ${r.match.note}`.trim(),
+      },
+    },
+  };
+}
+
+// the applications' own review, outside Writing (the apply skill's apply-review): the text and its posting in, the
+// review out, its better version read by the applications' check, so the agent takes it only when the check is clean
+export async function reviewForApplication(
+  db: DatabaseSync,
+  settings: Settings,
+  given: { text: string; job: string; title?: string; org?: string; kind?: Kind; ask?: string },
+): Promise<Reviewed & { checked: boolean; findings: string }> {
+  const missing = labMissing(settings);
+  if (missing) throw new Refused(missing);
+  const { folder, skill, check } = settings.apply;
+  const read = (f: string) => readFileSync(join(folder, f), "utf8");
+  const input: LetterInput = {
+    step:
+      letterStep(readFileSync(skill, "utf8")) ||
+      "Write in voice.md's voice, shape and length, from stories.md's facts only.",
+    voice: read(FILES.voice),
+    stories: read(FILES.stories),
+    profile: read(FILES.profile),
+    title: given.title ?? "",
+    org: given.org ?? "",
+    job: given.job,
+  };
+  const kind = given.kind ?? "letter";
+  const model = modelFor(db, settings, "letter");
+  const live = begin(
+    "letter",
+    `Reviewing ${WHAT[kind]}${input.org ? ` for ${input.org}` : ""}`.slice(0, 120),
+    "/writing",
+  );
+  try {
+    const got = await reviewText(db, settings.models, model, input, tidy(given.text), kind, given.ask ?? "");
+    if (!got.ok) throw new Refused(`the model didn't review it: ${got.why}`);
+    let findings = "";
+    if (check && got.review.verdict === "better") {
+      live.step("Checking the better version");
+      const dir = join(dataDir(), "letters", "reviews", randomUUID());
+      mkdirSync(dir, { recursive: true });
+      try {
+        writeFileSync(join(dir, "letter.txt"), `${got.review.better}\n`);
+        writeFileSync(join(dir, "job.txt"), input.job);
+        const c = await run(
+          check,
+          [join(dir, "letter.txt"), "--job", join(dir, "job.txt")],
+          { APPLY_HOME: folder },
+          60_000,
+        );
+        findings = c.code === 0 ? "" : c.out || `the check stopped (exit ${c.code})`;
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+    live.end("done", got.review.verdict === "ready" ? "ready" : `${got.review.issues.length} to make better`);
+    return { ...got.review, checked: Boolean(check), findings };
+  } catch (e) {
+    live.end("failed", e instanceof Error ? e.message : String(e));
+    throw e;
+  }
+}
 
 let busy = false;
 
@@ -178,6 +281,31 @@ export function startLetter(
         if (!fix.ok) break;
         letter = tidy(fix.value.text);
       }
+      // the review: what a reader would make better. Its better version is kept only when the check passes it too;
+      // the first draft stays in the notes
+      step("Reviewing it");
+      const reviewed = await reviewText(db, settings.models, model, input, letter, kind, ask);
+      let review: Record<string, unknown>;
+      if (reviewed.ok) {
+        const r = reviewed.review;
+        let adopted = false;
+        let held = "";
+        const before = letter;
+        if (r.verdict === "better" && r.better && r.better !== letter) {
+          if (check) {
+            step("Checking the better version");
+            writeFileSync(letterFile, `${r.better}\n`);
+            const c = await run(check, [letterFile, "--job", jobFile], { APPLY_HOME: folder }, 60_000);
+            held = c.code === 0 ? "" : c.out || `the check stopped (exit ${c.code})`;
+          }
+          if (!held) {
+            letter = r.better;
+            findings = "";
+            adopted = true;
+          }
+        }
+        review = { verdict: r.verdict, match: r.match, issues: r.issues, adopted, before: adopted ? before : "", held };
+      } else review = { failed: reviewed.why };
       writeFileSync(letterFile, `${letter}\n`);
       // only a letter is laid out as a document; an answer or a text goes on a form as it is
       if (kind === "letter") step("Laying out the PDF");
@@ -200,6 +328,7 @@ export function startLetter(
                 ? laid.out.slice(-600)
                 : "",
         stepFound: Boolean(stepText),
+        review,
       });
     } catch (e) {
       finish(

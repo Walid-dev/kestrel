@@ -1,7 +1,8 @@
 // Writing's prompts, the way an application writes its texts: the apply skill's own step for them, followed as
 // written, with my voice, my stories and my facts, and the posting. A text is a cover letter, the answer to a form's
 // question, or any text I describe. A second prompt fixes exactly what the applications' check named, with the same
-// files at hand.
+// files at hand. A third reviews the text as the company would read it (the match, the fit, the voice) and writes the
+// better version, which the check reads again before it is kept.
 export const LETTER_VERSION = 2;
 export const SYSTEM =
   "You write for one person applying to a job, in their voice, from their own files only. Reply with ONE JSON OBJECT only, no prose around it.";
@@ -75,4 +76,31 @@ export function fixPrompt(i: LetterInput, letter: string, findings: string): str
     "new words, replace dashes used as punctuation. Change nothing else.",
     'Answer: {"text": ["<a paragraph>", "..."]} (the fixed text, its paragraphs in order)',
   ].join("\n");
+}
+
+export const REVIEW_VERSION = 1;
+// the review the applications' check can't do: words it can't judge, only a reader can
+export function reviewPrompt(i: LetterInput, text: string, kind: Kind = "letter", ask = ""): string {
+  return [
+    context(i),
+    "",
+    kind === "answer" ? `The form's question: ${ask}` : kind === "text" ? `What was asked for: ${ask}` : "",
+    "The text written for this application:",
+    text,
+    "",
+    `Review it as the person hiring for ${i.title || "this job"}${i.org ? ` at ${i.org}` : ""} would read it, then make it better.`,
+    "- The match: it names this company and this job rightly, and nothing from another company or another job.",
+    "- The fit: it answers the two or three things this posting asks most, each with a real story from stories.md.",
+    "- Specific: a sentence that could go to any company unchanged is weak; say what would make it this company's.",
+    "- The voice: it reads like voice.md (its tone, shape and length), told forward and in the positive.",
+    "- The facts: only what stories.md and profile.md back.",
+    "Name at most five issues, the most important first: the words each is about, why they weaken the text, the fix.",
+    "Then write the better version: the same text with those fixes, in the same voice, shape and length, from",
+    "stories.md's facts only. When the text is already strong, the verdict is ready: no issue, the text given back.",
+    'Answer: {"verdict": "ready" | "better", "match": {"company": true | false, "job": true | false, "note": "<one',
+    'line>"}, "issues": [{"quote": "<the words>", "why": "<why they weaken it>", "fix": "<what to do>"}], "better":',
+    '["<a paragraph>", "..."]}',
+  ]
+    .filter((l, n) => l !== "" || n !== 2)
+    .join("\n");
 }

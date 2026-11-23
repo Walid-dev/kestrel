@@ -15,6 +15,7 @@ import {
   letterPdf,
   listLetters,
   readFiles,
+  reviewForApplication,
   startLetter,
   sweepLetters,
 } from "../domain/letters.ts";
@@ -66,6 +67,29 @@ export function mountLetters(app: Hono, db: DatabaseSync, settings: Settings) {
     const r = getLetter(db, c.req.param("id"));
     return r ? c.json(r) : c.json({ error: "no such try" }, 404);
   });
+  // the applications' review (the apply skill's apply-review): a text and its posting in, the review and its better
+  // version out; it waits for the model, a minute or two
+  app.post(
+    "/api/letters/review",
+    zValidator(
+      "json",
+      z.object({
+        text: z.string().min(40).max(20_000),
+        job: z.string().min(200).max(60_000),
+        title: z.string().max(200).optional(),
+        org: z.string().max(200).optional(),
+        kind: z.enum(["letter", "answer", "text"]).optional(),
+        ask: z.string().max(4000).optional(),
+      }),
+    ),
+    async (c) => {
+      try {
+        return c.json(await reviewForApplication(db, settings, c.req.valid("json")));
+      } catch (e) {
+        return refusing(c, e);
+      }
+    },
+  );
   app.delete("/api/letters/:id", (c) => {
     try {
       deleteLetter(db, c.req.param("id"));

@@ -144,12 +144,22 @@ Each gets its own step-by-step plan, reviewed, before it starts.
   finds through the whole hunt and proposes a stage, a deep check or an application as cards I tap. The other apps
   follow, one at a time. The design and the steps: [docs/tasks/v0.7-ask.md](tasks/v0.7-ask.md).
 
-### v0.8 · One set of blocks for every page (proposed)
+### v0.8 · One set of blocks for every page (GO 2026-11-23; steps 1 and 2 built)
 
 - Every agent in kestrel writes with one catalog of blocks the page draws itself (code, steps, a comparison, a tree,
   a timeline, a small chart, a check, a source), checked before it is drawn, and reads with one set of tools (the
   page's data, a lesson or a note by id, the web). MCP only as a thin adapter later, when another program needs the
   tools. The proposal and its sources: [docs/tasks/v0.8-blocks.md](tasks/v0.8-blocks.md).
+- Alongside, the review of what an application sends: every text Writing writes, and every letter and answer the
+  apply agent writes (`apply-review`), is read as the company would read it (the match, the fit, the voice), and its
+  better version is kept when the applications' check passes it.
+
+### v0.9 · The design system (next, after v0.8)
+
+- One component library every page is built from (the page head, buttons, cards, chips, the segmented choice,
+  tiles, fields that send on Enter, a list card with its ✕, sheets, empty states, the drawings), its tokens in one
+  file, and a page that shows every part in both themes, on a phone and a computer. The pages move to it one at a
+  time; a check names a one-off style. The proposal: [docs/tasks/v0.9-design-system.md](tasks/v0.9-design-system.md).
 
 ## The structure
 

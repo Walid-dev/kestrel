@@ -42,8 +42,20 @@ type Try = TryRow & {
     pdf?: string | null;
     pdfNote?: string;
     stepFound?: boolean;
+    review?: Review;
   };
 };
+// the review a reader gives each try: the match, what it made better, the first draft when its version was kept
+type Review =
+  | {
+      verdict: "ready" | "better";
+      match: { company: boolean; job: boolean; note: string };
+      issues: { quote: string; why: string; fix: string }[];
+      adopted: boolean;
+      before: string;
+      held: string;
+    }
+  | { failed: string };
 type Files = { ready: true; voice: string; stories: string } | { ready: false; why: string };
 
 const STATE_TONE: Record<string, string> = {
@@ -316,6 +328,7 @@ export function Writing() {
                   <span className="chip tone-red">The skill's letter step wasn't found</span>
                 )}
               </div>
+              {t.notes.review && <ReviewBox r={t.notes.review} />}
               {(t.notes.needs?.length ?? 0) > 0 && (
                 <div className="read-box tone-accent grid gap-1">
                   <span className="eyebrow" style={{ color: "var(--accent)" }}>
@@ -408,6 +421,70 @@ export function Writing() {
 
 // my voice and my stories, the files every application reads: reworked in Notes (select words, note what should
 // change, turn the notes into an edit I review), every save kept as a version I can bring back
+// the review under a try: the match first (red when it names the wrong company or job), then what a reader would make
+// better and whether its version was kept (it is, only when the applications' check passes it), then the first draft
+function ReviewBox({ r }: { r: Review }) {
+  if ("failed" in r)
+    return (
+      <p className="m-0 text-[13.5px]" style={{ color: "var(--muted)" }}>
+        The review didn't run: {r.failed}
+      </p>
+    );
+  const off = !r.match.company || !r.match.job;
+  const head = r.adopted
+    ? `The review made it better: ${r.issues.length} change${r.issues.length === 1 ? "" : "s"}`
+    : r.verdict === "ready"
+      ? "The review: ready to send"
+      : r.held
+        ? "The review's version failed the check: the first is kept"
+        : "The review found things to make better";
+  return (
+    <section className="card grid gap-3 !p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`chip chip-caps ${r.adopted || r.verdict === "ready" ? "tone-green" : "tone-orange"}`}>
+          Review
+        </span>
+        <b className="text-[15px]" style={{ color: "var(--strong)" }}>
+          {head}
+        </b>
+      </div>
+      {(off || r.match.note) && (
+        <p
+          className="m-0 rounded-xl px-3 py-2 text-[14px]"
+          style={{ background: off ? "var(--pink-soft)" : "var(--surface-2)", color: "var(--text)" }}
+        >
+          <b style={{ color: off ? "var(--red)" : "var(--green)" }}>{off ? "Check the match: " : "The match: "}</b>
+          {r.match.note || (off ? "it may name another company or job" : "")}
+        </p>
+      )}
+      {r.issues.length > 0 && (
+        <ol className="m-0 grid list-none gap-2 p-0">
+          {r.issues.map((x) => (
+            <li key={`${x.quote}|${x.why}`} className="grid gap-0.5 text-[14px] leading-snug">
+              {x.quote && <i style={{ color: "var(--muted)" }}>"{x.quote}"</i>}
+              <span style={{ color: "var(--text)" }}>{x.why}</span>
+              {x.fix && <span style={{ color: "var(--green)" }}>→ {x.fix}</span>}
+            </li>
+          ))}
+        </ol>
+      )}
+      {r.held && (
+        <p className="m-0 text-[13px]" style={{ color: "var(--warn)" }}>
+          The check said of the review's version: {r.held.slice(0, 300)}
+        </p>
+      )}
+      {r.before && (
+        <details>
+          <summary className="cursor-pointer text-[13.5px] font-semibold">The first draft</summary>
+          <p className="m-0 mt-2 whitespace-pre-wrap text-[14px] leading-relaxed" style={{ color: "var(--muted)" }}>
+            {r.before}
+          </p>
+        </details>
+      )}
+    </section>
+  );
+}
+
 function YourFiles() {
   const navigate = useNavigate();
   const open = useMutation({

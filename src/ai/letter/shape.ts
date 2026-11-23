@@ -20,3 +20,20 @@ const named = (v: unknown) =>
 
 export const LetterDraft = z.preprocess(named, z.object({ needs: list, stories: list, text }));
 export const LetterFix = z.preprocess(named, z.object({ text }));
+
+// the review: a verdict, the match, at most five issues (the most important first), the better version; read
+// tolerantly, so a missing match counts as right and an issue without its why is dropped
+const flag = z.preprocess((v) => (typeof v === "string" ? v.toLowerCase() !== "false" : v), z.boolean()).catch(true);
+export const LetterReview = z.object({
+  verdict: z.enum(["ready", "better"]).catch("better"),
+  match: z
+    .object({ company: flag, job: flag, note: z.string().catch("") })
+    .catch({ company: true, job: true, note: "" }),
+  issues: z
+    .array(z.object({ quote: z.string().catch(""), why: z.string().catch(""), fix: z.string().catch("") }))
+    .catch([])
+    .default([])
+    .transform((a) => a.filter((x) => x.why.trim()).slice(0, 5)),
+  better: text,
+});
+export type LetterReview = z.infer<typeof LetterReview>;

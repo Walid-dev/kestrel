@@ -1,0 +1,95 @@
+{
+  "cases": [
+    {
+      "name": "flow-for-a-process",
+      "question": "Walk me through what happens, step by step, when I type a web address and press Enter.",
+      "expect": {
+        "kind": "flow"
+      },
+      "good": "The browser finds the server, asks for the page and draws it.\n```flow\n{\"title\": \"From address to page\", \"steps\": [\"DNS turns the name into an address\", \"The browser opens a connection (TCP, then TLS)\", \"It sends an HTTP request\", \"The server answers with HTML\", \"The browser draws the page\"]}\n```",
+      "bad": "The browser looks up the name, connects, sends a request and draws the answer.",
+      "badWhy": "no flow"
+    },
+    {
+      "name": "compare-two-options",
+      "question": "PostgreSQL or SQLite for a small new web app: how do they compare?",
+      "expect": {
+        "kind": "compare"
+      },
+      "good": "Both work; SQLite is simpler, PostgreSQL grows further.\n```compare\n{\"items\": [{\"title\": \"SQLite\", \"points\": [\"One file, no server\", \"Great for one machine\"]}, {\"title\": \"PostgreSQL\", \"points\": [\"A server of its own\", \"Many writers at once\"]}]}\n```",
+      "bad": "Both work; SQLite is simpler, PostgreSQL grows further.\n```compare\n{\"items\": [{\"title\": \"SQLite\", \"points\": [\"One file\"]}]}\n```",
+      "badWhy": "doesn't read"
+    },
+    {
+      "name": "tree-for-kinds",
+      "question": "What are the main kinds of databases, with an example of each?",
+      "expect": {
+        "kind": "tree"
+      },
+      "good": "Databases differ in how they store data.\n```tree\n{\"title\": \"Kinds of databases\", \"root\": \"Databases\", \"branches\": [{\"label\": \"Relational\", \"leaves\": [\"PostgreSQL\"]}, {\"label\": \"Document\", \"leaves\": [\"MongoDB\"]}, {\"label\": \"Key-value\", \"leaves\": [\"Redis\"]}, {\"label\": \"Graph\", \"leaves\": [\"Neo4j\"]}]}\n```",
+      "bad": "- Relational: PostgreSQL\n- Document: MongoDB\n- Key-value: Redis",
+      "badWhy": "no tree"
+    },
+    {
+      "name": "timeline-for-versions",
+      "question": "How did HTTP change over the years, version by version?",
+      "expect": {
+        "kind": "timeline"
+      },
+      "good": "Each version made the web faster.\n```timeline\n{\"title\": \"HTTP versions\", \"events\": [{\"when\": \"1991\", \"what\": \"HTTP/0.9: one line, HTML only\"}, {\"when\": \"1996\", \"what\": \"HTTP/1.0: headers\"}, {\"when\": \"1997\", \"what\": \"HTTP/1.1: kept connections\"}, {\"when\": \"2015\", \"what\": \"HTTP/2: many requests on one connection\"}, {\"when\": \"2022\", \"what\": \"HTTP/3: over QUIC\"}]}\n```",
+      "bad": "Each version made the web faster.\n```flow\n{\"steps\": [\"HTTP/1.0\", \"HTTP/1.1\", \"HTTP/2\", \"HTTP/3\"]}\n```",
+      "badWhy": "no timeline"
+    },
+    {
+      "name": "chart-for-numbers",
+      "question": "Roughly how many people live in Canada's five biggest cities?",
+      "expect": {
+        "kind": "chart"
+      },
+      "good": "Toronto is by far the biggest.\n```chart\n{\"title\": \"City populations\", \"unit\": \"million people\", \"bars\": [{\"label\": \"Toronto\", \"value\": 2.8}, {\"label\": \"Montreal\", \"value\": 1.8}, {\"label\": \"Calgary\", \"value\": 1.3}, {\"label\": \"Ottawa\", \"value\": 1.0}, {\"label\": \"Edmonton\", \"value\": 1.0}]}\n```",
+      "bad": "Toronto is by far the biggest.\n```chart\n{\"unit\": \"people\", \"bars\": [{\"label\": \"Toronto\", \"value\": \"lots\"}, {\"label\": \"Montreal\", \"value\": \"fewer\"}]}\n```",
+      "badWhy": "doesn't read"
+    },
+    {
+      "name": "check-when-teaching",
+      "question": "Teach me what a hash map is, then test me with one question.",
+      "expect": {
+        "kind": "check"
+      },
+      "good": "A hash map stores values under keys and finds them in one step on average.\n```check\n{\"q\": \"Why is a lookup in a hash map fast?\", \"a\": \"The key's hash points straight at where the value is kept.\"}\n```",
+      "bad": "A hash map stores values under keys.\n\n**Question:** Why is a lookup fast?",
+      "badWhy": "no check"
+    },
+    {
+      "name": "warn-callout",
+      "question": "Is it fine to build a shell command by pasting what a user typed into it?",
+      "expect": {
+        "kind": "callout",
+        "tone": "warn"
+      },
+      "good": "No: it lets the user run any command.\n```callout\n{\"tone\": \"warn\", \"title\": \"Shell injection\", \"text\": \"Pass the input as an argument, never inside the command's text.\"}\n```",
+      "bad": "No: it lets the user run any command.\n```callout\n{\"tone\": \"tip\", \"text\": \"Pass the input as an argument.\"}\n```",
+      "badWhy": "not a warning"
+    },
+    {
+      "name": "none-for-a-definition",
+      "question": "What does idempotent mean, in one sentence?",
+      "expect": {
+        "none": true
+      },
+      "good": "An idempotent action gives the same result however many times you do it, like pressing a lift's call button twice.",
+      "bad": "It gives the same result every time.\n```flow\n{\"steps\": [\"Call once\", \"Call again\", \"Same result\"]}\n```",
+      "badWhy": "needs none"
+    },
+    {
+      "name": "none-for-thanks",
+      "question": "Thanks, that helps.",
+      "expect": {
+        "none": true
+      },
+      "good": "Glad it helped.",
+      "bad": "Glad it helped.\n```check\n{\"q\": \"What helped?\", \"a\": \"The answer.\"}\n```",
+      "badWhy": "needs none"
+    }
+  ]
+}
