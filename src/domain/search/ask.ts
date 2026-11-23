@@ -69,7 +69,7 @@ export function listingLine(l: ListingRow): string {
   const place = [str(d.location), str(d.workMode)].filter(Boolean).join(", ") || "place not stated";
   const money = l.kind === "deals" ? (num(d.price) !== null ? `$${num(d.price)}` : "no price") : pay(d).words;
   const left = str(d.leftOut) ? ` · set aside: ${str(d.leftOut)}` : "";
-  return `- ${l.id}: ${named(l)} · ${place} · ${money} · ${l.match || "unscored"} ${l.score ?? ""} · ${statusWord(l.status, l.kind)}${l.starred === 1 ? " · starred" : ""}${left}`;
+  return `- ${l.id}: ${named(l)} · ${place} · ${money} · ${l.match || "unscored"} ${l.score ?? ""} · ${l.status === "new" ? "to review" : statusWord(l.status, l.kind)}${l.starred === 1 ? " · starred" : ""}${left}`;
 }
 
 // what the model may do on a hunt's page, in its words
