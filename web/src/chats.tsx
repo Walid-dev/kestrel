@@ -3,6 +3,7 @@
 // kestrel's own frame, in kestrel's look, so it opens like the rest of the app; its own window goes through dsh's door,
 // which carries the sign-in. dsh lets only pages on the same machine name show it in a frame.
 import { useQuery } from "@tanstack/react-query";
+import { useLayoutEffect, useRef, useState } from "react";
 
 type Link = { name: string; what: string; desktop: string; phone?: string; phoneFrame?: string };
 
@@ -57,29 +58,46 @@ export function Chats() {
         </section>
       </main>
     );
+  return <ChatFrame link={link} />;
+}
+
+// a phone: the chats fill the screen from edge to edge, from under the title down to the bottom bar, like an app's own
+// screen (my ask, 2026-11-23: no box around a box); the page itself never scrolls, the list inside does
+function ChatFrame({ link }: { link: Link }) {
   const frame = link.phoneFrame ?? link.phone ?? link.desktop;
+  const box = useRef<HTMLIFrameElement>(null);
+  const [height, setHeight] = useState<number>();
+  useLayoutEffect(() => {
+    const fit = () => {
+      const top = box.current?.getBoundingClientRect().top ?? 0;
+      const bar = document.querySelector<HTMLElement>('nav[aria-label="The main places"]')?.offsetHeight ?? 0;
+      setHeight(Math.max(240, Math.floor(window.innerHeight - top - bar)));
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
   return (
-    <main className="grid gap-2">
-      <div className="flex items-center gap-3">
-        <h2 className="font-cond m-0 text-[22px] font-bold">Chat</h2>
-        <span className="truncate text-sm" style={{ color: "var(--muted)" }}>
-          {link.what}
-        </span>
+    // the frame takes the page's side gutters and its room for the bottom bar, which it fills itself
+    <main className="-mx-4 -mb-28 grid md:-mx-6 md:-mb-16">
+      <div className="flex items-center gap-3 px-4 pb-2 md:px-6">
+        <h2 className="font-cond m-0 text-[20px] font-bold leading-none">Chat</h2>
         <a
           href={link.phone ?? frame}
           target="_blank"
           rel="noopener noreferrer"
-          className="btn btn-quiet ml-auto shrink-0"
+          className="ml-auto shrink-0 text-[13px] font-medium"
+          style={{ color: "var(--accent)" }}
         >
           Its own window ↗
         </a>
       </div>
       <iframe
+        ref={box}
         title="Chat"
         src={frame}
-        className="w-full rounded-2xl border"
-        // the room between kestrel's header and the phone's bottom bar
-        style={{ height: "calc(100dvh - 190px)", borderColor: "var(--line)", background: "var(--surface)" }}
+        className="block w-full border-0"
+        style={{ height, background: "var(--bg)" }}
         allow="clipboard-read; clipboard-write; microphone"
       />
     </main>

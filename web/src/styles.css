@@ -61,6 +61,8 @@
   --fair: #f1c43a;
   --poor: #f26b5e;
   --cyan: #86e1fc;
+  --teal: #5fd4c8;
+  --magenta: #e88bd6;
   --ok: #c3e88d;
   --warn: #ff966c;
   --warn-soft: rgba(255, 150, 108, 0.14);
@@ -96,6 +98,8 @@
     --fair: #a87300;
     --poor: #cf3a2e;
     --cyan: #0b7a99;
+    --teal: #0e8a7f;
+    --magenta: #a8327f;
     --ok: #1a7f37;
     --warn: #b35900;
     --warn-soft: rgba(179, 89, 0, 0.1);
@@ -256,6 +260,96 @@ h3 {
   background: var(--surface-2);
   color: var(--strong);
 }
+/* a choice among a few, as one bar (the quiz's source and its length): the picked part raised, a small line under */
+.seg {
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.seg button {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 11px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: 600 15.5px / 1.2 var(--sans);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.seg button small {
+  font: 500 12px / 1.2 var(--sans);
+  color: var(--muted);
+}
+.seg button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--strong);
+  box-shadow:
+    0 0 0 1px var(--line),
+    0 2px 6px rgba(0, 0, 0, 0.18);
+}
+/* a big choice: a topic, its name over what it holds; picked, it takes the accent and a check */
+.tile {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-height: 78px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.tile:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+}
+.tile b {
+  font: 600 16.5px / 1.25 var(--sans);
+  color: var(--strong);
+  padding-right: 18px;
+}
+.tile span {
+  font-size: 13px;
+  color: var(--muted);
+}
+.tile[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.tile[aria-pressed="true"]::after {
+  content: "✓";
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  font: 700 14px / 1 var(--sans);
+  color: var(--accent);
+}
+.btn-big {
+  font-size: 16px;
+  padding: 13px 18px;
+  border-radius: 12px;
+}
+.quiz-done:hover {
+  background: var(--surface-2);
+}
 .dot {
   width: 7px;
   height: 7px;
@@ -395,20 +489,20 @@ pre.code .f {
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  color: var(--app, var(--muted));
-  background: color-mix(in srgb, var(--app, var(--muted)) 13%, transparent);
+  color: var(--muted);
   transition:
     background 0.15s,
-    box-shadow 0.15s,
+    color 0.15s,
     transform 0.15s;
 }
 .dock-item:hover {
-  background: color-mix(in srgb, var(--app, var(--muted)) 24%, transparent);
+  color: var(--strong);
+  background: var(--surface-2);
   transform: scale(1.08);
 }
 .dock-item.active {
-  background: color-mix(in srgb, var(--app, var(--accent)) 26%, transparent);
-  box-shadow: inset 0 0 0 1.5px var(--app, var(--accent));
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 .dock-label {
   position: absolute;

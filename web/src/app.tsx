@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router";
 import { useChatLink } from "./chats.tsx";
 import { useEvents } from "./events.ts";
-import { APP_COLOR, ICONS, STROKE } from "./home.tsx";
+import { ICONS, STROKE } from "./home.tsx";
 import { Mark } from "./mark.tsx";
 
 const LAST_SEEN = "kestrel-last-seen";
@@ -166,8 +166,7 @@ const BAR = [
 ];
 
 // on a computer, every app at the screen's right edge, the old pages' dock: the pointer at the edge slides it in, a
-// click goes there, leaving lets it slide away. Each app sits on a tile of its own colour (Home's). Phones keep the
-// bottom bar.
+// click goes there, leaving lets it slide away. Phones keep the bottom bar.
 const DOCK: { to: string; label: string; icon: React.ReactNode }[] = [
   { to: "/", label: "Home", icon: null },
   { to: "/searches", label: "Searches", icon: ICONS.Searches },
@@ -214,7 +213,6 @@ function Dock({ live }: { live: { working: number; waiting: number } }) {
               rel="noopener noreferrer"
               className="dock-item"
               title={d.label}
-              style={{ "--app": APP_COLOR[d.label] } as React.CSSProperties}
               onClick={() => setShown(false)}
             >
               {d.icon}
@@ -228,7 +226,6 @@ function Dock({ live }: { live: { working: number; waiting: number } }) {
               className="dock-item"
               onClick={() => setShown(false)}
               title={d.label}
-              style={{ "--app": APP_COLOR[d.label] } as React.CSSProperties}
             >
               <span className="relative grid place-items-center">
                 {d.to === "/" ? BAR[0].icon : d.to === "/live" ? BAR[4].icon : d.icon}

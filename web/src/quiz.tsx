@@ -4,7 +4,7 @@
 // through with the model. A quiz is kept as I take it: leaving loses nothing, a started quiz waits on this page to be
 // continued, and an ended one opens again on its score, each question a tap away. What I missed comes back first.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { Ask } from "./ask.tsx";
 import { block, Code, Inline, type Say } from "./learn/blocks.tsx";
@@ -27,7 +27,7 @@ type QuizData = {
 };
 type Summary = Omit<QuizData, "items" | "answers"> & { total: number; answered: number; right: number; partly: number };
 type Explained = { blocks: Record<string, unknown>[]; remember: string; kept: boolean };
-type Pack = { id: string; name: string; group: string };
+type Pack = { id: string; name: string; group: string; lessons?: number; due?: number };
 
 const VERDICT: Record<Answer["verdict"], [string, string]> = {
   right: ["✓ Right", "tone-green"],
@@ -61,7 +61,9 @@ const scoreTone = (right: number, total: number) => {
   return r >= 0.8 ? "tone-great" : r >= 0.6 ? "tone-good" : r >= 0.4 ? "tone-fair" : "tone-poor";
 };
 
-// the start: the quizzes I started (to continue), a new one, and the ones I ended
+// the start (my ask, 2026-11-23: "simple, but polished and modern"): the quiz I started, large, to continue; a new
+// one in three choices — where from, on what (each topic with its lessons and what is due), how many — and one button
+// that says what it starts; the ones I ended with their score. A computer shows the new quiz beside the rest.
 export function Quiz() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -73,7 +75,24 @@ export function Quiz() {
     queryKey: ["learn-packs", area],
     queryFn: () => call<{ packs: Pack[] }>(`/api/learn/packs?area=${area}`),
   });
-  const groups = [...new Set((packs.data?.packs ?? []).map((p) => p.group).filter(Boolean))];
+  const all = packs.data?.packs ?? [];
+  const sum = (ps: Pack[]) => ({
+    lessons: ps.reduce((n, p) => n + (p.lessons ?? 0), 0),
+    due: ps.reduce((n, p) => n + (p.due ?? 0), 0),
+  });
+  const topics = [
+    { key: "", name: "Everything", ...sum(all) },
+    ...[...new Set(all.map((p) => p.group).filter(Boolean))].map((g) => ({
+      key: `group:${g}`,
+      name: g,
+      ...sum(all.filter((p) => p.group === g)),
+    })),
+  ];
+  const picked = from.startsWith("pack:")
+    ? all.find((p) => `pack:${p.id}` === from)?.name
+    : from
+      ? topics.find((t) => t.key === from)?.name
+      : "";
   const quizzes = useQuery({
     queryKey: ["quizzes"],
     queryFn: () => call<{ quizzes: Summary[] }>("/api/learn/quizzes"),
@@ -99,126 +118,155 @@ export function Quiz() {
   const failing = [start, drop, quizzes].find((x) => x.isError);
   const started = (quizzes.data?.quizzes ?? []).filter((q) => !q.finished);
   const ended = (quizzes.data?.quizzes ?? []).filter((q) => q.finished);
+  const due = topics[0].due;
 
   return (
-    <main className="grid max-w-3xl gap-4">
-      <header className="grid gap-1">
-        <h2 className="font-cond m-0 text-[34px] font-bold uppercase leading-none tracking-tight">Quiz</h2>
-        <p className="m-0 text-[15px]" style={{ color: "var(--muted)" }}>
-          Questions from your lessons. Answer in your own words; the computer's model marks the meaning, explains it,
-          and answers your questions about it. Your place is kept.
+    <main className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-start lg:gap-x-8">
+      <header className="grid gap-2 lg:col-span-2">
+        <h2 className="font-cond m-0 text-[40px] font-bold uppercase leading-none tracking-tight">Quiz</h2>
+        <p className="m-0 max-w-2xl text-[16px] leading-relaxed" style={{ color: "var(--muted)" }}>
+          Questions from your lessons, answered in your own words. The computer's model marks the meaning and explains
+          it, and your place is kept.
+          {due > 0 && (
+            <>
+              {" "}
+              <b style={{ color: "var(--teal)" }}>{due}</b> lessons are due for review.
+            </>
+          )}
         </p>
       </header>
 
       {started.length > 0 && (
-        <section className="grid gap-2">
-          <span className="eyebrow">Continue where you left off</span>
+        <section className="grid content-start gap-3 lg:col-start-2 lg:row-start-2">
+          <span className="eyebrow">Pick up where you left off</span>
           {started.map((q) => (
-            <div key={q.id} className="card flex items-center gap-3 !py-3">
-              <Link to={`/quiz/${q.id}`} className="grid min-w-0 flex-1 gap-1">
-                <span className="truncate font-semibold" style={{ color: "var(--strong)" }}>
-                  {named(q)}
-                </span>
-                <span className="text-[13px]" style={{ color: "var(--muted)" }}>
-                  Question {Math.min(q.place + 1, q.total)} of {q.total} · {q.right} right so far · {when(q.updated)}
-                </span>
-                <span className="h-1 overflow-hidden rounded-full" style={{ background: "var(--surface-2)" }}>
+            <article key={q.id} className="card grid gap-4 !p-5">
+              <Link to={`/quiz/${q.id}`} className="flex items-center gap-4">
+                <Ring part={q.total ? q.answered / q.total : 0}>
+                  {q.answered}/{q.total}
+                </Ring>
+                <span className="grid min-w-0 flex-1 gap-1">
                   <span
-                    className="block h-full rounded-full"
-                    style={{ width: `${(q.answered / q.total) * 100}%`, background: "var(--good)" }}
-                  />
+                    className="font-cond truncate text-[22px] font-bold leading-tight"
+                    style={{ color: "var(--strong)" }}
+                  >
+                    {named(q)}
+                  </span>
+                  <span className="text-[14px]" style={{ color: "var(--text)" }}>
+                    Question {Math.min(q.place + 1, q.total)} of {q.total} · {q.right} right
+                    {q.partly ? ` · ${q.partly} partly` : ""}
+                  </span>
+                  <span className="text-[13px]" style={{ color: "var(--muted)" }}>
+                    {when(q.updated)}
+                  </span>
                 </span>
               </Link>
-              <Link to={`/quiz/${q.id}`} className="btn btn-primary shrink-0">
-                Continue
-              </Link>
-              <button
-                type="button"
-                aria-label="Drop this quiz"
-                title="Drop this quiz"
-                className="rounded-lg px-2 py-0.5 text-[18px] leading-none"
-                style={{ color: "var(--muted)" }}
-                onClick={() => {
-                  if (confirm("Drop this quiz? What you answered still counts for what comes back first."))
-                    drop.mutate(q.id);
-                }}
-              >
-                ×
-              </button>
-            </div>
+              <div className="flex items-center gap-2">
+                <Link to={`/quiz/${q.id}`} className="btn btn-primary btn-big flex-1 text-center">
+                  Continue
+                </Link>
+                <button
+                  type="button"
+                  className="btn btn-quiet btn-big"
+                  onClick={() => {
+                    if (confirm("Drop this quiz? What you answered still counts for what comes back first."))
+                      drop.mutate(q.id);
+                  }}
+                >
+                  Drop
+                </button>
+              </div>
+            </article>
           ))}
         </section>
       )}
 
-      <section className="card grid gap-3">
-        <span className="eyebrow">{started.length ? "Or a new quiz, from" : "From"}</span>
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              ["learn", "Learn"],
-              ["interview", "Interview prep"],
-            ] as [Area, string][]
-          ).map(([k, label]) => (
-            <button
-              key={k}
-              type="button"
-              className="pill"
-              aria-pressed={area === k}
-              onClick={() => {
-                setArea(k);
-                setFrom("");
-              }}
-            >
-              {label}
-            </button>
-          ))}
+      <section className="card grid content-start gap-6 !p-5 md:!p-6 lg:col-start-1 lg:row-span-2 lg:row-start-2">
+        <h3 className="font-cond m-0 text-[26px] font-bold leading-none" style={{ color: "var(--strong)" }}>
+          {started.length ? "A new quiz" : "Start a quiz"}
+        </h3>
+        <div className="grid gap-2.5">
+          <span className="eyebrow">From</span>
+          <fieldset className="seg" aria-label="From">
+            {(
+              [
+                ["learn", "Lessons"],
+                ["interview", "Interview prep"],
+              ] as [Area, string][]
+            ).map(([k, label]) => (
+              <button
+                key={k}
+                type="button"
+                aria-pressed={area === k}
+                onClick={() => {
+                  setArea(k);
+                  setFrom("");
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </fieldset>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className="pill" aria-pressed={from === ""} onClick={() => setFrom("")}>
-            Everything
-          </button>
-          {groups.map((g) => (
-            <button
-              key={g}
-              type="button"
-              className="pill"
-              aria-pressed={from === `group:${g}`}
-              onClick={() => setFrom(`group:${g}`)}
-            >
-              {g}
-            </button>
-          ))}
+        <div className="grid gap-2.5">
+          <span className="eyebrow">On</span>
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+            {topics.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                className="tile"
+                aria-pressed={from === t.key}
+                onClick={() => setFrom(t.key)}
+              >
+                <b>{t.name}</b>
+                <span>
+                  {t.lessons} lesson{t.lessons === 1 ? "" : "s"}
+                  {t.due ? ` · ${t.due} due` : ""}
+                </span>
+              </button>
+            ))}
+          </div>
           <select
-            className="btn"
+            className="btn w-full !rounded-xl !px-4 !py-3 !text-[15px]"
             value={from.startsWith("pack:") ? from : ""}
             onChange={(e) => setFrom(e.target.value)}
-            aria-label="One pack"
+            aria-label="Or one pack"
           >
-            <option value="">One pack…</option>
-            {(packs.data?.packs ?? []).map((p) => (
+            <option value="">Or one pack…</option>
+            {all.map((p) => (
               <option key={p.id} value={`pack:${p.id}`}>
                 {p.name}
               </option>
             ))}
           </select>
         </div>
-        <span className="eyebrow">How many</span>
-        <div className="flex flex-wrap items-center gap-2">
-          {[5, 10, 20].map((n) => (
-            <button key={n} type="button" className="pill" aria-pressed={count === n} onClick={() => setCount(n)}>
-              {n} questions
-            </button>
-          ))}
-          <button
-            type="button"
-            className="btn btn-primary ml-auto inline-flex items-center gap-2"
-            disabled={start.isPending}
-            onClick={() => start.mutate()}
-          >
-            {start.isPending && <span className="spin" />}
-            {start.isPending ? "Picking" : "Start"}
-          </button>
+        <div className="grid gap-2.5">
+          <span className="eyebrow">How many</span>
+          <fieldset className="seg" aria-label="How many">
+            {(
+              [
+                [5, "quick"],
+                [10, "a round"],
+                [20, "a long one"],
+              ] as const
+            ).map(([n, size]) => (
+              <button key={n} type="button" aria-pressed={count === n} onClick={() => setCount(n)}>
+                {n}
+                <small>{size}</small>
+              </button>
+            ))}
+          </fieldset>
         </div>
+        <button
+          type="button"
+          className="btn btn-primary btn-big inline-flex w-full items-center justify-center gap-2"
+          disabled={start.isPending}
+          onClick={() => start.mutate()}
+        >
+          {start.isPending && <span className="spin" />}
+          {start.isPending ? "Picking the questions" : `Start ${count} questions${picked ? ` on ${picked}` : ""}`}
+        </button>
         {failing && (
           <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
             {(failing.error as Error).message}
@@ -227,24 +275,58 @@ export function Quiz() {
       </section>
 
       {ended.length > 0 && (
-        <section className="grid gap-2">
+        <section className="grid content-start gap-3 lg:col-start-2">
           <span className="eyebrow">Done</span>
-          {ended.map((q) => (
-            <Link key={q.id} to={`/quiz/${q.id}`} className="card card-link flex items-center gap-3 !py-3">
-              <span className={`chip ${scoreTone(q.right, q.total)}`}>
-                {q.right} of {q.total}
-              </span>
-              <span className="truncate font-semibold" style={{ color: "var(--strong)" }}>
-                {named(q)}
-              </span>
-              <span className="ml-auto shrink-0 text-[13px]" style={{ color: "var(--muted)" }}>
-                {when(q.finished ?? q.updated)}
-              </span>
-            </Link>
-          ))}
+          <div className="card grid overflow-hidden !p-0">
+            {ended.map((q, i) => (
+              <Link
+                key={q.id}
+                to={`/quiz/${q.id}`}
+                className="quiz-done flex items-center gap-3 px-4 py-3.5"
+                style={{ borderTop: i ? "1px solid var(--line)" : undefined }}
+              >
+                <span className={`chip ${scoreTone(q.right, q.total)} !px-2.5 !py-1.5 !text-[13px]`}>
+                  {q.right}/{q.total}
+                </span>
+                <span className="truncate text-[15px] font-semibold" style={{ color: "var(--strong)" }}>
+                  {named(q)}
+                </span>
+                <span className="ml-auto shrink-0 text-[13px]" style={{ color: "var(--muted)" }}>
+                  {when(q.finished ?? q.updated)}
+                </span>
+              </Link>
+            ))}
+          </div>
         </section>
       )}
     </main>
+  );
+}
+
+// how far a started quiz is, as a ring in the quiz's colour with the count inside
+function Ring({ part, children }: { part: number; children: ReactNode }) {
+  const r = 24;
+  const c = 2 * Math.PI * r;
+  return (
+    <span className="relative grid h-14 w-14 shrink-0 place-items-center">
+      <svg viewBox="0 0 56 56" className="absolute inset-0" aria-hidden="true">
+        <circle cx="28" cy="28" r={r} fill="none" stroke="var(--surface-2)" strokeWidth="5" />
+        <circle
+          cx="28"
+          cy="28"
+          r={r}
+          fill="none"
+          stroke="var(--teal)"
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeDasharray={`${Math.max(0.001, c * part)} ${c}`}
+          transform="rotate(-90 28 28)"
+        />
+      </svg>
+      <span className="font-mono text-[12.5px] font-semibold" style={{ color: "var(--strong)" }}>
+        {children}
+      </span>
+    </span>
   );
 }
 

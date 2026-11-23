@@ -79,18 +79,19 @@ export const ICONS: Record<string, ReactNode> = {
 };
 
 // each app its own colour, the same on Home's cards and in the dock: no two apps share one
-export const APP_COLOR: Record<string, string> = {
+// each app's own colour, no two alike (Searches green, my pick)
+const APP_COLOR: Record<string, string> = {
   Home: "var(--strong)",
-  Searches: "var(--purple)",
+  Searches: "var(--great)",
   Chat: "var(--cyan)",
-  Learn: "var(--great)",
+  Learn: "var(--purple)",
   Notes: "var(--accent)",
   Tasks: "var(--pink)",
   Research: "var(--yellow)",
-  Quiz: "var(--good)",
+  Quiz: "var(--teal)",
   Applications: "var(--orange)",
-  Writing: "var(--red)",
-  "Interview prep": "var(--fair)",
+  Writing: "var(--magenta)",
+  "Interview prep": "var(--good)",
   Live: "var(--green)",
 };
 
