@@ -353,12 +353,20 @@ function Point({ text }: { text: string }) {
 function Answer({ text, writing }: { text: string; writing: boolean }) {
   const parts = parseMarkdown(text);
   const lead = parts.findIndex((p) => p.k === "p");
+  // a short line ending in a colon just before a quote ("Example rewrite:") is the quote's own label
+  const labelOf = (n: number) => {
+    const before = parts[n - 1];
+    return before?.k === "p" && before.text.length <= 60 && /:\s*$/.test(before.text)
+      ? before.text.replace(/:\s*$/, "")
+      : "";
+  };
   return (
     <>
       {parts.map((p, n): ReactNode => {
         const key = `${p.k}${n}`;
         switch (p.k) {
           case "p":
+            if (parts[n + 1]?.k === "quote" && labelOf(n + 1)) return null; // it labels the quote below
             // the first paragraph is the direct answer: its own tile, the way a lesson opens with what to say
             return n === lead && lead < 2 ? (
               <p key={key} className="ask-lead">
@@ -396,7 +404,7 @@ function Answer({ text, writing }: { text: string; writing: boolean }) {
             return (
               <div key={key} className="read-box grid gap-1">
                 <span className="eyebrow" style={{ color: "var(--accent)" }}>
-                  Note
+                  <Inline text={labelOf(n) || "Note"} />
                 </span>
                 <p className="m-0">
                   <Inline text={p.text} />
