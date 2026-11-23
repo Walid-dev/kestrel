@@ -23,10 +23,19 @@ import {
   usualPrices,
 } from "../domain/search/listings.ts";
 import { lastRun, pendingSearches, runSearch } from "../domain/search/runs.ts";
-import { listCollectors, loadSpecs, readSpecFile, writeSpecFile } from "../domain/search/specs.ts";
+import { listCollectors, loadSpecs, readSpecFile, type Spec, writeSpecFile } from "../domain/search/specs.ts";
+import {
+  type HuntMode,
+  type LastSearch,
+  lastSearch,
+  modeOf,
+  nextSearch,
+  setHuntMode,
+} from "../domain/search/status.ts";
 import { record } from "../platform/activity.ts";
 import type { Settings } from "../platform/config.ts";
 import { dataDir } from "../platform/paths.ts";
+import { alertRun } from "./alerts.ts";
 
 const STATUSES = [
   "new",
@@ -83,7 +92,16 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
       lastRun: ReturnType<typeof lastRun>;
       mirrored: boolean;
       running: number;
+      mode: HuntMode | null; // null: a hunt the old setup runs (no kestrel search of its own)
+      next: string | null;
+      last: LastSearch | null;
     };
+    const now = new Date();
+    const state = (own: Spec[], searches: string[]) => ({
+      mode: own.length ? modeOf(own) : null,
+      next: nextSearch(db, own, now),
+      last: lastSearch(db, searches),
+    });
     const brief = (s: (typeof specs)[number]) => ({
       id: s.id,
       name: s.name,
@@ -108,6 +126,7 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
         lastRun: runs.sort((a, b) => b.started.localeCompare(a.started))[0] ?? null,
         mirrored: own.length === 0,
         running: busy(own.map((s) => s.id)),
+        ...state(own, h.searches),
       };
     });
     // a spec with no listings yet still gets its tab
@@ -124,6 +143,7 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
           lastRun: lastRun(db, s.id),
           mirrored: false,
           running: busy([s.id]),
+          ...state([s], [s.id]),
         });
     return c.json({ hunts, problems, mirror: lastRun(db, "mirror:v1") });
   });
@@ -212,6 +232,25 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
       throw e;
     }
   });
+  // a hunt's switch, On / Quiet / Paused, written to each of its searches
+  app.post(
+    "/api/search/hunts/mode",
+    zValidator(
+      "json",
+      z.object({
+        kind: z.enum(["jobs", "deals"]),
+        key: z.string().min(1).max(200),
+        mode: z.enum(["on", "quiet", "paused"]),
+      }),
+    ),
+    (c) => {
+      const { kind, key, mode } = c.req.valid("json");
+      const own = loadSpecs(specsDir()).specs.filter((s) => s.kind === kind && (s.hunt === key || s.id === key));
+      if (!own.length) return c.json({ error: "this hunt has no search of its own here" }, 400);
+      setHuntMode(own, mode, specsDir());
+      return c.json({ ok: true, mode });
+    },
+  );
   // the settings page: one search's file as written, the collectors there are, and a write (checked first)
   app.get("/api/search/specs/:id", (c) => {
     const spec = readSpecFile(c.req.param("id"), specsDir());
@@ -242,7 +281,11 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
         (s) => s.enabled && s.kind === kind && ((hunt?.searches.includes(s.id) ?? false) || (s.hunt || s.id) === key),
       );
       if (!on.length) return c.json({ error: "this hunt has no kestrel search that is on" }, 400);
-      for (const s of on) runSearch(db, s, new Date()).catch(() => {}); // a failed run lands its own row
+      // a failed run lands its own row; a run of a hunt that is On pings my phone for a great deal
+      for (const s of on)
+        runSearch(db, s, new Date())
+          .then((run) => alertRun(db, settings, s, run))
+          .catch(() => {});
       return c.json({ started: on.length }, 202);
     },
   );
@@ -250,6 +293,8 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
     const spec = loadSpecs(specsDir()).specs.find((s) => s.id === c.req.param("id"));
     if (!spec) return c.json({ error: "no such search" }, 404);
     if (!spec.enabled) return c.json({ error: "this search is switched off until the cutover" }, 400);
-    return c.json(await runSearch(db, spec, new Date()));
+    const run = await runSearch(db, spec, new Date());
+    await alertRun(db, settings, spec, run);
+    return c.json(run);
   });
 }

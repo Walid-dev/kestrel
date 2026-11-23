@@ -27,6 +27,7 @@ export const Spec = z.object({
   category: z.string().default(""), // the model or the group inside a hunt
   scoring: z.unknown(), // score.ts reads it; kept loose here so a spec file edit never bricks the list
   enabled: z.boolean().default(true),
+  alerts: z.boolean().default(true), // a great find pings my phone; false: the hunt is Quiet (it searches, says nothing)
 });
 export type Spec = z.infer<typeof Spec> & { id: string };
 
@@ -104,4 +105,26 @@ export function isDue(spec: Pick<Spec, "times" | "everyMinutes">, lastStarted: s
       if (at <= now.getTime()) latest = Math.max(latest, at);
     }
   return latest > last;
+}
+
+// when a spec runs next on its own: the next set time, or its interval after the last run (now, when overdue); null
+// when it runs only when I ask
+export function nextRun(
+  spec: Pick<Spec, "times" | "everyMinutes" | "auto" | "enabled">,
+  lastStarted: string | null,
+  now: Date,
+): Date | null {
+  if (!spec.enabled || !spec.auto) return null;
+  if (spec.times.length) {
+    const slots = [0, 1].flatMap((ahead) =>
+      spec.times.map((t) => {
+        const [h, m] = t.split(":").map(Number);
+        return new Date(now.getFullYear(), now.getMonth(), now.getDate() + ahead, h, m);
+      }),
+    );
+    return slots.filter((d) => d.getTime() > now.getTime()).sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
+  }
+  if (!lastStarted) return now;
+  const at = new Date(new Date(lastStarted).getTime() + spec.everyMinutes * 60_000);
+  return at.getTime() < now.getTime() ? now : at;
 }

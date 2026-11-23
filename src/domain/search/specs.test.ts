@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { isDue, loadSpecs, readSpecFile, writeSpecFile } from "./specs.ts";
+import { isDue, loadSpecs, nextRun, readSpecFile, writeSpecFile } from "./specs.ts";
 
 test("a good search is written, reads back, and loads with the others", () => {
   const dir = mkdtempSync(join(tmpdir(), "kestrel-specs-"));
@@ -46,4 +46,14 @@ test("set times: due once the next one passes, once after a sleep through severa
   const every = { times: [], everyMinutes: 360 };
   assert.equal(isDue(every, at(21, 6).toISOString(), at(21, 11, 59)), false);
   assert.equal(isDue(every, at(21, 6).toISOString(), at(21, 12)), true);
+});
+
+test("the next run: the next set time (tomorrow's first after the last), the interval after the last, none when off", () => {
+  const at = (d: number, h: number, m = 0) => new Date(2026, 10, d, h, m);
+  const on = { enabled: true, auto: true };
+  assert.deepEqual(nextRun({ ...on, times: ["10:00", "20:00"], everyMinutes: 720 }, null, at(21, 9)), at(21, 10));
+  assert.deepEqual(nextRun({ ...on, times: ["10:00", "20:00"], everyMinutes: 720 }, null, at(21, 21)), at(22, 10));
+  assert.deepEqual(nextRun({ ...on, times: [], everyMinutes: 360 }, at(21, 6).toISOString(), at(21, 7)), at(21, 12));
+  assert.deepEqual(nextRun({ ...on, times: [], everyMinutes: 360 }, at(21, 6).toISOString(), at(21, 13)), at(21, 13));
+  assert.equal(nextRun({ enabled: true, auto: false, times: [], everyMinutes: 360 }, null, at(21, 9)), null);
 });

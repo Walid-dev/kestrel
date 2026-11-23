@@ -34,6 +34,7 @@ function setup(items: string) {
     hunt: "",
     category: "",
     enabled: true,
+    alerts: false,
   };
   return { base, db, spec };
 }

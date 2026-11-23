@@ -224,8 +224,8 @@ const APP_CHIP: Record<string, [string, string]> = {
   sent: ["Sent", "tone-accent"],
   "not-sent": ["Not sent", "tone-orange"],
   "needs-me": ["Needs me", "tone-pink"],
-  applying: ["Applying", "tone-purple"],
-  queued: ["Queued", "tone-purple"],
+  applying: ["Applying", "tone-green"],
+  queued: ["Queued", "tone-muted"],
 };
 
 function Head({ l }: { l: Listing }) {
@@ -261,7 +261,7 @@ function Results({ l, onDeep, busy }: { l: Listing; onDeep: () => void; busy?: s
         <ReadBox
           label="Model's read"
           chip={fit != null ? `Fit ${fit}/10` : undefined}
-          tone="tone-purple"
+          tone="tone-accent"
           chipTone={fit != null ? fitTone(fit) : undefined}
         >
           {why}
@@ -270,8 +270,8 @@ function Results({ l, onDeep, busy }: { l: Listing; onDeep: () => void; busy?: s
       <div className="flex flex-wrap items-center gap-1.5">
         {!why && fit != null && <span className={`chip ${fitTone(fit)}`}>Model's read {fit}/10</span>}
         {v && !running ? (
-          <span className={`chip ${v.tone}`}>
-            Deep check · <b>{v.label}</b>
+          <span className="chip tone-accent">
+            Deep check <b className={`verdict ${v.tone}`}>{v.label}</b>
           </span>
         ) : (
           <button

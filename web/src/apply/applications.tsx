@@ -24,7 +24,7 @@ type Lists = { byState: Record<string, Application[]>; counts: Record<string, nu
 
 const STATES: { state: string; title: string; tone: string; what: string }[] = [
   { state: "needs-me", title: "Needs me", tone: "tone-pink", what: "a step only I can do" },
-  { state: "applying", title: "Applying now", tone: "tone-purple", what: "an agent is on the form" },
+  { state: "applying", title: "Applying now", tone: "tone-green", what: "an agent is on the form" },
   { state: "queued", title: "Queued", tone: "tone-muted", what: "starts by itself once nothing else is at work" },
   { state: "not-sent", title: "Not sent", tone: "tone-orange", what: "stopped before sending, with why" },
   { state: "sent", title: "Sent", tone: "tone-accent", what: "the form went through" },

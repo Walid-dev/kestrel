@@ -64,7 +64,10 @@ export function Chats() {
 // a phone: the chats fill the screen from edge to edge, from under the title down to the bottom bar, like an app's own
 // screen (my ask, 2026-11-23: no box around a box); the page itself never scrolls, the list inside does
 function ChatFrame({ link }: { link: Link }) {
-  const frame = link.phoneFrame ?? link.phone ?? link.desktop;
+  // ?chat=<id> (Live's "Open the chat") opens that chat in the frame
+  const chat = new URLSearchParams(location.search).get("chat");
+  const base = link.phoneFrame ?? link.phone ?? link.desktop;
+  const frame = chat && /^session-[0-9a-f-]{36}$/.test(chat) ? `${base}#chat=${chat}` : base;
   const box = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState<number>();
   useLayoutEffect(() => {

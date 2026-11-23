@@ -9,6 +9,7 @@ import { openDb } from "../db/db.ts";
 import { migrate } from "../db/migrate.ts";
 import { loadSettings } from "../platform/config.ts";
 import { dataDir, isDeployed } from "../platform/paths.ts";
+import { alertRun } from "./alerts.ts";
 import { app } from "./app.ts";
 import { mountApply } from "./apply.ts";
 import { mountAsk } from "./ask.ts";
@@ -96,7 +97,7 @@ if (!isDeployed() && (db.prepare("SELECT COUNT(*) AS n FROM packs").get() as { n
 mountSearch(app, db, settings);
 mountApply(app, db);
 mountTasks(app, db);
-mountLive(app, db);
+mountLive(app, db, settings.oldLive ?? "");
 mountCost(app, settings);
 mountBrief(app, db, settings);
 mountEvents(app);
@@ -107,6 +108,7 @@ startScheduler(db, {
   specsDir: join(dataDir(), "searches"),
   backupsDir: join(dataDir(), "backups"),
   mirrorFile: join(dataDir(), "mirror-v1.json"),
+  afterRun: (spec, run) => alertRun(db, settings, spec, run),
 });
 
 // every request through the identity check: enforced when deployed, open on made-up data (identity.ts says why).

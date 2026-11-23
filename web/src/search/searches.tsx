@@ -4,7 +4,7 @@
 // cards. The page opens on To review, best first. A card swipes right for Interested and left for Not for me, has the
 // same buttons under it, starts a deep check, and opens the whole listing on a tap.
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Ask } from "../ask.tsx";
 import { ago, DEAL, DealCard, JobCard, type Listing, MATCH, Swipe } from "./cards.tsx";
@@ -22,7 +22,101 @@ type Hunt = {
   lastRun: Run;
   mirrored: boolean;
   running: number; // its searches queued or running now
+  mode: "on" | "quiet" | "paused" | null; // null: the old setup runs it
+  next: string | null;
+  last: {
+    at: string;
+    kept: number;
+    leftOut: number;
+    problem: string;
+    best: { id: string; title: string; org: string } | null;
+  } | null;
 };
+const MODES = {
+  on: ["On", "Searches on its own and pings your phone for a great find"],
+  quiet: ["Quiet", "Searches on its own, without pings"],
+  paused: ["Paused", "Searches only when you press Search now"],
+} as const;
+
+// a time as the old hunt page said it: today 9:00 AM, tomorrow 10:00 AM, or its weekday
+function when(iso: string): string {
+  const d = new Date(iso);
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const days = Math.round(
+    (new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() -
+      new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime()) /
+      86_400_000,
+  );
+  const day =
+    days === 0
+      ? "today"
+      : days === 1
+        ? "tomorrow"
+        : days === -1
+          ? "yesterday"
+          : d.toLocaleDateString(undefined, { weekday: "short" });
+  return `${day} ${time}`;
+}
+
+// the line under the title: the last search, what it found and the best of it, and when it searches next
+function StatusLine({ hunt, mirror }: { hunt: Hunt; mirror?: Run }) {
+  const l = hunt.last;
+  const bits: ReactNode[] = [];
+  if (l)
+    bits.push(
+      <span key="last">
+        Last search <b style={{ color: "var(--text)" }}>{when(l.at)}</b>: {l.kept} new{" "}
+        {hunt.kind === "jobs" ? (l.kept === 1 ? "job" : "jobs") : l.kept === 1 ? "ad" : "ads"}
+        {l.leftOut ? ` (${l.leftOut} left out)` : ""}.
+        {l.best && ` Best: ${l.best.title}${l.best.org ? ` at ${l.best.org}` : ""}.`}
+        {l.problem && <span style={{ color: "var(--warn)" }}> {l.problem}.</span>}
+      </span>,
+    );
+  else if (hunt.mirrored)
+    bits.push(
+      <span key="mirror">
+        Mirrored nightly from the old setup{mirror ? `, last ${ago(mirror.started)}` : ""}
+        {mirror?.problem && <span style={{ color: "var(--warn)" }}> · {mirror.problem}</span>}
+      </span>,
+    );
+  else bits.push(<span key="none">No search yet.</span>);
+  if (hunt.running > 0)
+    bits.push(
+      <b key="now" style={{ color: "var(--green)" }}>
+        Searching now
+      </b>,
+    );
+  if (hunt.mode === "paused")
+    bits.push(
+      <span key="paused">
+        <b style={{ color: "var(--text)" }}>Paused</b>: it searches when you press Search now
+      </span>,
+    );
+  else if (hunt.next)
+    bits.push(
+      <span key="next">
+        Next search <b style={{ color: "var(--text)" }}>{when(hunt.next)}</b>
+        {hunt.mode === "quiet" ? " (no pings)" : ""}, if your Mac is awake and plugged in
+      </span>,
+    );
+  if (l && hunt.mode && hunt.mode !== "paused" && Date.now() - Date.parse(l.at) > 26 * 3600_000)
+    bits.push(
+      <span key="stale" style={{ color: "var(--warn)" }}>
+        No search since {when(l.at)}. Check the Mac.
+      </span>,
+    );
+  return (
+    <>
+      {bits.map((b, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: the line's parts keep their order
+        <span key={i}>
+          {i > 0 && " · "}
+          {b}
+        </span>
+      ))}
+    </>
+  );
+}
 type Counts = {
   stages: Record<string, number>;
   match: Record<string, number>;
@@ -61,8 +155,6 @@ const STAGE_LIST: Record<"jobs" | "deals", [string, string][]> = {
 const DEFAULT_STAGE = { jobs: "review", deals: "new" } as const;
 const PAGE = 120;
 const FOLD = "kestrel-search-filters";
-const at = (iso: string) =>
-  new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
 
 // each filter is its own part: a label with what is picked, its pills under it, folding on its own
 function Part({
@@ -137,6 +229,7 @@ const SORTS: Record<"jobs" | "deals", [string, string][]> = {
   ],
 };
 const PARTS = "kestrel-search-parts";
+const LAST = "kestrel-last-opened";
 
 export function Searches() {
   const queryClient = useQueryClient();
@@ -149,6 +242,23 @@ export function Searches() {
     if (id) setOpen(id);
   }, [params]);
   const [asking, setAsking] = useState(false);
+  // the listing I opened last: its card says so when I come back to the list (kept in this browser)
+  const [last, setLast] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(LAST);
+    } catch {
+      return null;
+    }
+  });
+  useEffect(() => {
+    if (!open) return;
+    setLast(open);
+    try {
+      localStorage.setItem(LAST, open);
+    } catch {
+      // a private window keeps nothing: the mark lasts this visit
+    }
+  }, [open]);
   const [limit, setLimit] = useState(PAGE);
   const [moreGroups, setMoreGroups] = useState(false);
   const [closed, setClosed] = useState<Set<string>>(() => {
@@ -285,6 +395,18 @@ export function Searches() {
     },
     onSettled: refresh,
   });
+  // the hunt's switch: On, Quiet or Paused, for each of its searches
+  const setMode = useMutation({
+    mutationFn: async (input: { kind: string; key: string; mode: string }) => {
+      const res = await fetch("/api/search/hunts/mode", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["searches"] }),
+  });
   // Search now: every search of the hunt, one after the other, in the background (the chair's run across two sites
   // and ten models takes a while); the button counts them down
   const runNow = useMutation({
@@ -326,7 +448,7 @@ export function Searches() {
   const tiers: Record<string, number> = {};
   for (const l of listings.data?.listings ?? []) if (l.deal) tiers[l.deal.tier] = (tiers[l.deal.tier] ?? 0) + 1;
   const c = counts.data;
-  const failed = [hunts, counts, listings, act, queue, runNow, deep].find((x) => x.isError);
+  const failed = [hunts, counts, listings, act, queue, runNow, deep, setMode].find((x) => x.isError);
   const spec = hunt?.specs.find((s) => s.enabled);
   const sources = Object.entries(c?.source ?? {}).sort((a, b) => b[1] - a[1]);
   const groups = Object.entries(c?.group ?? {})
@@ -351,37 +473,33 @@ export function Searches() {
 
   return (
     <main className="grid gap-5">
-      {all.length > 0 && (
-        <nav className="flex flex-wrap gap-2">
-          {all.map((h) => (
-            <button
-              key={`${h.kind}:${h.key}`}
-              type="button"
-              className="pill"
-              aria-pressed={h === hunt}
-              onClick={() => set("hunt", `${h.kind}:${h.key}`)}
-            >
-              <span className={`dot ${h.kind === "jobs" ? "tone-accent" : "tone-orange"}`} />
-              {h.name}
-              <b>{h.count}</b>
-            </button>
-          ))}
-          <Link to="/searches/settings?new=jobs" className="pill">
-            + New search
-          </Link>
-        </nav>
-      )}
-
       {hunt && (
-        <header className="grid gap-2">
-          <div className="flex flex-wrap items-center gap-3">
-            <h2 className="font-cond m-0 text-[34px] font-bold uppercase leading-none tracking-tight md:text-[40px]">
+        <header className="grid gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h2 className="font-cond m-0 mr-1 text-[34px] font-bold uppercase leading-none tracking-tight md:text-[44px]">
               {hunt.name}
             </h2>
+            {hunt.mode && (
+              <fieldset className="seg seg-modes" aria-label="This hunt's switch">
+                {(["on", "quiet", "paused"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    data-mode={m}
+                    aria-pressed={hunt.mode === m}
+                    title={MODES[m][1]}
+                    disabled={setMode.isPending}
+                    onClick={() => setMode.mutate({ kind: hunt.kind, key: hunt.key, mode: m })}
+                  >
+                    {MODES[m][0]}
+                  </button>
+                ))}
+              </fieldset>
+            )}
             {spec && (
               <button
                 type="button"
-                className="btn"
+                className="btn btn-head"
                 disabled={runNow.isPending || hunt.running > 0}
                 onClick={() => runNow.mutate(hunt)}
               >
@@ -392,14 +510,16 @@ export function Searches() {
                     : "Search now"}
               </button>
             )}
+            <Link to={`/searches/settings?new=${kind}`} className="btn btn-head">
+              + New hunt
+            </Link>
             <Link
               to={
                 hunt.specs[0]
                   ? `/searches/settings?spec=${encodeURIComponent(hunt.specs[0].id)}`
                   : `/searches/settings?new=${kind}`
               }
-              className="btn"
-              aria-label="This search's settings"
+              className="btn btn-head inline-flex items-center gap-2"
               title={
                 hunt.specs[0] ? "This search's settings" : "This hunt runs in the old setup: make its kestrel search"
               }
@@ -418,19 +538,35 @@ export function Searches() {
                 <circle cx="12" cy="12" r="3" />
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
               </svg>
+              Settings
             </Link>
             <button
               type="button"
-              className="btn inline-flex items-center gap-1.5"
+              className="btn btn-head inline-flex items-center gap-1.5"
               aria-pressed={asking}
               style={asking ? { borderColor: "var(--purple)", color: "var(--purple)" } : undefined}
-              onClick={() => setAsking((a) => !a)}
+              onClick={() => setAsking((x) => !x)}
             >
               <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
                 <path d="M12 2.5c.6 4.6 2.9 6.9 7.5 7.5-4.6.6-6.9 2.9-7.5 7.5-.6-4.6-2.9-6.9-7.5-7.5 4.6-.6 6.9-2.9 7.5-7.5Z" />
               </svg>
               Ask
             </button>
+            {/* the other hunts: a menu in the corner, not a row of tabs over the title */}
+            {all.length > 1 && (
+              <select
+                className="btn btn-head ml-auto max-w-full"
+                aria-label="Hunt"
+                value={`${hunt.kind}:${hunt.key}`}
+                onChange={(e) => set("hunt", e.target.value)}
+              >
+                {all.map((h) => (
+                  <option key={`${h.kind}:${h.key}`} value={`${h.kind}:${h.key}`}>
+                    {h.name} · {h.count}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           {asking && (
             <Ask
@@ -455,32 +591,15 @@ export function Searches() {
             />
           )}
           {(hunt.about || kind === "deals") && (
-            <p className="m-0 max-w-4xl text-[16px]" style={{ color: "var(--muted)" }}>
+            <p className="m-0 max-w-4xl text-[16.5px] leading-relaxed" style={{ color: "var(--muted)" }}>
               {hunt.about || (groups.length ? `${groups.length} models: ${groups.map(([g]) => g).join(", ")}.` : "")}
             </p>
           )}
-          <p className="font-mono m-0 text-[12.5px]" style={{ color: "var(--muted)" }}>
+          <p className="font-mono m-0 max-w-4xl text-[13.5px] leading-relaxed" style={{ color: "var(--muted)" }}>
             <span className={`chip chip-caps ${kind === "jobs" ? "tone-accent" : "tone-orange"} mr-2`}>
               {kind === "jobs" ? "Jobs" : "Used deals"}
             </span>
-            {hunt.lastRun ? (
-              <>
-                Last search <b style={{ color: "var(--text)" }}>{at(hunt.lastRun.started)}</b>: {hunt.lastRun.found}{" "}
-                found, {hunt.lastRun.kept} new
-                {hunt.lastRun.problem && <span style={{ color: "var(--warn)" }}> · {hunt.lastRun.problem}</span>}
-                {spec && (spec.auto ? ` · every ${Math.round(spec.everyMinutes / 60)} h` : " · runs when you ask")}
-              </>
-            ) : hunt.mirrored ? (
-              <>
-                mirrored nightly from the old setup
-                {hunts.data?.mirror && ` · last ${ago(hunts.data.mirror.started)}`}
-                {hunts.data?.mirror?.problem && (
-                  <span style={{ color: "var(--warn)" }}> · {hunts.data.mirror.problem}</span>
-                )}
-              </>
-            ) : (
-              "no search yet"
-            )}
+            <StatusLine hunt={hunt} mirror={hunts.data?.mirror} />
           </p>
         </header>
       )}
@@ -644,6 +763,37 @@ export function Searches() {
             </Part>
           </div>
         )}
+        {/* folded, the panel still says what is picked: each a pill that opens the filters again */}
+        {!shown && (
+          <div className="flex flex-wrap gap-1.5">
+            <button type="button" className={`pill ${STAGE_TONE[stage] ?? ""}`} aria-pressed onClick={() => fold(true)}>
+              {STAGE_TONE[stage] && <span className="dot" />} {stageName} <b>{c?.stages[stage] ?? 0}</b>
+            </button>
+            {match && (
+              <button
+                type="button"
+                className={`pill ${(kind === "jobs" ? MATCH[match]?.tone : DEAL[match]?.tone) ?? ""}`}
+                aria-pressed
+                onClick={() => fold(true)}
+              >
+                <span className="dot" /> {(kind === "jobs" ? MATCH[match]?.label : DEAL[match]?.label) ?? match}
+              </button>
+            )}
+            {group && (
+              <button type="button" className="pill" aria-pressed onClick={() => fold(true)}>
+                {group}
+              </button>
+            )}
+            {source && (
+              <button type="button" className="pill" aria-pressed onClick={() => fold(true)}>
+                {source}
+              </button>
+            )}
+            <button type="button" className="pill" aria-pressed onClick={() => fold(true)}>
+              {SORTS[kind].find(([k]) => k === sort)?.[1] ?? sort}
+            </button>
+          </div>
+        )}
         <p className="m-0 text-[13px]" style={{ color: "var(--muted)" }}>
           {stage === "leftout"
             ? "The rules set these aside: a weak match, pay far below the floor, a removed search, an old ad."
@@ -680,24 +830,27 @@ export function Searches() {
               onLeft={() => status(l, "passed")}
               leftLabel={kind === "jobs" ? "Not for me" : "Not interested"}
             >
-              {l.kind === "deals" ? (
-                <DealCard
-                  l={l}
-                  onOpen={() => setOpen(l.id)}
-                  onStatus={(s) => status(l, s)}
-                  onDeep={() => deep.mutate(l.id)}
-                  busy={busyOf(l.id)}
-                />
-              ) : (
-                <JobCard
-                  l={l}
-                  onOpen={() => setOpen(l.id)}
-                  onStatus={(s) => status(l, s)}
-                  onQueue={() => queue.mutate(l.id)}
-                  onDeep={() => deep.mutate(l.id)}
-                  busy={busyOf(l.id)}
-                />
-              )}
+              <div className={l.id === last ? "last-opened" : "grid"}>
+                {l.id === last && <span className="last-badge">Last opened</span>}
+                {l.kind === "deals" ? (
+                  <DealCard
+                    l={l}
+                    onOpen={() => setOpen(l.id)}
+                    onStatus={(s) => status(l, s)}
+                    onDeep={() => deep.mutate(l.id)}
+                    busy={busyOf(l.id)}
+                  />
+                ) : (
+                  <JobCard
+                    l={l}
+                    onOpen={() => setOpen(l.id)}
+                    onStatus={(s) => status(l, s)}
+                    onQueue={() => queue.mutate(l.id)}
+                    onDeep={() => deep.mutate(l.id)}
+                    busy={busyOf(l.id)}
+                  />
+                )}
+              </div>
             </Swipe>
           );
         })}

@@ -8,11 +8,16 @@ import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { snapshot } from "../db/db.ts";
 import { importV1 } from "../domain/search/import-v1.ts";
-import { lastRun, runSearch } from "../domain/search/runs.ts";
-import { isDue, loadSpecs } from "../domain/search/specs.ts";
+import { lastRun, type Run, runSearch } from "../domain/search/runs.ts";
+import { isDue, loadSpecs, type Spec } from "../domain/search/specs.ts";
 import { begin } from "../platform/activity.ts";
 
-export type SchedulerDirs = { specsDir: string; backupsDir: string; mirrorFile?: string };
+export type SchedulerDirs = {
+  specsDir: string;
+  backupsDir: string;
+  mirrorFile?: string;
+  afterRun?: (spec: Spec, run: Run) => Promise<void>; // a hunt that is On pings my phone (server/alerts.ts)
+};
 
 // an error's words, with any path turned generic: the run rows and the service log never carry folders
 const plainWords = (msg: string): string => msg.replaceAll(/\/[^\s"']+/g, "(a path)").slice(0, 120);
@@ -41,7 +46,8 @@ async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promis
     if (!spec.enabled || !spec.auto || applying) continue; // off, only when I ask, or an application at work
     if (!isDue(spec, lastRun(db, spec.id)?.started ?? null, now)) continue;
     try {
-      await runSearch(db, spec, now); // one at a time: the collectors share one computer and one browser
+      const run = await runSearch(db, spec, now); // one at a time: the collectors share one computer and one browser
+      await dirs.afterRun?.(spec, run).catch(() => {}); // a ping that fails never stops the tick
     } catch (e) {
       // a crash still lands a run row, so the spec isn't due again every minute and the screen says what happened
       db.prepare(

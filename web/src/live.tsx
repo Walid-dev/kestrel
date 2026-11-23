@@ -5,6 +5,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
+import { onComputer, useChatLink } from "./chats.tsx";
 import { useEvents } from "./events.ts";
 import { ListingSheet } from "./search/sheet.tsx";
 
@@ -29,7 +30,109 @@ type App = {
   reason: string;
   updated: string;
 };
-type Live = { at: string; now: Item[]; apps: App[]; recent: Item[] };
+// an agent's chat, from the old setup's Live: its state and its steps (passed, failed with why, asked, waiting…)
+type ChatStep = { at: string; kind: string; text: string; why?: string };
+type AgentChat = {
+  id: string;
+  title: string;
+  applying: boolean;
+  working: boolean;
+  waiting: string;
+  help: string;
+  started: string;
+  updated: string;
+  steps: ChatStep[];
+  job: { title?: string; company?: string } | null;
+};
+type Live = { at: string; now: Item[]; apps: App[]; chats?: AgentChat[]; recent: Item[] };
+
+// one line per step, as the old Live has it: a green check for a step that went through, red with its error for one
+// that failed, amber for a question or a wait on me, the agent's own words quiet, the last step turning while it works
+const MARK: Record<string, [string, string]> = {
+  passed: ["✓", "var(--green)"],
+  ok: ["✓", "var(--green)"],
+  done: ["■", "var(--muted)"],
+  did: ["•", "var(--muted)"],
+  failed: ["✕", "var(--red)"],
+  no: ["✕", "var(--red)"],
+  asked: ["?", "var(--yellow)"],
+  wait: ["…", "var(--yellow)"],
+  said: ["“", "var(--muted)"],
+  you: ["›", "var(--accent)"],
+};
+const SHOWN = 14;
+
+function AgentSteps({ chat }: { chat: AgentChat }) {
+  const [all, setAll] = useState(false);
+  const steps = all ? chat.steps : chat.steps.slice(-SHOWN);
+  return (
+    <div className="grid gap-1">
+      {chat.steps.length > SHOWN && !all && (
+        <button
+          type="button"
+          className="btn btn-quiet justify-self-start !py-0.5 text-[12.5px]"
+          onClick={() => setAll(true)}
+        >
+          Show the {chat.steps.length - SHOWN} steps before
+        </button>
+      )}
+      <ol className="m-0 grid list-none gap-1 p-0">
+        {steps.map((st, i) => {
+          const lastOne = i === steps.length - 1;
+          const [mark, colour] = MARK[st.kind] ?? ["•", "var(--muted)"];
+          const turning = lastOne && chat.working && st.kind === "did";
+          return (
+            <li
+              // biome-ignore lint/suspicious/noArrayIndexKey: a chat's steps only grow at the end
+              key={i}
+              className="grid grid-cols-[18px_minmax(0,1fr)] items-baseline gap-2 text-[14px] leading-snug"
+            >
+              <span className="text-center font-bold" style={{ color: colour }} aria-hidden="true">
+                {turning ? <span className="spin inline-block" /> : mark}
+              </span>
+              <span
+                style={{
+                  color: st.kind === "said" ? "var(--muted)" : st.kind === "failed" ? "var(--red)" : "var(--text)",
+                  fontStyle: st.kind === "said" ? "italic" : undefined,
+                }}
+              >
+                {st.kind === "you" ? `You: ${st.text}` : st.text}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+// a chat's state in words, with the way to open it: on a computer in dsh itself, on a phone in kestrel's Chat
+function ChatState({ chat, open }: { chat: AgentChat; open: (id: string) => void }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-[13px]">
+      {chat.working ? (
+        <>
+          <span className="dot tone-green pulse" />
+          <b style={{ color: "var(--green)" }}>Working</b>
+        </>
+      ) : chat.waiting ? (
+        <>
+          <span className="dot tone-yellow" />
+          <b style={{ color: "var(--yellow)" }}>Waiting for {chat.waiting}</b>
+          {chat.help && <span style={{ color: "var(--text)" }}>: {chat.help}</span>}
+        </>
+      ) : (
+        <span style={{ color: "var(--muted)" }}>Ended {clock(chat.updated)}</span>
+      )}
+      <span className="font-mono" style={{ color: "var(--muted)" }}>
+        {length(chat.started, chat.working || chat.waiting ? Date.now() : Date.parse(chat.updated))}
+      </span>
+      <button type="button" className="btn btn-quiet ml-auto" onClick={() => open(chat.id)}>
+        Open the chat
+      </button>
+    </div>
+  );
+}
 
 const KIND: Record<string, [string, string]> = {
   search: ["Search", "tone-purple"],
@@ -183,7 +286,20 @@ export function LivePage() {
   };
 
   const d = live.data;
-  const busy = (d?.now.length ?? 0) + (d?.apps.filter((a) => a.state !== "queued").length ?? 0);
+  const chats = d?.chats ?? [];
+  // an application's own chat, by its job: its steps show in the application's card
+  const chatOf = (a: App) =>
+    chats.find((c) => c.applying && a.title && (c.job?.title === a.title || c.title.includes(a.title)));
+  const loose = chats.filter((c) => !d?.apps.some((a) => chatOf(a)?.id === c.id));
+  const busy =
+    (d?.now.length ?? 0) +
+    (d?.apps.filter((a) => a.state !== "queued").length ?? 0) +
+    loose.filter((c) => c.working || c.waiting).length;
+  const chatLink = useChatLink();
+  const openChat = (id: string) => {
+    if (onComputer() && chatLink.link) window.open(`${chatLink.link.desktop}#chat=${id}`, "_blank", "noopener");
+    else navigate(`/chats?chat=${encodeURIComponent(id)}`);
+  };
   const last = d?.recent[0];
   const days: [string, Item[]][] = [];
   for (const a of log.data?.activity ?? []) {
@@ -259,7 +375,7 @@ export function LivePage() {
             >
               <div className="flex flex-wrap items-center gap-2">
                 <span
-                  className={`chip chip-caps ${a.state === "needs-me" ? "tone-pink" : a.state === "applying" ? "tone-purple" : "tone-muted"}`}
+                  className={`chip chip-caps ${a.state === "needs-me" ? "tone-pink" : a.state === "applying" ? "tone-green" : "tone-muted"}`}
                 >
                   {a.state === "needs-me" ? "Needs me" : a.state === "applying" ? "Applying" : "Queued"}
                 </span>
@@ -274,6 +390,15 @@ export function LivePage() {
                   {a.reason}
                 </p>
               )}
+              {(() => {
+                const chat = chatOf(a);
+                return chat ? (
+                  <>
+                    <ChatState chat={chat} open={openChat} />
+                    <AgentSteps chat={chat} />
+                  </>
+                ) : null;
+              })()}
               <div className="flex gap-2">
                 {a.listing && (
                   <button type="button" className="btn" onClick={() => setOpen(a.listing)}>
@@ -290,6 +415,32 @@ export function LivePage() {
                   The page ↗
                 </a>
               </div>
+            </section>
+          ))}
+          {loose.map((c) => (
+            <section
+              key={c.id}
+              className="card grid gap-3"
+              style={
+                c.working
+                  ? { borderColor: "color-mix(in srgb, var(--green) 45%, var(--line))" }
+                  : c.waiting
+                    ? { borderColor: "color-mix(in srgb, var(--yellow) 55%, var(--line))" }
+                    : undefined
+              }
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={`chip chip-caps ${c.working ? "tone-green" : c.waiting ? "tone-yellow" : "tone-muted"}`}
+                >
+                  {c.applying ? "Application" : "Agent"}
+                </span>
+                <h3 className="font-cond m-0 min-w-0 flex-1 truncate text-lg font-bold">
+                  {c.job?.title ? `${c.job.title}${c.job.company ? ` · ${c.job.company}` : ""}` : c.title || "A chat"}
+                </h3>
+              </div>
+              <ChatState chat={c} open={openChat} />
+              <AgentSteps chat={c} />
             </section>
           ))}
           {busy === 0 && last && (

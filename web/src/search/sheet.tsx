@@ -273,7 +273,8 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
             <ReadBox
               label="Model's read"
               chip={`Fit ${d.fit}/10`}
-              tone={d.fit >= 7 ? "tone-green" : d.fit >= 4 ? "tone-yellow" : "tone-red"}
+              tone="tone-accent"
+              chipTone={d.fit >= 7 ? "tone-green" : d.fit >= 4 ? "tone-yellow" : "tone-red"}
             >
               {str(d.fitWhy)}
             </ReadBox>

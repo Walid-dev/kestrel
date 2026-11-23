@@ -79,7 +79,7 @@ export function Tasks() {
   const failed = [tasks, add, act].find((x) => x.isError);
 
   return (
-    <main className="grid max-w-3xl gap-3.5">
+    <main className="mx-auto grid w-full max-w-3xl gap-3.5">
       <div className="flex items-baseline gap-3">
         <h2 className="font-cond m-0 text-[34px] font-bold uppercase leading-none tracking-tight">Tasks</h2>
         <span className="text-[13px]" style={{ color: "var(--muted)" }}>

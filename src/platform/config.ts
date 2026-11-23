@@ -81,6 +81,19 @@ export const Settings = z.object({
       check: z.string().default(""),
     })
     .default({ folder: "", skill: "", pdf: "", check: "" }),
+  // pings to my phone through ntfy, the old setup's channel (my yes, 2026-11-23): its address, each channel's topic
+  // as the file that holds it (read at send time, never kept or printed: anyone who knows a topic can read it), and
+  // kestrel's own address on the phone, which a tap opens. Without it, nothing is sent
+  alerts: z
+    .object({
+      url: z.string().url().default("https://ntfy.sh"),
+      topics: z.object({ deals: z.string().optional(), jobs: z.string().optional() }).default({}),
+      page: z.string().default(""),
+    })
+    .optional(),
+  // the old setup's Live (its /api/live, on this computer): the agent's chats and their steps, which Live shows until
+  // kestrel reads the chats itself. Empty: Live shows kestrel's own work only
+  oldLive: z.string().optional(),
   // who I am, for a deep check's read of a job: level, years, skills, a summary (personal: the data folder only)
   profile: z
     .object({
