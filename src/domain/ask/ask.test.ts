@@ -11,8 +11,10 @@ import { startStandIn } from "../../ai/stand-in.ts";
 import { migrate } from "../../db/migrate.ts";
 import type { Settings } from "../../platform/config.ts";
 import { addLesson, addPack } from "../learn/lessons.ts";
-import { Refused } from "../notes/documents.ts";
+import { addUpload, Refused } from "../notes/documents.ts";
+import { listNotes } from "../notes/notes.ts";
 import { findListings } from "../search/ask.ts";
+import { addTask, listTasks } from "../tasks/tasks.ts";
 import { actOn, askPage, clearConversation, conversation, sweepAsks } from "./ask.ts";
 
 function setup() {
@@ -180,4 +182,52 @@ test("on Searches the model looks through the hunt, answers from what it found, 
     "interested",
   );
   assert.throws(() => actOn(db, settings(s.url), { id: answer.id, card: 0 }), /already made/);
+});
+
+test("on Notes a note on words the document has becomes a card; one on words it hasn't is dropped; my tap adds it", async () => {
+  const db = setup();
+  const doc = addUpload(db, "hive.md", "The hive holds ten frames.\nKeepers check it weekly.\n");
+  const s = await startStandIn(() => ({
+    content:
+      'Two notes.\n```action\n{"do": "note", "quote": "ten frames", "text": "Say how many are full"}\n```\n```action\n{"do": "note", "quote": "twelve combs", "text": "Not in it"}\n```\n```action\n{"do": "note", "quote": "", "text": "Make it warmer"}\n```',
+  }));
+  await askPage(db, settings(s.url), { app: "notes", ref: doc.id, text: "What should change?" }).done;
+  await s.close();
+  const answer = conversation(db, "notes", doc.id)[1];
+  assert.deepEqual(
+    answer.cards.map((c) => c.label),
+    ["Note on “ten frames”: Say how many are full", "Note on the whole document: Make it warmer"],
+  );
+  actOn(db, settings(s.url), { id: answer.id, card: 0 });
+  assert.deepEqual(
+    listNotes(db, doc.id).map((n) => [n.quote, n.text]),
+    [["ten frames", "Say how many are full"]],
+  );
+});
+
+test("on Tasks the model proposes adding, changing and closing; a made-up id is dropped; each tap makes its change", async () => {
+  const db = setup();
+  const wax = addTask(db, "Melt the old wax");
+  const s = await startStandIn(() => ({
+    content: [
+      "Three changes.",
+      '```action\n{"do": "add", "text": "Order new frames", "who": ""}\n```',
+      `\`\`\`action\n{"do": "done", "id": "${wax.id}", "note": "Melted on Sunday"}\n\`\`\``,
+      '```action\n{"do": "edit", "id": "made-up", "text": "Nothing"}\n```',
+    ].join("\n"),
+  }));
+  await askPage(db, settings(s.url), { app: "tasks", ref: "tasks", text: "Tidy my list" }).done;
+  await s.close();
+  const answer = conversation(db, "tasks", "tasks")[1];
+  assert.deepEqual(
+    answer.cards.map((c) => c.label),
+    ["Add “Order new frames”", "Mark “Melt the old wax” done: Melted on Sunday"],
+  );
+  actOn(db, settings(s.url), { id: answer.id, card: 0 });
+  actOn(db, settings(s.url), { id: answer.id, card: 1 });
+  assert.deepEqual(
+    listTasks(db, "open").map((t) => t.text),
+    ["Order new frames"],
+  );
+  assert.equal(listTasks(db, "done")[0].note, "Melted on Sunday");
 });

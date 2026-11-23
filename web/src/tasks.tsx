@@ -2,8 +2,10 @@
 // it is for (any agent, Claude Code, dsh, me); Enter adds and the newest comes first. A tap on a task's words edits them
 // in place (Enter or leaving saves, Escape puts them back); its who, when and note under it; a round box ticks it off.
 // Done tasks fold below. Agents read the same list through the kestrel command and close one with a note.
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Ask } from "./ask.tsx";
 
 type Task = {
   id: string;
@@ -158,6 +160,14 @@ export function Tasks() {
           </ol>
         </details>
       )}
+      <Ask
+        app="tasks"
+        refId="tasks"
+        title="Ask about my tasks"
+        placeholder="Add, change or close tasks in words"
+        starters={["What should I do first?", "Group what is open by theme", "Which ones look done already?"]}
+        onChange={refresh}
+      />
       <p className="m-0 text-[12px]" style={{ color: "var(--muted)" }}>
         Tap a task to edit it. Agents read this list through the kestrel command, pick a task only when you ask, and
         close it with a short note of what was done.

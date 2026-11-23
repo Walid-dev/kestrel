@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { type Line, lineKinds, segments } from "../../../src/shared/marks.ts";
 import type { DocumentFull, Draft, PlacedNote } from "../../../src/shared/notes.ts";
+import { Ask } from "../ask.tsx";
 import { NoteSheet, type SheetTarget } from "./note-sheet.tsx";
 import { NotesList } from "./notes-list.tsx";
 import { Review } from "./review.tsx";
@@ -360,6 +361,17 @@ export function Reader() {
           onOpen={(n) => setSheet({ kind: "edit", note: n })}
           onDelete={(n) => remove.mutate(n.id)}
         />
+        {/* Ask, about this document: it proposes notes as cards, which join these once I tap them */}
+        <div className="mt-4">
+          <Ask
+            app="notes"
+            refId={id}
+            title="Ask about this document"
+            placeholder="Ask, or say what should change"
+            starters={["Where is it weakest?", "What could be cut?", "Check it for clarity and mistakes"]}
+            onChange={changed}
+          />
+        </div>
       </div>
       {review && current?.status === "ready" && (
         <Review
