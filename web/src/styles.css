@@ -456,10 +456,19 @@ h3 {
   border-color: var(--red);
   color: var(--bg);
 }
+/* light's --red under white words reads 3.5:1; the deeper --poor reads 4.7:1, enough for the box's main word */
+@media (prefers-color-scheme: light) {
+  .btn-primary.btn-danger {
+    background: var(--poor);
+    border-color: var(--poor);
+  }
+}
 /* Dialog: the sheets' look, one place. Centred on the phone and the computer; the box scrolls, never the page behind */
 .dialog {
   margin: auto;
   width: min(calc(100vw - 32px), 460px);
+  /* the browser caps a modal dialog at its own max-width; the widths here are the ones that count */
+  max-width: none;
   max-height: min(88dvh, 760px);
   overflow-y: auto;
   overscroll-behavior: contain;

@@ -23,6 +23,8 @@ type TryRow = {
   error: string;
   kind: Kind;
   ask: string;
+  // the PDF's file name, when the try made one
+  pdf?: string | null;
 };
 const KINDS: [Kind, string, string][] = [
   ["letter", "Cover letter", ""],
@@ -274,7 +276,12 @@ export function Writing() {
                       onClick={async () => {
                         const yes = await sure({
                           title: "Delete this try?",
-                          body: "Its text and its PDF are deleted too.",
+                          // name only what goes: a failed try wrote nothing, and only a letter can have a PDF
+                          body: x.pdf
+                            ? "Its text and its PDF are deleted too."
+                            : x.state === "done"
+                              ? "Its text is deleted too."
+                              : undefined,
                           yes: "Delete",
                           danger: true,
                         });
@@ -286,6 +293,12 @@ export function Writing() {
                   )}
                 </div>
               ))}
+              {/* a refused delete (a try still being written) says so: the box named what would go */}
+              {forget.isError && (
+                <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
+                  The delete didn't land: {(forget.error as Error).message}
+                </p>
+              )}
             </div>
           )}
         </section>

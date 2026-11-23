@@ -34,12 +34,14 @@ type Base<V extends string> = {
   label: string;
   showLabel?: boolean;
   options: PillOption<V>[];
+  // the id of a hint beside the group, read out with it (the way a field's hint is)
+  describedBy?: string;
 };
 type One<V extends string> = Base<V> & { multiple?: false; value: V | null; onChange: (v: V) => void };
 type Many<V extends string> = Base<V> & { multiple: true; value: V[]; onChange: (v: V[]) => void };
 
 export function Pills<V extends string>(props: One<V> | Many<V>) {
-  const { label, showLabel = false, options } = props;
+  const { label, showLabel = false, options, describedBy } = props;
   const picked = (v: V) => (props.multiple ? props.value.includes(v) : props.value === v);
   const pick = (v: V) => {
     if (props.multiple)
@@ -53,7 +55,7 @@ export function Pills<V extends string>(props: One<V> | Many<V>) {
     else props.onChange(v);
   };
   return (
-    <fieldset className="pills">
+    <fieldset className="pills" aria-describedby={describedBy}>
       <legend className={showLabel ? "eyebrow pills-legend" : "sr-only"}>{label}</legend>
       <div className="pills-row">
         {options.map((o) => (

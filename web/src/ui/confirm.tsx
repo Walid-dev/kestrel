@@ -1,7 +1,8 @@
 // "Are you sure?" as the app's own box instead of the browser's own pop-up: the same look as every other box, words
 // that name what happens, and the safe answer first when the action can't be undone. One provider at the app's root;
 // any page asks with useConfirm and awaits the answer. Esc, Back and a tap outside answer no.
-import { createContext, type ReactNode, useContext, useState, useSyncExternalStore } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useLocation } from "react-router";
 import { Dialog } from "./dialog.tsx";
 import { asker } from "./logic.ts";
 
@@ -24,6 +25,15 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [last, setLast] = useState<Question | null>(null);
   if (open && open !== last) setLast(open);
   const q = open ?? last;
+  // the box sits above the routes, so it would outlive the page that asked: Back (a swipe, the mouse's back button)
+  // answers no, the way Esc does, so a Delete can't land on a page already left
+  const where = useLocation();
+  const seen = useRef(where);
+  useEffect(() => {
+    if (where === seen.current) return;
+    seen.current = where;
+    box.answer(false);
+  }, [where, box]);
   return (
     <Ask.Provider value={box.ask}>
       {children}

@@ -62,10 +62,10 @@ async function send(url: string, method: string, body?: unknown) {
   return j;
 }
 
-// the same question from the card's ✕ and from the report's Delete
-const deleteAnswer = (title: string) => ({
+// the same question from the card's ✕ and from the report's Delete; a failed answer has no sources to name
+const deleteAnswer = (title: string, sources: boolean) => ({
   title: "Delete this answer?",
-  body: `“${title}” and its sources are deleted for good.`,
+  body: sources ? `“${title}” and its sources are deleted for good.` : `“${title}” is deleted for good.`,
   yes: "Delete",
   danger: true,
 });
@@ -249,6 +249,12 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
       )}
 
       {rows.filter((r) => r.state !== "running").length > 0 && <span className="eyebrow">Kept</span>}
+      {/* a refused delete says so: the box named what would go, so silence would read as done */}
+      {forget.isError && (
+        <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
+          The delete didn't land: {(forget.error as Error).message}
+        </p>
+      )}
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {rows
           .filter((r) => r.state !== "running")
@@ -270,7 +276,7 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
                   aria-label={`Delete "${r.title || r.question}"`}
                   title="Delete"
                   onClick={async () => {
-                    if (await sure(deleteAnswer(r.title || r.question))) forget.mutate(r.id);
+                    if (await sure(deleteAnswer(r.title || r.question, r.state === "done"))) forget.mutate(r.id);
                   }}
                 >
                   ✕
@@ -476,12 +482,17 @@ function ReportView({ id, onBack }: { id: string; onBack: () => void }) {
               className="underline"
               style={{ color: "var(--red)" }}
               onClick={async () => {
-                if (await sure(deleteAnswer(rep.title))) drop.mutate();
+                if (await sure(deleteAnswer(rep.title, rep.refs.length > 0))) drop.mutate();
               }}
             >
               Delete
             </button>
           </p>
+          {drop.isError && (
+            <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
+              The delete didn't land: {(drop.error as Error).message}
+            </p>
+          )}
         </article>
         {/* Ask, the page wide under the report: about the report and its sources */}
         <AskBox

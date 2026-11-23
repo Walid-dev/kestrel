@@ -3,7 +3,7 @@
 // freshness; a deal's price cap). New makes one from nothing. Saving writes the search's own file in the data folder,
 // checked first; fields this page doesn't show are kept as they are.
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { Pills } from "../ui/pills.tsx";
 
@@ -48,6 +48,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 
 export function SearchSettings() {
   const navigate = useNavigate();
+  const hintId = useId();
   const [params] = useSearchParams();
   const editing = params.get("spec") ?? "";
   const fresh = params.get("new") === "deals" ? "deals" : "jobs";
@@ -234,7 +235,7 @@ export function SearchSettings() {
         <section className="card grid gap-3">
           <span className="eyebrow">Where it looks</span>
           {/* every collector in sight, one tap to pick: pills, the app's way to choose, never a dropdown */}
-          <div className="grid gap-1.5">
+          <div className="grid gap-1">
             <span className="text-[13px] font-semibold" style={{ color: "var(--strong)" }} aria-hidden="true">
               Collector
             </span>
@@ -244,13 +245,14 @@ export function SearchSettings() {
                 options={pickable.map((c) => ({ value: c, label: c.replace(/^collectors\//, "") }))}
                 value={String(raw.collector ?? "") || null}
                 onChange={(c) => put({ collector: c })}
+                describedBy={hintId}
               />
             ) : (
               <p className="m-0 text-[13.5px]" style={{ color: "var(--muted)" }}>
                 {collectors.isPending ? "Loading the collectors…" : "No collector yet."}
               </p>
             )}
-            <span className="text-[12px]" style={{ color: "var(--muted)" }}>
+            <span id={hintId} className="text-[12px]" style={{ color: "var(--muted)" }}>
               a script in the data folder's collectors; it prints the listings it finds
             </span>
           </div>
