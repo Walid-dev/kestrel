@@ -22,6 +22,11 @@ export type SchedulerDirs = {
 // an error's words, with any path turned generic: the run rows and the service log never carry folders
 const plainWords = (msg: string): string => msg.replaceAll(/\/[^\s"']+/g, "(a path)").slice(0, 120);
 
+// a copy that failed (a full disk, a folder it can't write) tries again an hour later, not every minute: each try
+// is one failed entry in Live and one log line. In memory, by folder: a restart tries at once.
+const copyFailed = new Map<string, number>();
+const RETRY_COPY_MS = 3_600_000;
+
 let ticking = false; // one tick at a time: a slow collector must never stack duplicate runs behind itself
 
 export async function tick(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promise<string[]> {
@@ -86,7 +91,8 @@ async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promis
       did.push("mirror:v1");
     }
   }
-  if (backupDue(dirs.backupsDir, now)) {
+  const failedAt = copyFailed.get(dirs.backupsDir) ?? Number.NEGATIVE_INFINITY;
+  if (backupDue(dirs.backupsDir, now) && now.getTime() - failedAt >= RETRY_COPY_MS) {
     const copy = begin("backup", "The nightly copy of the database");
     try {
       mkdirSync(dirs.backupsDir, { recursive: true });
@@ -94,9 +100,11 @@ async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promis
       // to copy over a file that is there
       snapshot(db, join(dirs.backupsDir, `kestrel-${now.toISOString().slice(0, 16).replace(":", "-")}.db`));
     } catch (e) {
+      copyFailed.set(dirs.backupsDir, now.getTime());
       copy.end("failed", plainWords((e as Error).message));
       throw e;
     }
+    copyFailed.delete(dirs.backupsDir);
     copy.end("done");
     const files = readdirSync(dirs.backupsDir)
       .filter((f) => f.startsWith("kestrel-"))
