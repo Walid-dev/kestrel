@@ -5,6 +5,26 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-23 · kestrel pings my phone, and the chair hunt lives here.**
+  kestrel sends pings through ntfy, the old setup's channel (my yes): each channel's topic is read from its file at
+  send time and never printed or kept. This lifts v0.3's "no push service that leaves the computer" for pings only;
+  what a ping says is the deal (model, price against the usual, place, site), as the old ones did. A deal hunt that is
+  On pings after a run for the new deals in view at 65% of the usual price or under, one ping per run. The 20 chair
+  searches run at the old timer's 10:00 and 20:00, On; their first catch-up ran Quiet, so no ad already pinged by the
+  old setup pinged again, and the old chair hunt is Paused (its own switch). The job hunt is Quiet: kestrel doesn't
+  ping for jobs while the old Job Hunt does. Rejected for now: the old Deal Hunt's model read of every ad (the rules
+  and a deep check on tap stand in for it).
+- **2026-11-23 · Searches' head as the old hunt page, with its switch; Live shows the agent's steps.**
+  The title, On / Quiet / Paused (written to the hunt's search files: auto and alerts), Search now, + New hunt,
+  Settings and Ask on one row, the other hunts in a menu at its end; under it the goal and a status line (the last
+  search added up over its go, the best find, the next search). Cards: the model's read blue, the deep check chip blue
+  with only its verdict coloured, the last opened card marked, the picked filters shown while folded; applying green
+  everywhere, and Home's live line opens Live. Live shows an application's chat step by step, read from the old
+  setup's Live until kestrel reads dsh's chats itself (`settings.oldLive`).
+- **2026-11-23 · Ask on Notes and Tasks.**
+  Notes proposes notes (on exact words, or the whole document) that my tap adds; the page's own Ask for changes then
+  edits, so a document keeps one way to change. Tasks proposes adding, changing and closing tasks. Both follow the
+  Searches blocks; the domain tests cover a dropped card and each tap; a live question on each list was checked.
 - **2026-11-23 · Ask acts on Searches: a find it runs, changes it proposes as cards.**
   The model sees the hunt (its counts, its best open listings, each line starting with the listing's id). It asks
   kestrel for more with a fenced `find` block (words, remote, pay, price, a stage, a match), whose matches go back to
