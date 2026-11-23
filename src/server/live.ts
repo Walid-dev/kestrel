@@ -4,55 +4,62 @@
 // work that ends, and every mark I make (a lesson graded, a task done, a stage set, an application sent), lands in
 // the activity table with where to open it. Every change rings the live stream.
 import type { DatabaseSync } from "node:sqlite";
+import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
+import { z } from "zod";
 import { type Activity, activity, running } from "../platform/activity.ts";
 import { bus } from "./events.ts";
 
 const DAY = 86_400_000;
 
-// an agent's chat as Live shows it: its state and its steps, one line each (the old setup's Live reads them from dsh)
-type Step = { at: string; kind: string; text: string; why?: string };
-type Chat = {
-  id: string;
-  title: string;
-  applying: boolean;
-  working: boolean;
-  waiting: string;
-  help: string;
-  started: string;
-  updated: string;
-  steps: Step[];
-  job: { title?: string; company?: string } | null;
-};
+// an agent's chat as Live shows it: its state and its steps, one line each (the old setup's Live reads them from dsh).
+// Its JSON is read leniently: a missing field takes its empty value, and a step or a chat that can't be read is
+// left out alone, so one odd chat never hides the others.
+const Step = z.object({
+  at: z.string().catch(""),
+  kind: z.string().catch(""),
+  text: z.string().catch(""),
+  why: z.string().optional().catch(undefined),
+});
+const Chat = z.object({
+  id: z.string(),
+  title: z.string().catch(""),
+  applying: z.boolean().catch(false),
+  working: z.boolean().catch(false),
+  waiting: z.string().catch(""),
+  help: z.string().catch(""),
+  started: z.string().catch(""),
+  updated: z.string().catch(""),
+  steps: z
+    .array(z.unknown())
+    .catch([])
+    .transform((steps) => steps.slice(-60).flatMap((step) => Step.safeParse(step).data ?? [])),
+  job: z
+    .object({ title: z.string().optional().catch(undefined), company: z.string().optional().catch(undefined) })
+    .nullable()
+    .catch(null),
+});
+type Chat = z.infer<typeof Chat>;
+const OldLive = z.object({ chats: z.array(z.unknown()).catch([]), queuePaused: z.boolean().nullable().catch(null) });
 const RECENT_MS = 2 * 3600_000; // an ended chat stays on Live this long
 
 // the agent's chats at work, waiting on me or ended lately, and whether the queue is paused, from the old setup's Live;
-// a second's reads are shared
+// a second's reads of one address are shared
 type Agents = { chats: Chat[]; paused: boolean | null };
-let cache: { at: number } & Agents = { at: 0, chats: [], paused: null };
+let cache: { at: number; url: string } & Agents = { at: 0, url: "", chats: [], paused: null };
 async function agentChats(url: string): Promise<Agents> {
   if (!url) return { chats: [], paused: null };
-  if (Date.now() - cache.at < 2000) return cache;
+  if (cache.url === url && Date.now() - cache.at < 2000) return cache;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
-    const data = (await res.json()) as { chats?: Chat[]; queuePaused?: unknown };
+    const data = OldLive.safeParse(await res.json());
+    if (!data.success) return cache; // not the old Live's shape: the last read stands
     const now = Date.now();
-    const chats = (data.chats ?? [])
+    const chats = data.data.chats
+      .flatMap((c) => Chat.safeParse(c).data ?? [])
       .filter((c) => c.working || c.waiting || now - Date.parse(c.updated) < RECENT_MS)
-      .slice(0, 6)
-      .map((c) => ({
-        id: c.id,
-        title: c.title,
-        applying: c.applying,
-        working: c.working,
-        waiting: c.waiting,
-        help: c.help,
-        started: c.started,
-        updated: c.updated,
-        steps: c.steps.slice(-60).map((s) => ({ at: s.at, kind: s.kind, text: s.text, why: s.why })),
-        job: c.job ? { title: c.job.title, company: c.job.company } : null,
-      }));
-    cache = { at: now, chats, paused: typeof data.queuePaused === "boolean" ? data.queuePaused : null };
+      .slice(0, 6);
+    cache = { at: now, url, chats, paused: data.data.queuePaused };
     return cache;
   } catch {
     return cache; // the old setup not answering: the last read stands until it does
@@ -177,11 +184,12 @@ export function mountLive(app: Hono, db: DatabaseSync, oldLive = "") {
     });
   });
   // Stop on a running chat: {chat, all}; all also pauses the queue first, so nothing new starts after it
+  const stopBody = z.object({ chat: z.string().regex(CHAT_ID), all: z.boolean().default(false) });
   app.post("/api/live/stop", async (c) => {
-    const body = (await c.req.json().catch(() => ({}))) as { chat?: unknown; all?: unknown };
-    const chat = String(body.chat ?? "");
-    if (!CHAT_ID.test(chat)) return c.json({ error: 'which chat? {"chat": "session-…"}' }, 400);
-    if (body.all === true) {
+    const read = stopBody.safeParse(await c.req.json().catch(() => ({})));
+    if (!read.success) return c.json({ error: 'which chat? {"chat": "session-…", "all": true | false}' }, 400);
+    const { chat, all } = read.data;
+    if (all) {
       const paused = await toOldSetup(oldLive, "/api/queue/pause", { paused: true });
       if (paused.code !== 200) return c.json(paused.body as object, paused.code as 502);
     }
@@ -190,15 +198,17 @@ export function mountLive(app: Hono, db: DatabaseSync, oldLive = "") {
     return c.json(got.body as object, got.code as 200);
   });
   // the queue's Pause and Play: {paused: true | false}
-  app.post("/api/live/pause", async (c) => {
-    const body = (await c.req.json().catch(() => ({}))) as { paused?: unknown };
-    const got = await toOldSetup(oldLive, "/api/queue/pause", { paused: body.paused === true });
+  app.post("/api/live/pause", zValidator("json", z.object({ paused: z.boolean() })), async (c) => {
+    const got = await toOldSetup(oldLive, "/api/queue/pause", { paused: c.req.valid("json").paused });
     bus.emit("change", { kind: "live" });
     return c.json(got.body as object, got.code as 200);
   });
-  app.get("/api/live/activity", (c) => {
-    const days = Math.min(30, Math.max(1, Number(c.req.query("days") ?? "7") || 7));
-    const kind = c.req.query("kind") || undefined;
-    return c.json({ activity: log(days, kind) });
+  const activityQuery = z.object({
+    days: z.coerce.number().int().min(1).max(30).catch(7),
+    kind: z.string().max(20).optional().catch(undefined),
+  });
+  app.get("/api/live/activity", zValidator("query", activityQuery), (c) => {
+    const { days, kind } = c.req.valid("query");
+    return c.json({ activity: log(days, kind || undefined) });
   });
 }
