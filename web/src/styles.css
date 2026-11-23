@@ -786,16 +786,28 @@ pre.code .f {
   border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
   line-height: 1.5;
 }
+/* stacked, each step hangs from the one before by a thin line; a short flow (four steps at most) goes across a wide
+   box, an arrow between its steps */
+.ask-flow li + li::before {
+  content: "";
+  position: absolute;
+  left: 21px;
+  top: -8px;
+  height: 8px;
+  border-left: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+}
 @container (min-width: 640px) {
-  .ask-flow ol {
+  .ask-flow-row ol {
     flex-direction: row;
     flex-wrap: wrap;
     gap: 22px;
   }
-  .ask-flow li {
+  .ask-flow-row li {
     flex: 1 1 130px;
   }
-  .ask-flow li + li::before {
+  .ask-flow-row li + li::before {
+    height: auto;
+    border: 0;
     content: "→";
     position: absolute;
     left: -17px;

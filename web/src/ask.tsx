@@ -495,7 +495,7 @@ function Answer({ text, writing }: { text: string; writing: boolean }) {
             return <Code key={key} text={p.text} />;
           case "flow":
             return (
-              <figure key={key} className="ask-flow">
+              <figure key={key} className={`ask-flow ${p.steps.length <= 4 ? "ask-flow-row" : ""}`}>
                 {p.title && <figcaption className="eyebrow">{p.title}</figcaption>}
                 <ol>
                   {p.steps.map((st, j) => (
