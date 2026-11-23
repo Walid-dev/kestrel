@@ -284,3 +284,110 @@ test("how a document reads follows its name: Markdown, a PDF's or a text's lines
   );
   assert.deepEqual(shape(parse("a: 1\n# not a heading", "code")), ['code: "a: 1\\n# not a heading"']);
 });
+
+test("a CRLF document reads as its LF twin: a fence closes, a heading drops its \\r", () => {
+  const crlf = "# Title #\r\n\r\n```js\r\ncode\r\nmore\r\n```\r\nafter\r\n";
+  const bs = parse(crlf);
+  holds(crlf, bs);
+  assert.deepEqual(shape(bs), ['h1 "Title"', 'code:js "code\\r\\nmore"', 'p "after"']);
+});
+
+test("lazy lines under one list item or quote parse in linear time", () => {
+  const lazy = Array.from({ length: 5000 }, (_, n) => `lazy line ${n}`).join("\n");
+  for (const src of [`- ${lazy}`, `> ${lazy}`]) {
+    const t0 = performance.now();
+    holds(src, parse(src));
+    const ms = performance.now() - t0;
+    assert.ok(ms < 100, `5,000 lazy lines took ${Math.round(ms)} ms`);
+  }
+});
+
+// every link a parse would open
+function hrefs(bs: Block[]): string[] {
+  const out: string[] = [];
+  const runs = (rs: Run[]) => {
+    for (const r of rs)
+      if (r.k === "link") {
+        out.push(r.href);
+        runs(r.kids);
+      } else if ("kids" in r) runs(r.kids);
+  };
+  const walk = (list: Block[]) => {
+    for (const b of list)
+      if (b.k === "heading" || b.k === "para") runs(b.runs);
+      else if (b.k === "quote") walk(b.blocks);
+      else if (b.k === "list") for (const it of b.items) walk(it.blocks);
+      else if (b.k === "table") for (const c of [...b.head, ...b.rows.flat()]) runs(c.runs);
+  };
+  walk(bs);
+  return out;
+}
+
+test("random documents keep the rules: runs at their places, in order, never empty, no unsafe link", () => {
+  const atoms = [
+    "a",
+    "word ",
+    " ",
+    "  ",
+    "\t",
+    "\n",
+    "\r\n",
+    "\n\n",
+    "*",
+    "**",
+    "_",
+    "__",
+    "~~",
+    "`",
+    "```",
+    "~~~",
+    "\\",
+    "\\*",
+    "[",
+    "]",
+    "(",
+    ")",
+    "](x.md)",
+    "](javascript:alert(1))",
+    "](data:text/html,x)",
+    "<",
+    ">",
+    "> ",
+    "<b>",
+    "</b>",
+    "<https://example.org>",
+    "https://example.org/a",
+    "www.example.org",
+    "# ",
+    "## ",
+    "- ",
+    "1. ",
+    "- [x] ",
+    "    ",
+    "|",
+    " | ",
+    "|---|---|",
+    "\\|",
+    "---",
+    "•",
+    "◦ ",
+    "– ",
+  ];
+  // a small seeded generator, so a failure repeats
+  let seed = 7;
+  const next = () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed / 2147483648;
+  };
+  for (let n = 0; n < 2000; n++) {
+    const len = 1 + Math.floor(next() * 40);
+    const src = Array.from({ length: len }, () => atoms[Math.floor(next() * atoms.length)]).join("");
+    for (const kind of ["markdown", "lines"] as const) {
+      const bs = parse(src, kind);
+      holds(src, bs);
+      for (const l of leaves(bs)) assert.ok(l.text.length > 0, `an empty run at ${l.at} in ${JSON.stringify(src)}`);
+      for (const h of hrefs(bs)) assert.equal(safeHref(h), h.trim().replaceAll(" ", "%20"), `unsafe ${h}`);
+      for (const h of hrefs(bs)) assert.ok(!/^\s*(javascript|data):/i.test(h), `unsafe ${h} in ${JSON.stringify(src)}`);
+    }
+  }
+});

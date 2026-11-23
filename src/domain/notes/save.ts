@@ -146,7 +146,7 @@ export function saveText(
   const doc = db.prepare("SELECT * FROM documents WHERE id = ?").get(documentId) as DocRow | undefined;
   if (!doc) throw new Refused("no such document");
   if (doc.sha256 !== rev)
-    throw new Changed("the document changed since you started editing; your words are still here", doc.sha256);
+    throw new Changed("The document changed since you started editing. Your words are still here.", doc.sha256);
   const text = given.replaceAll("\r\n", "\n"); // kept as LF, like every document; the file gets its own endings back
   if (Buffer.byteLength(text, "utf8") > MAX_BYTES) throw new Refused(`bigger than ${MAX_BYTES / 1024} KB`);
   const where = doc.source === "file" && doc.path ? doc.path : "the upload, kept in kestrel";

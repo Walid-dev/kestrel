@@ -194,13 +194,24 @@ function drawLeaf(l: Leaf, ctx: Ctx): ReactNode {
 // ---- from the page back to the source ----
 
 // a point of the selection (a node and an offset in it) as a place in the source: inside a piece, the piece's place
-// plus the characters before the point; between pieces, the next piece's start (or the last one's end)
-export function sourceAt(root: HTMLElement, node: Node, offset: number): number | null {
+// plus the characters before the point. Between pieces it depends on the side: a selection's start goes to the next
+// piece's start, its end to the previous piece's end. A triple-click ends at the start of the next block, and that
+// point must not pull the blank line and the next block's marks ("### ", "3. ") into the note.
+export function sourceAt(
+  root: HTMLElement,
+  node: Node,
+  offset: number,
+  side: "start" | "end" = "start",
+): number | null {
   if (node.nodeType === Node.TEXT_NODE) {
     const piece = node.parentElement?.closest<HTMLElement>("[data-at]");
     if (piece && root.contains(piece)) return Number(piece.dataset.at) + offset;
   }
   if (!root.contains(node)) return null;
+  // a point on a piece itself (it holds one text): before its words or after them
+  const self = node instanceof Element ? node.closest<HTMLElement>("[data-at]") : null;
+  if (self && root.contains(self))
+    return Number(self.dataset.at) + (offset === 0 ? 0 : (self.textContent ?? "").length);
   const pieces = root.querySelectorAll<HTMLElement>("[data-at]");
   if (pieces.length === 0) return null;
   const point = document.createRange();
@@ -216,9 +227,10 @@ export function sourceAt(root: HTMLElement, node: Node, offset: number): number 
     if (point.comparePoint(pieces[mid], 0) > 0) hi = mid;
     else lo = mid + 1;
   }
+  const end = (p: HTMLElement) => Number(p.dataset.at) + (p.textContent ?? "").length;
+  if (side === "end" && lo > 0) return end(pieces[lo - 1]);
   if (lo < pieces.length) return Number(pieces[lo].dataset.at);
-  const last = pieces[pieces.length - 1];
-  return Number(last.dataset.at) + (last.textContent ?? "").length;
+  return end(pieces[pieces.length - 1]);
 }
 
 // the block a tap landed in: its words' range in the source, and the element to place a button by

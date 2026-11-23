@@ -101,9 +101,14 @@ export function Doc({
   const dirty = draft !== null && draft.text !== text;
   const source = useRef<HTMLTextAreaElement>(null);
   const preview = useRef<HTMLDivElement>(null);
+  const whyBox = useRef<HTMLDivElement>(null);
   const previewText = useDeferredValue(draft?.text ?? text); // typing stays quick; the preview follows a beat behind
 
   useEffect(() => onMode?.(shown), [shown, onMode]);
+  // a refused save says why above the editor: brought into view, since typing far down leaves it off screen
+  useEffect(() => {
+    if (why?.error) whyBox.current?.scrollIntoView({ block: "nearest" });
+  }, [why]);
 
   // the words wait on this device: written a moment after typing stops, and when the page goes away
   const latest = useRef({ draft, text });
@@ -145,7 +150,10 @@ export function Doc({
     if (!draft || !onSave || busy) return;
     if (!dirty) return leave();
     setBusy(true);
-    const r = await onSave(draft.text, over ?? draft.rev).catch((e: Error) => ({ error: e.message }) as Saved);
+    // a request that never arrived (Wi-Fi, Tailscale, a restart) gets plain words, not the browser's "Load failed"
+    const r = await onSave(draft.text, over ?? draft.rev).catch(
+      (): Saved => ({ error: "The save didn't reach kestrel. Your words are kept on this device: try Save again." }),
+    );
     setBusy(false);
     if (r.error) return setWhy(r);
     setWhy(null);
@@ -253,8 +261,9 @@ export function Doc({
         )}
       </div>
       {why?.error && (
-        <div className="doc-why" role="alert">
-          <span className="doc-say">{why.error}</span>
+        <div ref={whyBox} className="doc-why" role="alert">
+          {/* the server's reasons start in lower case, as they read in its log */}
+          <span className="doc-say">{why.error.charAt(0).toUpperCase() + why.error.slice(1)}</span>
           {why.rev && (
             <button type="button" className="btn" onClick={() => save(why.rev)}>
               Save mine over it
@@ -306,11 +315,23 @@ function Downloads({ name, text, kind, printHref }: { name: string; text: string
   useEffect(() => {
     const m = menu.current;
     if (!m) return;
-    // placed under its button, right edges lined up, before it shows
+    // placed before it shows, right edges lined up with its button: under it when it fits, else above it (on a phone
+    // the button may sit low, and a scroll closes the menu, so a menu cut off at the bottom could never be reached);
+    // with no room either way, it scrolls inside itself
     const place = (e: Event) => {
       if ((e as ToggleEvent).newState !== "open" || !trigger.current) return;
       const r = trigger.current.getBoundingClientRect();
-      m.style.top = `${r.bottom + 6}px`;
+      // its height, measured while hidden from sight (a closed popover takes no room)
+      m.style.cssText = "display: block; visibility: hidden; max-height: none";
+      const tall = m.offsetHeight;
+      m.style.cssText = "";
+      const screen = Math.min(window.innerHeight, window.visualViewport?.height ?? Number.POSITIVE_INFINITY);
+      const below = screen - r.bottom - 6 - 8;
+      const above = r.top - 6 - 8;
+      const down = tall <= below || below >= above;
+      if (down) m.style.top = `${r.bottom + 6}px`;
+      else m.style.bottom = `${window.innerHeight - r.top + 6}px`;
+      m.style.maxHeight = `${Math.max(120, down ? below : above)}px`;
       m.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
       setCopied("");
     };

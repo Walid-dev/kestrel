@@ -163,7 +163,13 @@ export function Reader() {
       body: JSON.stringify({ text, rev }),
     });
     const data = (await res.json().catch(() => ({}))) as { error?: string; rev?: string };
-    if (!res.ok) return { error: data.error ?? `the save didn't land (${res.status})`, rev: data.rev };
+    if (!res.ok) {
+      // the editor keeps my words and their revision; Read, Download and new notes must show the document as it is
+      // now (after a 409, the other device's text), not the one cached before
+      queryClient.invalidateQueries({ queryKey: ["doc", id] });
+      queryClient.invalidateQueries({ queryKey: ["notes", id] });
+      return { error: data.error ?? `The save didn't land (${res.status}).`, rev: data.rev };
+    }
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["doc", id] }),
       queryClient.invalidateQueries({ queryKey: ["notes", id] }),
@@ -189,10 +195,13 @@ export function Reader() {
   const onSelect = (ev: React.MouseEvent | React.TouchEvent) => {
     const sel = getSelection();
     const el = article.current;
-    if (!sel || !el || !doc.data) return;
+    // every way out clears the last pick, so a Note button never stays for words no longer selected
+    if (!sel || !el || !doc.data) return setPick(null);
     const target = ev.target as HTMLElement;
-    if (target.closest("button, a")) return;
-    if (sel.isCollapsed || sel.rangeCount === 0) {
+    const tap = sel.isCollapsed || sel.rangeCount === 0;
+    // a tap on a link opens the link; words selected across or into a link are noted like any others
+    if (target.closest("button") || (tap && target.closest("a"))) return setPick(null);
+    if (tap) {
       const block = blockAt(target, el);
       const touch = matchMedia("(pointer: coarse)").matches;
       const quote = block ? doc.data.text.slice(block.from, block.to) : "";
@@ -210,10 +219,10 @@ export function Reader() {
       return;
     }
     const r = sel.getRangeAt(0);
-    const a = sourceAt(el, r.startContainer, r.startOffset);
-    const b = sourceAt(el, r.endContainer, r.endOffset);
-    if (a === null || b === null || a === b) return setPick(null);
-    const [from, to] = a < b ? [a, b] : [b, a];
+    // a range runs in document order whichever way it was dragged
+    const from = sourceAt(el, r.startContainer, r.startOffset, "start");
+    const to = sourceAt(el, r.endContainer, r.endOffset, "end");
+    if (from === null || to === null || to <= from) return setPick(null);
     const quote = doc.data.text.slice(from, to);
     if (quote.trim() === "") return setPick(null);
     const box = r.getBoundingClientRect();
@@ -280,9 +289,18 @@ export function Reader() {
           {doc.data.name}
         </h2>
         <p className="m-0 max-w-2xl text-[15px] leading-relaxed" style={{ color: "var(--muted)" }}>
-          {pdf
-            ? "The PDF file itself is unchanged, and kestrel keeps no copy of it. You edit its text here; Save as PDF, under Download, makes a new PDF from it."
-            : "Select words to leave a note, then turn your notes into an edit you check first. Or tap Edit and change the text yourself. Every save keeps the previous version."}
+          {pdf ? (
+            "The PDF file itself is unchanged, and kestrel keeps no copy of it. You edit its text here; Save as PDF, under Download, makes a new PDF from it."
+          ) : (
+            <>
+              {/* on a phone the document should start high: the short line says the same */}
+              <span className="sm:hidden">Select words to leave a note, or tap Edit. Every save keeps a version.</span>
+              <span className="hidden sm:inline">
+                Select words to leave a note, then turn your notes into an edit you check first. Or tap Edit and change
+                the text yourself. Every save keeps the previous version.
+              </span>
+            </>
+          )}
         </p>
       </header>
       {reading && (

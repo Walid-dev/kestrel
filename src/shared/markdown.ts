@@ -4,7 +4,8 @@
 // run.text === source.slice(run.at, run.at + run.text.length). Pure TypeScript with no package and no DOM: the web
 // renders it (web/src/ui/markdown.tsx), and the server may read it too.
 // Safety: raw HTML is never rendered (it stays text), and a link opens only an http(s):, mailto: or relative address;
-// anything else stays text. The source is LF text, as kestrel keeps every document.
+// anything else stays text. kestrel keeps every document as LF text; a CRLF line still reads right (its \r sits
+// outside the line's words).
 
 // how a document reads: Markdown; a PDF's or a plain text's lines, each kept; or code, as written
 export type DocKind = "markdown" | "lines" | "code";
@@ -50,7 +51,7 @@ export function parse(src: string, kind: DocKind = "markdown"): Block[] {
       lines.push({ s, e: src.length });
       break;
     }
-    lines.push({ s, e });
+    lines.push({ s, e: e > s && src[e - 1] === "\r" ? e - 1 : e }); // a CRLF line ends before its \r
     s = e + 1;
   }
   return kind === "lines" ? lineBlocks(src, lines) : blocks(src, lines, new Map());
@@ -191,18 +192,15 @@ function interrupts(src: string, l: Ln): boolean {
   return !!m && !m.empty && (!m.ordered || m.num === 1);
 }
 
-// is a fence still open after these lines? (a lazy line never joins code)
-function inFence(src: string, ls: Ln[]): boolean {
-  let open: string | null = null;
-  for (const l of ls) {
-    const { cols, at } = indent(src, l);
-    if (cols >= 4) continue;
-    const f = src.slice(at, l.e).match(/^(`{3,}|~{3,})/);
-    if (!f) continue;
-    if (open === null) open = f[1];
-    else if (f[1][0] === open[0] && f[1].length >= open.length) open = null;
-  }
-  return open !== null;
+// the fence still open after one more line, if any (a lazy line never joins code). Kept line by line as a quote or a
+// list item grows: checking all its lines again at each lazy line took quadratic time.
+function fenceAfter(src: string, l: Ln, open: string | null): string | null {
+  const { cols, at } = indent(src, l);
+  if (cols >= 4) return open;
+  const f = src.slice(at, l.e).match(/^(`{3,}|~{3,})/);
+  if (!f) return open;
+  if (open === null) return f[1];
+  return f[1][0] === open[0] && f[1].length >= open.length ? null : open;
 }
 
 // the cells of a table row: split at each | not escaped, the outer pipes dropped, each cell trimmed
@@ -360,7 +358,8 @@ function trimEnd(src: string, segs: Ln[]) {
 function codeRuns(src: string, body: Ln[]): Leaf[] {
   const out: Leaf[] = [];
   body.forEach((l, n) => {
-    if (n > 0) push(out, { k: "text", at: body[n - 1].e, text: "\n" });
+    // the line's end as the source has it: \n, or \r\n
+    if (n > 0) push(out, leaf("text", src, body[n - 1].e, src.indexOf("\n", body[n - 1].e) + 1));
     if (l.e > l.s) push(out, leaf("text", src, l.s, l.e));
   });
   return out;
@@ -410,19 +409,23 @@ function indentedCode(src: string, lines: Ln[], i: number, out: Block[]): number
 
 function quote(src: string, lines: Ln[], i: number, out: Block[], slugs: Slugs): number {
   const inner: Ln[] = [];
+  let fence: string | null = null;
+  const add = (l: Ln) => {
+    inner.push(l);
+    fence = fenceAfter(src, l, fence);
+  };
   let j = i;
   for (; j < lines.length; j++) {
     const l = lines[j];
     const { cols, at } = indent(src, l);
     if (cols < 4 && src[at] === ">") {
-      const s = at + 1 + (isSpace(src[at + 1]) ? 1 : 0);
-      inner.push({ s, e: l.e });
+      add({ s: at + 1 + (isSpace(src[at + 1]) ? 1 : 0), e: l.e });
       continue;
     }
     // a lazy line: plain text right after the quote's text goes on with it
     const prev = inner.at(-1);
-    if (at < l.e && prev && !blank(src, prev) && !interrupts(src, l) && !inFence(src, inner)) {
-      inner.push({ s: at, e: l.e });
+    if (at < l.e && prev && !blank(src, prev) && !interrupts(src, l) && fence === null) {
+      add({ s: at, e: l.e });
       continue;
     }
     break;
@@ -441,6 +444,11 @@ function list(src: string, lines: Ln[], i: number, out: Block[], slugs: Slugs): 
     const mk = marker(src, lines[j]) as Marker;
     // the item's lines: its first, then each one indented to its content, blank ones, and lazy text
     const inner: Ln[] = [{ s: mk.content, e: lines[j].e }];
+    let fence = fenceAfter(src, inner[0], null);
+    const add = (l: Ln) => {
+      inner.push(l);
+      fence = fenceAfter(src, l, fence);
+    };
     let last = j;
     for (let k = j + 1; k < lines.length; k++) {
       const l = lines[k];
@@ -450,13 +458,13 @@ function list(src: string, lines: Ln[], i: number, out: Block[], slugs: Slugs): 
         continue;
       }
       if (cols >= mk.width) {
-        inner.push(strip(src, l, mk.width));
+        add(strip(src, l, mk.width));
         last = k;
         continue;
       }
       const prev = inner[k - 1 - j];
-      if (k === last + 1 && !blank(src, prev) && !interrupts(src, l) && !marker(src, l) && !inFence(src, inner)) {
-        inner.push({ s: at, e: l.e });
+      if (k === last + 1 && !blank(src, prev) && !interrupts(src, l) && !marker(src, l) && fence === null) {
+        add({ s: at, e: l.e });
         last = k;
         continue;
       }
@@ -497,7 +505,7 @@ function list(src: string, lines: Ln[], i: number, out: Block[], slugs: Slugs): 
 
 // is there a blank line between two places? (a line of only white space, or only a quote's >)
 function blankBetween(src: string, a: number, b: number): boolean {
-  return /\n[ \t>]*\n/.test(src.slice(a, b));
+  return /\n[ \t>\r]*\n/.test(src.slice(a, b));
 }
 
 function table(src: string, lines: Ln[], i: number, out: Block[]): number {

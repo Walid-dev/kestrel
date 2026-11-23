@@ -1477,6 +1477,8 @@ a .doc-mark {
   background: var(--surface);
   color: var(--text);
   box-shadow: 0 18px 50px -12px rgba(0, 0, 0, 0.55);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .doc-menu > a,
 .doc-menu > button {
@@ -1496,6 +1498,13 @@ a .doc-mark {
 }
 .doc-menu > a:hover,
 .doc-menu > button:hover {
+  background: var(--surface-2);
+}
+/* the keyboard's place in the menu: seen, but quiet, like a row under the pointer */
+.doc-menu > a:focus-visible,
+.doc-menu > button:focus-visible {
+  outline: 1px solid var(--line);
+  outline-offset: -1px;
   background: var(--surface-2);
 }
 .doc-menu-what {
@@ -1520,6 +1529,7 @@ a .doc-mark {
 }
 .doc-why {
   background: var(--warn-soft);
+  scroll-margin-top: 92px; /* clear of the editing head, which stays at the top */
 }
 .doc-kept {
   background: var(--accent-soft);
