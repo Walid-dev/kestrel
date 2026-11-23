@@ -5,6 +5,16 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-23 · Notes reads like a lesson and keeps every version; lessons teach the field.**
+  Picking words shows a Note button beside them (no mode to switch on); the page says what it is and how notes work;
+  "Turn my notes into an edit" waits for a note instead of failing. Every save and undo keeps the words they replaced
+  (migration 024), and Restore brings any of them back, never over a file changed outside kestrel. My voice and stories
+  are reworked there (Writing opens them; its own editor went), so they have one way to change and a history. Outside
+  my Personal packs, Ask, the quiz's questions and its explanations teach the field, not my setup; the 20 AI and
+  Platform lessons written through my setup were rewritten by the careful model into the field's terms, the old text
+  kept in the data folder's backups. Research lays its report beside its sources; the flow drawing became a vertical
+  stepper. Chat on a computer opens dsh through its door, so the first visit carries the sign-in. Rejected: a lesson
+  rewrite by hand, one by one.
 - **2026-11-23 · One Ask on every page; Ask draws; PDFs through the computer's own engine.**
   Ask is one box, the page wide, at the same kind of place on every app; its head opens and closes it (kept per app
   in this browser). Notes' moves under the document (its side column was too narrow); Searches' sits under the
