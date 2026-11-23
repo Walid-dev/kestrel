@@ -285,3 +285,28 @@ test("on Applications Retry is a card only for one that stopped, and my tap queu
   actOn(db, settings(s.url), { id: answer.id, card: 0 });
   assert.equal(getApplication(db, stopped.id)?.state, "queued");
 });
+
+test("an answer that breaks while it is written fails, so the page takes the next question (review: stuck writing)", async () => {
+  const db = setup();
+  hunt(db);
+  // a find block whose JSON is a list, not an object: reading it used to throw inside the answer's work
+  let asked = 0;
+  const s = await startStandIn(() => ({
+    content: asked++ === 0 ? 'Let me look.\n```find\n[{"words": "keeper"}]\n```' : '```find\n{"words": "keeper"}\n```',
+  }));
+  try {
+    await askPage(db, settings(s.url), { app: "searches", ref: "jobs:beekeeping", text: "Which pays most?" }).done;
+    const answer = conversation(db, "searches", "jobs:beekeeping")[1];
+    assert.notEqual(answer.state, "writing");
+    assert.doesNotThrow(() => clearConversation(db, "searches", "jobs:beekeeping"));
+    // and a find that throws inside the page's own code ends the answer as failed, with a short reason
+    const broken = askPage(db, settings(s.url), { app: "searches", ref: "jobs:beekeeping", text: "Again?" });
+    db.exec("DROP TABLE listings"); // the page's find can't read the hunt now
+    await broken.done;
+    const failed = conversation(db, "searches", "jobs:beekeeping")[1];
+    assert.equal(failed.state, "failed");
+    assert.match(failed.error, /went wrong/);
+  } finally {
+    await s.close();
+  }
+});

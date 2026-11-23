@@ -158,7 +158,9 @@ const Find = z.object({
 export function findListings(db: DatabaseSync, ref: string, query: unknown): string {
   const r = refOf(ref);
   if (!r) return "This page has no hunt to look through.";
-  const q = Find.parse(typeof query === "object" && query ? query : {});
+  const read = Find.safeParse(typeof query === "object" && query ? query : {});
+  if (!read.success) return "That look wasn't readable: write it as one JSON object.";
+  const q = read.data;
   const words = q.words.toLowerCase().split(/\s+/).filter(Boolean);
   const rows = listListings(db, { kind: r.kind, hunt: r.key, stage: q.stage || "all", sort: "best" }, 5000).filter(
     (l) => {

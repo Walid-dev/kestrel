@@ -99,7 +99,8 @@ export function blocksOf(text: string): {
     (_, kind: string, body: string) => {
       try {
         const parsed = JSON.parse(body.trim()) as unknown;
-        if (parsed && typeof parsed === "object") {
+        // an object only: a list or a bare value is no look or change any page can run
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
           if (kind === "action") actions.push(parsed);
           else looks.push({ tool: kind === "find" || isTool(kind) ? kind : "find", args: parsed });
         }
@@ -181,6 +182,30 @@ async function write(
   question: string,
 ): Promise<void> {
   const live = begin("model", `Ask: ${page.title}`.slice(0, 120), page.link);
+  try {
+    await answer(db, settings, row, helper, page, history, question, live);
+  } catch {
+    // anything that breaks while the answer is written (a page's find, its tidy, a record) ends it as failed: a row
+    // left writing would refuse every question and Start over until a restart. Live first: if the database itself
+    // closed under it, the write below throws too, and askPage's catch takes it.
+    live.end("failed", "something went wrong while it answered");
+    db.prepare("UPDATE ask_messages SET state = 'failed', error = ? WHERE id = ? AND state = 'writing'").run(
+      "something went wrong while it answered: ask again",
+      row.id,
+    );
+  }
+}
+
+async function answer(
+  db: DatabaseSync,
+  settings: Settings,
+  row: { id: string; app: string; ref: string; model: string },
+  helper: Helper,
+  page: AskPage,
+  history: Turn[],
+  question: string,
+  live: ReturnType<typeof begin>,
+): Promise<void> {
   live.step(`${row.model} answers`);
   const { system, messages } = askMessages(page, history, question);
   const grow = db.prepare("UPDATE ask_messages SET text = ? WHERE id = ? AND state = 'writing'");
