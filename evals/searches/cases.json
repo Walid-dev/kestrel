@@ -1,0 +1,132 @@
+{
+  "listings": [
+    {
+      "id": "h1",
+      "title": "Head Keeper",
+      "org": "Hive Co",
+      "location": "Hiveton",
+      "salaryMax": 95000,
+      "score": 91,
+      "match": "great"
+    },
+    {
+      "id": "h2",
+      "title": "Remote Keeper",
+      "org": "Comb Ltd",
+      "location": "Remote",
+      "salaryMin": 120000,
+      "salaryMax": 140000,
+      "score": 86,
+      "match": "great"
+    },
+    {
+      "id": "h3",
+      "title": "Swarm Wrangler",
+      "org": "Drone Works",
+      "location": "Hiveton",
+      "salaryMax": 88000,
+      "score": 82,
+      "match": "great"
+    },
+    {
+      "id": "h4",
+      "title": "Wax Lead",
+      "org": "Candle Guild",
+      "location": "Waxford",
+      "salaryMax": 76000,
+      "score": 74,
+      "match": "good"
+    },
+    {
+      "id": "h5",
+      "title": "Pollen Analyst",
+      "org": "Meadow Labs",
+      "location": "Remote",
+      "salaryMax": 81000,
+      "score": 68,
+      "match": "good"
+    },
+    {
+      "id": "h6",
+      "title": "Apiary Intern",
+      "org": "Hive Co",
+      "location": "Hiveton",
+      "score": 61,
+      "match": "good"
+    }
+  ],
+  "cases": [
+    {
+      "name": "beyond-the-view",
+      "question": "Look through all of them, set-aside ones too, for anything in Rust.",
+      "expect": {
+        "find": {
+          "words": "rust"
+        }
+      },
+      "good": "I'll look through every listing, set-aside ones included.\n```find\n{\"words\": \"rust\", \"stage\": \"all\"}\n```",
+      "bad": "None of the listings in view mention Rust.",
+      "badWhy": "no find"
+    },
+    {
+      "name": "from-the-view",
+      "question": "Which one in view pays the most?",
+      "expect": {
+        "link": "h2"
+      },
+      "good": "[Remote Keeper](listing:h2) at Comb Ltd pays the most: up to **140k**.",
+      "bad": "[Remote Keeper](listing:h9) pays the most.",
+      "badWhy": "doesn't link h2"
+    },
+    {
+      "name": "pass-on-one",
+      "question": "I don't want the Drone Works one. Mark it as not for me.",
+      "expect": {
+        "action": {
+          "do": "stage",
+          "listing": "h3",
+          "to": "passed"
+        }
+      },
+      "good": "Here is the change for [Swarm Wrangler](listing:h3); tap to make it.\n```action\n{\"do\": \"stage\", \"listing\": \"h3\", \"to\": \"passed\"}\n```",
+      "bad": "I've marked Swarm Wrangler as not for me.\n```action\n{\"do\": \"stage\", \"listing\": \"h3\", \"to\": \"passed\"}\n```",
+      "badWhy": "claims the change is made"
+    },
+    {
+      "name": "deep-check",
+      "question": "Take a deeper look at the Head Keeper role.",
+      "expect": {
+        "action": {
+          "do": "deep",
+          "listing": "h1"
+        }
+      },
+      "good": "A deep check reads the whole posting and the company.\n```action\n{\"do\": \"deep\", \"listing\": \"h1\"}\n```",
+      "bad": "A deep check reads the whole posting.\n```action\n{\"do\": \"deep\", \"listing\": \"h2\"}\n```",
+      "badWhy": "no deep proposed for h1"
+    },
+    {
+      "name": "apply-to-one",
+      "question": "Apply to the Remote Keeper job for me.",
+      "expect": {
+        "action": {
+          "do": "apply",
+          "listing": "h2"
+        }
+      },
+      "good": "Tap to queue the application for [Remote Keeper](listing:h2).\n```action\n{\"do\": \"apply\", \"listing\": \"h2\"}\n```",
+      "bad": "Tap to queue it.\n```action\n{\"do\": \"apply\", \"listing\": \"Remote Keeper\"}\n```",
+      "badWhy": "no apply proposed for h2"
+    },
+    {
+      "name": "about-the-subject",
+      "question": "What does a swarm wrangler usually do?",
+      "expect": {
+        "none": true
+      },
+      "good": "A **swarm wrangler** catches swarms that leave a hive and settles them in a new one.",
+      "bad": "Let me check.\n```find\n{\"words\": \"wrangler\"}\n```",
+      "badWhy": "a block for a question that needs none"
+    }
+  ]
+}

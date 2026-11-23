@@ -5,6 +5,36 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-23 · Ask acts on Searches: a find it runs, changes it proposes as cards.**
+  The model sees the hunt (its counts, its best open listings, each line starting with the listing's id). It asks
+  kestrel for more with a fenced `find` block (words, remote, pay, price, a stage, a match), whose matches go back to
+  it before it answers, two looks at most; it proposes a change with a fenced `action` block (a stage, a deep check,
+  an application), which becomes a card under the answer that only my tap runs, through the page's own functions.
+  Blocks never show as code; a change on a listing that isn't there is dropped. Chosen over the door's tool calls:
+  the blocks stream with the answer, need nothing from the client and read the same on both models, and the live
+  eval passed on both (docs/eval/2026-11-23-ask-searches.md). Rejected: a change made without a tap.
+- **2026-11-23 · The apply queue gets its hands: the old setup's runner.**
+  Apply queued in kestrel, and nothing ever claimed the queue: the old runner (hunt serve, one task at a time) now
+  takes kestrel's next application once nothing works and its own queue is empty, starts the agent's chat as before,
+  and reports the end back (sent, not sent and why, or waiting at the computer). kestrel's searches wait while an
+  application is at work, and its claim waits while a search of kestrel's runs. Rejected for now: kestrel starting
+  the chat itself (it would need the old runner's chat reading, report and ping again: the cutover's work).
+- **2026-11-23 · A job open only elsewhere is set aside.**
+  A search's scoring may say where a job must be open (`places.within`, the first word naming it) and what a posting
+  says when it isn't (`places.closed`); a job whose place names somewhere else, marked US only, or whose text closes
+  it is set aside with why, at scoring, on a spec save and in the nightly mirror. A short code in capitals counts only
+  as its own word; a junk place line or a bare two-letter code keeps the job. A dry run on the real listings came
+  first: what it newly set aside was all outside.
+- **2026-11-23 · One tab per job search; searches at set times.**
+  A job search without a hunt of its own no longer stamps its name on what it finds (migration 022 clears it), so its
+  finds and the carried-over ones share one tab. A search may run at set times of the day (`times`), sleep-proof,
+  ahead of moving the deal searches here on the old timer's hours.
+- **2026-11-23 · The look: a plain dock, a colour per app, Chat from edge to edge, the Quiz start made over.**
+  The dock's coloured tiles go (they didn't look good); on Home no two apps share a colour (Searches green, Learn
+  purple, Quiz teal, Writing magenta: two new tokens). On a phone, Chat fills the screen between its title and the
+  bottom bar, with no frame around it. The Quiz start page: the started quiz large with a ring, the new quiz as
+  bars and tiles with one button that says what it starts, two columns on a computer. dsh's chats page drops its
+  cards inside kestrel's frame, and keeps the old app menu when opened on its own (the setup's log, 2026-11-23).
 - **2026-11-22 · Ask on every page, one conversation per page.**
   One Ask for every app (web/src/ask.tsx, /api/ask): each app's helper writes what its page shows; the
   conversation is kept per page (ask_messages, by app and ref); the answer is Markdown, streamed into its row and

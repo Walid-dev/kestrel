@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { Code, Inline } from "./learn/blocks.tsx";
 
+type Card = { label: string; state: "open" | "done" | "failed"; result: string };
 type Message = {
   id: string;
   role: "me" | "model";
@@ -14,6 +15,7 @@ type Message = {
   error: string;
   model: string;
   at: string;
+  cards?: Card[];
 };
 
 async function call(url: string, method: string, body?: unknown): Promise<{ messages: Message[] }> {
@@ -33,12 +35,14 @@ export function Ask({
   title = "Ask",
   placeholder = "Ask about this page",
   starters = [],
+  onChange,
 }: {
   app: string;
   refId: string;
   title?: string;
   placeholder?: string;
   starters?: string[];
+  onChange?: () => void; // a change I made from a card: the page reads its data again
 }) {
   const queryClient = useQueryClient();
   const key = ["ask", app, refId];
@@ -57,6 +61,14 @@ export function Ask({
       setText("");
     },
   });
+  // my tap on a change the model proposed: it runs, and its card says what happened
+  const act = useMutation({
+    mutationFn: (input: { id: string; card: number }) => call("/api/ask/act", "POST", input),
+    onSuccess: (data) => {
+      queryClient.setQueryData(key, data);
+      onChange?.();
+    },
+  });
   const clear = useMutation({
     mutationFn: () => call(`/api/ask?${where}`, "DELETE"),
     onSuccess: () => queryClient.setQueryData(key, { messages: [] }),
@@ -66,7 +78,7 @@ export function Ask({
   const ask = (q: string) => {
     if (q.trim() && !writing && !send.isPending) send.mutate(q.trim());
   };
-  const failed = [thread, send, clear].find((x) => x.isError);
+  const failed = [thread, send, clear, act].find((x) => x.isError);
 
   return (
     <section className="card ask grid gap-3" aria-busy={writing}>
@@ -115,6 +127,34 @@ export function Ask({
                 It didn't finish ({m.error}). Ask again.
               </p>
             )}
+            {(m.cards ?? []).map((c, i) => (
+              <div key={c.label} className="ask-card">
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold" style={{ color: "var(--strong)" }}>
+                    {c.label}
+                  </span>
+                  {c.state !== "open" && (
+                    <span
+                      className="block text-[13px]"
+                      style={{ color: c.state === "done" ? "var(--green)" : "var(--red)" }}
+                    >
+                      {c.state === "done" ? "✓ " : ""}
+                      {c.result}
+                    </span>
+                  )}
+                </span>
+                {c.state === "open" && (
+                  <button
+                    type="button"
+                    className="btn btn-primary shrink-0"
+                    disabled={act.isPending}
+                    onClick={() => act.mutate({ id: m.id, card: i })}
+                  >
+                    Do it
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
         ),
       )}
@@ -201,7 +241,8 @@ export function parseMarkdown(src: string): Part[] {
       flush();
       const body: string[] = [];
       for (i++; i < lines.length && !/^\s*```/.test(lines[i]); i++) body.push(lines[i]);
-      out.push({ k: "code", text: body.join("\n") });
+      // the model's own blocks (a find it runs, a change it proposes) are for kestrel, never shown as code
+      if (!/^\s*```\s*(find|action)\b/.test(line)) out.push({ k: "code", text: body.join("\n") });
       i++;
       continue;
     }

@@ -12,7 +12,8 @@ import { migrate } from "../../db/migrate.ts";
 import type { Settings } from "../../platform/config.ts";
 import { addLesson, addPack } from "../learn/lessons.ts";
 import { Refused } from "../notes/documents.ts";
-import { askPage, clearConversation, conversation, sweepAsks } from "./ask.ts";
+import { findListings } from "../search/ask.ts";
+import { actOn, askPage, clearConversation, conversation, sweepAsks } from "./ask.ts";
 
 function setup() {
   const base = mkdtempSync(join(tmpdir(), "kestrel-ask-"));
@@ -99,4 +100,83 @@ test("a failed answer says why; a restart ends an answer left writing", async ()
   assert.equal(swept.state, "failed");
   assert.match(swept.error, /restarted/);
   assert.equal(swept.text, "Half"); // what it had written stays
+});
+
+// a made-up job hunt: three listings, one remote and well paid
+function hunt(db: DatabaseSync) {
+  const add = db.prepare(
+    `INSERT INTO listings (id, search, source, link, dedupe, status, found, updated, score, match, data, kind)
+     VALUES (?, 'beekeeping', 'made-up-board', ?, ?, 'new', ?, ?, ?, 'great', ?, 'jobs')`,
+  );
+  const at = "2026-11-20T00:00:00Z";
+  add.run(
+    "L1",
+    "https://example.com/1",
+    "a",
+    at,
+    at,
+    90,
+    JSON.stringify({ title: "Head Keeper", org: "Hive Co", location: "Hiveton", salaryMax: 90000 }),
+  );
+  add.run(
+    "L2",
+    "https://example.com/2",
+    "b",
+    at,
+    at,
+    85,
+    JSON.stringify({ title: "Remote Keeper", org: "Comb Ltd", location: "Remote", salaryMax: 160000 }),
+  );
+  add.run(
+    "L3",
+    "https://example.com/3",
+    "c",
+    at,
+    at,
+    80,
+    JSON.stringify({ title: "Wax Lead", org: "Comb Ltd", location: "Remote", salaryMax: 70000 }),
+  );
+}
+
+test("on Searches the model looks through the hunt, answers from what it found, and a change waits for my tap", async () => {
+  const db = setup();
+  hunt(db);
+  assert.match(
+    findListings(db, "jobs:beekeeping", { remote: true, payAtLeast: 150000 }),
+    /^1 match:\n- L2: Remote Keeper at Comb Ltd/,
+  );
+  assert.equal(findListings(db, "jobs:beekeeping", { words: "nectar" }), "No listing matches.");
+  const seen: { messages: { role: string; content: string }[] }[] = [];
+  const s = await startStandIn((body) => {
+    seen.push(body as never);
+    return {
+      content:
+        seen.length === 1
+          ? 'Let me look.\n```find\n{"remote": true, "payAtLeast": 150000}\n```'
+          : 'The remote one is [Remote Keeper](listing:L2).\n```action\n{"do": "stage", "listing": "L2", "to": "interested"}\n```\n```action\n{"do": "stage", "listing": "nope", "to": "passed"}\n```',
+    };
+  });
+  await askPage(db, settings(s.url), { app: "searches", ref: "jobs:beekeeping", text: "Find the remote one that pays" })
+    .done;
+  await s.close();
+  assert.equal(seen.length, 2); // one look, then the answer
+  assert.match(seen[0].messages[0].content, /- L1: Head Keeper at Hive Co/); // the page shows its best listings
+  assert.match(seen[1].messages.at(-1)?.content ?? "", /WHAT YOUR FIND RETURNED[\s\S]*- L2: Remote Keeper/);
+  const answer = conversation(db, "searches", "jobs:beekeeping")[1];
+  assert.equal(answer.text, "The remote one is [Remote Keeper](listing:L2)."); // the blocks are kestrel's, not mine
+  assert.deepEqual(
+    answer.cards.map((c) => [c.label, c.state]),
+    [["Mark “Remote Keeper at Comb Ltd” as Interested", "open"]], // the change on a listing that isn't there is dropped
+  );
+  assert.equal((db.prepare("SELECT status FROM listings WHERE id = 'L2'").get() as { status: string }).status, "new");
+  const after = actOn(db, settings(s.url), { id: answer.id, card: 0 });
+  assert.deepEqual(
+    after[1].cards.map((c) => c.state),
+    ["done"],
+  );
+  assert.equal(
+    (db.prepare("SELECT status FROM listings WHERE id = 'L2'").get() as { status: string }).status,
+    "interested",
+  );
+  assert.throws(() => actOn(db, settings(s.url), { id: answer.id, card: 0 }), /already made/);
 });

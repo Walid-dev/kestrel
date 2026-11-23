@@ -4,8 +4,9 @@
 // cards. The page opens on To review, best first. A card swipes right for Interested and left for Not for me, has the
 // same buttons under it, starts a deep check, and opens the whole listing on a tap.
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
+import { Ask } from "../ask.tsx";
 import { ago, DEAL, DealCard, JobCard, type Listing, MATCH, Swipe } from "./cards.tsx";
 import { ListingSheet } from "./sheet.tsx";
 
@@ -142,6 +143,12 @@ export function Searches() {
   const [params, setParams] = useSearchParams();
   // ?open=<id> opens a listing straight away: Live and the activity links land on the listing itself
   const [open, setOpen] = useState<string | null>(() => new URLSearchParams(location.search).get("open"));
+  // a link on the page itself (a listing in Ask's answer) opens that listing too
+  useEffect(() => {
+    const id = params.get("open");
+    if (id) setOpen(id);
+  }, [params]);
+  const [asking, setAsking] = useState(false);
   const [limit, setLimit] = useState(PAGE);
   const [moreGroups, setMoreGroups] = useState(false);
   const [closed, setClosed] = useState<Set<string>>(() => {
@@ -412,7 +419,41 @@ export function Searches() {
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
               </svg>
             </Link>
+            <button
+              type="button"
+              className="btn inline-flex items-center gap-1.5"
+              aria-pressed={asking}
+              style={asking ? { borderColor: "var(--purple)", color: "var(--purple)" } : undefined}
+              onClick={() => setAsking((a) => !a)}
+            >
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
+                <path d="M12 2.5c.6 4.6 2.9 6.9 7.5 7.5-4.6.6-6.9 2.9-7.5 7.5-.6-4.6-2.9-6.9-7.5-7.5 4.6-.6 6.9-2.9 7.5-7.5Z" />
+              </svg>
+              Ask
+            </button>
           </div>
+          {asking && (
+            <Ask
+              app="searches"
+              refId={`${hunt.kind}:${hunt.key}`}
+              title={`Ask about ${hunt.name}`}
+              placeholder={kind === "jobs" ? "Find, compare, mark or apply in words" : "Find, compare or mark in words"}
+              starters={
+                kind === "jobs"
+                  ? [
+                      "Which ones should I apply to first?",
+                      "Find the remote ones that pay the most",
+                      "What do the best ones have in common?",
+                    ]
+                  : [
+                      "Which deal is the best value?",
+                      "Find the cheapest ones in good condition",
+                      "What is a fair price here?",
+                    ]
+              }
+              onChange={refresh}
+            />
+          )}
           {(hunt.about || kind === "deals") && (
             <p className="m-0 max-w-4xl text-[16px]" style={{ color: "var(--muted)" }}>
               {hunt.about || (groups.length ? `${groups.length} models: ${groups.map(([g]) => g).join(", ")}.` : "")}
@@ -671,7 +712,19 @@ export function Searches() {
           Show more
         </button>
       )}
-      {open && <ListingSheet id={open} onClose={() => setOpen(null)} />}
+      {open && (
+        <ListingSheet
+          id={open}
+          onClose={() => {
+            setOpen(null);
+            if (params.get("open")) {
+              const next = new URLSearchParams(params);
+              next.delete("open");
+              setParams(next, { replace: true });
+            }
+          }}
+        />
+      )}
     </main>
   );
 }

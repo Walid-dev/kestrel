@@ -4,10 +4,11 @@
 // from what the model knows. A lesson the page lists can be linked by its id, and the page turns the link into one.
 import type { Turn } from "../client.ts";
 
-export const ASK_VERSION = 1;
+export const ASK_VERSION = 2;
 
-// what a page shows the model: which app, what the page is, its title and link (for Live), and its content in words
-export type AskPage = { app: string; what: string; title: string; link: string; context: string };
+// what a page shows the model: which app, what the page is, its title and link (for Live), its content in words, and
+// what the model may do there (find, a change to propose), in the app's own words
+export type AskPage = { app: string; what: string; title: string; link: string; context: string; tools?: string };
 
 export function askMessages(page: AskPage, history: Turn[], question: string): { system: string; messages: Turn[] } {
   const system = [
@@ -23,6 +24,7 @@ export function askMessages(page: AskPage, history: Turn[], question: string): {
     "",
     `THE PAGE: ${page.title}`,
     page.context,
+    ...(page.tools ? ["", page.tools] : []),
   ].join("\n");
   return { system, messages: [...history, { role: "user", content: question }] };
 }

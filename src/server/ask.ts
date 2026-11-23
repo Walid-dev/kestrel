@@ -1,12 +1,15 @@
-// The Ask routes, the same for every app: a page's conversation (read it, ask, start over). The answer streams into
-// its row; the page reads the conversation again while one is writing. A Refused answers 400 with its reason.
+// The Ask routes, the same for every app: a page's conversation (read it, ask, start over) and my tap on a change the
+// model proposed. The answer streams into its row; the page reads the conversation again while one is writing. A
+// Refused answers 400 with its reason.
 import type { DatabaseSync } from "node:sqlite";
 import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import { z } from "zod";
-import { ASK_APPS, askPage, clearConversation, conversation, sweepAsks } from "../domain/ask/ask.ts";
+import { listApplications } from "../domain/apply/apply.ts";
+import { ASK_APPS, actOn, askPage, clearConversation, conversation, sweepAsks } from "../domain/ask/ask.ts";
 import { Refused } from "../domain/notes/documents.ts";
 import type { Settings } from "../platform/config.ts";
+import { bus } from "./events.ts";
 
 export function mountAsk(app: Hono, db: DatabaseSync, settings: Settings) {
   sweepAsks(db);
@@ -26,6 +29,20 @@ export function mountAsk(app: Hono, db: DatabaseSync, settings: Settings) {
       return refusing(c, e);
     }
   });
+  // my tap on a card: the change runs; an application it queued rings the bus, so the live strip hears it
+  app.post(
+    "/api/ask/act",
+    zValidator("json", z.object({ id: z.string().min(1).max(80), card: z.number().int().min(0).max(9) })),
+    (c) => {
+      try {
+        const messages = actOn(db, settings, c.req.valid("json"));
+        bus.emit("change", { kind: "apply", counts: listApplications(db).counts });
+        return c.json({ messages });
+      } catch (e) {
+        return refusing(c, e);
+      }
+    },
+  );
   app.delete("/api/ask", zValidator("query", page), (c) => {
     try {
       const { app: name, ref } = c.req.valid("query");

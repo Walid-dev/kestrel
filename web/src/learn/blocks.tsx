@@ -3,7 +3,7 @@
 // hand-placed diagrams. Every line meant to be heard registers with `say`, so Listen reads the page in order and
 // lights the line it is on.
 import { type CSSProperties, createContext, type ReactNode, useContext } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 
 export type Say = {
   add: (text: string, opts?: { pause?: number }) => number;
@@ -23,7 +23,7 @@ export const plain = (s: string) =>
   s
     .replaceAll(/`([^`]+)`/g, "$1")
     .replaceAll(/\*\*([^*]+)\*\*/g, "$1")
-    .replaceAll(/\[([^\]\n]+)\]\((?:lesson:|https?:\/\/)[^)\s]+\)/g, "$1")
+    .replaceAll(/\[([^\]\n]+)\]\((?:lesson:|listing:|https?:\/\/)[^)\s]+\)/g, "$1")
     .replaceAll(/\s*\[\d+(?:\s*[,–-]\s*\d+)*\]/g, "");
 
 // a research answer's sources by number: inside it, [2] becomes a link named for its site
@@ -38,12 +38,21 @@ const site = (url: string) => {
 };
 
 // `code` and **bold**, the guides' inline marks; inside a research answer, its [n] sources as links; in an Ask
-// answer, *a stress* and [words](links) — a lesson's own (lesson:<id>) opens it here, any other opens a tab
+// answer, *a stress* and [words](links) — a lesson's own (lesson:<id>) or a listing (listing:<id>) opens it here,
+// any other opens a tab
+// a listing's own place: on Searches, the hunt in view stays and the listing opens over it
+const listingHref = (here: { pathname: string; search: string }, id: string) => {
+  const p = new URLSearchParams(here.pathname === "/searches" ? here.search : "");
+  p.set("open", id);
+  return `/searches?${p}`;
+};
+
 export function Inline({ text }: { text: string }) {
   const cites = useContext(Cites);
+  const here = useLocation();
   const out: ReactNode[] = [];
   const re =
-    /`([^`]+)`|\*\*([^*]+)\*\*|\s?\[(\d+(?:\s*[,–-]\s*\d+)*)\]|\[([^\]\n]+)\]\(((?:lesson:|https?:\/\/)[^)\s]+)\)|(?<![\w*])\*(?![\s*])([^*\n]+?)(?<![\s*])\*(?![\w*])/g;
+    /`([^`]+)`|\*\*([^*]+)\*\*|\s?\[(\d+(?:\s*[,–-]\s*\d+)*)\]|\[([^\]\n]+)\]\(((?:lesson:|listing:|https?:\/\/)[^)\s]+)\)|(?<![\w*])\*(?![\s*])([^*\n]+?)(?<![\s*])\*(?![\w*])/g;
   let last = 0;
   let m: RegExpExecArray | null = re.exec(text);
   while (m) {
@@ -87,6 +96,10 @@ export function Inline({ text }: { text: string }) {
         </strong>
       ) : m[5]?.startsWith("lesson:") ? (
         <Link key={m.index} to={`/learn/lesson/${encodeURIComponent(m[5].slice(7))}`} className="md-link">
+          {m[4]}
+        </Link>
+      ) : m[5]?.startsWith("listing:") ? (
+        <Link key={m.index} to={listingHref(here, m[5].slice(8))} className="md-link">
           {m[4]}
         </Link>
       ) : m[5] !== undefined ? (

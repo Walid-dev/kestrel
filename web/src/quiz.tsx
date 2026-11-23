@@ -210,7 +210,7 @@ export function Quiz() {
         </div>
         <div className="grid gap-2.5">
           <span className="eyebrow">On</span>
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2.5">
             {topics.map((t) => (
               <button
                 key={t.key}

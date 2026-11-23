@@ -19,6 +19,7 @@ import {
   setListingNote,
   setListingStar,
   setListingStatus,
+  statusWord,
   usualPrices,
 } from "../domain/search/listings.ts";
 import { lastRun, pendingSearches, runSearch } from "../domain/search/runs.ts";
@@ -188,20 +189,9 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
         if (body.status) {
           setListingStatus(db, c.req.param("id"), body.status);
           const l = getListing(db, c.req.param("id"));
-          const word: Record<string, string> = {
-            interested: "Interested",
-            passed: l?.kind === "deals" ? "Not interested" : "Not for me",
-            maybe: "Not sure",
-            applied: l?.kind === "deals" ? "Contacted" : "Applied",
-            interviewing: "Interviewing",
-            rejected: "Rejected",
-            fake: "Not real",
-            closed: l?.kind === "deals" ? "Sold" : "Closed",
-            new: "Back to review",
-          };
           record(
             "listing",
-            `${word[body.status] ?? body.status}: ${String(l?.data.title ?? "a listing")}`,
+            `${statusWord(body.status, l?.kind ?? "jobs")}: ${String(l?.data.title ?? "a listing")}`,
             `/searches?open=${encodeURIComponent(c.req.param("id"))}`,
           );
         }

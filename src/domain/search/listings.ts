@@ -392,6 +392,25 @@ export function setListingNote(db: DatabaseSync, id: string, note: string): void
   );
 }
 
+// a status as the page's buttons say it, a job's or a deal's
+export function statusWord(status: string, kind: "jobs" | "deals"): string {
+  const deal = kind === "deals";
+  return (
+    {
+      new: "Back to review",
+      interested: "Interested",
+      passed: deal ? "Not interested" : "Not for me",
+      maybe: "Not sure",
+      applied: deal ? "Contacted" : "Applied",
+      interviewing: "Interviewing",
+      offer: "Offer",
+      rejected: "Rejected",
+      fake: "Not real",
+      closed: deal ? "Sold" : "Closed",
+    }[status] ?? status
+  );
+}
+
 export function setListingStatus(db: DatabaseSync, id: string, status: string): void {
   const got = db
     .prepare("UPDATE listings SET status = ?, updated = ? WHERE id = ?")
