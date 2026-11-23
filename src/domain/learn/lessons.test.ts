@@ -53,7 +53,7 @@ test("the old Learn's ladder: each known climbs 1, 3, 7, 16, 35 days; again star
   const pack = addPack(db, "P");
   const l = addLesson(db, pack, "L", BODY);
   const now = new Date("2026-11-21T12:00:00Z");
-  assert.deepEqual(neverGraded(db), [l.id]); // it has a check, so it is due from birth
+  assert.deepEqual(neverGraded(db, "learn"), [l.id]); // it has a check, so Practice asks it from birth
   const climbs = [1, 2, 3, 4, 5, 6].map(() => gradeLesson(db, l.id, "good", now));
   assert.deepEqual(
     climbs.map((g) => g.intervalDays),
@@ -63,7 +63,7 @@ test("the old Learn's ladder: each known climbs 1, 3, 7, 16, 35 days; again star
     climbs.map((g) => g.level),
     [1, 2, 3, 4, 5, 5],
   );
-  assert.deepEqual(dueLessons(db, new Date("2027-01-01T12:00:00Z")), [l.id]);
+  assert.deepEqual(dueLessons(db, "learn", new Date("2027-01-01T12:00:00Z")), [l.id]);
   const again = gradeLesson(db, l.id, "again", now);
   assert.deepEqual([again.intervalDays, again.level], [1, 0]);
 });

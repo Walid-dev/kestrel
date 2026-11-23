@@ -13,7 +13,7 @@ export function LearnPractice() {
     queryFn: async () => {
       const res = await fetch(`/api/learn/due?area=${new URLSearchParams(location.search).get("area") ?? "learn"}`);
       if (!res.ok) throw new Error(`the due list didn't load (${res.status})`);
-      return (await res.json()) as { lessons: Lesson[] };
+      return (await res.json()) as { lessons: Lesson[]; due: number; new: number };
     },
   });
   const grade = useMutation({
@@ -62,7 +62,7 @@ export function LearnPractice() {
       <div className="flex items-center gap-3">
         <h2 className="font-cond text-xl font-bold">Practice</h2>
         <span className="font-mono ml-auto text-xs" style={{ color: "var(--muted)" }}>
-          {due.data?.lessons.length} due
+          {due.data?.due} due{due.data?.new ? `, ${due.data.new} new` : ""}
         </span>
       </div>
       <section className="card grid gap-3">

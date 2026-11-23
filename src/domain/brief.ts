@@ -1,6 +1,7 @@
 // The morning brief: what waits, in plain sentences. Composed from the database alone, so it answers fast and
 // says nothing it cannot count.
 import type { DatabaseSync } from "node:sqlite";
+import { countDue } from "./learn/review.ts";
 
 const count = (db: DatabaseSync, sql: string, ...args: string[]): number =>
   (db.prepare(sql).get(...args) as { n: number }).n;
@@ -23,13 +24,8 @@ export function morningBrief(db: DatabaseSync, now: Date): string[] {
   if (needsMe) lines.push(`${needsMe} application${needsMe === 1 ? " waits" : "s wait"} on me.`);
   const queued = count(db, "SELECT COUNT(*) AS n FROM applications WHERE state = 'queued'");
   if (queued) lines.push(`${queued} ${queued === 1 ? "is" : "are"} queued to apply.`);
-  // like the old Learn's "to review today": lessons in Learn whose review date has come, not every unread one
-  const due = count(
-    db,
-    `SELECT COUNT(*) AS n FROM reviews r JOIN lessons l ON l.id = r.lesson JOIN packs p ON p.id = l.pack
-     WHERE r.due <= ? AND p.area = 'learn'`,
-    now.toISOString(),
-  );
+  // like the old Learn's "to review today": Learn's due lessons, counted as every screen counts them
+  const due = countDue(db, "learn", now);
   if (due) lines.push(`${due} lesson${due === 1 ? " is" : "s are"} up for review today.`);
   const tasks = count(db, "SELECT COUNT(*) AS n FROM tasks WHERE done = 0");
   if (tasks) lines.push(`${tasks} task${tasks === 1 ? " stays" : "s stay"} open.`);
