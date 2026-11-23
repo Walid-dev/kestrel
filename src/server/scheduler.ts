@@ -11,6 +11,7 @@ import { importV1 } from "../domain/search/import-v1.ts";
 import { lastRun, type Run, runSearch } from "../domain/search/runs.ts";
 import { isDue, loadSpecs, type Spec } from "../domain/search/specs.ts";
 import { begin } from "../platform/activity.ts";
+import { plainWords } from "../platform/plain.ts";
 
 export type SchedulerDirs = {
   specsDir: string;
@@ -18,9 +19,6 @@ export type SchedulerDirs = {
   mirrorFile?: string;
   afterRun?: (spec: Spec, run: Run) => Promise<void>; // a hunt that is On pings my phone (server/alerts.ts)
 };
-
-// an error's words, with any path turned generic: the run rows and the service log never carry folders
-const plainWords = (msg: string): string => msg.replaceAll(/\/[^\s"']+/g, "(a path)").slice(0, 120);
 
 // a copy that failed (a full disk, a folder it can't write) tries again an hour later, not every minute: each try
 // is one failed entry in Live and one log line. In memory, by folder: a restart tries at once.

@@ -287,8 +287,10 @@ test("on Applications Retry is a card only for one that stopped, and my tap queu
   assert.equal(getApplication(db, stopped.id)?.state, "queued");
 });
 
-test("an answer that breaks while it is written fails, so the page takes the next question (review: stuck writing)", async () => {
+test("an answer that breaks while it is written fails, so the page takes the next question (review: stuck writing)", async (t) => {
   const db = setup();
+  const logged: string[] = [];
+  t.mock.method(console, "error", (line: string) => logged.push(line));
   hunt(db);
   // a find block whose JSON is a list, not an object: reading it used to throw inside the answer's work
   let asked = 0;
@@ -307,6 +309,8 @@ test("an answer that breaks while it is written fails, so the page takes the nex
     const failed = conversation(db, "searches", "jobs:beekeeping")[1];
     assert.equal(failed.state, "failed");
     assert.match(failed.error, /went wrong/);
+    // and the service log says what broke, in one plain line (review)
+    assert.deepEqual(logged, ["an Ask answer failed: no such table: listings"]);
   } finally {
     await s.close();
   }

@@ -10,6 +10,7 @@ import { migrate } from "../db/migrate.ts";
 import { sweepDeepChecks } from "../domain/search/deep.ts";
 import { loadSettings } from "../platform/config.ts";
 import { dataDir, isDeployed } from "../platform/paths.ts";
+import { plainWords } from "../platform/plain.ts";
 import { alertRun } from "./alerts.ts";
 import { app } from "./app.ts";
 import { mountApply } from "./apply.ts";
@@ -118,7 +119,7 @@ startScheduler(db, {
 const root = new Hono();
 // a failed request logs one plain line, never a stack: the service log must stay free of paths and content
 root.onError((e, c) => {
-  console.error(`a request failed: ${e.name}: ${e.message.replaceAll(/\/[^\s"']+/g, "(a path)").slice(0, 120)}`);
+  console.error(`a request failed: ${e.name}: ${plainWords(e.message)}`);
   return c.json({ error: "something went wrong on the computer's side" }, 500);
 });
 root.use("*", identity(settings.tailscaleLogin, isDeployed()));

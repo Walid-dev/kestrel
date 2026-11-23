@@ -11,6 +11,7 @@ import { ASK_VERSION, type AskPage, askMessages } from "../../ai/ask/prompt.ts";
 import { chatModel, type Turn } from "../../ai/client.ts";
 import { begin } from "../../platform/activity.ts";
 import type { Settings } from "../../platform/config.ts";
+import { plainWords } from "../../platform/plain.ts";
 import { recordCall } from "../calls.ts";
 import { lessonPage, lessonTools, quizTools } from "../learn/ask.ts";
 import { quizPage } from "../learn/quiz.ts";
@@ -188,10 +189,11 @@ async function write(
   const live = begin("model", `Ask: ${page.title}`.slice(0, 120), page.link);
   try {
     await answer(db, settings, row, helper, tools, page, history, question, live);
-  } catch {
+  } catch (e) {
     // anything that breaks while the answer is written (a page's find, its tidy, a record) ends it as failed: a row
     // left writing would refuse every question and Start over until a restart. Live first: if the database itself
-    // closed under it, the write below throws too, and askPage's catch takes it.
+    // closed under it, the write below throws too, and askPage's catch takes it. The log keeps what broke, pathless.
+    console.error(`an Ask answer failed: ${plainWords(e instanceof Error ? e.message : String(e))}`);
     live.end("failed", "something went wrong while it answered");
     db.prepare("UPDATE ask_messages SET state = 'failed', error = ? WHERE id = ? AND state = 'writing'").run(
       "something went wrong while it answered: ask again",
