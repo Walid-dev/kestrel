@@ -5,6 +5,13 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-23 · Ask reads like a lesson; the switch in three colours; left to do only.**
+  Ask's answer takes the lessons' boxes: the direct answer in its own tile, headings as a lesson's, each point of a
+  list in a tile with its mark, a quote in the example's box (labelled by a short line before it); a one-line head
+  and a line to ask with its send button inside, tightening in a narrow column instead of wrapping. The quiz shows
+  what I said and the lesson's answer side by side as tiles. The hunt switch lights each mode in its own colour as
+  the old pages did (On green, Quiet amber, Paused red). "Left to do only" (on by default) hides from the review
+  views a job that has an application or that I applied to. The deep check chip stays one colour, its verdict's.
 - **2026-11-23 · kestrel pings my phone, and the chair hunt lives here.**
   kestrel sends pings through ntfy, the old setup's channel (my yes): each channel's topic is read from its file at
   send time and never printed or kept. This lifts v0.3's "no push service that leaves the computer" for pings only;
