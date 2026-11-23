@@ -25,7 +25,7 @@ type Lists = { byState: Record<string, Application[]>; counts: Record<string, nu
 const STATES: { state: string; title: string; tone: string; what: string }[] = [
   { state: "needs-me", title: "Needs me", tone: "tone-pink", what: "a step only I can do" },
   { state: "applying", title: "Applying now", tone: "tone-purple", what: "an agent is on the form" },
-  { state: "queued", title: "Queued", tone: "tone-muted", what: "waiting for an agent" },
+  { state: "queued", title: "Queued", tone: "tone-muted", what: "starts by itself once nothing else is at work" },
   { state: "not-sent", title: "Not sent", tone: "tone-orange", what: "stopped before sending, with why" },
   { state: "sent", title: "Sent", tone: "tone-accent", what: "the form went through" },
 ];
@@ -59,6 +59,18 @@ export function Applications() {
   useEvents((p) => {
     if (p.kind === "apply") queryClient.invalidateQueries({ queryKey: ["apply"] });
   });
+  // an application left waiting for me at the computer, which I finished there myself
+  const sent = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch("/api/apply/report", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id, state: "sent" }),
+      });
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["apply"] }),
+  });
   const retry = useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch("/api/apply/retry", {
@@ -86,7 +98,7 @@ export function Applications() {
   const sentWeek = all.filter((a) => a.state === "sent" && Date.parse(a.updated) >= week).length;
   const stoppedWeek = all.filter((a) => a.state === "not-sent" && Date.parse(a.updated) >= week).length;
   const s = after.data?.status ?? {};
-  const failed = [lists, retry].find((x) => x.isError);
+  const failed = [lists, retry, sent].find((x) => x.isError);
 
   return (
     <main className="grid gap-5">
@@ -260,6 +272,11 @@ export function Applications() {
                 >
                   The posting ↗
                 </a>
+                {a.state === "needs-me" && (
+                  <button type="button" className="btn" disabled={sent.isPending} onClick={() => sent.mutate(a.id)}>
+                    I sent it
+                  </button>
+                )}
                 {a.state === "not-sent" && (
                   <button type="button" className="btn" disabled={retry.isPending} onClick={() => retry.mutate(a.id)}>
                     Retry

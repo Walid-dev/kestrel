@@ -30,7 +30,14 @@ export const ScoringShape = z
       .optional()
       .catch(undefined),
     places: z
-      .object({ words: words.default([]), remoteOk: z.boolean().default(true) })
+      .object({
+        words: words.default([]),
+        remoteOk: z.boolean().default(true),
+        // where a job must be open (its first word names it: the country); a job open only elsewhere is set aside
+        within: words.default([]),
+        // what a posting says when only people elsewhere may apply ("authorized to work in the united states")
+        closed: words.default([]),
+      })
       .optional()
       .catch(undefined),
     // a deal's price range: over the cap or under the floor (a part, a wanted ad, a scam) it is set aside
@@ -131,7 +138,33 @@ export function scoreJob(raw: unknown, job: ScoredJob, now: Date): Score {
   return { score, match, why: why.join("; ") || "nothing stood out", parts };
 }
 
-// the rules that set a listing aside until I mark it. A job: a weak match. A deal: a title with an avoided word or none
+// the words a place line uses for "anywhere": a line of nothing else names no country, so it stays in view
+const ANYWHERE =
+  /\b(remote|anywhere|worldwide|global(ly)?|in the world|hybrid|on-?site|in-office|office|flexible|or|and|multiple locations?|various locations?)\b/g;
+
+// a job open only outside the places it must be in (scoring.places.within): its place names somewhere else (a remote
+// one too: "Remote - USA"), it is marked US only, or its text says only people elsewhere may apply. Answers why in
+// plain words, or null; with no places set, every job stays.
+export function outsideOf(raw: unknown, item: ScoredJob): string | null {
+  const places = ScoringShape.parse(raw ?? {}).places;
+  if (!places?.within.length) return null;
+  const name = places.within[0];
+  const inside = (t: string) => places.within.some((w) => has(t, w));
+  const where = (item.location ?? "").trim();
+  if (where && inside(where)) return null;
+  if (item.usOnly) return `not open in ${name}: US only`;
+  const named = where
+    .toLowerCase()
+    .replace(ANYWHERE, "")
+    .replace(/[^\p{L}]+/gu, "");
+  if (named) return `not open in ${name}: ${where}`;
+  const text = item.excerpt ?? "";
+  const closed = places.closed.find((p) => has(text, p));
+  if (closed && !inside(text)) return `not open in ${name}: the posting says ${closed}`;
+  return null;
+}
+
+// the rules that set a listing aside until I mark it. A job: open only elsewhere, or a weak match. A deal: a title with an avoided word or none
 // of the wanted ones (the old specs' exclude and require lines), a price over the cap or under the floor, an ad older
 // than its fresh window. Answers the reason in plain words, or null when it stays in view
 export function leftOutOf(
@@ -141,7 +174,7 @@ export function leftOutOf(
   score: Score,
   now: Date,
 ): string | null {
-  if (kind === "jobs") return score.score < 40 ? "weak match" : null;
+  if (kind === "jobs") return outsideOf(raw, item) ?? (score.score < 40 ? "weak match" : null);
   const s = ScoringShape.parse(raw ?? {});
   const title = item.title ?? "";
   const avoided = s.title.avoid.find((w) => has(title, w));

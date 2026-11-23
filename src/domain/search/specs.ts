@@ -12,6 +12,8 @@ export const Spec = z.object({
   args: z.array(z.string()).default([]),
   everyMinutes: z.number().int().positive().default(360),
   auto: z.boolean().default(true), // false: it runs only when I ask (Search now), never on the clock
+  // set times of the day on the computer's clock ("10:00", "20:00", as the old deal hunts ran); none: every everyMinutes
+  times: z.array(z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)).default([]),
   env: z.record(z.string(), z.string()).default({}), // the old convention's knobs (terms, pages) travel here
   limits: z
     .object({
@@ -86,4 +88,20 @@ export function listCollectors(dir = join(dataDir(), "collectors")): string[] {
   } catch {
     return [];
   }
+}
+
+// a spec is due when it never ran; with set times, when the latest of them passed after its last run (a computer that
+// slept through one runs it on waking, once); else when everyMinutes passed since its last run
+export function isDue(spec: Pick<Spec, "times" | "everyMinutes">, lastStarted: string | null, now: Date): boolean {
+  if (!lastStarted) return true;
+  const last = new Date(lastStarted).getTime();
+  if (!spec.times.length) return now.getTime() - last >= spec.everyMinutes * 60_000;
+  let latest = 0;
+  for (const back of [0, 1])
+    for (const t of spec.times) {
+      const [h, m] = t.split(":").map(Number);
+      const at = new Date(now.getFullYear(), now.getMonth(), now.getDate() - back, h, m).getTime();
+      if (at <= now.getTime()) latest = Math.max(latest, at);
+    }
+  return latest > last;
 }

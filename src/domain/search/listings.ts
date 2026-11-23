@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { Refused } from "../notes/documents.ts";
 import type { Item } from "./collect.ts";
-import { leftOutOf, type Score, scoreJob } from "./score.ts";
+import { leftOutOf, outsideOf, type Score, scoreJob } from "./score.ts";
 
 export type ListingRow = {
   id: string;
@@ -356,7 +356,28 @@ export function rescoreSearch(
       r.id,
     );
   }
-  return rows.length;
+  // the old setup's own jobs keep their scores, but one open only where I can't work is set aside among them too (and
+  // back in view when the places change)
+  let carried = 0;
+  if (kind === "jobs") {
+    const old = db
+      .prepare("SELECT id, data FROM listings WHERE search = ? AND json_extract(data, '$.parts') IS NULL")
+      .all(searchId) as { id: string; data: string }[];
+    const set = db.prepare("UPDATE listings SET data = ? WHERE id = ?");
+    for (const r of old) {
+      const data = JSON.parse(r.data) as Record<string, unknown>;
+      const was = String(data.leftOut ?? "");
+      const ours = was.startsWith("not open in ");
+      if (was && !ours) continue; // the old setup's own reason stays
+      const outside = outsideOf(scoring, data as unknown as Item) ?? "";
+      if (outside === was) continue;
+      if (outside) data.leftOut = outside;
+      else delete data.leftOut;
+      set.run(JSON.stringify(data), r.id);
+      carried++;
+    }
+  }
+  return rows.length + carried;
 }
 
 export function setListingNote(db: DatabaseSync, id: string, note: string): void {

@@ -6,6 +6,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { outsideOf, type ScoredJob } from "./score.ts";
 
 type OldRow = {
   id: string;
@@ -32,7 +33,10 @@ export type ImportCounts = {
   kestrelScored: number;
 };
 
-export type ImportOptions = { specsDir?: string }; // the old deal specs, whose head names each one's hunt and model
+export type ImportOptions = {
+  specsDir?: string; // the old deal specs, whose head names each one's hunt and model
+  jobScoring?: (search: string) => unknown; // kestrel's own scoring for a job search: its places rule applies here too
+};
 
 const json = (s: string | null | undefined): Record<string, unknown> => {
   try {
@@ -345,8 +349,11 @@ export function importV1(db: DatabaseSync, from: string, write: boolean, opts: I
     // the old setup's "fair" is kestrel's possible tier
     const match = String(data.match ?? "") === "fair" ? "weak" : String(data.match ?? "");
     const updatedAt = String(data.lastSeen ?? r.found);
+    // a job open only where I can't work is set aside here too, each night, as kestrel's own finds are
+    const outside = data.leftOut ? null : outsideOf(opts.jobScoring?.(r.hunt), data as unknown as ScoredJob);
     const carried = JSON.stringify({
       ...data,
+      ...(outside ? { leftOut: outside } : {}),
       kind: "jobs",
       org: text(data.company) || text(data.org),
       why: data.matchWhy ?? "",

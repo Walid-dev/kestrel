@@ -1,5 +1,6 @@
 // The applications: queued → applying → sent, not-sent (its reason, Retry) or needs-me (what it waits for).
-// One open application per link — no job ever gets two. The agent claims the oldest queued and reports back.
+// One open application per link — no job ever gets two. The agent's starter (the old setup's runner, one task at a
+// time) claims the oldest queued as soon as nothing else is at work, and reports how it ended.
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { Refused } from "../notes/documents.ts";
@@ -9,7 +10,7 @@ const MOVES: Record<ApplyState, ApplyState[]> = {
   queued: ["applying"],
   applying: ["sent", "not-sent", "needs-me"],
   "needs-me": ["applying", "sent", "not-sent"],
-  "not-sent": ["queued"],
+  "not-sent": ["queued", "applying"], // Retry, or its chat picked up again (I wrote to it and it went on)
   sent: [],
 };
 

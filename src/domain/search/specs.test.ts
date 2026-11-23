@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { loadSpecs, readSpecFile, writeSpecFile } from "./specs.ts";
+import { isDue, loadSpecs, readSpecFile, writeSpecFile } from "./specs.ts";
 
 test("a good search is written, reads back, and loads with the others", () => {
   const dir = mkdtempSync(join(tmpdir(), "kestrel-specs-"));
@@ -33,4 +33,17 @@ test("a bad file name or a search without its collector is refused, and nothing 
   assert.throws(() => writeSpecFile("no-collector", { name: "x" }, dir), /collector/);
   assert.equal(existsSync(join(dir, "no-collector.json")), false);
   assert.equal(readSpecFile("../escape", dir), null);
+});
+
+test("set times: due once the next one passes, once after a sleep through several; without them, every interval", () => {
+  const at = (d: number, h: number, m = 0) => new Date(2026, 10, d, h, m); // the computer's own clock
+  const twice = { times: ["10:00", "20:00"], everyMinutes: 720 };
+  assert.equal(isDue(twice, null, at(21, 9)), true); // never ran
+  assert.equal(isDue(twice, at(21, 10, 0).toISOString(), at(21, 19, 59)), false);
+  assert.equal(isDue(twice, at(21, 10, 0).toISOString(), at(21, 20, 0)), true);
+  assert.equal(isDue(twice, at(21, 20, 1).toISOString(), at(22, 9, 0)), false); // the night has no time set
+  assert.equal(isDue(twice, at(20, 20, 1).toISOString(), at(22, 9, 0)), true); // slept through: once, on waking
+  const every = { times: [], everyMinutes: 360 };
+  assert.equal(isDue(every, at(21, 6).toISOString(), at(21, 11, 59)), false);
+  assert.equal(isDue(every, at(21, 6).toISOString(), at(21, 12)), true);
 });

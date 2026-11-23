@@ -132,7 +132,7 @@ export function SearchSettings() {
   const level = (scoring.level ?? {}) as Words;
   const pay = (scoring.pay ?? {}) as { floor?: number };
   const price = (scoring.price ?? {}) as { cap?: number };
-  const places = (scoring.places ?? {}) as { words?: unknown; remoteOk?: boolean };
+  const places = (scoring.places ?? {}) as { words?: unknown; remoteOk?: boolean; within?: unknown; closed?: unknown };
   const others = Object.entries(env).filter(([k]) => !KNOBS.some(([n]) => n === k));
 
   return (
@@ -328,6 +328,24 @@ export function SearchSettings() {
                 onChange={(e) => putScore({ places: { ...places, words: split(e.target.value) } })}
               />
             </Field>
+            {kind === "jobs" && (
+              <Field label="Open only in" hint="a job open only elsewhere is set aside; the first word names it">
+                <input
+                  className="btn"
+                  value={list(places.within)}
+                  onChange={(e) => putScore({ places: { ...places, within: split(e.target.value) } })}
+                />
+              </Field>
+            )}
+            {kind === "jobs" && (
+              <Field label="Not open when the posting says" hint="words that keep people elsewhere out">
+                <input
+                  className="btn"
+                  value={list(places.closed)}
+                  onChange={(e) => putScore({ places: { ...places, closed: split(e.target.value) } })}
+                />
+              </Field>
+            )}
             <Field label="Fresh within (days)">
               <input
                 className="btn"

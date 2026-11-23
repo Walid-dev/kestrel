@@ -1,7 +1,7 @@
 // A table of made-up beekeeping jobs scores as labelled: the engine is rules, so the labels are exact.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { leftOutOf, scoreJob } from "./score.ts";
+import { leftOutOf, outsideOf, scoreJob } from "./score.ts";
 
 const NOW = new Date("2026-11-21T12:00:00Z");
 const scoring = {
@@ -139,5 +139,35 @@ test("a deal is set aside by the old specs' rules: an avoided word, no wanted wo
   assert.equal(
     leftOutOf("jobs", rules, { title: "Kettle" }, { score: 30, match: "poor", why: "", parts: {} }, NOW),
     "weak match",
+  );
+});
+
+test("a job open only outside the places it must be in is set aside, with why; vague or inside places stay", () => {
+  const within = {
+    places: {
+      words: ["Hiveton"],
+      within: ["Waxland", "Hiveton", ", WX"],
+      closed: ["authorized to work in nectaria"],
+    },
+  };
+  const out = (job: Record<string, unknown>) => outsideOf(within, { title: "Keeper", ...job });
+  assert.equal(out({ location: "Hiveton, WX" }), null);
+  assert.equal(out({ location: "Remote (Nectaria | Waxland)" }), null); // open to both
+  assert.equal(out({ location: "Remote (Anywhere in the World)" }), null); // names no country
+  assert.equal(out({ location: "In-Office or Remote" }), null);
+  assert.equal(out({ location: "" }), null);
+  assert.equal(out({ location: "Droneville, Nectaria" }), "not open in Waxland: Droneville, Nectaria");
+  assert.equal(out({ location: "Remote - Nectaria" }), "not open in Waxland: Remote - Nectaria");
+  assert.equal(out({ location: "Remote", usOnly: true }), "not open in Waxland: US only");
+  assert.equal(
+    out({ location: "Remote", excerpt: "You must be authorized to work in Nectaria." }),
+    "not open in Waxland: the posting says authorized to work in nectaria",
+  );
+  assert.equal(out({ location: "Remote", excerpt: "Authorized to work in Nectaria or Waxland." }), null);
+  assert.equal(outsideOf({ places: { words: ["Hiveton"] } }, { title: "Keeper", location: "Droneville" }), null); // no rule set
+  const job = { title: "Head Keeper", location: "Droneville, Nectaria" };
+  assert.equal(
+    leftOutOf("jobs", within, job, scoreJob(within, job, NOW), NOW),
+    "not open in Waxland: Droneville, Nectaria",
   );
 });

@@ -13,6 +13,7 @@ import {
   retryApplication,
 } from "../domain/apply/apply.ts";
 import { Refused } from "../domain/notes/documents.ts";
+import { pendingSearches } from "../domain/search/runs.ts";
 import { record } from "../platform/activity.ts";
 import { bus } from "./events.ts";
 
@@ -37,6 +38,8 @@ export function mountApply(app: Hono, db: DatabaseSync) {
     },
   );
   app.post("/api/apply/claim", zValidator("json", z.object({ agent: z.string().min(1).max(80) })), (c) => {
+    // a search of ours at work has the agent's browser: the next application waits for the starter's next look
+    if (pendingSearches().size) return c.json({ claimed: null, waiting: "a search" });
     const claimed = claimNext(db, c.req.valid("json").agent);
     if (claimed) ring();
     return c.json({ claimed });

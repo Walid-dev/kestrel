@@ -7,6 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { migrate } from "../../db/migrate.ts";
 import { tick } from "../../server/scheduler.ts";
+import { listHunts } from "./listings.ts";
 import { lastRun, runSearch } from "./runs.ts";
 import type { Spec } from "./specs.ts";
 
@@ -25,6 +26,7 @@ function setup(items: string) {
     args: [],
     everyMinutes: 360,
     auto: true,
+    times: [],
     limits: { perRun: 200, timeoutMs: 180_000, maxBytes: 20_000_000 },
     env: {},
     scoring: { title: { want: ["keeper"] } } as unknown,
@@ -51,6 +53,19 @@ test("a run keeps its items and records itself; an empty page is a problem", asy
   assert.equal(empty.problem, "the page answered empty");
 });
 
+test("a search without a hunt keeps its finds beside the carried-over ones: one tab, not two", async () => {
+  const { db, spec } = setup(ITEM);
+  db.prepare(
+    `INSERT INTO listings (id, search, source, link, dedupe, status, found, updated, score, match, data, kind)
+     VALUES ('carried', 'made-up', 'made-up-board', 'https://example.com/old', 'old', 'new', ?, ?, 50, 'weak', '{}', 'jobs')`,
+  ).run("2026-11-01T00:00:00Z", "2026-11-01T00:00:00Z");
+  await runSearch(db, spec, new Date("2026-11-21T12:00:00Z"));
+  assert.deepEqual(
+    listHunts(db).map((h) => [h.key, h.count]),
+    [["made-up", 2]],
+  );
+});
+
 test("the tick runs what is overdue, spaces out what isn't, and catches up after a long sleep", async () => {
   const { base, db, spec } = setup(ITEM);
   const specsDir = join(base, "searches");
@@ -65,6 +80,22 @@ test("the tick runs what is overdue, spaces out what isn't, and catches up after
   const afterSleep = await tick(db, dirs, new Date("2026-11-23T09:00:00Z"));
   assert.ok(afterSleep.includes("search:made-up")); // the slept-through run happens on wake
   assert.equal(lastRun(db, "made-up")?.started, "2026-11-23T09:00:00.000Z");
+});
+
+test("the searches wait while an application is at work, and run on the next tick after it", async () => {
+  const { base, db, spec } = setup(ITEM);
+  const specsDir = join(base, "searches");
+  mkdirSync(specsDir);
+  const { id, ...file } = spec;
+  writeFileSync(join(specsDir, "made-up.json"), JSON.stringify(file));
+  const dirs = { specsDir, backupsDir: join(base, "backups") };
+  const now = new Date("2026-11-21T03:00:00Z");
+  db.prepare(
+    "INSERT INTO applications (id, listing, link, title, org, state, reason, agent, started, updated) VALUES ('a1', NULL, 'https://example.com/job', 'Role', 'Made Co', 'applying', '', 'hunt', ?, ?)",
+  ).run(now.toISOString(), now.toISOString());
+  assert.ok(!(await tick(db, dirs, now)).includes("search:made-up"));
+  db.prepare("UPDATE applications SET state = 'sent' WHERE id = 'a1'").run();
+  assert.ok((await tick(db, dirs, new Date("2026-11-21T03:01:00Z"))).includes("search:made-up"));
 });
 
 test("the mirror runs nightly while mirror-v1.json points at the old database (side by side)", async () => {

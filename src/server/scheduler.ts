@@ -9,7 +9,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { snapshot } from "../db/db.ts";
 import { importV1 } from "../domain/search/import-v1.ts";
 import { lastRun, runSearch } from "../domain/search/runs.ts";
-import { loadSpecs } from "../domain/search/specs.ts";
+import { isDue, loadSpecs } from "../domain/search/specs.ts";
 import { begin } from "../platform/activity.ts";
 
 export type SchedulerDirs = { specsDir: string; backupsDir: string; mirrorFile?: string };
@@ -31,11 +31,15 @@ export async function tick(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Pr
 
 async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promise<string[]> {
   const did: string[] = [];
-  for (const spec of loadSpecs(dirs.specsDir).specs) {
-    if (!spec.enabled || !spec.auto) continue; // off, or only when I ask
-    const last = lastRun(db, spec.id);
-    const due = !last || now.getTime() - new Date(last.started).getTime() >= spec.everyMinutes * 60_000;
-    if (!due) continue;
+  // an application at work has the agent's browser and the model: the searches wait for the next tick (two hours at
+  // most, should its end never be reported)
+  const applying = db
+    .prepare("SELECT 1 FROM applications WHERE state = 'applying' AND updated > ? LIMIT 1")
+    .get(new Date(now.getTime() - 2 * 3600_000).toISOString());
+  const specs = loadSpecs(dirs.specsDir).specs;
+  for (const spec of specs) {
+    if (!spec.enabled || !spec.auto || applying) continue; // off, only when I ask, or an application at work
+    if (!isDue(spec, lastRun(db, spec.id)?.started ?? null, now)) continue;
     try {
       await runSearch(db, spec, now); // one at a time: the collectors share one computer and one browser
     } catch (e) {
@@ -57,7 +61,10 @@ async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promis
       const live = begin("mirror", "The nightly mirror from the old setup", "/searches");
       try {
         live.step("Reading the old database");
-        const counts = importV1(db, mirror.from, true, { specsDir: mirror.specs });
+        const counts = importV1(db, mirror.from, true, {
+          specsDir: mirror.specs,
+          jobScoring: (search) => specs.find((s) => s.id === search)?.scoring,
+        });
         const j = counts.landed;
         const d = counts.deals.landed;
         found = j.new + j.updated + j.unchanged + d.new + d.updated + d.unchanged;

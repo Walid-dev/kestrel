@@ -51,6 +51,9 @@ test("not-sent and needs-me always say why; unlawful moves are refused; Retry re
   assert.equal(parked.state, "needs-me");
   const failed = reportApplication(db, q.id, "not-sent", "the form closed");
   assert.equal(failed.state, "not-sent");
+  // I wrote to its chat and it went on: applying again, and it may still end either way
+  assert.equal(reportApplication(db, q.id, "applying").state, "applying");
+  reportApplication(db, q.id, "not-sent", "the form closed");
   const retried = retryApplication(db, q.id);
   assert.equal(retried.state, "queued");
   assert.throws(() => reportApplication(db, q.id, "sent"), /cannot become/); // queued never jumps straight to sent

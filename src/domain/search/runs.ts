@@ -52,7 +52,9 @@ async function runSearchNow(db: DatabaseSync, spec: Spec, now: Date): Promise<Ru
     now,
     spec.limits.perRun,
     spec.kind,
-    { hunt: spec.hunt || spec.name, category: spec.category },
+    // a spec names its hunt only when it groups several searches (the chair hunt); without one, its listings stay under
+    // the search itself, as the imported ones do, so one search never shows as two tabs
+    { hunt: spec.hunt, category: spec.category },
   );
   const problem = collected.problem || (found === 0 ? "the page answered empty" : "");
   live.step(`${found} found, ${kept} new`);
