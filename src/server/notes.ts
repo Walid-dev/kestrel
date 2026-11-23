@@ -17,6 +17,7 @@ import {
 } from "../domain/notes/documents.ts";
 import { discardDraft, draftFor, getDraft, startDraft } from "../domain/notes/drafts.ts";
 import { addNote, deleteNote, editNote, listNotes } from "../domain/notes/notes.ts";
+import { isPdf, PDF_MAX_BYTES, readPdf } from "../domain/notes/pdf.ts";
 import { saveDraft, undoSave } from "../domain/notes/save.ts";
 import { record } from "../platform/activity.ts";
 import type { Settings } from "../platform/config.ts";
@@ -127,13 +128,16 @@ export function mountNotes(app: Hono, db: DatabaseSync, settings: Settings) {
         bytes: z
           .string()
           .base64()
-          .max(MAX_BYTES * 2),
+          .max(Math.max(MAX_BYTES, PDF_MAX_BYTES) * 2),
       }),
     ),
-    (c) => {
+    async (c) => {
       try {
         const { name, bytes } = c.req.valid("json");
-        return c.json(addUpload(db, name, Buffer.from(bytes, "base64")));
+        const raw = Buffer.from(bytes, "base64");
+        // a PDF becomes its text, read by the computer's own PDF engine (pdf.ts); anything else must be text already
+        if (isPdf(name, raw)) return c.json(addUpload(db, name, await readPdf(raw), { fromPdf: true }));
+        return c.json(addUpload(db, name, raw));
       } catch (e) {
         return refusing(c, e);
       }

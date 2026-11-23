@@ -45,6 +45,9 @@ export function Ask({
   placeholder = "Ask about this page",
   starters = [],
   onChange,
+  open,
+  onOpen,
+  defaultOpen = true,
 }: {
   app: string;
   refId: string;
@@ -52,7 +55,30 @@ export function Ask({
   placeholder?: string;
   starters?: string[];
   onChange?: () => void; // a change I made from a card: the page reads its data again
+  // open or closed: the page may hold it (Searches' Ask button); else it is kept per app in this browser
+  open?: boolean;
+  onOpen?: (open: boolean) => void;
+  defaultOpen?: boolean;
 }) {
+  const kept = `kestrel-ask:${app}`;
+  const [own, setOwn] = useState(() => {
+    try {
+      const v = localStorage.getItem(kept);
+      return v ? v === "open" : defaultOpen;
+    } catch {
+      return defaultOpen;
+    }
+  });
+  const isOpen = open ?? own;
+  const setOpen = (v: boolean) => {
+    if (onOpen) onOpen(v);
+    else setOwn(v);
+    try {
+      localStorage.setItem(kept, v ? "open" : "closed");
+    } catch {
+      // storage off: it stays as it is for this visit
+    }
+  };
   const queryClient = useQueryClient();
   const key = ["ask", app, refId];
   const where = new URLSearchParams({ app, ref: refId });
@@ -91,15 +117,40 @@ export function Ask({
   const failed = [thread, send, clear, act].find((x) => x.isError);
 
   return (
-    <section className="card ask" aria-busy={writing}>
+    <section className={`card ask ${isOpen ? "" : "ask-closed"}`} aria-busy={writing}>
       <header className="ask-head">
-        <span className="ask-spark">
-          <Spark />
-        </span>
-        <h3 className="ask-title" title={`${title} · the computer's own model`}>
-          {title}
-        </h3>
-        {messages.length > 0 && (
+        <button
+          type="button"
+          className="ask-toggle"
+          aria-expanded={isOpen}
+          title={`${isOpen ? "Close" : "Open"} · the computer's own model`}
+          onClick={() => setOpen(!isOpen)}
+        >
+          <span className="ask-spark">
+            <Spark />
+          </span>
+          <span className="ask-title">{title}</span>
+          {!isOpen && messages.length > 0 && (
+            <span className="ask-count">
+              {writing ? "answering…" : `${messages.filter((m) => m.role === "me").length} asked`}
+            </span>
+          )}
+          <svg
+            className="ask-chevron"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+        {isOpen && messages.length > 0 && (
           <button
             type="button"
             className="ask-icon"
@@ -126,54 +177,55 @@ export function Ask({
         )}
       </header>
 
-      {messages.map((m) =>
-        m.role === "me" ? (
-          <p key={m.id} className="ask-mine">
-            {m.text}
-          </p>
-        ) : (
-          <div key={m.id} className="ask-answer">
-            {m.text ? (
-              <Answer text={m.text} writing={m.state === "writing"} />
-            ) : m.state === "writing" ? (
-              <span className="ask-thinking">
-                <span className="spin" /> Thinking
-              </span>
-            ) : null}
-            {m.state === "failed" && <p className="ask-failed">It didn't finish ({m.error}). Ask again.</p>}
-            {(m.cards ?? []).map((c, i) => (
-              <div key={c.label} className={`ask-card ${c.state}`}>
-                <span className="min-w-0 flex-1">
-                  <span className="block font-semibold" style={{ color: "var(--strong)" }}>
-                    {c.label}
-                  </span>
-                  {c.state !== "open" && (
-                    <span
-                      className="mt-0.5 block text-[13px]"
-                      style={{ color: c.state === "done" ? "var(--green)" : "var(--red)" }}
-                    >
-                      {c.state === "done" ? "✓ " : ""}
-                      {c.result}
-                    </span>
-                  )}
+      {isOpen &&
+        messages.map((m) =>
+          m.role === "me" ? (
+            <p key={m.id} className="ask-mine">
+              {m.text}
+            </p>
+          ) : (
+            <div key={m.id} className="ask-answer">
+              {m.text ? (
+                <Answer text={m.text} writing={m.state === "writing"} />
+              ) : m.state === "writing" ? (
+                <span className="ask-thinking">
+                  <span className="spin" /> Thinking
                 </span>
-                {c.state === "open" && (
-                  <button
-                    type="button"
-                    className="btn btn-primary shrink-0"
-                    disabled={act.isPending}
-                    onClick={() => act.mutate({ id: m.id, card: i })}
-                  >
-                    Do it
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        ),
-      )}
+              ) : null}
+              {m.state === "failed" && <p className="ask-failed">It didn't finish ({m.error}). Ask again.</p>}
+              {(m.cards ?? []).map((c, i) => (
+                <div key={c.label} className={`ask-card ${c.state}`}>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold" style={{ color: "var(--strong)" }}>
+                      {c.label}
+                    </span>
+                    {c.state !== "open" && (
+                      <span
+                        className="mt-0.5 block text-[13px]"
+                        style={{ color: c.state === "done" ? "var(--green)" : "var(--red)" }}
+                      >
+                        {c.state === "done" ? "✓ " : ""}
+                        {c.result}
+                      </span>
+                    )}
+                  </span>
+                  {c.state === "open" && (
+                    <button
+                      type="button"
+                      className="btn btn-primary shrink-0"
+                      disabled={act.isPending}
+                      onClick={() => act.mutate({ id: m.id, card: i })}
+                    >
+                      Do it
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ),
+        )}
 
-      {messages.length === 0 && starters.length > 0 && (
+      {isOpen && messages.length === 0 && starters.length > 0 && (
         <div className="ask-starters">
           {starters.map((s) => (
             <button key={s} type="button" className="pill" disabled={send.isPending} onClick={() => ask(s)}>
@@ -183,54 +235,56 @@ export function Ask({
         </div>
       )}
 
-      <form
-        className="ask-compose"
-        onSubmit={(e) => {
-          e.preventDefault();
-          ask(text);
-        }}
-      >
-        <textarea
-          className="ask-input"
-          rows={1}
-          aria-label={placeholder}
-          placeholder={placeholder}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              ask(text);
-            }
+      {isOpen && (
+        <form
+          className="ask-compose"
+          onSubmit={(e) => {
+            e.preventDefault();
+            ask(text);
           }}
-        />
-        <button
-          type="submit"
-          className="ask-send"
-          aria-label={busy ? "Answering" : "Ask"}
-          title={busy ? "Answering" : "Ask"}
-          disabled={!text.trim() || busy}
         >
-          {busy ? (
-            <span className="spin" />
-          ) : (
-            <svg
-              viewBox="0 0 24 24"
-              width="17"
-              height="17"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" />
-            </svg>
-          )}
-        </button>
-      </form>
-      {failed && <p className="ask-failed">{(failed.error as Error).message}</p>}
+          <textarea
+            className="ask-input"
+            rows={1}
+            aria-label={placeholder}
+            placeholder={placeholder}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                ask(text);
+              }
+            }}
+          />
+          <button
+            type="submit"
+            className="ask-send"
+            aria-label={busy ? "Answering" : "Ask"}
+            title={busy ? "Answering" : "Ask"}
+            disabled={!text.trim() || busy}
+          >
+            {busy ? (
+              <span className="spin" />
+            ) : (
+              <svg
+                viewBox="0 0 24 24"
+                width="17"
+                height="17"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" />
+              </svg>
+            )}
+          </button>
+        </form>
+      )}
+      {isOpen && failed && <p className="ask-failed">{(failed.error as Error).message}</p>}
     </section>
   );
 }
@@ -242,7 +296,10 @@ type Part =
   | { k: "ul" | "ol"; items: string[] }
   | { k: "code"; text: string }
   | { k: "table"; head: string[]; rows: string[][] }
-  | { k: "hr" };
+  | { k: "hr" }
+  | { k: "flow"; title: string; steps: string[] }
+  | { k: "compare"; items: { title: string; points: string[] }[] }
+  | { k: "drawing" }; // a drawing still being written
 
 const cells = (line: string) =>
   line
@@ -250,6 +307,25 @@ const cells = (line: string) =>
     .replace(/^\||\|$/g, "")
     .split("|")
     .map((c) => c.trim());
+
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x) => typeof x === "string") : []);
+
+// a drawing's JSON as its part; while the answer still writes it (or when it doesn't read), a placeholder or nothing
+function drawing(lang: "flow" | "compare", body: string, closed: boolean): Part {
+  let d: Record<string, unknown> | null = null;
+  try {
+    d = JSON.parse(body) as Record<string, unknown>;
+  } catch {
+    d = null;
+  }
+  if (!d) return closed ? { k: "code", text: body } : { k: "drawing" }; // a broken drawing shows what it said
+  if (lang === "flow") return { k: "flow", title: String(d.title ?? ""), steps: strings(d.steps).slice(0, 9) };
+  const items = (Array.isArray(d.items) ? d.items : [])
+    .filter((x): x is Record<string, unknown> => Boolean(x) && typeof x === "object")
+    .slice(0, 3)
+    .map((x) => ({ title: String(x.title ?? ""), points: strings(x.points).slice(0, 8) }));
+  return { k: "compare", items };
+}
 
 // line by line; an answer still being written parses too (an open fence is code so far). A line in bold alone
 // ("**Why it's the weakest**") is a heading, as models write them.
@@ -268,8 +344,12 @@ export function parseMarkdown(src: string): Part[] {
       flush();
       const body: string[] = [];
       for (i++; i < lines.length && !/^\s*```/.test(lines[i]); i++) body.push(lines[i]);
-      // the model's own blocks (a find it runs, a change it proposes) are for kestrel, never shown as code
-      if (!/^\s*```\s*(find|action)\b/.test(line)) out.push({ k: "code", text: body.join("\n") });
+      const lang = line.replace(/^\s*```\s*/, "").split(/\s/)[0];
+      const closed = i < lines.length;
+      // the model's own blocks (a find it runs, a change it proposes) are for kestrel, never shown as code; its
+      // drawings (a flow, a comparison) become one once their JSON is whole
+      if (lang === "flow" || lang === "compare") out.push(drawing(lang, body.join("\n"), closed));
+      else if (lang !== "find" && lang !== "action") out.push({ k: "code", text: body.join("\n") });
       i++;
       continue;
     }
@@ -413,6 +493,48 @@ function Answer({ text, writing }: { text: string; writing: boolean }) {
             );
           case "code":
             return <Code key={key} text={p.text} />;
+          case "flow":
+            return (
+              <figure key={key} className="ask-flow">
+                {p.title && <figcaption className="eyebrow">{p.title}</figcaption>}
+                <ol>
+                  {p.steps.map((st, j) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: a drawing's steps are fixed once written
+                    <li key={j}>
+                      <span className="ask-mark">{j + 1}</span>
+                      <span className="min-w-0">
+                        <Inline text={st} />
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </figure>
+            );
+          case "compare":
+            return (
+              <div key={key} className="ask-compare">
+                {p.items.map((it, j) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: a comparison's columns are fixed once written
+                  <section key={j}>
+                    <h5>
+                      <Inline text={it.title} />
+                    </h5>
+                    {it.points.map((pt, k) => (
+                      // biome-ignore lint/suspicious/noArrayIndexKey: a column's points are fixed once written
+                      <p key={k}>
+                        <Inline text={pt} />
+                      </p>
+                    ))}
+                  </section>
+                ))}
+              </div>
+            );
+          case "drawing":
+            return (
+              <span key={key} className="ask-thinking">
+                <span className="spin" /> Drawing
+              </span>
+            );
           case "table":
             return (
               <div

@@ -1,9 +1,11 @@
 // Applications: the numbers first — sent, not sent, waiting on me, being applied, queued — then what happened after
 // sending (the job stages: interviewing, offers, rejections), this week's count, and the attempts of the state I pick,
 // newest first. An attempt opens its listing whole. Live through the events stream; the phone can ask to be told.
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
+import { Ask } from "../ask.tsx";
 import { useEvents } from "../events.ts";
 import { ago, day } from "../search/cards.tsx";
 import { ListingSheet } from "../search/sheet.tsx";
@@ -292,6 +294,19 @@ export function Applications() {
           </button>
         )}
       </section>
+      {/* Ask, the page wide at its foot: about the applications; Retry for one that stopped comes as a card */}
+      <Ask
+        app="applications"
+        refId="applications"
+        title="Ask about my applications"
+        placeholder="Ask why one stopped, or what to retry"
+        starters={[
+          "Why did the last ones stop?",
+          "Which should I retry first?",
+          "What do the sent ones have in common?",
+        ]}
+        onChange={() => queryClient.invalidateQueries({ queryKey: ["apply"] })}
+      />
       {open && <ListingSheet id={open} onClose={() => setOpen(null)} />}
     </main>
   );

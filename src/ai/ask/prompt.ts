@@ -4,7 +4,7 @@
 // from what the model knows. A lesson the page lists can be linked by its id, and the page turns the link into one.
 import type { Turn } from "../client.ts";
 
-export const ASK_VERSION = 2;
+export const ASK_VERSION = 3;
 
 // what a page shows the model: which app, what the page is, its title and link (for Live), its content in words, and
 // what the model may do there (find, a change to propose), in the app's own words
@@ -16,8 +16,11 @@ export function askMessages(page: AskPage, history: Turn[], question: string): {
     "What the page shows is below. Use it, and go beyond it whenever the question needs more: you know the subject.",
     "Answer what I ask, directly: the answer first, then how it works, then an example when it helps.",
     "Write plain English for a non-native reader: short sentences, short paragraphs, no filler.",
-    "Format in Markdown: **bold** for the key words, `backticks` for names and code, a list for steps, a fenced code",
+    "Format in Markdown: **bold** for the key words, `backticks` for names and code, a list for points, a fenced code",
     "block with its language for code, a small table when it compares things. No heading for a short answer.",
+    "Two drawings make an answer easier to read; use them only when they do, each as a fenced block of JSON:",
+    '- steps in order (a process, a request\'s path): ```flow\n{"title": "<what it shows>", "steps": ["<3 to 7 short steps>"]}\n```',
+    '- two or three options side by side: ```compare\n{"items": [{"title": "<option>", "points": ["<short point>"]}]}\n```',
     "Keep it as short as the question allows; go long when I ask for detail.",
     "When a lesson the page lists covers part of the answer, link it as [its title](lesson:<its id>).",
     "When you don't know, or the page doesn't say, say so plainly. Never invent facts about me.",

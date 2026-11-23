@@ -19,6 +19,7 @@ import { notesHelper } from "../notes/ask.ts";
 import { Refused } from "../notes/documents.ts";
 import { searchesHelper } from "../search/ask.ts";
 import { tasksHelper } from "../tasks/ask.ts";
+import { applicationsHelper, researchHelper, writingHelper } from "./pages.ts";
 
 // an app's helper: what its page shows the model, found by the page's ref (a lesson's id; a quiz's id and question; a
 // hunt), and what the model may do there
@@ -41,6 +42,9 @@ const HELPERS: Record<string, Helper> = {
   searches: searchesHelper,
   notes: notesHelper,
   tasks: tasksHelper,
+  research: researchHelper,
+  writing: writingHelper,
+  applications: applicationsHelper,
 };
 export const ASK_APPS = Object.keys(HELPERS) as [string, ...string[]];
 

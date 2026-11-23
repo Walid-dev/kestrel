@@ -37,6 +37,14 @@ console.log("deploy: npm ci in the live checkout");
 sh("npm", ["ci", "--no-audit", "--no-fund"], live);
 console.log("deploy: the web build");
 sh("node", ["--run", "build"], live);
+// the PDF reader, on the computer's own PDF engine (Apple's PDFKit): without a Swift compiler PDFs stay unread
+console.log("deploy: the PDF reader");
+mkdirSync(join(live, "dist"), { recursive: true });
+try {
+  sh("swiftc", ["-O", "scripts/pdf-text.swift", "-o", "dist/pdf-text"], live);
+} catch {
+  console.log("deploy: no Swift compiler here, so a PDF upload is refused until there is one");
+}
 
 // the real folders, and my login from Tailscale itself
 console.log("deploy: the real folders and settings");

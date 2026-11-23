@@ -609,6 +609,20 @@ pre.code .f {
   color: var(--purple);
   background: color-mix(in srgb, var(--purple) 14%, transparent);
 }
+/* the head opens and closes the box: closed, it is one quiet line that says what was asked */
+.ask-toggle {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
 .ask-title {
   flex: 1;
   min-width: 0;
@@ -618,6 +632,23 @@ pre.code .f {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.ask-count {
+  flex: none;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.ask-chevron {
+  flex: none;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+.ask-closed .ask-chevron {
+  transform: rotate(-90deg);
+}
+.ask-closed {
+  padding-top: 12px;
+  padding-bottom: 12px;
 }
 .ask-icon {
   display: grid;
@@ -729,6 +760,78 @@ pre.code .f {
 .quiz-answer {
   background: color-mix(in srgb, var(--accent) 9%, var(--surface));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+/* a flow the model drew: its steps numbered in tiles, down the box, across it when there is room */
+.ask-flow {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+.ask-flow ol {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ask-flow li {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 11px;
+  background: var(--surface-2);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  line-height: 1.5;
+}
+@container (min-width: 640px) {
+  .ask-flow ol {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 22px;
+  }
+  .ask-flow li {
+    flex: 1 1 130px;
+  }
+  .ask-flow li + li::before {
+    content: "→";
+    position: absolute;
+    left: -17px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--accent);
+    font-weight: 700;
+  }
+}
+/* options side by side, each a column of point tiles under its name; stacked when narrow */
+.ask-compare {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+.ask-compare section {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.ask-compare h5 {
+  margin: 0 0 2px;
+  font: 700 16px / 1.25 var(--cond);
+  color: var(--strong);
+}
+.ask-compare p {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: var(--surface-2);
+  font-size: 14.5px;
+  line-height: 1.5;
 }
 /* a change the model proposed: what it would do, and the button that does it; done, it says what happened */
 .ask-card {

@@ -10,6 +10,7 @@ import { test } from "node:test";
 import { startStandIn } from "../../ai/stand-in.ts";
 import { migrate } from "../../db/migrate.ts";
 import type { Settings } from "../../platform/config.ts";
+import { claimNext, getApplication, queueApplication, reportApplication } from "../apply/apply.ts";
 import { addLesson, addPack } from "../learn/lessons.ts";
 import { addUpload, Refused } from "../notes/documents.ts";
 import { listNotes } from "../notes/notes.ts";
@@ -230,4 +231,26 @@ test("on Tasks the model proposes adding, changing and closing; a made-up id is 
     ["Order new frames"],
   );
   assert.equal(listTasks(db, "done")[0].note, "Melted on Sunday");
+});
+
+test("on Applications Retry is a card only for one that stopped, and my tap queues it again", async () => {
+  const db = setup();
+  const stopped = queueApplication(db, { link: "https://example.com/stopped" });
+  claimNext(db, "made-up-agent");
+  reportApplication(db, stopped.id, "not-sent", "the form closed");
+  const sent = queueApplication(db, { link: "https://example.com/sent" });
+  claimNext(db, "made-up-agent");
+  reportApplication(db, sent.id, "sent");
+  const s = await startStandIn(() => ({
+    content: `Two retries.\n\`\`\`action\n{"do": "retry", "id": "${stopped.id}"}\n\`\`\`\n\`\`\`action\n{"do": "retry", "id": "${sent.id}"}\n\`\`\``,
+  }));
+  await askPage(db, settings(s.url), { app: "applications", ref: "applications", text: "Retry them" }).done;
+  await s.close();
+  const answer = conversation(db, "applications", "applications")[1];
+  assert.deepEqual(
+    answer.cards.map((c) => c.label),
+    ["Retry “https://example.com/stopped”"],
+  );
+  actOn(db, settings(s.url), { id: answer.id, card: 0 });
+  assert.equal(getApplication(db, stopped.id)?.state, "queued");
 });

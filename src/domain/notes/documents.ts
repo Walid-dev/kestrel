@@ -163,13 +163,18 @@ export function openFile(db: DatabaseSync, settings: Settings, path: string): Do
 
 // keep an uploaded text: the database holds the original. The same name saves over the earlier upload — never a
 // duplicate — and its notes find their places again or show as detached.
-export function addUpload(db: DatabaseSync, name: string, given: string | Buffer): DocumentMeta {
+export function addUpload(
+  db: DatabaseSync,
+  name: string,
+  given: string | Buffer,
+  opts: { fromPdf?: boolean } = {}, // a PDF's text, read by pdf.ts: its name keeps .pdf
+): DocumentMeta {
   // the screen sends the file's own bytes, so the fatal UTF-8 check judges the original, not a browser rewrite
   // (review R2-6); a plain string stays welcome for the tests
   const bytes = Buffer.isBuffer(given) ? given : Buffer.from(given, "utf8");
   if (bytes.length > MAX_BYTES) throw new Refused(`bigger than ${MAX_BYTES / 1024} KB`);
   const uploadExt = extname(name).toLowerCase();
-  if (BINARY_EXT.has(uploadExt)) throw new Refused(`${uploadExt} is not a text format`);
+  if (BINARY_EXT.has(uploadExt) && !opts.fromPdf) throw new Refused(`${uploadExt} is not a text format`);
   if (bytes.includes(0)) throw new Refused("not text: the file carries binary content");
   const d = decode(bytes);
   const clean = basename(name).trim() || "untitled.md";

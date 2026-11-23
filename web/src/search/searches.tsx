@@ -250,8 +250,15 @@ export function Searches() {
     const id = params.get("open");
     if (id) setOpen(id);
   }, [params]);
-  const [asking, setAsking] = useState(false);
-  // left to do (on unless I turn it off): the review views hide a job with an application or applied already
+  // Ask's box under the title: open or closed as I left it (the same place every Ask keeps it)
+  const [asking, setAsking] = useState(() => {
+    try {
+      return localStorage.getItem("kestrel-ask:searches") === "open";
+    } catch {
+      return false;
+    }
+  });
+  // not applied yet (on unless I turn it off): the review views hide a job with an application or applied already
   const [todo, setTodo] = useState(() => {
     try {
       return localStorage.getItem(TODO) !== "off";
@@ -571,7 +578,14 @@ export function Searches() {
               className="btn btn-head inline-flex items-center gap-1.5"
               aria-pressed={asking}
               style={asking ? { borderColor: "var(--purple)", color: "var(--purple)" } : undefined}
-              onClick={() => setAsking((x) => !x)}
+              onClick={() => {
+                setAsking(!asking);
+                try {
+                  localStorage.setItem("kestrel-ask:searches", asking ? "closed" : "open");
+                } catch {
+                  // storage off: it stays as it is for this visit
+                }
+              }}
             >
               <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
                 <path d="M12 2.5c.6 4.6 2.9 6.9 7.5 7.5-4.6.6-6.9 2.9-7.5 7.5-.6-4.6-2.9-6.9-7.5-7.5 4.6-.6 6.9-2.9 7.5-7.5Z" />
@@ -597,8 +611,11 @@ export function Searches() {
               </select>
             )}
           </div>
-          {asking && (
+          {/* the same Ask as every page, under the title: closed until I open it, here or with the Ask button */}
+          {
             <Ask
+              open={asking}
+              onOpen={setAsking}
               app="searches"
               refId={`${hunt.kind}:${hunt.key}`}
               title={`Ask about ${hunt.name}`}
@@ -618,7 +635,7 @@ export function Searches() {
               }
               onChange={refresh}
             />
-          )}
+          }
           {(hunt.about || kind === "deals") && (
             <p className="m-0 max-w-4xl text-[16.5px] leading-relaxed" style={{ color: "var(--muted)" }}>
               {hunt.about || (groups.length ? `${groups.length} models: ${groups.map(([g]) => g).join(", ")}.` : "")}
@@ -705,7 +722,7 @@ export function Searches() {
                   title="Hide the jobs that have an application (queued, sent or not sent) or that I applied to"
                   onClick={flipTodo}
                 >
-                  <span className="dot" /> Left to do only
+                  <span className="dot" /> Not applied yet
                 </button>
               )}
             </Part>
@@ -831,7 +848,7 @@ export function Searches() {
             )}
             {kind === "jobs" && todo && (
               <button type="button" className="pill tone-green" aria-pressed onClick={() => fold(true)}>
-                <span className="dot" /> Left to do only
+                <span className="dot" /> Not applied yet
               </button>
             )}
             <button type="button" className="pill" aria-pressed onClick={() => fold(true)}>

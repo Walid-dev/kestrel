@@ -3,9 +3,11 @@
 // checked by the applications' own check (what it names goes back to be fixed) and a letter is laid out by their own
 // PDF tool, so this is what an employer would get. My voice and stories are edited here, each save keeping the old
 // words; write again and compare the tries.
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
+import { Ask } from "./ask.tsx";
 
 type Job = { id: string; title: string; org: string; state: string; at: string };
 type Kind = "letter" | "answer" | "text";
@@ -113,9 +115,9 @@ export function Writing() {
 
   return (
     <main className="grid gap-4">
-      <header className="grid gap-1">
-        <h2 className="font-cond m-0 text-[34px] font-bold uppercase leading-none tracking-tight">Writing</h2>
-        <p className="m-0 text-[15px]" style={{ color: "var(--muted)" }}>
+      <header className="grid gap-2">
+        <h2 className="font-cond m-0 text-[40px] font-bold uppercase leading-none tracking-tight">Writing</h2>
+        <p className="m-0 max-w-3xl text-[16px] leading-relaxed" style={{ color: "var(--muted)" }}>
           A cover letter, the answer to a form's question, or any text for a job, written exactly the way an application
           writes it and checked the same. Change your voice or stories below, write again, compare.
         </p>
@@ -129,8 +131,10 @@ export function Writing() {
       <div className="grid gap-4 lg:grid-cols-[minmax(300px,380px)_1fr]">
         {/* the job, and its tries */}
         <section className="grid content-start gap-3">
-          <div className="card grid gap-2 !p-3">
-            <span className="eyebrow">The job</span>
+          <div className="card grid gap-3 !p-4">
+            <h3 className="font-cond m-0 text-[19px] font-bold" style={{ color: "var(--strong)" }}>
+              The job
+            </h3>
             <input
               type="search"
               className="btn"
@@ -138,14 +142,14 @@ export function Writing() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
-            <div className="grid max-h-[340px] gap-1 overflow-y-auto">
+            <div className="grid max-h-[360px] gap-1.5 overflow-y-auto">
               {list.map((j) => (
                 <button
                   key={j.id}
                   type="button"
-                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-left"
+                  className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left"
                   style={{
-                    background: job === j.id ? "var(--accent-soft)" : undefined,
+                    background: job === j.id ? "var(--accent-soft)" : "var(--surface-2)",
                     boxShadow: job === j.id ? "0 0 0 1px var(--accent)" : undefined,
                   }}
                   onClick={() => {
@@ -155,7 +159,7 @@ export function Writing() {
                 >
                   <span className={`dot ${STATE_TONE[j.state] ?? "tone-muted"}`} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[14px] font-semibold" style={{ color: "var(--strong)" }}>
+                    <span className="block truncate text-[15px] font-semibold" style={{ color: "var(--strong)" }}>
                       {j.title}
                     </span>
                     <span className="block truncate text-[12.5px]" style={{ color: "var(--muted)" }}>
@@ -165,17 +169,19 @@ export function Writing() {
                 </button>
               ))}
             </div>
-            <span className="eyebrow mt-1">What to write</span>
-            <div className="flex flex-wrap gap-1.5">
+            <h3 className="font-cond m-0 mt-1 text-[19px] font-bold" style={{ color: "var(--strong)" }}>
+              What to write
+            </h3>
+            <fieldset className="seg" aria-label="What to write">
               {KINDS.map(([k, label]) => (
-                <button key={k} type="button" className="pill" aria-pressed={kind === k} onClick={() => setKind(k)}>
+                <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)}>
                   {label}
                 </button>
               ))}
-            </div>
+            </fieldset>
             {kind !== "letter" && (
               <textarea
-                className="btn min-h-[72px] text-[14px] leading-relaxed"
+                className="btn min-h-[80px] !rounded-xl !px-3.5 !py-2.5 text-[15px] leading-relaxed"
                 placeholder={KINDS.find(([k]) => k === kind)?.[2]}
                 value={ask}
                 maxLength={4000}
@@ -184,7 +190,7 @@ export function Writing() {
             )}
             <button
               type="button"
-              className="btn btn-primary inline-flex items-center justify-center gap-2"
+              className="btn btn-primary btn-big inline-flex w-full items-center justify-center gap-2"
               disabled={!job || !files.data?.ready || write.isPending || running || (kind !== "letter" && !ask.trim())}
               onClick={() => write.mutate()}
             >
@@ -198,14 +204,19 @@ export function Writing() {
             )}
           </div>
           {job && (tries.data?.length ?? 0) > 0 && (
-            <div className="card grid gap-1 !p-3">
-              <span className="eyebrow">Tries</span>
+            <div className="card grid gap-1.5 !p-4">
+              <h3 className="font-cond m-0 mb-1 text-[19px] font-bold" style={{ color: "var(--strong)" }}>
+                Tries
+              </h3>
               {tries.data?.map((x) => (
                 <button
                   key={x.id}
                   type="button"
-                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[14px]"
-                  style={{ background: shown === x.id ? "var(--surface-2)" : undefined }}
+                  className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[14.5px]"
+                  style={{
+                    background: shown === x.id ? "var(--accent-soft)" : "var(--surface-2)",
+                    boxShadow: shown === x.id ? "0 0 0 1px var(--accent)" : undefined,
+                  }}
                   onClick={() => setParams({ try: x.id })}
                 >
                   <span
@@ -342,6 +353,20 @@ export function Writing() {
           {files.data?.ready && <FilesEditor files={files.data} />}
         </section>
       </div>
+      {/* Ask, the page wide under it: about this job's writing, its latest try and what the check said */}
+      {job && (
+        <Ask
+          app="writing"
+          refId={job}
+          title="Ask about this job's writing"
+          placeholder="Ask about the letter, or how to say something"
+          starters={[
+            "Does it answer what the job asks?",
+            "Which lines could be stronger?",
+            "Rewrite the opening in my voice",
+          ]}
+        />
+      )}
     </main>
   );
 }
@@ -358,22 +383,26 @@ function FilesEditor({ files }: { files: { voice: string; stories: string } }) {
   });
   const changed = text !== files[which];
   return (
-    <section className="card grid gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="eyebrow">Your files</span>
-        {(
-          [
-            ["voice", "Voice"],
-            ["stories", "Stories"],
-          ] as const
-        ).map(([k, label]) => (
-          <button key={k} type="button" className="pill" aria-pressed={which === k} onClick={() => setWhich(k)}>
-            {label}
-          </button>
-        ))}
+    <section className="card grid gap-3 !p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <h3 className="font-cond m-0 text-[19px] font-bold" style={{ color: "var(--strong)" }}>
+          Your files
+        </h3>
+        <fieldset className="seg seg-modes" aria-label="Which file">
+          {(
+            [
+              ["voice", "Voice"],
+              ["stories", "Stories"],
+            ] as const
+          ).map(([k, label]) => (
+            <button key={k} type="button" aria-pressed={which === k} onClick={() => setWhich(k)}>
+              {label}
+            </button>
+          ))}
+        </fieldset>
         <button
           type="button"
-          className="btn btn-primary ml-auto"
+          className="btn btn-primary btn-head ml-auto"
           disabled={!changed || save.isPending}
           onClick={() => save.mutate()}
         >

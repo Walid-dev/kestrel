@@ -212,7 +212,7 @@ export function Reader() {
     );
   if (!doc.data) return null;
   return (
-    <main className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
+    <main className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6">
       <div className="mb-1 flex flex-wrap items-center gap-3 lg:col-start-1">
         <Link to="/notes?list=1" className="btn">
           Documents
@@ -361,17 +361,17 @@ export function Reader() {
           onOpen={(n) => setSheet({ kind: "edit", note: n })}
           onDelete={(n) => remove.mutate(n.id)}
         />
-        {/* Ask, about this document: it proposes notes as cards, which join these once I tap them */}
-        <div className="mt-4">
-          <Ask
-            app="notes"
-            refId={id}
-            title="Ask about this document"
-            placeholder="Ask, or say what should change"
-            starters={["Where is it weakest?", "What could be cut?", "Check it for clarity and mistakes"]}
-            onChange={changed}
-          />
-        </div>
+      </div>
+      {/* Ask, about this document, the whole page wide under it: it proposes notes as cards, which join mine on a tap */}
+      <div className="mt-5 lg:col-span-2">
+        <Ask
+          app="notes"
+          refId={id}
+          title="Ask about this document"
+          placeholder="Ask, or say what should change"
+          starters={["Where is it weakest?", "What could be cut?", "Check it for clarity and mistakes"]}
+          onChange={changed}
+        />
       </div>
       {review && current?.status === "ready" && (
         <Review

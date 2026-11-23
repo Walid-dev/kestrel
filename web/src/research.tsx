@@ -2,9 +2,11 @@
 // questions, then searches the web, quick or deep, and writes the answer for me like a lesson: the point first, short
 // lines to hear one by one, the words explained, each claim's source a link named for its site. It knows what I keep in
 // About me and in the context folder (read on this computer only, never put into a search). Every answer is kept.
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { useSearchParams } from "react-router";
+import { Ask as AskBox } from "./ask.tsx";
 import { block, type Cite, Cites, heard, type Say } from "./learn/blocks.tsx";
 import { type Spoken, useReader } from "./learn/voice.ts";
 
@@ -443,6 +445,14 @@ function ReportView({ id, onBack }: { id: string; onBack: () => void }) {
             </button>
           </p>
         </article>
+        {/* Ask, the page wide under the report: about the report and its sources */}
+        <AskBox
+          app="research"
+          refId={id}
+          title="Ask about this report"
+          placeholder="Ask about the report or its sources"
+          starters={["What is the main point, in two lines?", "Which sources disagree?", "What should I read next?"]}
+        />
       </main>
     </Cites.Provider>
   );
