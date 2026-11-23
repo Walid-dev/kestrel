@@ -30,6 +30,8 @@ type Helper = {
     describe: (db: DatabaseSync, ref: string, action: unknown) => string | null;
     run: (db: DatabaseSync, settings: Settings, ref: string, action: unknown) => string;
   };
+  // the answer's words before they are kept (a link to something that isn't there becomes plain words)
+  tidy?: (db: DatabaseSync, ref: string, words: string) => string;
 };
 const HELPERS: Record<string, Helper> = {
   learn: { page: lessonPage },
@@ -196,7 +198,8 @@ async function write(
         cards.push({ label, action, state: "open", result: "" });
     }
     db.prepare("UPDATE ask_messages SET text = ?, state = 'done', cards = ? WHERE id = ?").run(
-      words || (cards.length ? "" : "I found nothing to say to that here: ask it another way."),
+      (helper.tidy ? helper.tidy(db, row.ref, words) : words) ||
+        (cards.length ? "" : "I found nothing to say to that here: ask it another way."),
       JSON.stringify(cards),
       row.id,
     );

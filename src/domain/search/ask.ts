@@ -94,8 +94,8 @@ function tools(kind: Kind): string {
     '{"do": "stage", "listing": "<its id>", "to": "passed"}',
     "```",
     `  do: "stage" (to: ${STATUSES.join(", ")}), "deep" (a deeper look by the model)${kind === "jobs" ? ', "apply" (queue an application)' : ""}.`,
-    "- Link a listing as [its title](listing:<its id>). A listing's id is what starts its line, before the colon",
-    '  (x7 in "- x7: …"): copy it exactly, in links and blocks alike; never make one up.',
+    "- Each time you name a listing, link it: [its title](listing:<its id>). Its id is the text that starts its line,",
+    "  before the colon: copy it exactly, in links and blocks alike, and never make one up.",
   ].join("\n");
 }
 
@@ -217,8 +217,16 @@ export function runAction(db: DatabaseSync, settings: Settings, ref: string, act
   return "Queued: it starts by itself once nothing else is at work.";
 }
 
+// the answer's words as kept: a link to a listing that isn't there becomes its plain words, never a dead link
+export function tidyAnswer(db: DatabaseSync, _ref: string, words: string): string {
+  return words.replace(/\[([^\]\n]+)\]\(listing:([^)\s]+)\)/g, (link: string, text: string, id: string) =>
+    getListing(db, id) ? link : text,
+  );
+}
+
 export const searchesHelper = {
   page: searchPage,
   find: findListings,
   act: { describe: describeAction, run: runAction },
+  tidy: tidyAnswer,
 };

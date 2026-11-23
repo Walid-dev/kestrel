@@ -10,9 +10,10 @@ technical; the plan and the runbook carry the detail.
   kestrel for more with a fenced `find` block (words, remote, pay, price, a stage, a match), whose matches go back to
   it before it answers, two looks at most; it proposes a change with a fenced `action` block (a stage, a deep check,
   an application), which becomes a card under the answer that only my tap runs, through the page's own functions.
-  Blocks never show as code; a change on a listing that isn't there is dropped. Chosen over the door's tool calls:
-  the blocks stream with the answer, need nothing from the client and read the same on both models, and the live
-  eval passed on both (docs/eval/2026-11-23-ask-searches.md). Rejected: a change made without a tap.
+  Blocks never show as code; a change on a listing that isn't there is dropped, and a link to one becomes plain
+  words. Chosen over the door's tool calls: the blocks stream with the answer, need nothing from the client and read
+  the same on both models; the live eval passed 24 of 24 on the final prompt, after three prompt changes it measured
+  (docs/eval/2026-11-23-ask-searches.md), so Ask keeps the fast model. Rejected: a change made without a tap.
 - **2026-11-23 · The apply queue gets its hands: the old setup's runner.**
   Apply queued in kestrel, and nothing ever claimed the queue: the old runner (hunt serve, one task at a time) now
   takes kestrel's next application once nothing works and its own queue is empty, starts the agent's chat as before,

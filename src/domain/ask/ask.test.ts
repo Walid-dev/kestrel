@@ -153,7 +153,7 @@ test("on Searches the model looks through the hunt, answers from what it found, 
       content:
         seen.length === 1
           ? 'Let me look.\n```find\n{"remote": true, "payAtLeast": 150000}\n```'
-          : 'The remote one is [Remote Keeper](listing:L2).\n```action\n{"do": "stage", "listing": "L2", "to": "interested"}\n```\n```action\n{"do": "stage", "listing": "nope", "to": "passed"}\n```',
+          : 'The remote one is [Remote Keeper](listing:L2), not [Ghost Keeper](listing:L9).\n```action\n{"do": "stage", "listing": "L2", "to": "interested"}\n```\n```action\n{"do": "stage", "listing": "nope", "to": "passed"}\n```',
     };
   });
   await askPage(db, settings(s.url), { app: "searches", ref: "jobs:beekeeping", text: "Find the remote one that pays" })
@@ -163,7 +163,8 @@ test("on Searches the model looks through the hunt, answers from what it found, 
   assert.match(seen[0].messages[0].content, /- L1: Head Keeper at Hive Co/); // the page shows its best listings
   assert.match(seen[1].messages.at(-1)?.content ?? "", /WHAT YOUR FIND RETURNED[\s\S]*- L2: Remote Keeper/);
   const answer = conversation(db, "searches", "jobs:beekeeping")[1];
-  assert.equal(answer.text, "The remote one is [Remote Keeper](listing:L2)."); // the blocks are kestrel's, not mine
+  // the blocks are kestrel's, not mine; a link to a listing that isn't there becomes plain words
+  assert.equal(answer.text, "The remote one is [Remote Keeper](listing:L2), not Ghost Keeper.");
   assert.deepEqual(
     answer.cards.map((c) => [c.label, c.state]),
     [["Mark “Remote Keeper at Comb Ltd” as Interested", "open"]], // the change on a listing that isn't there is dropped
