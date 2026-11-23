@@ -556,12 +556,13 @@ export function Searches() {
             {all.length > 1 && (
               <select
                 className="btn btn-head ml-auto max-w-full"
-                aria-label="Hunt"
-                value={`${hunt.kind}:${hunt.key}`}
-                onChange={(e) => set("hunt", e.target.value)}
+                aria-label="Switch hunt"
+                value=""
+                onChange={(e) => e.target.value && set("hunt", e.target.value)}
               >
+                <option value="">Switch hunt</option>
                 {all.map((h) => (
-                  <option key={`${h.kind}:${h.key}`} value={`${h.kind}:${h.key}`}>
+                  <option key={`${h.kind}:${h.key}`} value={`${h.kind}:${h.key}`} disabled={h === hunt}>
                     {h.name} · {h.count}
                   </option>
                 ))}
