@@ -140,7 +140,7 @@ export function scoreJob(raw: unknown, job: ScoredJob, now: Date): Score {
 
 // the words a place line uses for "anywhere": a line of nothing else names no country, so it stays in view
 const ANYWHERE =
-  /\b(remote|anywhere|worldwide|global(ly)?|in the world|hybrid|on-?site|in-office|office|flexible|or|and|multiple locations?|various locations?)\b/g;
+  /\b(remote|anywhere|worldwide|global(ly)?|in the world|hybrid|on-?site|in-office|office|flexible|or|and|multiple locations?|various locations?|all|n\/?a|tbd|unknown|not specified|junior|intermediate|senior|expert|leader)\b/g;
 
 // a job open only outside the places it must be in (scoring.places.within): its place names somewhere else (a remote
 // one too: "Remote - USA"), it is marked US only, or its text says only people elsewhere may apply. Answers why in
@@ -149,15 +149,20 @@ export function outsideOf(raw: unknown, item: ScoredJob): string | null {
   const places = ScoringShape.parse(raw ?? {}).places;
   if (!places?.within.length) return null;
   const name = places.within[0];
-  const inside = (t: string) => places.within.some((w) => has(t, w));
+  // a short code in capitals ("ON") counts only as its own capital word, so it never matches inside "London"
+  const inside = (t: string) =>
+    places.within.some((w) =>
+      /^[A-Z]{2,3}$/.test(w) ? new RegExp(`(^|[^A-Za-z])${w}([^A-Za-z]|$)`).test(t) : has(t, w),
+    );
   const where = (item.location ?? "").trim();
   if (where && inside(where)) return null;
   if (item.usOnly) return `not open in ${name}: US only`;
+  // what is left once the words for anywhere go; a bare two-letter code ("CA": a country or a state?) proves nothing
   const named = where
     .toLowerCase()
     .replace(ANYWHERE, "")
     .replace(/[^\p{L}]+/gu, "");
-  if (named) return `not open in ${name}: ${where}`;
+  if (named && !/^[A-Za-z]{2}$/.test(where)) return `not open in ${name}: ${where}`;
   const text = item.excerpt ?? "";
   const closed = places.closed.find((p) => has(text, p));
   if (closed && !inside(text)) return `not open in ${name}: the posting says ${closed}`;

@@ -146,7 +146,7 @@ test("a job open only outside the places it must be in is set aside, with why; v
   const within = {
     places: {
       words: ["Hiveton"],
-      within: ["Waxland", "Hiveton", ", WX"],
+      within: ["Waxland", "Hiveton", "WX"],
       closed: ["authorized to work in nectaria"],
     },
   };
@@ -156,6 +156,10 @@ test("a job open only outside the places it must be in is set aside, with why; v
   assert.equal(out({ location: "Remote (Anywhere in the World)" }), null); // names no country
   assert.equal(out({ location: "In-Office or Remote" }), null);
   assert.equal(out({ location: "" }), null);
+  assert.equal(out({ location: "Combtown, WX" }), null); // a code in capitals, as its own word
+  assert.equal(out({ location: "Wxford, Nectaria" }), "not open in Waxland: Wxford, Nectaria"); // never inside one
+  assert.equal(out({ location: "N/A" }), null); // a junk place line names nowhere
+  assert.equal(out({ location: "NX" }), null); // a bare two-letter code proves nothing
   assert.equal(out({ location: "Droneville, Nectaria" }), "not open in Waxland: Droneville, Nectaria");
   assert.equal(out({ location: "Remote - Nectaria" }), "not open in Waxland: Remote - Nectaria");
   assert.equal(out({ location: "Remote", usOnly: true }), "not open in Waxland: US only");
