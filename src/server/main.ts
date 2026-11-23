@@ -7,6 +7,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { openDb } from "../db/db.ts";
 import { migrate } from "../db/migrate.ts";
+import { sweepDeepChecks } from "../domain/search/deep.ts";
 import { loadSettings } from "../platform/config.ts";
 import { dataDir, isDeployed } from "../platform/paths.ts";
 import { alertRun } from "./alerts.ts";
@@ -94,6 +95,7 @@ if (!isDeployed() && (db.prepare("SELECT COUNT(*) AS n FROM packs").get() as { n
     2,
   );
 }
+sweepDeepChecks(db); // a deep check a restart cut short says so (as Research, the letters and Ask do in their mounts)
 mountSearch(app, db, settings);
 mountApply(app, db);
 mountTasks(app, db);
