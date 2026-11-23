@@ -121,6 +121,11 @@ test("Stop and Pause take only their own shapes; the old setup's chats are read 
         ["c2", 1],
       ],
     );
+    // another address that doesn't answer shows nothing, not the first address's chats (review)
+    const other = new Hono();
+    mountLive(other, db, "http://127.0.0.1:9/api/live");
+    const none = (await (await other.request("/api/live")).json()) as { chats: unknown[]; queuePaused?: unknown };
+    assert.deepEqual(none.chats, []);
   } finally {
     old.close();
   }

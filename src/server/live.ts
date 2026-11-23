@@ -50,10 +50,12 @@ let cache: { at: number; url: string } & Agents = { at: 0, url: "", chats: [], p
 async function agentChats(url: string): Promise<Agents> {
   if (!url) return { chats: [], paused: null };
   if (cache.url === url && Date.now() - cache.at < 2000) return cache;
+  // a failed read keeps this address's last read; another address's chats never stand in for it
+  const last: Agents = cache.url === url ? cache : { chats: [], paused: null };
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
     const data = OldLive.safeParse(await res.json());
-    if (!data.success) return cache; // not the old Live's shape: the last read stands
+    if (!data.success) return last; // not the old Live's shape: the last read stands
     const now = Date.now();
     const chats = data.data.chats
       .flatMap((c) => Chat.safeParse(c).data ?? [])
@@ -62,7 +64,7 @@ async function agentChats(url: string): Promise<Agents> {
     cache = { at: now, url, chats, paused: data.data.queuePaused };
     return cache;
   } catch {
-    return cache; // the old setup not answering: the last read stands until it does
+    return last; // the old setup not answering: the last read stands until it does
   }
 }
 
