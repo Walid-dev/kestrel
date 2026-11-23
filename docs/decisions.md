@@ -5,6 +5,15 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-23 · Shared Dialog, Confirm and Pills (v0.9, step 2 begun).**
+  The browser's `confirm()` and `<select>` go: they can't take the app's look, and the pop-up looks foreign on the
+  iPhone. `web/src/ui/` holds Dialog (native `showModal`), Confirm (`useConfirm()`, a promise) and Pills (buttons with
+  `aria-pressed` in a fieldset, as `.seg` already was). A second Confirm while one is open answers no at once, and a
+  route change answers no, so a double tap or Back never deletes twice or on a page left behind. In light mode the
+  filled red action uses `--poor` (4.7:1; `--red` reads 3.5:1). The Switch hunt menu became a button that opens the
+  hunts as pills, so the title line stays clean. Rejected: a dialog package (Radix and the like) under the
+  no-new-package rule; native radios for Pills, since `.seg` already used `aria-pressed` and both read well.
+
 - **2026-11-23 · One set of read tools for Ask (v0.8, step 3).**
   `src/domain/ask/tools.ts` holds read (a lesson, a listing or a document by id), web and page, each with when it
   helps and its shape; Ask's prompt lists those its page allows and its loop runs them beside the page's own find.
