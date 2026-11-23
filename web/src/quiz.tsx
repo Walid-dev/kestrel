@@ -528,7 +528,7 @@ export function QuizRun() {
             mark?.verdict === "right"
               ? ["Go one level deeper", "Give me a real-world example", "Quiz me on it another way"]
               : [
-                  mark?.skipped ? "Explain it from the start" : "Why was my answer not right?",
+                  !mark || mark.skipped ? "Explain it from the start" : "Why was my answer not right?",
                   "Explain it another way",
                   "Give me a real-world example",
                   "Quiz me on it another way",
