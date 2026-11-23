@@ -11,10 +11,21 @@ export function NotesList({
   onOpen: (n: PlacedNote) => void;
   onDelete: (n: PlacedNote) => void;
 }) {
-  if (notes.length === 0) return null;
+  // none yet: the card says how a note starts, so the column never stands empty
+  if (notes.length === 0)
+    return (
+      <section className="card mt-5 grid gap-2 !p-4 lg:mt-0">
+        <h3 className="font-cond m-0 text-[17px] font-bold" style={{ color: "var(--strong)" }}>
+          Your notes
+        </h3>
+        <p className="m-0 text-[14px] leading-relaxed" style={{ color: "var(--muted)" }}>
+          None yet. Select words in the document, then tap Note beside them, and say what should change.
+        </p>
+      </section>
+    );
   return (
     <section className="mt-5 grid gap-3 lg:mt-0">
-      <h3 className="font-mono text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--muted)" }}>
+      <h3 className="font-cond m-0 text-[17px] font-bold" style={{ color: "var(--strong)" }}>
         Your notes
       </h3>
       {notes.map((n) => (

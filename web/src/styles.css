@@ -950,7 +950,7 @@ pre.code .f {
   }
 }
 /* the Notes reader, read like a lesson: plain paragraphs with room between them, a line no longer than the eye
-   follows, a bullet's dot in the accent, code on its own ground. Picking words shows the round Note button by them. */
+   follows (a list keeps its own marks, indented), code on its own ground. Picking words shows the round Note button by them. */
 .reader {
   font-size: 16.5px;
   line-height: 1.75;
@@ -961,16 +961,6 @@ pre.code .f {
   margin: 0 0 12px;
   color: var(--strong);
   max-width: 72ch;
-}
-.reader-line.pl-6::before {
-  content: "";
-  position: absolute;
-  left: 8px;
-  top: 0.8em;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
 }
 .reader-code {
   padding: 1px 12px;
