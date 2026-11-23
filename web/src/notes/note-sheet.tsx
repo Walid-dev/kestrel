@@ -1,10 +1,11 @@
 // The note sheet: a native dialog (showModal), which Esc and Android's Back close. The words being typed live on the
 // device until Save or Discard, so closing the app mid-note loses nothing.
 import { useEffect, useRef, useState } from "react";
+import { bare } from "../../../src/shared/markdown.ts";
 import type { PlacedNote } from "../../../src/shared/notes.ts";
 
 export type SheetTarget =
-  | { kind: "new"; quote: string; start: number } // on selected words
+  | { kind: "new"; quote: string; start: number; shown?: string } // on selected words (shown: as I saw them)
   | { kind: "whole" } // on the whole document
   | { kind: "edit"; note: PlacedNote };
 
@@ -50,10 +51,10 @@ export function NoteSheet({
     target.kind === "whole"
       ? "the whole document"
       : target.kind === "new"
-        ? `“${target.quote}”`
+        ? `“${(target.shown ?? target.quote).trim()}”`
         : target.note.quote === ""
           ? "the whole document"
-          : `“${target.note.quote}”`;
+          : `“${bare(target.note.quote)}”`;
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: the dialog already closes from the keyboard (Esc) and Back
     <dialog

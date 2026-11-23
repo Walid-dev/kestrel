@@ -1207,27 +1207,506 @@ pre.code .f {
     animation: none;
   }
 }
-/* the Notes reader, read like a lesson: plain paragraphs with room between them, a line no longer than the eye
-   follows (a list keeps its own marks, indented), code on its own ground. Picking words shows the round Note button by them. */
+/* a document, rendered (ui/markdown.tsx): VS Code's Markdown preview, made calm. Room between blocks, a line no longer
+   than the eye follows, headings in the palette's colours, lists with real bullets and numbers, code on its own
+   ground, quotes with an edge, tables that scroll in their own frame on a phone, links in the accent. A PDF's text
+   keeps its lines. */
 .reader {
   font-size: 16.5px;
   line-height: 1.75;
-  color: var(--text);
-}
-.reader-line {
-  position: relative;
-  margin: 0 0 12px;
   color: var(--strong);
+}
+.md {
+  overflow-wrap: break-word;
+}
+.md > :first-child {
+  margin-top: 0;
+}
+.md > :last-child {
+  margin-bottom: 0;
+}
+.md :where(p, ul, ol, blockquote, pre, .md-table, hr) {
+  margin: 0 0 16px;
+}
+.md :where(p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote) {
   max-width: 72ch;
 }
-.reader-code {
-  padding: 1px 12px;
+.md-h {
+  margin: 34px 0 10px;
+  font-family: var(--cond);
+  font-weight: 700;
+  line-height: 1.25;
+  scroll-margin-top: 16px;
+}
+.md-h1 {
+  font-size: 28px;
+  color: var(--strong);
+}
+.md-h2 {
+  font-size: 22px;
+  color: var(--purple);
+}
+.md-h3 {
+  font-size: 18.5px;
+  color: var(--cyan);
+}
+.md-h4 {
+  font: 600 16.5px / 1.4 var(--sans);
+  color: var(--strong);
+}
+.md-h5,
+.md-h6 {
+  font: 500 11.5px / 1.4 var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.md strong {
+  font-weight: 600;
+  color: var(--strong);
+}
+.md del {
+  color: var(--muted);
+}
+.md-list {
+  padding-left: 1.5em;
+}
+ul.md-list {
+  list-style: disc;
+}
+ul.md-list ul.md-list {
+  list-style: circle;
+}
+ul.md-list ul.md-list ul.md-list {
+  list-style: square;
+}
+ol.md-list {
+  list-style: decimal;
+  padding-left: 1.8em;
+}
+.md-list .md-list {
+  margin: 4px 0 0;
+}
+.md-list > li + li {
+  margin-top: 5px;
+}
+.md-list > li::marker {
+  color: var(--muted);
+}
+ol.md-list > li::marker {
+  font: 500 0.88em var(--mono);
+}
+.md-list > li > p {
+  margin-bottom: 10px;
+}
+/* a task: its box sits where the bullet would, ticked in the accent when done */
+li.md-task {
+  position: relative;
+  list-style: none;
+}
+.md-check {
+  position: absolute;
+  top: 0.42em;
+  left: -1.45em;
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid var(--muted);
+  border-radius: 4px;
+}
+.md-check[data-done] {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.md-check[data-done]::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 4px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--bg);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.md-quote {
+  padding: 2px 0 2px 16px;
+  border-left: 3px solid color-mix(in srgb, var(--accent) 55%, var(--line));
+  color: var(--text);
+}
+.md-quote > :last-child {
+  margin-bottom: 0;
+}
+.md-code {
+  font: 0.85em var(--mono);
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
   background: var(--surface-2);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.md-pre {
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: 13.5px / 1.6 var(--mono);
+  white-space: pre;
+  overflow-x: auto;
+  tab-size: 4;
+}
+.md-pre code {
+  font: inherit;
+}
+/* a document that is code (YAML, JSON, a log): its lines wrap instead of running off the screen */
+.md-is-code .md-pre {
+  white-space: pre-wrap;
+}
+.md-table {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+/* each column as wide as its words (a long cell wraps at a comfortable width), the frame filled when they are
+   narrower; when they are wider, the frame scrolls */
+.md-table table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+.md-table th,
+.md-table td {
+  max-width: 32ch;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.md-table th {
+  background: var(--surface-2);
+  color: var(--strong);
+  font-weight: 600;
+}
+.md-table th + th,
+.md-table td + td {
+  border-left: 1px solid var(--line);
+}
+.md-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.md-hr {
+  height: 0;
+  margin: 28px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+/* my notes on the words, like a highlighter: pink with a line under, across bold text and links alike; a tap opens
+   the note */
+.doc-mark {
+  padding: 0;
+  border-radius: 2px;
+  background: var(--pink-soft);
+  box-shadow: inset 0 -2px var(--pink);
+  color: inherit;
+  cursor: pointer;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+a .doc-mark {
+  cursor: inherit;
+}
+/* the one part for a document (ui/doc.tsx): its head (Read, Edit, Side by side; Download), the rendered text, the
+   editor, and side by side on a computer. While I edit, the head stays at the top of the screen. */
+.doc-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+.doc-bar-editing {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin: 0 -6px 12px;
+  padding: 8px 6px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(10px);
+}
+.doc-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.doc-status {
+  font: 500 12.5px / 1.35 var(--sans);
+  color: var(--muted);
+}
+/* on a phone the editing head stays one row: Save's own state says whether there are changes */
+@media (max-width: 479px) {
+  .doc-bar-editing .doc-status {
+    display: none;
+  }
+}
+@media (pointer: coarse) {
+  .doc-modes button,
+  .doc-tools .btn,
+  .doc-why .btn,
+  .doc-kept .btn {
+    min-height: 44px;
+  }
+}
+.doc-menu-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.doc-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  min-width: 250px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 18px 50px -12px rgba(0, 0, 0, 0.55);
+}
+.doc-menu > a,
+.doc-menu > button {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.doc-menu > a:hover,
+.doc-menu > button:hover {
+  background: var(--surface-2);
+}
+.doc-menu-what {
+  font: 600 14.5px / 1.3 var(--sans);
+  color: var(--strong);
+}
+.doc-menu-why {
+  font: 400 12.5px / 1.35 var(--sans);
+  color: var(--muted);
+}
+.doc-why,
+.doc-kept {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: 14px;
+}
+.doc-why {
+  background: var(--warn-soft);
+}
+.doc-kept {
+  background: var(--accent-soft);
+}
+.doc-say {
+  flex: 1 1 220px;
+}
+.doc-read {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+@media (min-width: 768px) {
+  .doc-read {
+    padding: 32px 36px;
+  }
+}
+/* the editor: the source as written, in mono, growing with the text */
+.doc-src {
+  display: block;
+  width: 100%;
+  min-height: 60vh;
+  field-sizing: content;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--strong);
+  font: 400 14px / 1.7 var(--mono);
+  tab-size: 4;
+  resize: none;
+  caret-color: var(--accent);
+}
+@media (pointer: coarse) {
+  .doc-src {
+    padding: 14px;
+    font-size: 16px;
+  }
+}
+/* the keys that save and leave, for a keyboard: a phone has neither */
+.doc-hint {
+  margin: 8px 2px 0;
+  font: 400 12px / 1.5 var(--mono);
+  color: var(--muted);
+}
+@media (pointer: coarse) {
+  .doc-hint {
+    display: none;
+  }
+}
+/* side by side: two panes the screen's height, each scrolling, the source on the left and the preview on the right */
+.doc-side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  height: max(480px, calc(100dvh - 140px));
+}
+.doc-side .doc-src {
+  height: 100%;
+  min-height: 0;
+  field-sizing: fixed;
+  overflow: auto;
+}
+.doc-preview {
+  overflow: auto;
+  padding: 24px 28px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+/* Save as PDF: the print page (notes/print.tsx), a white page in black ink whatever the theme; print gives it its
+   margins and keeps a heading with what follows it. Its text is in a static font every Mac and iPhone has: Chrome
+   prints the variable IBM Plex Sans as Type 3 glyphs, whose words a PDF reader (or an employer's system reading a CV)
+   gets back broken; the condensed headings and the mono are static and print well. */
+html:has(.paper-view),
+body:has(.paper-view) {
+  background: #fff;
+}
+.paper-view {
+  --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f3f4f6;
+  --line: #d9dbe0;
+  --text: #2b2e35;
+  --strong: #111318;
+  --muted: #5d626e;
+  --accent: #2357c6;
+  --accent-soft: rgba(35, 87, 198, 0.1);
+  --purple: #111318;
+  --cyan: #111318;
+  min-height: 100dvh;
+  background: #fff;
+  color: var(--text);
+  font-family: var(--sans);
+  color-scheme: light;
+}
+.paper-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  font: 400 14px / 1.45 var(--sans);
+  color: var(--muted);
+}
+.paper-back {
+  color: var(--accent);
+  font-weight: 500;
+}
+@media (pointer: coarse) {
+  .paper-back,
+  .paper-bar .btn {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
+.paper-how {
+  flex: 1 1 240px;
+}
+.paper {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 36px 20px 64px;
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--text);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.paper .md :where(p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote) {
+  max-width: none;
+}
+@media (min-width: 768px) {
+  .paper {
+    padding: 56px 64px 96px;
+  }
+}
+@media print {
+  @page {
+    margin: 16mm 18mm;
+  }
+  .paper-bar {
+    display: none;
+  }
+  .paper {
+    max-width: none;
+    padding: 0;
+    font-size: 11pt;
+    line-height: 1.5;
+  }
+  .paper .md-h1 {
+    font-size: 20pt;
+  }
+  .paper .md-h2 {
+    font-size: 15pt;
+  }
+  .paper .md-h3 {
+    font-size: 12.5pt;
+  }
+  .paper .md-h {
+    margin-top: 18pt;
+    break-after: avoid;
+  }
+  .paper :where(.md-pre, .md-table, .md-quote, li) {
+    break-inside: avoid;
+  }
+  .paper .md-pre {
+    white-space: pre-wrap;
+  }
+  .paper .md-table {
+    overflow: visible;
+  }
+  .paper .md-link {
+    color: inherit;
+  }
 }
 .note-pick {
   position: fixed;
   z-index: 40;
   transform: translateX(-50%);
+  white-space: nowrap;
   padding: 9px 15px;
   border: 0;
   border-radius: 999px;

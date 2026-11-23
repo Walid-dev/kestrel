@@ -1,5 +1,6 @@
 // The document's notes: each with its words (or "the whole document"), a tap to open, and a small × to delete it
 // right here. Detached and done notes say so.
+import { bare } from "../../../src/shared/markdown.ts";
 import type { PlacedNote } from "../../../src/shared/notes.ts";
 
 export function NotesList({
@@ -34,7 +35,7 @@ export function NotesList({
             <span className="font-mono block break-words text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
               {n.quote === ""
                 ? "the whole document"
-                : `“${n.quote.length > 80 ? `${n.quote.slice(0, 80)}…` : n.quote}”`}
+                : `“${bare(n.quote).length > 80 ? `${bare(n.quote).slice(0, 80)}…` : bare(n.quote)}”`}
               {n.detached && (
                 <span
                   className="ml-2 rounded-full px-2 py-0.5"

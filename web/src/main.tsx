@@ -17,6 +17,7 @@ import { Writing } from "./letters.tsx";
 import { LivePage } from "./live.tsx";
 import { Models } from "./models.tsx";
 import { NotesList } from "./notes/list.tsx";
+import { NotesPrint } from "./notes/print.tsx";
 import { Reader } from "./notes/reader.tsx";
 import { NotesSet } from "./notes/set.tsx";
 import { Quiz, QuizRun } from "./quiz.tsx";
@@ -35,6 +36,7 @@ if (rootEl)
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <Routes>
+            <Route path="notes/:id/print" element={<NotesPrint />} />
             <Route element={<App />}>
               <Route index element={<Home />} />
               <Route path="notes" element={<NotesList />} />
