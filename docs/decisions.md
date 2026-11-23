@@ -5,6 +5,16 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-23 · One Ask on every page; Ask draws; PDFs through the computer's own engine.**
+  Ask is one box, the page wide, at the same kind of place on every app; its head opens and closes it (kept per app
+  in this browser). Notes' moves under the document (its side column was too narrow); Searches' sits under the
+  title and its own Ask button opens it. Research, Writing and Applications get it (Applications proposes Retry as a
+  card); Interview prep's answer-packs open on Learn's lesson page, which has it. Ask draws two kinds of picture the
+  page lays out itself, a flow and a comparison, named in its prompt as JSON blocks: a model can't place a hand-made
+  diagram's coordinates well in a chat, so Learn's diagrams stay for lessons. A PDF upload in Notes becomes its text
+  through Apple's PDFKit, the engine Preview uses, in a small program of its own process that deploy builds: nothing
+  to install, Apple's updates, and nothing in a PDF runs. Rejected: pdf.js through unpdf (a 3 MB package running
+  inside kestrel). Writing takes Learn's tiles and headings; "Left to do only" became "Not applied yet".
 - **2026-11-23 · Ask reads like a lesson; the switch in three colours; left to do only.**
   Ask's answer takes the lessons' boxes: the direct answer in its own tile, headings as a lesson's, each point of a
   list in a tile with its mark, a quote in the example's box (labelled by a short line before it); a one-line head
