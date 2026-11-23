@@ -5,6 +5,24 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-22 · Ask on every page, one conversation per page.**
+  One Ask for every app (web/src/ask.tsx, /api/ask): each app's helper writes what its page shows; the
+  conversation is kept per page (ask_messages, by app and ref); the answer is Markdown, streamed into its row and
+  read by the page while it grows, so leaving the page loses nothing. One model use, `ask` (it replaces
+  `learn-ask`; a saved pick carries over), the fast model by default after the live eval
+  (docs/eval/2026-11-22-ask.md); the eval now scores Ask's prompt. Built on Learn's lessons and the quiz's
+  questions; actions (reading ones at once, changing ones as a card to tap) come per app, Searches first
+  (docs/tasks/v0.7-ask.md). Rejected: a JSON answer of ten lines (it could not stream, nor hold code or a table);
+  Server-Sent Events per answer (polling a row while one writes is simpler and survives leaving the page).
+- **2026-11-22 · A quiz is kept as I take it.**
+  The questions, my answers and marks, and my place live in `quizzes`; the quiz page lists the started ones to
+  continue and the ended ones with their score; a question opens again from the score, with its Ask. A question
+  written for a lesson without a check is kept in the quiz. Rejected: keeping the quiz in the browser (leaving lost
+  it).
+- **2026-11-22 · A deep check's verdict in its colour; one colour per app.**
+  The deep check chip takes its verdict's colour (apply or buy mint, maybe or negotiate orange, skip coral). Every
+  app has its own colour, the same on Home's cards and on the dock's tiles. Rejected: one blue chip for every
+  verdict (good and bad looked alike).
 - **2026-11-22 · The money scale, loading that shows, and colour by meaning.**
   A pay or price pill takes the old hunt pages' scale by match or deal (mint, lime, amber, coral); the model's read
   is purple, the deep check blue, remote cyan; Learn's packs wear their parent's colour (Personal green, AI purple,

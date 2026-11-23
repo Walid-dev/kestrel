@@ -136,6 +136,13 @@ Each gets its own step-by-step plan, reviewed, before it starts.
   plain words, small apps.
 - Each old part stops after two weeks without use; the last one closes the old setup.
 
+### v0.7 · Ask on every page
+
+- Every app gets the same Ask: a conversation with the computer's model about what the page shows, kept per page.
+  The model sees the page and, step by step, acts in the app (find, filter, add, mark), any change only on my tap.
+- Built first on Learn's lessons and the quiz's questions, with quizzes kept as I take them; Searches comes next.
+  The design and the steps: [docs/tasks/v0.7-ask.md](tasks/v0.7-ask.md).
+
 ## The structure
 
 How the one process is organised and who talks to whom: the diagram in
