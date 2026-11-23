@@ -1,7 +1,9 @@
 // Ask, on any page: a conversation with the computer's model about what the page shows. The same box on every app:
-// the conversation so far (kept, so leaving loses nothing), a few first questions to tap, and a line to ask. The
-// answer grows as the model writes it — the page reads it again three times a second until it lands — and reads as
-// Markdown in the lessons' own marks: bold, `code`, lists, code in colour, tables, links to a lesson.
+// a one-line head (what it asks about, and Start over), the conversation so far (kept, so leaving loses nothing), a
+// few first questions to tap, and a line to ask with its send button inside. The answer grows as the model writes it
+// — the page reads it again three times a second until it lands — and reads like a lesson (my ask, 2026-11-23: "the
+// learn page has a good design with the little boxes"): the direct answer first in its own tile, each section under
+// a lesson's heading, each point of a list in a tile of its own, a quote in the example's box, code in colour.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { Code, Inline } from "./learn/blocks.tsx";
@@ -28,6 +30,13 @@ async function call(url: string, method: string, body?: unknown): Promise<{ mess
   if (!res.ok) throw new Error(data.error ?? `${res.status}`);
   return { messages: data.messages ?? [] };
 }
+
+const Spark = ({ size = 16 }: { size?: number }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
+    <path d="M12 2.5c.6 4.6 2.9 6.9 7.5 7.5-4.6.6-6.9 2.9-7.5 7.5-.6-4.6-2.9-6.9-7.5-7.5 4.6-.6 6.9-2.9 7.5-7.5Z" />
+    <path d="M19 15.5c.3 2 1.2 2.9 3.2 3.2-2 .3-2.9 1.2-3.2 3.2-.3-2-1.2-2.9-3.2-3.2 2-.3 2.9-1.2 3.2-3.2Z" />
+  </svg>
+);
 
 export function Ask({
   app,
@@ -75,67 +84,72 @@ export function Ask({
   });
   const messages = thread.data?.messages ?? [];
   const writing = messages.some((m) => m.state === "writing");
+  const busy = writing || send.isPending;
   const ask = (q: string) => {
-    if (q.trim() && !writing && !send.isPending) send.mutate(q.trim());
+    if (q.trim() && !busy) send.mutate(q.trim());
   };
   const failed = [thread, send, clear, act].find((x) => x.isError);
 
   return (
-    <section className="card ask grid gap-3" aria-busy={writing}>
-      <div className="flex items-center gap-2">
-        <span style={{ color: "var(--purple)" }}>
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
-            <path d="M12 2.5c.6 4.6 2.9 6.9 7.5 7.5-4.6.6-6.9 2.9-7.5 7.5-.6-4.6-2.9-6.9-7.5-7.5 4.6-.6 6.9-2.9 7.5-7.5Z" />
-            <path d="M19 15.5c.3 2 1.2 2.9 3.2 3.2-2 .3-2.9 1.2-3.2 3.2-.3-2-1.2-2.9-3.2-3.2 2-.3 2.9-1.2 3.2-3.2Z" />
-          </svg>
+    <section className="card ask" aria-busy={writing}>
+      <header className="ask-head">
+        <span className="ask-spark">
+          <Spark />
         </span>
-        <span className="eyebrow" style={{ color: "var(--purple)" }}>
+        <h3 className="ask-title" title={`${title} · the computer's own model`}>
           {title}
-        </span>
-        <span className="text-[12px]" style={{ color: "var(--muted)" }}>
-          the computer's model
-        </span>
+        </h3>
         {messages.length > 0 && (
           <button
             type="button"
-            className="btn btn-quiet ml-auto !py-1 text-[12.5px]"
+            className="ask-icon"
+            aria-label="Start over"
+            title="Start over"
             disabled={writing || clear.isPending}
             onClick={() => clear.mutate()}
           >
-            Start over
+            <svg
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3 12a9 9 0 1 0 3-6.7" />
+              <path d="M3 4v5h5" />
+            </svg>
           </button>
         )}
-      </div>
+      </header>
 
       {messages.map((m) =>
         m.role === "me" ? (
-          <p key={m.id} className="ask-mine m-0">
+          <p key={m.id} className="ask-mine">
             {m.text}
           </p>
         ) : (
           <div key={m.id} className="ask-answer">
             {m.text ? (
-              <Markdown text={m.text} />
+              <Answer text={m.text} writing={m.state === "writing"} />
             ) : m.state === "writing" ? (
-              <span className="eyebrow inline-flex items-center gap-2" style={{ color: "var(--purple)" }}>
+              <span className="ask-thinking">
                 <span className="spin" /> Thinking
               </span>
             ) : null}
-            {m.state === "writing" && m.text && <span className="caret" aria-hidden="true" />}
-            {m.state === "failed" && (
-              <p className="m-0 text-[13.5px]" style={{ color: "var(--red)" }}>
-                It didn't finish ({m.error}). Ask again.
-              </p>
-            )}
+            {m.state === "failed" && <p className="ask-failed">It didn't finish ({m.error}). Ask again.</p>}
             {(m.cards ?? []).map((c, i) => (
-              <div key={c.label} className="ask-card">
+              <div key={c.label} className={`ask-card ${c.state}`}>
                 <span className="min-w-0 flex-1">
                   <span className="block font-semibold" style={{ color: "var(--strong)" }}>
                     {c.label}
                   </span>
                   {c.state !== "open" && (
                     <span
-                      className="block text-[13px]"
+                      className="mt-0.5 block text-[13px]"
                       style={{ color: c.state === "done" ? "var(--green)" : "var(--red)" }}
                     >
                       {c.state === "done" ? "✓ " : ""}
@@ -160,7 +174,7 @@ export function Ask({
       )}
 
       {messages.length === 0 && starters.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="ask-starters">
           {starters.map((s) => (
             <button key={s} type="button" className="pill" disabled={send.isPending} onClick={() => ask(s)}>
               {s}
@@ -170,15 +184,14 @@ export function Ask({
       )}
 
       <form
-        className="flex items-end gap-2"
+        className="ask-compose"
         onSubmit={(e) => {
           e.preventDefault();
           ask(text);
         }}
       >
         <textarea
-          className="btn min-h-[44px] min-w-0 flex-1 resize-none text-left text-[15px] leading-relaxed"
-          style={{ fieldSizing: "content", maxHeight: "40vh" } as React.CSSProperties}
+          className="ask-input"
           rows={1}
           aria-label={placeholder}
           placeholder={placeholder}
@@ -193,23 +206,36 @@ export function Ask({
         />
         <button
           type="submit"
-          className="btn btn-primary inline-flex shrink-0 items-center gap-2"
-          disabled={!text.trim() || writing || send.isPending}
+          className="ask-send"
+          aria-label={busy ? "Answering" : "Ask"}
+          title={busy ? "Answering" : "Ask"}
+          disabled={!text.trim() || busy}
         >
-          {(writing || send.isPending) && <span className="spin" />}
-          {writing ? "Answering" : "Ask"}
+          {busy ? (
+            <span className="spin" />
+          ) : (
+            <svg
+              viewBox="0 0 24 24"
+              width="17"
+              height="17"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" />
+            </svg>
+          )}
         </button>
       </form>
-      {failed && (
-        <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-          {(failed.error as Error).message}
-        </p>
-      )}
+      {failed && <p className="ask-failed">{(failed.error as Error).message}</p>}
     </section>
   );
 }
 
-// ---- Markdown, as the model writes it: paragraphs, headings, lists, quotes, code fences and tables ----
+// ---- the answer, read like a lesson: the model writes Markdown, the page lays it out in the lessons' boxes ----
 
 type Part =
   | { k: "p" | "h" | "quote"; text: string }
@@ -225,7 +251,8 @@ const cells = (line: string) =>
     .split("|")
     .map((c) => c.trim());
 
-// line by line; an answer still being written parses too (an open fence is code so far)
+// line by line; an answer still being written parses too (an open fence is code so far). A line in bold alone
+// ("**Why it's the weakest**") is a heading, as models write them.
 export function parseMarkdown(src: string): Part[] {
   const lines = src.replaceAll("\r", "").split("\n");
   const out: Part[] = [];
@@ -251,7 +278,7 @@ export function parseMarkdown(src: string): Part[] {
       i++;
       continue;
     }
-    const heading = line.match(/^\s*#{1,6}\s+(.*?)\s*#*\s*$/);
+    const heading = line.match(/^\s*#{1,6}\s+(.*?)\s*#*\s*$/) ?? line.match(/^\s*\*\*([^*]+)\*\*:?\s*$/);
     if (heading) {
       flush();
       out.push({ k: "h", text: heading[1] });
@@ -306,41 +333,71 @@ export function parseMarkdown(src: string): Part[] {
   return out;
 }
 
-export function Markdown({ text }: { text: string }) {
+// a point of a list: "**Term**: what it says" reads as a lesson's word and its meaning
+function Point({ text }: { text: string }) {
+  const term = text.match(/^\*\*([^*]+)\*\*\s*[:—–-]\s*(.+)$/);
+  if (!term) return <Inline text={text} />;
   return (
     <>
-      {parseMarkdown(text).map((p, n): ReactNode => {
+      <b style={{ color: "var(--strong)" }}>
+        <Inline text={term[1]} />
+      </b>
+      <span style={{ color: "var(--text)" }}>
+        {" "}
+        <Inline text={term[2]} />
+      </span>
+    </>
+  );
+}
+
+function Answer({ text, writing }: { text: string; writing: boolean }) {
+  const parts = parseMarkdown(text);
+  const lead = parts.findIndex((p) => p.k === "p");
+  return (
+    <>
+      {parts.map((p, n): ReactNode => {
         const key = `${p.k}${n}`;
         switch (p.k) {
           case "p":
-            return (
-              <p key={key} className="m-0">
+            // the first paragraph is the direct answer: its own tile, the way a lesson opens with what to say
+            return n === lead && lead < 2 ? (
+              <p key={key} className="ask-lead">
+                <Inline text={p.text} />
+              </p>
+            ) : (
+              <p key={key} className="ask-p">
                 <Inline text={p.text} />
               </p>
             );
           case "h":
             return (
-              <h4 key={key} className="font-cond m-0 mt-1 text-[17px] font-bold" style={{ color: "var(--strong)" }}>
+              <h4 key={key} className="ask-h">
                 <Inline text={p.text} />
               </h4>
             );
           case "ul":
-          case "ol": {
-            const List = p.k;
+          case "ol":
             return (
-              <List key={key} className={`m-0 grid gap-1 pl-5 ${p.k === "ul" ? "list-disc" : "list-decimal"}`}>
+              <ul key={key} className="ask-points">
                 {p.items.map((it, j) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: an answer's list only grows at its end
                   <li key={j}>
-                    <Inline text={it} />
+                    <span className="ask-mark" aria-hidden="true">
+                      {p.k === "ol" ? j + 1 : "•"}
+                    </span>
+                    <span className="min-w-0">
+                      <Point text={it} />
+                    </span>
                   </li>
                 ))}
-              </List>
+              </ul>
             );
-          }
           case "quote":
             return (
-              <div key={key} className="callout">
+              <div key={key} className="read-box grid gap-1">
+                <span className="eyebrow" style={{ color: "var(--accent)" }}>
+                  Note
+                </span>
                 <p className="m-0">
                   <Inline text={p.text} />
                 </p>
@@ -394,6 +451,7 @@ export function Markdown({ text }: { text: string }) {
             return <hr key={key} className="m-0 border-0 border-t" style={{ borderColor: "var(--line)" }} />;
         }
       })}
+      {writing && <span className="caret" aria-hidden="true" />}
     </>
   );
 }

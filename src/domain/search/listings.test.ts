@@ -203,3 +203,31 @@ test("new scoring rules rescore what the search already found; the old setup's o
   assert.ok(after > before, `${after} > ${before}`);
   assert.equal(listListings(db).find((r) => r.id === "old")?.score, 61);
 });
+
+test("left to do: a review view hides a job with an application of any state; a status view still shows its own", () => {
+  const base = mkdtempSync(join(tmpdir(), "kestrel-todo-"));
+  const db = new DatabaseSync(join(base, "t.db"));
+  migrate(db, join(base, "t.db"));
+  keepItems(
+    db,
+    "made-up",
+    [item(), item({ url: "https://example.com/job/2", title: "Head Keeper Two" })],
+    scoring,
+    NOW,
+    200,
+    "jobs",
+    { hunt: "", category: "" },
+  );
+  const [tried] = listListings(db, { stage: "review" }).filter((l) => l.link.endsWith("/2"));
+  db.prepare(
+    "INSERT INTO applications (id, listing, link, title, org, state, reason, agent, started, updated) VALUES ('a1', ?, ?, 'x', 'y', 'not-sent', 'stopped', 'hunt', ?, ?)",
+  ).run(tried.id, tried.link, NOW.toISOString(), NOW.toISOString());
+  assert.equal(listListings(db, { stage: "review" }).length, 2);
+  assert.deepEqual(
+    listListings(db, { stage: "review", todo: true }).map((l) => l.link),
+    ["https://example.com/job/1"],
+  );
+  assert.equal(listingCounts(db, { stage: "review", todo: true }).stages.review, 1);
+  setListingStatus(db, tried.id, "interested");
+  assert.equal(listListings(db, { stage: "interested", todo: true }).length, 1); // its own status view keeps it
+});

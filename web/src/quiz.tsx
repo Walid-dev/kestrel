@@ -420,7 +420,7 @@ export function QuizRun() {
 
   if (loaded.isError)
     return (
-      <main className="grid max-w-3xl gap-3">
+      <main className="mx-auto grid w-full max-w-3xl gap-3">
         <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
           {(loaded.error as Error).message}
         </p>
@@ -433,7 +433,7 @@ export function QuizRun() {
   if (review === null && quiz.place >= quiz.items.length) return <QuizEnd quiz={quiz} />;
   if (!item)
     return (
-      <main className="grid max-w-3xl gap-3">
+      <main className="mx-auto grid w-full max-w-3xl gap-3">
         <p className="m-0 text-sm" style={{ color: "var(--muted)" }}>
           No such question in this quiz.
         </p>
@@ -448,7 +448,7 @@ export function QuizRun() {
   const looking = review !== null; // a question looked at again: no answering, back to the score
   const failed = [grade, skip, move, made].find((x) => x.isError);
   return (
-    <main className="grid max-w-3xl gap-4">
+    <main className="mx-auto grid w-full max-w-3xl gap-4">
       <div className="flex items-center gap-3">
         <Link to={looking ? `/quiz/${quiz.id}` : "/quiz"} className="btn btn-quiet">
           {looking ? "← The score" : "← Quizzes"}
@@ -524,11 +524,23 @@ export function QuizRun() {
 
         {(mark || looking) && (
           <div className="grid gap-3">
-            {mark?.answer && (
-              <p className="m-0 text-[14.5px]" style={{ color: "var(--muted)" }}>
-                You said: {mark.answer}
-              </p>
-            )}
+            {/* what I said beside what the lesson says, each in a lesson's tile */}
+            <div className={`grid gap-2.5 ${mark?.answer ? "md:grid-cols-2" : ""}`}>
+              {mark?.answer && (
+                <div className="quiz-said">
+                  <span className="eyebrow">You said</span>
+                  <p className="m-0">{mark.answer}</p>
+                </div>
+              )}
+              <div className="quiz-said quiz-answer">
+                <span className="eyebrow" style={{ color: "var(--accent)" }}>
+                  The answer
+                </span>
+                <p className="m-0" style={{ color: "var(--strong)" }}>
+                  <Inline text={expected} />
+                </p>
+              </div>
+            </div>
             {mark ? (
               <div className={`read-box ${VERDICT[mark.verdict][1]} grid gap-2`}>
                 <span className={`chip chip-caps ${VERDICT[mark.verdict][1]} justify-self-start`}>
@@ -541,14 +553,6 @@ export function QuizRun() {
                 You didn't answer this one.
               </p>
             )}
-            <div className="grid gap-1">
-              <span className="eyebrow" style={{ color: "var(--accent)" }}>
-                The answer
-              </span>
-              <p className="m-0 text-[15.5px] leading-relaxed" style={{ color: "var(--strong)" }}>
-                <Inline text={expected} />
-              </p>
-            </div>
             {explained.data ? (
               <Explanation e={explained.data} />
             ) : explained.isError ? (
@@ -627,7 +631,7 @@ function QuizEnd({ quiz }: { quiz: QuizData }) {
   const right = quiz.answers.filter((m) => m?.verdict === "right").length;
   const partly = quiz.answers.filter((m) => m?.verdict === "partly").length;
   return (
-    <main className="grid max-w-3xl gap-4">
+    <main className="mx-auto grid w-full max-w-3xl gap-4">
       <div className="flex items-center gap-3">
         <Link to="/quiz" className="btn btn-quiet">
           ← Quizzes

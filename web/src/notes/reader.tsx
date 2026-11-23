@@ -212,7 +212,7 @@ export function Reader() {
     );
   if (!doc.data) return null;
   return (
-    <main className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6">
+    <main className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
       <div className="mb-1 flex flex-wrap items-center gap-3 lg:col-start-1">
         <Link to="/notes?list=1" className="btn">
           Documents

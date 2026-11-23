@@ -59,6 +59,7 @@ const filtersOf = (q: Record<string, string>): ListingFilters => ({
   search: q.search || undefined,
   group: q.group || undefined,
   priority: q.priority === "1",
+  todo: q.todo === "1",
   stage: q.stage || undefined,
   q: q.q || undefined,
   sort: q.sort === "newest" || q.sort === "money" || q.sort === "best" ? q.sort : undefined,

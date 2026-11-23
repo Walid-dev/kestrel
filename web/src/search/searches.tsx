@@ -230,6 +230,15 @@ const SORTS: Record<"jobs" | "deals", [string, string][]> = {
 };
 const PARTS = "kestrel-search-parts";
 const LAST = "kestrel-last-opened";
+const TODO = "kestrel-search-todo";
+// the listing opened last, kept in this browser (a private window keeps nothing: the mark lasts the visit)
+const remember = (id: string) => {
+  try {
+    localStorage.setItem(LAST, id);
+  } catch {
+    // storage off
+  }
+};
 
 export function Searches() {
   const queryClient = useQueryClient();
@@ -242,6 +251,22 @@ export function Searches() {
     if (id) setOpen(id);
   }, [params]);
   const [asking, setAsking] = useState(false);
+  // left to do (on unless I turn it off): the review views hide a job with an application or applied already
+  const [todo, setTodo] = useState(() => {
+    try {
+      return localStorage.getItem(TODO) !== "off";
+    } catch {
+      return true;
+    }
+  });
+  const flipTodo = () => {
+    setTodo(!todo);
+    try {
+      localStorage.setItem(TODO, todo ? "off" : "on");
+    } catch {
+      // a private window keeps nothing: the switch lasts this visit
+    }
+  };
   // the listing I opened last: its card says so when I come back to the list (kept in this browser)
   const [last, setLast] = useState<string | null>(() => {
     try {
@@ -250,14 +275,14 @@ export function Searches() {
       return null;
     }
   });
+  const mark = (id: string) => {
+    setLast(id);
+    remember(id);
+  };
   useEffect(() => {
     if (!open) return;
     setLast(open);
-    try {
-      localStorage.setItem(LAST, open);
-    } catch {
-      // a private window keeps nothing: the mark lasts this visit
-    }
+    remember(open);
   }, [open]);
   const [limit, setLimit] = useState(PAGE);
   const [moreGroups, setMoreGroups] = useState(false);
@@ -332,6 +357,7 @@ export function Searches() {
   if (source) base.set("source", source);
   if (group) base.set("group", group);
   if (kind === "jobs" && match) base.set("match", match);
+  if (kind === "jobs" && todo) base.set("todo", "1");
   const counted = new URLSearchParams(base);
   counted.set("stage", stage);
   const filtered = new URLSearchParams(counted);
@@ -671,6 +697,17 @@ export function Searches() {
                   {STAGE_TONE[s] && <span className="dot" />} {label} <b>{c?.stages[s] ?? 0}</b>
                 </button>
               ))}
+              {kind === "jobs" && (
+                <button
+                  type="button"
+                  className="pill tone-green"
+                  aria-pressed={todo}
+                  title="Hide the jobs that have an application (queued, sent or not sent) or that I applied to"
+                  onClick={flipTodo}
+                >
+                  <span className="dot" /> Left to do only
+                </button>
+              )}
             </Part>
             <Part
               name="match"
@@ -792,6 +829,11 @@ export function Searches() {
                 {source}
               </button>
             )}
+            {kind === "jobs" && todo && (
+              <button type="button" className="pill tone-green" aria-pressed onClick={() => fold(true)}>
+                <span className="dot" /> Left to do only
+              </button>
+            )}
             <button type="button" className="pill" aria-pressed onClick={() => fold(true)}>
               {SORTS[kind].find(([k]) => k === sort)?.[1] ?? sort}
             </button>
@@ -833,7 +875,13 @@ export function Searches() {
               onLeft={() => status(l, "passed")}
               leftLabel={kind === "jobs" ? "Not for me" : "Not interested"}
             >
-              <div className={l.id === last ? "last-opened" : "grid"}>
+              <div
+                className={l.id === last ? "last-opened" : "grid"}
+                // the posting opened from the card (its title, its link) makes it the last opened too
+                onClickCapture={(e) => {
+                  if ((e.target as HTMLElement).closest("a[href^='http']")) mark(l.id);
+                }}
+              >
                 {l.id === last && <span className="last-badge">Last opened</span>}
                 {l.kind === "deals" ? (
                   <DealCard

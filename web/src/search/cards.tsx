@@ -270,8 +270,8 @@ function Results({ l, onDeep, busy }: { l: Listing; onDeep: () => void; busy?: s
       <div className="flex flex-wrap items-center gap-1.5">
         {!why && fit != null && <span className={`chip ${fitTone(fit)}`}>Model's read {fit}/10</span>}
         {v && !running ? (
-          <span className="chip tone-accent">
-            Deep check <b className={`verdict ${v.tone}`}>{v.label}</b>
+          <span className={`chip ${v.tone}`}>
+            Deep check · <b>{v.label}</b>
           </span>
         ) : (
           <button

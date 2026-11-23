@@ -260,13 +260,6 @@ h3 {
   text-transform: uppercase;
   white-space: nowrap;
 }
-/* a verdict inside a chip of another colour (Deep check, then Apply or Maybe): only the verdict takes its tone */
-.chip .verdict {
-  padding: 2px 6px;
-  border-radius: 4px;
-  color: var(--tone);
-  background: color-mix(in srgb, var(--tone) 18%, transparent);
-}
 /* a filter pill: quiet until picked; a dot in its tone; its count beside */
 .pill {
   display: inline-flex;
@@ -343,10 +336,21 @@ h3 {
   font-size: 15px;
   border-radius: 8px;
 }
-.seg-modes button[data-mode="on"][aria-pressed="true"] {
-  background: var(--great);
+/* the old pages' switch: the mode that is on is filled with its colour and glows (On green, Quiet amber, Paused red) */
+.seg-modes button[data-mode][aria-pressed="true"] {
+  --mode: var(--great);
+  background: var(--mode);
   color: var(--bg);
-  box-shadow: none;
+  font-weight: 650;
+  box-shadow:
+    0 0 0 1px var(--mode),
+    0 0 16px color-mix(in srgb, var(--mode) 50%, transparent);
+}
+.seg-modes button[data-mode="quiet"][aria-pressed="true"] {
+  --mode: var(--warn);
+}
+.seg-modes button[data-mode="paused"][aria-pressed="true"] {
+  --mode: var(--poor);
 }
 /* the buttons on a page's title line: a size up from the others */
 .btn-head {
@@ -579,27 +583,152 @@ pre.code .f {
 .dock-item:focus-visible .dock-label {
   opacity: 1;
 }
-/* Ask: the conversation on a page — my lines on the right in the accent's tint, the model's answers as prose with a
-   purple edge, its links underlined; a caret blinks at the end while it writes */
+/* Ask: the conversation on a page, in the lessons' look. A one-line head (the spark, what it asks about, Start over as
+   a round icon); my lines on the right in the accent's tint; the model's answer laid out like a lesson: the direct
+   answer in its own tile, headings as a lesson's, each point a tile with its mark; the line to ask with its send
+   button inside. Narrow (Notes' side column), it tightens instead of wrapping its head. */
+.ask {
+  container-type: inline-size;
+  display: grid;
+  gap: 14px;
+  padding: 16px 18px 18px;
+}
+.ask-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.ask-spark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 9px;
+  color: var(--purple);
+  background: color-mix(in srgb, var(--purple) 14%, transparent);
+}
+.ask-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font: 700 17px / 1.2 var(--cond);
+  color: var(--strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ask-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.ask-icon:hover {
+  color: var(--strong);
+  background: var(--surface-2);
+}
 .ask-mine {
   justify-self: end;
   max-width: 85%;
-  padding: 8px 13px;
+  margin: 0;
+  padding: 9px 14px;
   border-radius: 16px 16px 4px 16px;
   background: var(--accent-soft);
   color: var(--strong);
+  font-size: 15px;
+  line-height: 1.5;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 .ask-answer {
   display: grid;
   gap: 10px;
-  padding: 2px 0 2px 14px;
-  border-left: 2px solid color-mix(in srgb, var(--purple) 55%, transparent);
   font-size: 15.5px;
-  line-height: 1.7;
+  line-height: 1.65;
   color: var(--text);
   overflow-wrap: anywhere;
+}
+.ask-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.ask-failed {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--red);
+}
+/* the direct answer: a lesson's sentence tile */
+.ask-lead {
+  margin: 0;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--strong);
+  font-size: 16px;
+  line-height: 1.6;
+}
+.ask-p {
+  margin: 0;
+}
+.ask-h {
+  margin: 6px 0 0;
+  font: 700 17px / 1.25 var(--cond);
+  color: var(--strong);
+}
+/* each point of a list in a tile of its own, its mark in a small round badge, as the lessons' Say it lines */
+.ask-points {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ask-points li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 11px;
+  background: var(--surface-2);
+  line-height: 1.55;
+}
+.ask-mark {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--accent);
+  font: 600 11px / 1 var(--mono);
+}
+/* the quiz: what I said and the lesson's answer, each a lesson's tile */
+.quiz-said {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  font-size: 15.5px;
+  line-height: 1.55;
+}
+.quiz-answer {
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 /* a change the model proposed: what it would do, and the button that does it; done, it says what happened */
 .ask-card {
@@ -612,6 +741,78 @@ pre.code .f {
   background: color-mix(in srgb, var(--accent) 6%, var(--surface));
   font-size: 14.5px;
   line-height: 1.4;
+}
+.ask-card.done {
+  border-color: color-mix(in srgb, var(--green) 40%, var(--line));
+  background: color-mix(in srgb, var(--green) 6%, var(--surface));
+}
+.ask-starters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* the line to ask: one box, the text growing as I write, the round send button inside at its foot */
+.ask-compose {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 5px 5px 5px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+  transition: border-color 0.15s;
+}
+.ask-compose:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
+}
+.ask-input {
+  flex: 1;
+  min-width: 0;
+  max-height: 40vh;
+  padding: 8px 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--text);
+  font: 400 15px / 1.5 var(--sans);
+  field-sizing: content;
+}
+.ask-input::placeholder {
+  color: var(--muted);
+}
+.ask-send {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg);
+  cursor: pointer;
+}
+.ask-send[disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+@media (pointer: coarse) {
+  .ask-input {
+    font-size: 16px;
+  }
+}
+@container (max-width: 420px) {
+  .ask-answer {
+    font-size: 15px;
+  }
+  .ask-lead {
+    font-size: 15px;
+    padding: 10px 12px;
+  }
+  .ask-points li {
+    padding: 8px 10px;
+  }
 }
 .md-link {
   color: var(--accent);
@@ -627,7 +828,7 @@ pre.code .f {
   width: 9px;
   height: 17px;
   border-radius: 2px;
-  background: var(--purple);
+  background: var(--accent);
   animation: caret-blink 1s steps(2, start) infinite;
 }
 @keyframes caret-blink {

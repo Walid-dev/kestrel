@@ -134,6 +134,7 @@ export type ListingFilters = {
   match?: string;
   source?: string;
   priority?: boolean;
+  todo?: boolean; // left to do: a review view hides a job with an application (any state) or applied already
   q?: string;
   search?: string;
   group?: string; // a job's family (Full-stack, AI engineering) or a deal's category (the model)
@@ -150,6 +151,10 @@ const PRIORITY = "(starred = 1 OR (starred IS NULL AND match = 'great' AND statu
 // left out: new, set aside by the rules (a weak match, pay far below the floor, a removed search, an old ad) and not
 // yet marked or noted — the old page's "Left out", hidden from everything else
 export const LEFT = `(status = 'new' AND json_extract(data, '$.leftOut') IS NOT NULL AND json_extract(data, '$.leftOut') NOT IN (0, '') AND COALESCE(json_extract(data, '$.note'), '') = '')`;
+// left to do: no application for it (queued, at work, sent or not sent) and not applied or further; it narrows the
+// review views only, so a status view (Applied, Not for me…) still shows all of its own
+const TODO = `(status NOT IN ('applied', 'interviewing', 'offer') AND NOT EXISTS (SELECT 1 FROM applications a WHERE a.listing = listings.id OR a.link = listings.link))`;
+const TODO_STAGES = new Set(["review", "possible", "priority", "all", "leftout"]);
 const STAGE: Record<string, string> = {
   review: `(status = 'new' AND match IN ('great', 'good') AND NOT ${LEFT})`,
   possible: `(status = 'new' AND match NOT IN ('great', 'good') AND NOT ${LEFT})`,
@@ -194,8 +199,10 @@ function where(filters: ListingFilters, skip: (keyof ListingFilters)[] = []): { 
   if (filters.priority && !skip.includes("priority")) w.push(PRIORITY);
   if (on("stage")) {
     const s = String(filters.stage);
-    if (STAGE[s]) w.push(STAGE[s]);
-    else {
+    if (STAGE[s]) {
+      w.push(STAGE[s]);
+      if (filters.todo && TODO_STAGES.has(s)) w.push(TODO);
+    } else {
       w.push(`status = ? AND NOT ${LEFT}`);
       params.push(s);
     }
