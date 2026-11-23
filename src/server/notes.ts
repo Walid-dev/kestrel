@@ -1,6 +1,8 @@
 // The Notes routes, mounted on the one app by main.ts: the documents list, the files the folders offer, open,
-// upload, and one document with its text. A Refused from the domain answers 400 with its reason.
+// upload, and one document with its text, which my own edits save to. A Refused from the domain answers 400 with its
+// reason; an edit made on an older revision answers 409 with the newer one.
 
+import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
@@ -18,15 +20,19 @@ import {
 import { discardDraft, draftFor, getDraft, startDraft } from "../domain/notes/drafts.ts";
 import { addNote, deleteNote, editNote, listNotes } from "../domain/notes/notes.ts";
 import { isPdf, PDF_MAX_BYTES, readPdf } from "../domain/notes/pdf.ts";
-import { listVersions, restoreVersion, saveDraft, undoSave } from "../domain/notes/save.ts";
+import { Changed, listVersions, restoreVersion, saveDraft, saveText, undoSave } from "../domain/notes/save.ts";
+import { seedDocuments } from "../domain/notes/seed.ts";
 import { record } from "../platform/activity.ts";
 import type { Settings } from "../platform/config.ts";
+import { dataDir, isDeployed } from "../platform/paths.ts";
 
 export function mountNotes(app: Hono, db: DatabaseSync, settings: Settings) {
   const refusing = (c: { json: (o: unknown, s: 400 | 500) => Response }, e: unknown) => {
     if (e instanceof Refused) return c.json({ error: e.message }, 400);
     throw e;
   };
+  // development opens on made-up documents (scripts/dev-data/documents); the deployed app never does
+  if (!isDeployed()) seedDocuments(db, settings, join(dataDir(), "documents"));
 
   app.get("/api/notes/documents", (c) => c.json({ documents: listDocuments(db) }));
   app.get("/api/notes/files", (c) => c.json({ files: listFiles(settings) }));
@@ -111,6 +117,25 @@ export function mountNotes(app: Hono, db: DatabaseSync, settings: Settings) {
       return refusing(c, e);
     }
   });
+  // my own edit of the text, made on the revision it names; a newer revision answers 409 with it
+  app.post(
+    "/api/notes/documents/:id/text",
+    zValidator("json", z.object({ text: z.string().max(MAX_BYTES), rev: z.string().min(1).max(100) })),
+    (c) => {
+      const id = c.req.param("id");
+      const { text, rev } = c.req.valid("json");
+      try {
+        const saved = saveText(db, id, text, rev);
+        const name = (db.prepare("SELECT name FROM documents WHERE id = ?").get(id) as { name: string } | undefined)
+          ?.name;
+        if (saved.rev !== rev) record("notes", `Edited ${name ?? "a document"}`, `/notes/${encodeURIComponent(id)}`);
+        return c.json(saved);
+      } catch (e) {
+        if (e instanceof Changed) return c.json({ error: e.message, rev: e.rev }, 409);
+        return refusing(c, e);
+      }
+    },
+  );
   app.post("/api/notes/documents/:id/undo", (c) => {
     try {
       return c.json(undoSave(db, c.req.param("id")));

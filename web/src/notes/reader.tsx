@@ -1,64 +1,40 @@
-// The reader: the document as written, styled line by line for reading — each paragraph a block of its own with a
-// coloured edge, headings in colour, code on its own ground — my notes as marks in the text and as a list beside.
-// In note mode, selecting words notes exactly those words; a tap on a paragraph notes the paragraph; a button takes a
-// note on the whole document; the sheet is a native dialog.
+// The reader: the document rendered the way VS Code previews Markdown (a PDF's text keeps its lines), through the one
+// part every document shares (ui/doc.tsx): Read, Edit, and Side by side on a computer, with Download and Save as PDF.
+// My notes show as marks on the rendered words and as a list beside. Selecting words notes exactly those words of the
+// source; a tap on a paragraph notes the paragraph; a button takes a note on the whole document; the sheet is a
+// native dialog.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
-import { type Line, lineKinds, segments } from "../../../src/shared/marks.ts";
 import type { DocumentFull, Draft, PlacedNote } from "../../../src/shared/notes.ts";
 import { Ask } from "../ask.tsx";
+import { Doc, type DocMode, type Saved } from "../ui/doc.tsx";
+import { blockAt, sourceAt } from "../ui/markdown.tsx";
 import { NoteSheet, type SheetTarget } from "./note-sheet.tsx";
 import { NotesList } from "./notes-list.tsx";
 import { Review } from "./review.tsx";
 
-const LOOK: Record<Line["kind"], string> = {
-  h1: "font-cond text-[28px] font-bold leading-tight mt-5 mb-1",
-  h2: "font-cond text-[22px] font-bold leading-snug mt-4 mb-1",
-  h3: "font-cond text-[18px] font-bold mt-3",
-  bullet: "reader-line pl-6",
-  fence: "font-mono text-[13.5px]",
-  code: "font-mono text-[13.5px] reader-code",
-  blank: "h-2.5",
-  plain: "reader-line",
-};
-const INK: Partial<Record<Line["kind"], string>> = { h1: "var(--strong)", h2: "var(--purple)", h3: "var(--cyan)" };
-
-// where the selection sits in the whole text: the line div's offset, plus the text before the node inside it
-function offsetIn(article: HTMLElement, node: Node, offset: number): number | null {
-  const el = node instanceof HTMLElement ? node : node.parentElement;
-  const lineEl = el?.closest("[data-at]") as HTMLElement | null;
-  if (!lineEl || !article.contains(lineEl)) return null;
-  let before = 0;
-  const walker = document.createTreeWalker(lineEl, NodeFilter.SHOW_TEXT);
-  for (let t = walker.nextNode(); t; t = walker.nextNode()) {
-    if (t === node) return Number(lineEl.dataset.at) + before + offset;
-    before += (t.textContent ?? "").length;
-  }
-  return Number(lineEl.dataset.at) + before; // the selection edge sits at the line's end
-}
-
 export const LAST_DOC = "kestrel-notes-last";
 
-// the document's text as a file of its own (a PDF's text as .txt beside the PDF's name)
-function download(name: string, text: string) {
-  const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name.toLowerCase().endsWith(".pdf") ? `${name.slice(0, -4)}.txt` : name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+// a PDF's text: the upload keeps the PDF's name (src/domain/notes/pdf.ts), and only a PDF upload may
+const isPdfText = (d: { name: string; source: string }) => d.source === "upload" && /\.pdf$/i.test(d.name);
 
 export function Reader() {
   const { id = "" } = useParams();
   const queryClient = useQueryClient();
-  const article = useRef<HTMLDivElement>(null);
+  const article = useRef<HTMLElement>(null);
   const [sheet, setSheet] = useState<SheetTarget | null>(null);
   const [speed, setSpeed] = useState<"careful" | "fast">("careful");
-  const [copied, setCopied] = useState(false);
+  const [mode, setMode] = useState<DocMode>("read");
   // what I picked in the document, waiting for its note: the words, where they start, where the button shows
-  const [pick, setPick] = useState<{ quote: string; start: number; x: number; y: number; words: boolean } | null>(null);
+  const [pick, setPick] = useState<{
+    quote: string;
+    start: number;
+    shown: string;
+    x: number;
+    y: number;
+    words: boolean;
+  } | null>(null);
   const [review, setReview] = useState(false);
   const [askWhy, setAskWhy] = useState("");
   // the last document opened is where Notes opens next time, on this device
@@ -155,6 +131,7 @@ export function Reader() {
       queryClient.invalidateQueries({ queryKey: ["doc", id] });
       queryClient.invalidateQueries({ queryKey: ["notes", id] });
       queryClient.invalidateQueries({ queryKey: ["draft", id] });
+      queryClient.invalidateQueries({ queryKey: ["versions", id] });
     },
   });
   const undo = useMutation({
@@ -165,6 +142,7 @@ export function Reader() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["doc", id] });
       queryClient.invalidateQueries({ queryKey: ["notes", id] });
+      queryClient.invalidateQueries({ queryKey: ["versions", id] });
     },
   });
   const discard = useMutation({
@@ -176,8 +154,31 @@ export function Reader() {
       queryClient.invalidateQueries({ queryKey: ["draft", id] });
     },
   });
+  // my own edit, from the editor: saved on the revision it started from; the screen shows the new text before the
+  // editor closes
+  const saveText = async (text: string, rev: string): Promise<Saved> => {
+    const res = await fetch(`/api/notes/documents/${id}/text`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text, rev }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string; rev?: string };
+    if (!res.ok) {
+      // the editor keeps my words and their revision; Read, Download and new notes must show the document as it is
+      // now (after a 409, the other device's text), not the one cached before
+      queryClient.invalidateQueries({ queryKey: ["doc", id] });
+      queryClient.invalidateQueries({ queryKey: ["notes", id] });
+      return { error: data.error ?? `The save didn't land (${res.status}).`, rev: data.rev };
+    }
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["doc", id] }),
+      queryClient.invalidateQueries({ queryKey: ["notes", id] }),
+      queryClient.invalidateQueries({ queryKey: ["versions", id] }),
+      queryClient.invalidateQueries({ queryKey: ["draft", id] }),
+    ]);
+    return {};
+  };
 
-  const lines = useMemo(() => (doc.data ? lineKinds(doc.data.text) : []), [doc.data]);
   const placed = notes.data?.notes ?? [];
   const current = draft.data?.draft ?? null;
   // when the ask finishes while I watch, the changes open by themselves
@@ -188,40 +189,57 @@ export function Reader() {
   }, [current?.status]);
 
   // picking words (or, on a phone, tapping a paragraph) shows a small "Note" button beside them; its tap opens the
-  // note. No mode to switch on first: selecting is how a note starts (my ask, 2026-11-23: selecting did nothing)
+  // note. No mode to switch on first: selecting is how a note starts (my ask, 2026-11-23: selecting did nothing).
+  // The rendered words map back to the source through their places (ui/markdown.tsx), so a note covers exactly the
+  // characters I picked, the hidden marks between them included.
   const onSelect = (ev: React.MouseEvent | React.TouchEvent) => {
     const sel = getSelection();
     const el = article.current;
-    if (!sel || !el || !doc.data) return;
+    // every way out clears the last pick, so a Note button never stays for words no longer selected
+    if (!sel || !el || !doc.data) return setPick(null);
     const target = ev.target as HTMLElement;
-    if (target.closest("button")) return;
-    if (sel.isCollapsed) {
-      const lineEl = target.closest("[data-at]") as HTMLElement | null;
-      const ln = lineEl ? lines.find((x) => x.at === Number(lineEl.dataset.at)) : undefined;
+    const tap = sel.isCollapsed || sel.rangeCount === 0;
+    // a tap on a link opens the link; words selected across or into a link are noted like any others
+    if (target.closest("button") || (tap && target.closest("a"))) return setPick(null);
+    if (tap) {
+      const block = blockAt(target, el);
       const touch = matchMedia("(pointer: coarse)").matches;
-      if (touch && lineEl && ln && ln.text.trim() !== "") {
-        const r = lineEl.getBoundingClientRect();
-        setPick({ quote: ln.text, start: ln.at, x: r.left + r.width / 2, y: r.bottom, words: false });
+      const quote = block ? doc.data.text.slice(block.from, block.to) : "";
+      if (touch && block && quote.trim() !== "") {
+        const r = block.el.getBoundingClientRect();
+        setPick({
+          quote,
+          start: block.from,
+          shown: block.el.textContent ?? quote,
+          x: r.left + r.width / 2,
+          y: r.bottom,
+          words: false,
+        });
       } else setPick(null);
       return;
     }
     const r = sel.getRangeAt(0);
-    const a = offsetIn(el, r.startContainer, r.startOffset);
-    const b = offsetIn(el, r.endContainer, r.endOffset);
-    if (a === null || b === null || a === b) return setPick(null);
-    const [from, to] = a < b ? [a, b] : [b, a];
+    // a range runs in document order whichever way it was dragged
+    const from = sourceAt(el, r.startContainer, r.startOffset, "start");
+    const to = sourceAt(el, r.endContainer, r.endOffset, "end");
+    if (from === null || to === null || to <= from) return setPick(null);
     const quote = doc.data.text.slice(from, to);
     if (quote.trim() === "") return setPick(null);
     const box = r.getBoundingClientRect();
-    setPick({ quote, start: from, x: box.left + box.width / 2, y: box.bottom, words: true });
+    setPick({ quote, start: from, shown: sel.toString(), x: box.left + box.width / 2, y: box.bottom, words: true });
   };
-  // the button stays by the words only while they sit still
+  // the Note button, centred under the words but never past the screen's edges (it is about 210 px wide)
+  const inside = (x: number) => Math.min(Math.max(x, 116), window.innerWidth - 116);
+  // the button stays by the words only while they sit still, and only while I read
   useEffect(() => {
     if (!pick) return;
     const hide = () => setPick(null);
     window.addEventListener("scroll", hide, { passive: true });
     return () => window.removeEventListener("scroll", hide);
   }, [pick]);
+  useEffect(() => {
+    if (mode !== "read") setPick(null);
+  }, [mode]);
   const openNotes = (notes.data?.notes ?? []).filter((n) => n.state === "open").length;
   const versions = useQuery({
     queryKey: ["versions", id],
@@ -253,180 +271,142 @@ export function Reader() {
       </p>
     );
   if (!doc.data) return null;
-  const pdf = doc.data.name.toLowerCase().endsWith(".pdf");
+  const pdf = isPdfText(doc.data);
+  const reading = mode === "read";
+  // side by side takes the whole width: my notes go under it
+  const side = mode === "side";
   return (
-    <main className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6">
+    <main className={side ? "" : "lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-x-6"}>
       <header className="mb-4 grid gap-2 lg:col-start-1">
         <Link to="/notes?list=1" className="justify-self-start text-sm font-medium" style={{ color: "var(--accent)" }}>
           ← All my documents
         </Link>
         <span className="eyebrow">
-          {pdf
-            ? "A PDF's text, kept in kestrel"
-            : doc.data.source === "upload"
-              ? "Uploaded to kestrel"
-              : "A file on this computer"}
+          {pdf ? "An uploaded PDF" : doc.data.source === "upload" ? "Uploaded to kestrel" : "A file on this computer"}
           {doc.data.path ? ` · ${doc.data.path.split("/").slice(-2).join("/")}` : ""}
         </span>
         <h2 className="font-cond m-0 break-all text-[32px] font-bold leading-tight" style={{ color: "var(--strong)" }}>
           {doc.data.name}
         </h2>
         <p className="m-0 max-w-2xl text-[15px] leading-relaxed" style={{ color: "var(--muted)" }}>
-          Select words to leave a note on them. Your notes then become one edit, which you check before it is saved.
-          Every save keeps the previous version.
+          {pdf ? (
+            "The PDF file itself is unchanged, and kestrel keeps no copy of it. You edit its text here; Save as PDF, under Download, makes a new PDF from it."
+          ) : (
+            <>
+              {/* on a phone the document should start high: the short line says the same */}
+              <span className="sm:hidden">Select words to leave a note, or tap Edit. Every save keeps a version.</span>
+              <span className="hidden sm:inline">
+                Select words to leave a note, then turn your notes into an edit you check first. Or tap Edit and change
+                the text yourself. Every save keeps the previous version.
+              </span>
+            </>
+          )}
         </p>
-        {doc.data.source === "upload" && (
-          <div className="flex flex-wrap items-center gap-2">
-            {pdf && (
-              <p className="m-0 basis-full text-[14px] leading-relaxed" style={{ color: "var(--text)" }}>
-                Edits change this text, never the PDF file itself. When it reads right, download or copy the text and
-                put it into the document the PDF is made from.
-              </p>
-            )}
-            <button type="button" className="btn" onClick={() => download(doc.data.name, doc.data.text)}>
-              Download the text
-            </button>
-            <button
-              type="button"
-              className="btn"
-              onClick={() =>
-                navigator.clipboard.writeText(doc.data.text).then(
-                  () => setCopied(true),
-                  () => setCopied(false),
-                )
-              }
-            >
-              {copied ? "Copied" : "Copy the text"}
-            </button>
-          </div>
-        )}
       </header>
-      <div className="mb-4 flex flex-wrap items-center gap-2 lg:col-start-1">
-        {(!current || current.status === "failed") && (
-          <>
+      {reading && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 lg:col-start-1">
+          {(!current || current.status === "failed") && (
+            <>
+              <button
+                type="button"
+                className="btn btn-primary btn-head"
+                disabled={ask.isPending || openNotes === 0}
+                title={openNotes === 0 ? "Leave a note first: select words in the document" : undefined}
+                onClick={() => ask.mutate()}
+              >
+                {openNotes === 0
+                  ? "Turn my notes into an edit"
+                  : `Turn my ${openNotes} note${openNotes === 1 ? "" : "s"} into an edit`}
+              </button>
+              <fieldset className="seg seg-modes" aria-label="Which model writes the edit">
+                {(
+                  [
+                    ["careful", "Careful"],
+                    ["fast", "Fast"],
+                  ] as const
+                ).map(([k, label]) => (
+                  <button key={k} type="button" aria-pressed={speed === k} onClick={() => setSpeed(k)}>
+                    {label}
+                  </button>
+                ))}
+              </fieldset>
+            </>
+          )}
+          {current?.status === "making" && (
+            <span className="font-mono flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
+              <span className="block h-2 w-2 animate-pulse rounded-full" style={{ background: "var(--accent)" }} />
+              the {current.model.includes("Qwen") || current.model.includes("careful") ? "careful" : "fast"} model is
+              writing…
+            </span>
+          )}
+          {current?.status === "ready" && (
+            <button type="button" className="btn btn-primary" onClick={() => setReview(true)}>
+              Review the changes
+            </button>
+          )}
+          {doc.data?.previous && (
+            <button type="button" className="btn btn-quiet btn-head" onClick={() => undo.mutate()}>
+              Undo the last save
+            </button>
+          )}
+          <button type="button" className="btn btn-head ml-auto" onClick={() => setSheet({ kind: "whole" })}>
+            + A note on the whole document
+          </button>
+          {current?.status === "failed" && (
             <button
               type="button"
-              className="btn btn-primary btn-head"
-              disabled={ask.isPending || openNotes === 0}
-              title={openNotes === 0 ? "Leave a note first: select words in the document" : undefined}
-              onClick={() => ask.mutate()}
+              className="btn btn-danger"
+              onClick={() => discard.mutate(current.id)}
+              title={current.error}
             >
-              {openNotes === 0
-                ? "Turn my notes into an edit"
-                : `Turn my ${openNotes} note${openNotes === 1 ? "" : "s"} into an edit`}
+              the ask failed — clear it
             </button>
-            <fieldset className="seg seg-modes" aria-label="Which model writes the edit">
-              {(
-                [
-                  ["careful", "Careful"],
-                  ["fast", "Fast"],
-                ] as const
-              ).map(([k, label]) => (
-                <button key={k} type="button" aria-pressed={speed === k} onClick={() => setSpeed(k)}>
-                  {label}
-                </button>
-              ))}
-            </fieldset>
-          </>
-        )}
-        {current?.status === "making" && (
-          <span className="font-mono flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
-            <span className="block h-2 w-2 animate-pulse rounded-full" style={{ background: "var(--accent)" }} />
-            the {current.model.includes("Qwen") || current.model.includes("careful") ? "careful" : "fast"} model is
-            writing…
-          </span>
-        )}
-        {current?.status === "ready" && (
-          <button type="button" className="btn btn-primary" onClick={() => setReview(true)}>
-            Review the changes
-          </button>
-        )}
-        {doc.data?.previous && (
-          <button type="button" className="btn btn-quiet btn-head" onClick={() => undo.mutate()}>
-            Undo the last save
-          </button>
-        )}
-        <button type="button" className="btn btn-head ml-auto" onClick={() => setSheet({ kind: "whole" })}>
-          + A note on the whole document
-        </button>
-        {current?.status === "failed" && (
-          <button
-            type="button"
-            className="btn btn-danger"
-            onClick={() => discard.mutate(current.id)}
-            title={current.error}
-          >
-            the ask failed — clear it
-          </button>
-        )}
-      </div>
-      {(askWhy || current?.status === "failed") && (
+          )}
+        </div>
+      )}
+      {reading && (askWhy || current?.status === "failed") && (
         <p
-          className="mb-3 rounded-xl border px-4 py-3 text-sm"
+          className="mb-3 rounded-xl border px-4 py-3 text-sm lg:col-start-1"
           style={{ borderColor: "var(--line)", background: "var(--warn-soft)" }}
         >
           {askWhy || current?.error}
         </p>
       )}
-      <article
-        ref={article}
-        onMouseUp={onSelect}
-        onTouchEnd={onSelect}
-        className="reader rounded-2xl border p-5 md:p-8"
-        style={{ borderColor: "var(--line)", background: "var(--surface)" }}
-      >
-        {lines.map((ln) => (
-          <div
-            key={ln.n}
-            data-at={ln.at}
-            className={LOOK[ln.kind]}
-            style={{ color: INK[ln.kind] ?? (ln.kind === "fence" ? "var(--muted)" : undefined) }}
-          >
-            {segments(ln, placed).map((seg) => {
-              const open = () => {
-                const n = placed.find((x) => x.id === seg.noteId);
-                if (n) setSheet({ kind: "edit", note: n });
-              };
-              return seg.noteId ? (
-                <button
-                  key={seg.at}
-                  type="button"
-                  className="inline cursor-pointer rounded px-0.5 text-left"
-                  style={{
-                    background: "var(--pink-soft)",
-                    color: "inherit",
-                    font: "inherit",
-                    border: "none",
-                    boxShadow: "inset 0 -2px var(--pink)",
-                  }}
-                  onClick={open}
-                >
-                  {seg.text}
-                </button>
-              ) : (
-                seg.text
-              );
-            })}
-            {ln.text === "" && " "}
-          </div>
-        ))}
-      </article>
-      {pick && (
+      <div className="lg:col-start-1">
+        <Doc
+          key={id}
+          id={id}
+          name={doc.data.name}
+          text={doc.data.text}
+          rev={doc.data.rev}
+          marks={placed}
+          onMark={(noteId) => {
+            const n = placed.find((x) => x.id === noteId);
+            if (n) setSheet({ kind: "edit", note: n });
+          }}
+          articleRef={article}
+          onPick={onSelect}
+          onSave={saveText}
+          printHref={`/notes/${encodeURIComponent(id)}/print`}
+          onMode={setMode}
+        />
+      </div>
+      {pick && reading && (
         <button
           type="button"
           className="note-pick"
-          style={{ left: pick.x, top: pick.y + 8 }}
+          style={{ left: inside(pick.x), top: pick.y + 8 }}
           // keep the selection: the press must not clear it before the note opens
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => {
-            setSheet({ kind: "new", quote: pick.quote, start: pick.start });
+            setSheet({ kind: "new", quote: pick.quote, start: pick.start, shown: pick.shown });
             setPick(null);
           }}
         >
           ✎ Note on {pick.words ? "these words" : "this paragraph"}
         </button>
       )}
-      <div className="grid gap-4 lg:col-start-2 lg:row-start-1 lg:row-span-4 lg:sticky lg:top-6">
+      <div className={`grid gap-4 ${side ? "mt-6" : "lg:col-start-2 lg:row-start-1 lg:row-span-4 lg:sticky lg:top-6"}`}>
         <NotesList
           notes={placed}
           onOpen={(n) => setSheet({ kind: "edit", note: n })}
