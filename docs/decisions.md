@@ -5,6 +5,12 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-23 · One set of read tools for Ask (v0.8, step 3).**
+  `src/domain/ask/tools.ts` holds read (a lesson, a listing or a document by id), web and page, each with when it
+  helps and its shape; Ask's prompt lists those its page allows and its loop runs them beside the page's own find.
+  Pages of my own (Notes, Writing, Applications, Tasks) read only: no web tool, so nothing of mine reaches a search.
+  Research and the deep checks keep their fixed steps over the same web functions. Rejected: an MCP server for
+  them (one app's own agents; MCP waits for a second program, step 4).
 - **2026-11-23 · One catalog of drawings (v0.8, steps 1 and 2); a review of every text an application sends.**
   Seven kinds (flow, compare, tree, timeline, chart, callout, check) live in `src/shared/blocks.ts`: when each helps,
   its shape, and a reader that keeps what fits; one that doesn't read shows as words. One renderer draws them for

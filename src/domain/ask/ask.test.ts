@@ -164,7 +164,7 @@ test("on Searches the model looks through the hunt, answers from what it found, 
   await s.close();
   assert.equal(seen.length, 2); // one look, then the answer
   assert.match(seen[0].messages[0].content, /- L1: Head Keeper at Hive Co/); // the page shows its best listings
-  assert.match(seen[1].messages.at(-1)?.content ?? "", /WHAT YOUR FIND RETURNED[\s\S]*- L2: Remote Keeper/);
+  assert.match(seen[1].messages.at(-1)?.content ?? "", /WHAT YOUR LOOKS RETURNED[\s\S]*- L2: Remote Keeper/);
   const answer = conversation(db, "searches", "jobs:beekeeping")[1];
   // the blocks are kestrel's, not mine; a link to a listing that isn't there becomes plain words
   assert.equal(answer.text, "The remote one is [Remote Keeper](listing:L2), not Ghost Keeper.");
@@ -183,6 +183,37 @@ test("on Searches the model looks through the hunt, answers from what it found, 
     "interested",
   );
   assert.throws(() => actOn(db, settings(s.url), { id: answer.id, card: 0 }), /already made/);
+});
+
+test("the shared read tools: a lesson opens another by its id; a page of my own never runs a web search", async () => {
+  const db = setup();
+  const seen: { messages: { role: string; content: string }[] }[] = [];
+  const s = await startStandIn((body) => {
+    seen.push(body as never);
+    return {
+      content:
+        seen.length === 1
+          ? 'Let me read it.\n```read\n{"ref": "lesson:lid"}\n```'
+          : seen.length === 2
+            ? "A lid keeps the heat in."
+            : 'I will check.\n```web\n{"query": "hive frames"}\n```\nTen is usual.',
+    };
+  });
+  await askPage(db, settings(s.url), { app: "learn", ref: "spout", text: "And the lid?" }).done;
+  assert.equal(seen.length, 2); // one look, then the answer
+  assert.match(seen[0].messages[0].content, /```web\n\{"query"/); // a lesson's page offers the web
+  assert.match(
+    seen[1].messages.at(-1)?.content ?? "",
+    /WHAT YOUR LOOKS RETURNED[\s\S]*lesson:lid:\nAbout lids\nA lid keeps the heat in\./,
+  );
+  assert.equal(conversation(db, "learn", "spout")[1].text, "A lid keeps the heat in.");
+  // Notes: the web isn't among its tools, so a web block is never run and its answer stands as written
+  const doc = addUpload(db, "hive.md", "The hive holds ten frames.\n");
+  await askPage(db, settings(s.url), { app: "notes", ref: doc.id, text: "How many frames are usual?" }).done;
+  await s.close();
+  assert.equal(seen.length, 3);
+  assert.doesNotMatch(seen[2].messages[0].content, /```web/);
+  assert.equal(conversation(db, "notes", doc.id)[1].text, "I will check.\n\nTen is usual.");
 });
 
 test("on Notes a note on words the document has becomes a card; one on words it hasn't is dropped; my tap adds it", async () => {

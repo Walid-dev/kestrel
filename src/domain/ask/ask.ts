@@ -20,6 +20,7 @@ import { Refused } from "../notes/documents.ts";
 import { searchesHelper } from "../search/ask.ts";
 import { tasksHelper } from "../tasks/ask.ts";
 import { applicationsHelper, researchHelper, writingHelper } from "./pages.ts";
+import { isTool, runTool, TOOLS, type ToolName, toolLines } from "./tools.ts";
 
 // an app's helper: what its page shows the model, found by the page's ref (a lesson's id; a quiz's id and question; a
 // hunt), and what the model may do there
@@ -35,14 +36,17 @@ type Helper = {
   };
   // the answer's words before they are kept (a link to something that isn't there becomes plain words)
   tidy?: (db: DatabaseSync, ref: string, words: string) => string;
+  // the shared read tools this page allows (tools.ts); read alone when unsaid: a page of my own gets no web tool
+  tools?: ToolName[];
 };
+const WEB: ToolName[] = ["read", "web", "page"];
 const HELPERS: Record<string, Helper> = {
-  learn: { page: lessonPage },
-  quiz: { page: quizPage },
-  searches: searchesHelper,
+  learn: { page: lessonPage, tools: WEB },
+  quiz: { page: quizPage, tools: WEB },
+  searches: { ...searchesHelper, tools: WEB },
   notes: notesHelper,
   tasks: tasksHelper,
-  research: researchHelper,
+  research: { ...researchHelper, tools: WEB },
   writing: writingHelper,
   applications: applicationsHelper,
 };
@@ -63,7 +67,8 @@ export type AskMessage = {
 
 const HISTORY = 12; // the turns the model rereads; older ones stay on the page
 const TURN_CHARS = 6000;
-const FIND_ROUNDS = 2; // looks the model may take before it answers
+const FIND_ROUNDS = 2; // rounds of looks the model may take before it answers
+const LOOKS = 3; // looks in one round
 const CARDS = 5;
 
 export function conversation(db: DatabaseSync, app: string, ref: string): AskMessage[] {
@@ -79,22 +84,42 @@ export function conversation(db: DatabaseSync, app: string, ref: string): AskMes
 const stillWriting = (db: DatabaseSync, app: string, ref: string) =>
   conversation(db, app, ref).some((m) => m.state === "writing");
 
-// the model's fenced blocks, ```find and ```action, each a JSON object (one that isn't is dropped), and its words
-// without them
-export function blocksOf(text: string): { find: unknown[]; actions: unknown[]; words: string } {
-  const find: unknown[] = [];
+// the model's fenced blocks, each a JSON object (one that isn't is dropped): its looks (the page's find, the shared
+// read tools) in order, the changes it proposes, and its words without them
+export function blocksOf(text: string): {
+  find: unknown[];
+  looks: { tool: "find" | ToolName; args: unknown }[];
+  actions: unknown[];
+  words: string;
+} {
+  const looks: { tool: "find" | ToolName; args: unknown }[] = [];
   const actions: unknown[] = [];
-  const words = text.replace(/```(find|action)[^\n]*\n([\s\S]*?)(?:```|$)/g, (_, kind: string, body: string) => {
-    try {
-      const parsed = JSON.parse(body.trim()) as unknown;
-      if (parsed && typeof parsed === "object") (kind === "find" ? find : actions).push(parsed);
-    } catch {
-      // not JSON: nothing to run
-    }
-    return "";
-  });
-  return { find, actions, words: words.replace(/\n{3,}/g, "\n\n").trim() };
+  const words = text.replace(
+    /```(find|action|read|web|page)[^\n]*\n([\s\S]*?)(?:```|$)/g,
+    (_, kind: string, body: string) => {
+      try {
+        const parsed = JSON.parse(body.trim()) as unknown;
+        if (parsed && typeof parsed === "object") {
+          if (kind === "action") actions.push(parsed);
+          else looks.push({ tool: kind === "find" || isTool(kind) ? kind : "find", args: parsed });
+        }
+      } catch {
+        // not JSON: nothing to run
+      }
+      return "";
+    },
+  );
+  const find = looks.filter((l) => l.tool === "find").map((l) => l.args);
+  return { find, looks, actions, words: words.replace(/\n{3,}/g, "\n\n").trim() };
 }
+
+// the shared tools a page allows, as its prompt lists them after the page's own
+const toolsText = (names: ToolName[]) =>
+  [
+    "To look further before you answer, write one of these; kestrel runs it and gives you what it returned (two",
+    "rounds of looks at most, then answer):",
+    ...toolLines(names),
+  ].join("\n");
 
 // my question, kept, and the model's answer started: it returns at once with the conversation (the answer's row
 // empty and writing); `done` settles when the answer has landed, for the tests
@@ -107,8 +132,9 @@ export function askPage(
   if (!helper) throw new Refused(`there is no Ask on ${input.app}`);
   const question = input.text.trim();
   if (!question) throw new Refused("ask something");
-  const page = helper.page(db, input.ref);
-  if (!page) throw new Refused("that page isn't there any more");
+  const shown = helper.page(db, input.ref);
+  if (!shown) throw new Refused("that page isn't there any more");
+  const page = { ...shown, tools: [shown.tools, toolsText(helper.tools ?? ["read"])].filter(Boolean).join("\n\n") };
   const before = conversation(db, input.app, input.ref);
   if (before.some((m) => m.state === "writing")) throw new Refused("the model is still answering: wait for it");
   // the turns so far, each answer with the cards it proposed and what became of them
@@ -180,19 +206,27 @@ async function write(
       live.end("failed", got.why);
       return;
     }
-    const { find, actions, words } = blocksOf(got.value);
-    // a look through the page's data: its result goes back to the model, which answers from it
-    if (find.length && helper.find && round < FIND_ROUNDS) {
-      live.step("Looking through the page");
-      const found = find
-        .slice(0, 2)
-        .map((q) => helper.find?.(db, row.ref, q) ?? "")
-        .join("\n\n");
+    const { looks, actions, words } = blocksOf(got.value);
+    // its looks (through the page's data, or with a shared tool the page allows): what they return goes back to the
+    // model, which answers from it. A tool the page doesn't allow is not run.
+    const allowed = new Set<string>([...(helper.find ? ["find"] : []), ...(helper.tools ?? ["read"])]);
+    const runnable = looks.filter((l) => allowed.has(l.tool)).slice(0, LOOKS);
+    if (runnable.length && round < FIND_ROUNDS) {
+      const found: string[] = [];
+      for (const l of runnable) {
+        if (l.tool === "find") {
+          live.step("Looking through the page");
+          found.push(helper.find?.(db, row.ref, l.args) ?? "");
+        } else {
+          live.step(TOOLS[l.tool].doing);
+          found.push(await runTool(db, settings, l.tool, l.args));
+        }
+      }
       messages.push(
         { role: "assistant", content: got.value },
         {
           role: "user",
-          content: `WHAT YOUR FIND RETURNED (for you; I don't see it):\n${found}\n\nNow answer my question from it.`,
+          content: `WHAT YOUR LOOKS RETURNED (for you; I don't see it):\n${found.join("\n\n")}\n\nNow answer my question from it.`,
         },
       );
       grow.run("", row.id);

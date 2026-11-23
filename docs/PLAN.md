@@ -144,7 +144,7 @@ Each gets its own step-by-step plan, reviewed, before it starts.
   finds through the whole hunt and proposes a stage, a deep check or an application as cards I tap. The other apps
   follow, one at a time. The design and the steps: [docs/tasks/v0.7-ask.md](tasks/v0.7-ask.md).
 
-### v0.8 · One set of blocks for every page (GO 2026-11-23; steps 1 and 2 built)
+### v0.8 · One set of blocks for every page (GO 2026-11-23; steps 1 to 3 built)
 
 - Every agent in kestrel writes with one catalog of blocks the page draws itself (code, steps, a comparison, a tree,
   a timeline, a small chart, a check, a source), checked before it is drawn, and reads with one set of tools (the

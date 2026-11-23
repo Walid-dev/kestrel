@@ -340,7 +340,9 @@ export function parseMarkdown(src: string): Part[] {
       flush();
       const body: string[] = [];
       const lang = line.replace(/^\s*```\s*/, "").split(/\s/)[0];
-      const json = isKind(lang) || lang === "find" || lang === "action";
+      // kestrel's own blocks (a look it runs, a change it proposes) are JSON too, never shown
+      const own = ["find", "action", "read", "web", "page"].includes(lang);
+      const json = isKind(lang) || own;
       for (i++; i < lines.length && !/^\s*```/.test(lines[i]); i++) {
         // a block of JSON may close its fence at the end of its last line (`…]}```), as models write it too
         const end = json ? lines[i].match(/^(.*\S)\s*```\s*$/) : null;
@@ -354,7 +356,7 @@ export function parseMarkdown(src: string): Part[] {
       // the model's own blocks (a find it runs, a change it proposes) are for kestrel, never shown as code; its
       // drawings (the catalog's kinds) become one once their JSON is whole
       if (isKind(lang)) out.push(drawing(lang, body.join("\n"), closed));
-      else if (lang !== "find" && lang !== "action") out.push({ k: "code", text: body.join("\n") });
+      else if (!own) out.push({ k: "code", text: body.join("\n") });
       i++;
       continue;
     }
