@@ -3,10 +3,11 @@
 // shape; Ask's prompt lists the ones its page allows, and Ask's loop runs them. Web search and page reading are the
 // model door's own, as Research and the deep checks use them. A page about my own things (notes, writing, the
 // applications, tasks, my prepared answers and my own packs) gets no web tool, so nothing of mine goes into a search;
-// and a page with the web opens no document of mine.
+// and a page with the web opens no document or lesson of mine.
 import type { DatabaseSync } from "node:sqlite";
 import { fetchPage, searchWeb } from "../../ai/web.ts";
 import type { Settings } from "../../platform/config.ts";
+import { isMine } from "../learn/ask.ts";
 import { getLesson, lessonText } from "../learn/lessons.ts";
 import { getDocument } from "../notes/documents.ts";
 import { getListing } from "../search/listings.ts";
@@ -16,7 +17,8 @@ type O = Record<string, unknown>;
 const READ_CHARS = 6000;
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 
-// a page with a web tool opens lessons and listings only: a document of mine read there could go into a search next
+// a page with a web tool opens the field's lessons and the listings only: a document of mine, my prepared answer or a
+// lesson of my own read there could go into a search next
 const withWeb = (tools: ToolName[]) => tools.includes("web") || tools.includes("page");
 
 // one item by its ref, as links name them: a lesson, a listing, a document in Notes
@@ -64,6 +66,8 @@ export const TOOLS: Record<
       const ref = str(a.ref);
       if (withWeb(tools) && ref.startsWith("document:"))
         return `${ref}: a document isn't opened on a page with the web.`;
+      if (withWeb(tools) && ref.startsWith("lesson:") && isMine(db, ref.slice("lesson:".length)))
+        return `${ref}: a lesson of my own isn't opened on a page with the web.`;
       const text = readRef(db, ref);
       return text ? `${ref}:\n${text.slice(0, READ_CHARS)}` : `${ref || "(no ref)"}: nothing by that id.`;
     },

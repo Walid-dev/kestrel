@@ -342,6 +342,7 @@ test("my own words never reach the web: Interview prep, the Personal group and i
             ]
           : []),
         `\`\`\`read\n{"ref": "document:${doc.id}"}\n\`\`\``,
+        ...(web ? [] : ['```read\n{"ref": "lesson:why-leave"}\n```', '```read\n{"ref": "lesson:shelf"}\n```']),
       ].join("\n"),
     };
   });
@@ -360,11 +361,13 @@ test("my own words never reach the web: Interview prep, the Personal group and i
         `${app} ${ref} sent my words to the web`,
       );
     }
-    // a page that has the web can't pull a Notes document into the conversation
+    // a page that has the web can't pull a Notes document, my prepared answer or my own lesson into the conversation
     seen.length = 0;
     web = false;
     await askPage(db, settings(s.url), { app: "learn", ref: "spout", text: "Tell me more" }).done;
-    assert.doesNotMatch(seen.at(-1)?.messages?.at(-1)?.content ?? "", /private line/);
+    const looked = seen.at(-1)?.messages?.at(-1)?.content ?? "";
+    assert.match(looked, /lesson:why-leave/); // the read ran, and said no
+    assert.doesNotMatch(looked, /private line|team moved|holds jars/);
   } finally {
     await s.close();
   }

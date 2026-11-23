@@ -51,7 +51,7 @@ export function lessonAskPage(
 // Personal group) and an interview quiz carry my own words, so they get read alone: nothing of them can go into a web
 // search or a fetched address. Every other lesson teaches the field and may look on the web.
 const WEB: ToolName[] = ["read", "web", "page"];
-const isMine = (db: DatabaseSync, lessonId: string): boolean => {
+export const isMine = (db: DatabaseSync, lessonId: string): boolean => {
   const p = db
     .prepare("SELECT p.area, p.grp FROM lessons l JOIN packs p ON p.id = l.pack WHERE l.id = ?")
     .get(lessonId) as { area: string; grp: string } | undefined;
