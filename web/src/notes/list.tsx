@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import type { DocumentMeta } from "../../../src/shared/notes.ts";
+import { useConfirm } from "../ui/confirm.tsx";
 import { LAST_DOC } from "./reader.tsx";
 
 async function getJson<T>(url: string): Promise<T> {
@@ -44,14 +45,19 @@ export function NotesList() {
     onError: (e) => setWhy(e.message),
   });
 
+  const sure = useConfirm();
   const forget = useMutation({
     mutationFn: async (d: DocumentMeta) => {
-      const sure = confirm(
-        d.source === "upload"
-          ? `Forget ${d.name}? An upload is gone for good, with its notes.`
-          : `Forget ${d.name}? The file stays in its folder; its notes here go.`,
-      );
-      if (!sure) return;
+      const yes = await sure({
+        title: `Forget ${d.name}?`,
+        body:
+          d.source === "upload"
+            ? "An upload is gone for good, with its notes."
+            : "The file stays in its folder; its notes here go.",
+        yes: "Forget",
+        danger: true,
+      });
+      if (!yes) return;
       await fetch(`/api/notes/documents/${d.id}`, { method: "DELETE" });
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["docs"] }),

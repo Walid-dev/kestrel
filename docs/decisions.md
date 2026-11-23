@@ -5,6 +5,20 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-23 · Every document reads through one part: Read, Edit, Side by side, Download, Save as PDF.**
+  `src/shared/markdown.ts` parses Markdown in kestrel's own code (no package), and every text run keeps its source
+  offsets, so notes mark rendered words and a selection maps back to the exact characters. Raw HTML stays text; only
+  http(s), mailto and relative links open. `web/src/ui/doc.tsx` shows a document: Read, Edit (a mono editor; Cmd/Ctrl+S
+  saves; unsaved words wait on the device) and, at 1024 px and wider, Side by side. A hand edit saves like a draft
+  (versions, Undo, encoding kept) and only on the revision it started from: a 409 reloads the newer text and keeps my
+  words. A PDF's text keeps its lines; •, ◦, ▪ and – start list items; a short line in capitals is a section title.
+  Save as PDF is a print page in its own tab (`/notes/<id>/print`), since a home-screen app on the iPhone can't print
+  in place; its body text is Helvetica Neue, because Chrome prints the variable IBM Plex Sans as Type 3 fonts whose
+  words read back broken, bad for a CV an employer's system reads. kestrel keeps no copy of an uploaded PDF, so
+  there's no original to download; the line under the title says so. From the home screen a download goes through
+  the share sheet, where a plain download ends on a screen with no way back (WebKit bug 290847). Rejected: a Markdown
+  package (the no-new-package rule; offsets needed anyway), server-side PDF making (machinery), a WYSIWYG editor.
+
 - **2026-11-23 · Shared Dialog, Confirm and Pills (v0.9, step 2 begun).**
   The browser's `confirm()` and `<select>` go: they can't take the app's look, and the pop-up looks foreign on the
   iPhone. `web/src/ui/` holds Dialog (native `showModal`), Confirm (`useConfirm()`, a promise) and Pills (buttons with

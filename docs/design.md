@@ -30,12 +30,18 @@ the look happens in `web/src/styles.css`, nowhere else.
 - `Pills` (`web/src/ui/pills.tsx`) — every choice shown whole. Props: `label`, `showLabel`, `options` (`value`,
   `label`, `count`, `tone`, `hint`), `value`, `onChange`, `multiple`. They wrap, never scroll sideways, and stand 44 px
   tall on a phone.
+- `Doc` (`web/src/ui/doc.tsx`) — every document: Read, Edit and (1024 px and wider) Side by side, with a Download
+  menu (the text, Save as PDF, Copy). Its Markdown is `src/shared/markdown.ts`, drawn by `web/src/ui/markdown.tsx` in
+  `.md`: headings in `--strong`, `--purple` and `--cyan`, real bullets and numbers, code on `--surface-2`, quotes with
+  an accent edge, tables in their own scrolling frame. A note's mark is `.doc-mark` (`--pink-soft`, a `--pink` line
+  under). The editor `.doc-src` is mono, 16 px on a phone.
 - `/design` shows every shared part in its states; a new part is reviewed there before a page uses it.
 
 ## The rules
 
 - **A choice is pills**, never a dropdown.
 - **Ask before an action with Confirm**, never the browser's pop-up.
+- **A document reads rendered**, never as its raw Markdown: Doc, everywhere a document shows.
 - **Enter submits** in any box; Shift+Enter makes the line. The box says so underneath.
 - **Boxes are native dialogs** (`showModal`): Esc, Android's Back and a click outside all close them, and closing
   never loses typed words — drafts live on the device until Save or Discard.

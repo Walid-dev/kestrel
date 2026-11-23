@@ -19,10 +19,29 @@ export function downloadName(name: string, kind: DocKind): string {
   return name;
 }
 
+// the app opened from the iPhone's home screen, where a download can't land (see downloadText)
+function homeScreenApp(): boolean {
+  return (
+    (navigator as Navigator & { standalone?: boolean }).standalone === true ||
+    matchMedia("(display-mode: standalone), (display-mode: fullscreen)").matches
+  );
+}
+
 export function downloadText(name: string, text: string, kind: DocKind) {
   const file = downloadName(name, kind);
   const type = /\.(md|markdown|mdown|mkd|mdx)$/i.test(file) ? "text/markdown" : "text/plain";
   const body = text.endsWith("\n") ? text : `${text}\n`; // a text file ends with a newline
+  // From the home screen, a download ends on a screen with no way back (WebKit bug 290847): the file goes through the
+  // share sheet instead, where Save to Files is one of the rows. Shared as plain text, the type iOS takes.
+  if (homeScreenApp()) {
+    const shared = new File([body], file, { type: "text/plain" });
+    if (navigator.canShare?.({ files: [shared] })) {
+      navigator.share({ files: [shared] }).catch(() => {
+        // the sheet closed without a pick: nothing to do
+      });
+      return;
+    }
+  }
   const url = URL.createObjectURL(new Blob([body], { type: `${type};charset=utf-8` }));
   const a = document.createElement("a");
   a.href = url;

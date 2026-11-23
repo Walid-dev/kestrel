@@ -154,7 +154,7 @@ Each gets its own step-by-step plan, reviewed, before it starts.
   apply agent writes (`apply-review`), is read as the company would read it (the match, the fit, the voice), and its
   better version is kept when the applications' check passes it.
 
-### v0.9 · The design system (building since 2026-11-23: Dialog, Confirm, Pills and /design built)
+### v0.9 · The design system (building since 2026-11-23: Dialog, Confirm, Pills, Doc and /design built)
 
 - One component library every page is built from (the page head, buttons, cards, chips, the segmented choice,
   tiles, fields that send on Enter, a list card with its ✕, sheets, empty states, the drawings), its tokens in one

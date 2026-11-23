@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import type { DocumentFull, Draft, PlacedNote } from "../../../src/shared/notes.ts";
 import { Ask } from "../ask.tsx";
+import { useConfirm } from "../ui/confirm.tsx";
 import { Doc, type DocMode, type Saved } from "../ui/doc.tsx";
 import { blockAt, sourceAt } from "../ui/markdown.tsx";
 import { NoteSheet, type SheetTarget } from "./note-sheet.tsx";
@@ -20,6 +21,7 @@ export const LAST_DOC = "kestrel-notes-last";
 const isPdfText = (d: { name: string; source: string }) => d.source === "upload" && /\.pdf$/i.test(d.name);
 
 export function Reader() {
+  const sure = useConfirm();
   const { id = "" } = useParams();
   const queryClient = useQueryClient();
   const article = useRef<HTMLElement>(null);
@@ -444,9 +446,13 @@ export function Reader() {
                     type="button"
                     className="btn shrink-0"
                     disabled={restore.isPending}
-                    onClick={() => {
-                      if (confirm("Bring this version back? What the document says now is kept as a version too."))
-                        restore.mutate(v.id);
+                    onClick={async () => {
+                      const yes = await sure({
+                        title: "Bring this version back?",
+                        body: "What the document says now is kept as a version too.",
+                        yes: "Restore",
+                      });
+                      if (yes) restore.mutate(v.id);
                     }}
                   >
                     Restore
