@@ -228,6 +228,29 @@ const APP_CHIP: Record<string, [string, string]> = {
   queued: ["Queued", "tone-muted"],
 };
 
+// the Apply button, or what became of it once pressed: queued, applying, waiting on me, sent; one not sent can go again
+export function ApplyButton({ state, onQueue, pending }: { state?: string; onQueue: () => void; pending: boolean }) {
+  const chip = state && state !== "not-sent" ? APP_CHIP[state] : null;
+  if (chip && !pending)
+    return (
+      <span className={`chip chip-caps ml-auto inline-flex items-center gap-1.5 ${chip[1]}`}>
+        {state === "applying" && <span className="dot tone-green pulse" />}
+        {chip[0]}
+      </span>
+    );
+  return (
+    <button
+      type="button"
+      className="btn btn-primary ml-auto inline-flex items-center gap-2"
+      disabled={pending}
+      onClick={onQueue}
+    >
+      {pending && <span className="spin" />}
+      {pending ? "Queuing…" : state === "not-sent" ? "Apply again" : "Apply"}
+    </button>
+  );
+}
+
 function Head({ l }: { l: Listing }) {
   const stage = stageOf(l.kind, l.status);
   const app = l.app && l.status === "new" ? APP_CHIP[l.app.state] : null;
@@ -548,16 +571,8 @@ export function JobCard({
         onStatus={onStatus}
         busy={busy}
         extra={
-          l.status !== "applied" && !l.app ? (
-            <button
-              type="button"
-              className="btn btn-primary ml-auto inline-flex items-center gap-2"
-              disabled={busy === "queue"}
-              onClick={onQueue}
-            >
-              {busy === "queue" && <span className="spin" />}
-              {busy === "queue" ? "Queuing…" : "Apply"}
-            </button>
+          l.status !== "applied" ? (
+            <ApplyButton state={l.app?.state} onQueue={onQueue} pending={busy === "queue"} />
           ) : null
         }
       />

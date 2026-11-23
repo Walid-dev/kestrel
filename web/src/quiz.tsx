@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { Ask } from "./ask.tsx";
+import { enterSends } from "./keys.ts";
 import { block, Code, Inline, type Say } from "./learn/blocks.tsx";
 import { type Spoken, useReader } from "./learn/voice.ts";
 
@@ -70,6 +71,7 @@ export function Quiz() {
   const [area, setArea] = useState<Area>("learn");
   const [from, setFrom] = useState(""); // "" everything, "group:<name>" or "pack:<id>"
   const [count, setCount] = useState(10);
+  const [fresh, setFresh] = useState(false); // new questions, each written by the model
 
   const packs = useQuery({
     queryKey: ["learn-packs", area],
@@ -102,6 +104,7 @@ export function Quiz() {
       call<{ quiz: QuizData }>("/api/learn/quizzes", "POST", {
         area,
         count,
+        fresh,
         ...(from.startsWith("group:") ? { group: from.slice(6) } : {}),
         ...(from.startsWith("pack:") ? { pack: from.slice(5) } : {}),
       }),
@@ -256,6 +259,19 @@ export function Quiz() {
                 <small>{size}</small>
               </button>
             ))}
+          </fieldset>
+        </div>
+        <div className="grid gap-2.5">
+          <span className="eyebrow">Questions</span>
+          <fieldset className="seg" aria-label="Questions">
+            <button type="button" aria-pressed={!fresh} onClick={() => setFresh(false)}>
+              The lessons' own
+              <small>ready at once</small>
+            </button>
+            <button type="button" aria-pressed={fresh} onClick={() => setFresh(true)}>
+              New ones
+              <small>the model writes each</small>
+            </button>
           </fieldset>
         </div>
         <button
@@ -491,9 +507,8 @@ export function QuizRun() {
               value={answer}
               disabled={!question || grade.isPending}
               onChange={(e) => setAnswer(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && answer.trim()) grade.mutate();
-              }}
+              enterKeyHint="send"
+              onKeyDown={enterSends(() => answer.trim() && !grade.isPending && grade.mutate())}
             />
             <div className="flex flex-wrap gap-2">
               <button

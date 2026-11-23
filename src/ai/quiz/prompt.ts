@@ -1,6 +1,6 @@
 // The quiz's prompts: marking one answer against the lesson's own answer (the meaning, never the wording), and,
 // for a lesson with no check of its own, writing one question that checks its main idea.
-export const QUIZ_VERSION = 2;
+export const QUIZ_VERSION = 3;
 export const SYSTEM = "You are a fair, kind teacher. Reply with ONE JSON OBJECT only, no prose around it.";
 
 export type Marking = { title: string; question: string; expected: string; lesson: string };
@@ -29,12 +29,19 @@ export function gradePrompt(m: Marking, answer: string): string {
 const FIELD =
   "Keep to the subject as the field knows it: never ask or explain through one person's own setup (their machine, their models, their apps, their projects), even where the lesson mentions it.";
 
-export function makePrompt(title: string, lesson: string, mine = false): string {
+// avoid: the lesson's own questions, so a new one asks about something else
+export function makePrompt(title: string, lesson: string, mine = false, avoid: string[] = []): string {
   return [
     `The lesson: ${title}`,
     lesson.slice(0, 6000),
     "",
     "Write one question that checks the lesson's main idea, answerable in a sentence or two, and its answer.",
+    ...(avoid.length
+      ? [
+          "These questions are already asked; write a new one on another point of the lesson, not a rewording:",
+          ...avoid.map((q) => `- ${q}`),
+        ]
+      : []),
     ...(mine ? [] : [FIELD]),
     'Answer: {"q": "<the question>", "a": "<the answer, one or two short sentences>"}',
   ].join("\n");

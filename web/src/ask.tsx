@@ -5,8 +5,19 @@
 // learn page has a good design with the little boxes"): the direct answer first in its own tile, each section under
 // a lesson's heading, each point of a list in a tile of its own, a quote in the example's box, code in colour.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useState } from "react";
+import { type CSSProperties, type ReactNode, useState } from "react";
 import { Code, Inline } from "./learn/blocks.tsx";
+
+// a flow's steps each take a colour of their own, in this order, so the eye follows one step to the next
+const FLOW_COLOURS = [
+  "var(--accent)",
+  "var(--green)",
+  "var(--purple)",
+  "var(--orange)",
+  "var(--cyan)",
+  "var(--yellow)",
+  "var(--pink)",
+];
 
 type Card = { label: string; state: "open" | "done" | "failed"; result: string };
 type Message = {
@@ -500,7 +511,7 @@ function Answer({ text, writing }: { text: string; writing: boolean }) {
                 <ol>
                   {p.steps.map((st, j) => (
                     // biome-ignore lint/suspicious/noArrayIndexKey: a drawing's steps are fixed once written
-                    <li key={j}>
+                    <li key={j} style={{ "--c": FLOW_COLOURS[j % FLOW_COLOURS.length] } as CSSProperties}>
                       <span className="ask-step">{j + 1}</span>
                       <span className="min-w-0 pt-0.5">
                         <Inline text={st} />

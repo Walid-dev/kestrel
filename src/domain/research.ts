@@ -21,7 +21,7 @@ import { Plan, Questions, ResearchReport } from "../ai/research/shape.ts";
 import { fetchPage, type Hit, searchWeb } from "../ai/web.ts";
 import { begin } from "../platform/activity.ts";
 import type { Settings } from "../platform/config.ts";
-import { dataDir } from "../platform/paths.ts";
+import { aboutFile, dataDir } from "../platform/paths.ts";
 import { recordCall } from "./calls.ts";
 import { modelFor } from "./models.ts";
 import { Refused } from "./notes/documents.ts";
@@ -53,7 +53,7 @@ let busy = false;
 const home = () => join(dataDir(), "research");
 const CONTEXT_CHARS = 12_000;
 export function researchContext(): { about: string; files: { name: string; chars: number }[] } {
-  const about = existsSync(join(home(), "about-me.md")) ? readFileSync(join(home(), "about-me.md"), "utf8") : "";
+  const about = existsSync(aboutFile()) ? readFileSync(aboutFile(), "utf8") : "";
   const dir = join(home(), "context");
   const files = existsSync(dir)
     ? readdirSync(dir)
@@ -67,9 +67,14 @@ export function researchContext(): { about: string; files: { name: string; chars
 export function saveAbout(text: string): void {
   if (text.length > 20_000) throw new Refused("About me holds 20,000 characters at most");
   mkdirSync(home(), { recursive: true });
-  const file = join(home(), "about-me.md");
+  const file = aboutFile();
   writeFileSync(`${file}.tmp`, text);
   renameSync(`${file}.tmp`, file);
+}
+// About me opens in Notes, made first (with only its title) when it isn't there yet
+export function makeAbout(): string {
+  if (!existsSync(aboutFile())) saveAbout("# About me\n");
+  return aboutFile();
 }
 // About me, then each context file under its name, cut to fit
 export function contextText(): string {

@@ -19,3 +19,6 @@ export function dataDir(): string {
   }
   return dev;
 }
+
+// About me: what the agents should know about me (Research reads it), a file of its own that I write in Notes
+export const aboutFile = (): string => join(dataDir(), "research", "about-me.md");

@@ -5,6 +5,18 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-23 · Stop and Pause from kestrel; Enter sends; About me in Notes; deletes on every list.**
+  Live's chat card and the Chat page carry Stop. On an application it asks: only this one (the next queued one
+  starts), or this one and the queue (the queue pauses first, so nothing starts between). The queue line on Live has
+  Pause and Play. Both go through kestrel's server to the old setup's existing routes (`/api/chat/stop`, which calls
+  dsh's keyed `/chat/stop`, and `/api/queue/pause`, whose pause also holds kestrel's claims), so neither dsh nor hunt
+  changed. Search cards and the listing sheet show the application's state (Queued, Applying, Needs me, Sent; Apply
+  again after Not sent) in place of a fixed Apply. Text boxes show the focus by their border, not a ring. Enter sends
+  in every box with a send button; Shift+Enter makes a line. The flow drawing lies across the page, a colour per step,
+  and turns vertical when narrow. A quiz can ask new questions, each written by the model away from the lesson's own.
+  Research and Writing's tries delete from their cards. About me left Research's page for a file opened in Notes, like
+  the voice and the stories (versions kept; its path is in `platform/paths.ts`). A PDF's text says it never changes
+  the PDF, and downloads or copies. Rejected: a stop route of kestrel's own into dsh (it would need dsh's key).
 - **2026-11-23 · Notes reads like a lesson and keeps every version; lessons teach the field.**
   Picking words shows a Note button beside them (no mode to switch on); the page says what it is and how notes work;
   "Turn my notes into an edit" waits for a note instead of failing. Every save and undo keeps the words they replaced

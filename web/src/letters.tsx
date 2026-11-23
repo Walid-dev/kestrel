@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Ask } from "./ask.tsx";
+import { enterSends } from "./keys.ts";
 
 type Job = { id: string; title: string; org: string; state: string; at: string };
 type Kind = "letter" | "answer" | "text";
@@ -91,6 +92,19 @@ export function Writing() {
     refetchInterval: (query) => (query.state.data?.some((t) => t.state === "running") ? 2000 : false),
   });
   const shown = pickedTry ?? tries.data?.[0]?.id ?? null;
+  // a try goes with the ✕ on its row; the one on show gives way to the newest left
+  const forget = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/letters/${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (!res.ok)
+        throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `${res.status}`);
+      return id;
+    },
+    onSuccess: (id) => {
+      if (pickedTry === id) setParams({});
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["letters"] }),
+  });
   const one = useQuery({
     queryKey: ["letter", shown],
     queryFn: async () => (await (await fetch(`/api/letters/${shown}`)).json()) as Try,
@@ -186,6 +200,10 @@ export function Writing() {
                 value={ask}
                 maxLength={4000}
                 onChange={(e) => setAsk(e.target.value)}
+                enterKeyHint="send"
+                onKeyDown={enterSends(
+                  () => job && files.data?.ready && !write.isPending && !running && ask.trim() && write.mutate(),
+                )}
               />
             )}
             <button
@@ -209,25 +227,42 @@ export function Writing() {
                 Tries
               </h3>
               {tries.data?.map((x) => (
-                <button
+                <div
                   key={x.id}
-                  type="button"
-                  className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[14.5px]"
+                  className="relative flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[14.5px]"
                   style={{
                     background: shown === x.id ? "var(--accent-soft)" : "var(--surface-2)",
                     boxShadow: shown === x.id ? "0 0 0 1px var(--accent)" : undefined,
+                    opacity: forget.isPending && forget.variables === x.id ? 0.5 : undefined,
                   }}
-                  onClick={() => setParams({ try: x.id })}
                 >
                   <span
                     className={`dot ${x.state === "done" ? "tone-green" : x.state === "failed" ? "tone-red" : "tone-yellow pulse"}`}
                   />
                   <span className="chip tone-purple shrink-0">{KIND_NAME[x.kind] ?? "Letter"}</span>
-                  <span className="min-w-0 flex-1 truncate">{x.ask || when(x.started)}</span>
+                  <button
+                    type="button"
+                    className="card-open min-w-0 flex-1 truncate text-left"
+                    style={{ color: "var(--text)", font: "inherit" }}
+                    onClick={() => setParams({ try: x.id })}
+                  >
+                    {x.ask || when(x.started)}
+                  </button>
                   <span className="shrink-0 text-[12.5px]" style={{ color: "var(--muted)" }}>
                     {x.state === "running" ? x.step : x.state === "done" ? when(x.started) : x.state}
                   </span>
-                </button>
+                  {x.state !== "running" && (
+                    <button
+                      type="button"
+                      className="card-remove"
+                      aria-label="Delete this try"
+                      title="Delete"
+                      onClick={() => confirm("Delete this try?") && forget.mutate(x.id)}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
           )}

@@ -40,12 +40,23 @@ function offsetIn(article: HTMLElement, node: Node, offset: number): number | nu
 
 export const LAST_DOC = "kestrel-notes-last";
 
+// the document's text as a file of its own (a PDF's text as .txt beside the PDF's name)
+function download(name: string, text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name.toLowerCase().endsWith(".pdf") ? `${name.slice(0, -4)}.txt` : name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export function Reader() {
   const { id = "" } = useParams();
   const queryClient = useQueryClient();
   const article = useRef<HTMLDivElement>(null);
   const [sheet, setSheet] = useState<SheetTarget | null>(null);
   const [speed, setSpeed] = useState<"careful" | "fast">("careful");
+  const [copied, setCopied] = useState(false);
   // what I picked in the document, waiting for its note: the words, where they start, where the button shows
   const [pick, setPick] = useState<{ quote: string; start: number; x: number; y: number; words: boolean } | null>(null);
   const [review, setReview] = useState(false);
@@ -242,6 +253,7 @@ export function Reader() {
       </p>
     );
   if (!doc.data) return null;
+  const pdf = doc.data.name.toLowerCase().endsWith(".pdf");
   return (
     <main className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6">
       <header className="mb-4 grid gap-2 lg:col-start-1">
@@ -249,7 +261,11 @@ export function Reader() {
           ← All my documents
         </Link>
         <span className="eyebrow">
-          {doc.data.source === "upload" ? "Uploaded to kestrel" : "A file on this computer"}
+          {pdf
+            ? "A PDF's text, kept in kestrel"
+            : doc.data.source === "upload"
+              ? "Uploaded to kestrel"
+              : "A file on this computer"}
           {doc.data.path ? ` · ${doc.data.path.split("/").slice(-2).join("/")}` : ""}
         </span>
         <h2 className="font-cond m-0 break-all text-[32px] font-bold leading-tight" style={{ color: "var(--strong)" }}>
@@ -259,6 +275,31 @@ export function Reader() {
           Select words to leave a note on them. Your notes then become one edit, which you check before it is saved.
           Every save keeps the previous version.
         </p>
+        {doc.data.source === "upload" && (
+          <div className="flex flex-wrap items-center gap-2">
+            {pdf && (
+              <p className="m-0 basis-full text-[14px] leading-relaxed" style={{ color: "var(--text)" }}>
+                Edits change this text, never the PDF file itself. When it reads right, download or copy the text and
+                put it into the document the PDF is made from.
+              </p>
+            )}
+            <button type="button" className="btn" onClick={() => download(doc.data.name, doc.data.text)}>
+              Download the text
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={() =>
+                navigator.clipboard.writeText(doc.data.text).then(
+                  () => setCopied(true),
+                  () => setCopied(false),
+                )
+              }
+            >
+              {copied ? "Copied" : "Copy the text"}
+            </button>
+          </div>
+        )}
       </header>
       <div className="mb-4 flex flex-wrap items-center gap-2 lg:col-start-1">
         {(!current || current.status === "failed") && (
@@ -396,6 +437,9 @@ export function Reader() {
             <summary className="font-cond cursor-pointer text-[17px] font-bold" style={{ color: "var(--strong)" }}>
               Earlier versions · {versions.data?.versions.length}
             </summary>
+            <p className="m-0 mt-1 text-[13px]" style={{ color: "var(--muted)" }}>
+              The text as it was before each save, here in kestrel. Restore brings one back.
+            </p>
             <div className="mt-2 grid gap-1.5">
               {versions.data?.versions.map((v) => (
                 <div

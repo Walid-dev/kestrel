@@ -108,6 +108,7 @@ export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
     pack: z.string().optional(),
     group: z.string().optional(),
     count: z.number().int().min(1).max(30).default(10),
+    fresh: z.boolean().default(false), // new questions, each written by the model
   });
   const index = z.object({ index: z.number().int().min(0) });
   const quizRoute = async (c: Context, run: () => unknown) => {
@@ -120,8 +121,8 @@ export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
   app.get("/api/learn/quizzes", (c) => c.json({ quizzes: listQuizzes(db) }));
   app.post("/api/learn/quizzes", zValidator("json", quizBody), (c) =>
     quizRoute(c, () => {
-      const { area: a, pack, group, count } = c.req.valid("json");
-      return startQuiz(db, { area: a, pack: pack || undefined, group: group || undefined, count });
+      const { area: a, pack, group, count, fresh } = c.req.valid("json");
+      return startQuiz(db, { area: a, pack: pack || undefined, group: group || undefined, count, fresh });
     }),
   );
   app.get("/api/learn/quizzes/:id", (c) => {

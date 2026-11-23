@@ -4,6 +4,7 @@
 // which carries the sign-in. dsh lets only pages on the same machine name show it in a frame.
 import { useQuery } from "@tanstack/react-query";
 import { useLayoutEffect, useRef, useState } from "react";
+import { StopRunning } from "./stop.tsx";
 
 type Link = { name: string; what: string; desktop: string; phone?: string; phoneFrame?: string };
 
@@ -56,6 +57,7 @@ export function Chats() {
             Open the DeepSeek Harness ↗
           </a>
         </section>
+        <StopRunning className="card" />
       </main>
     );
   return <ChatFrame link={link} />;
@@ -95,6 +97,7 @@ function ChatFrame({ link }: { link: Link }) {
           Its own window ↗
         </a>
       </div>
+      <StopRunning className="px-4 pb-2 md:px-6" />
       <iframe
         ref={box}
         title="Chat"

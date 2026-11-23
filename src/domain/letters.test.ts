@@ -1,14 +1,17 @@
 // The lab follows the skill's own letter step, says what's missing in words, keeps a file's previous words before a
 // save, and serves a try's PDF only from its own folder. Made-up files only, in a made-up folder.
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { letterPrompt, whatToWrite } from "../ai/letter/prompt.ts";
 import { LetterDraft } from "../ai/letter/shape.ts";
+import { migrate } from "../db/migrate.ts";
 import type { Settings } from "../platform/config.ts";
-import { labMissing, letterPdf, letterStep, tidy } from "./letters.ts";
+import { dataDir } from "../platform/paths.ts";
+import { deleteLetter, labMissing, letterPdf, letterStep, tidy } from "./letters.ts";
 
 const SKILL = `# Applying
 1. Open the posting.
@@ -92,4 +95,25 @@ test("three kinds of text, each asked in the step's own terms; an older answer u
   assert.match(letterPrompt(input, "answer", "Why us?"), /"text": \[/);
   const old = LetterDraft.parse({ letter: ["Dear team,", "I pour tea well, every morning, for twelve years."] });
   assert.match(old.text, /^Dear team,\n\nI pour tea/);
+});
+
+test("a try is deleted with its folder; one still being written, and one that isn't there, are refused", () => {
+  const base = mkdtempSync(join(tmpdir(), "kestrel-letterdel-"));
+  const db = new DatabaseSync(join(base, "t.db"));
+  migrate(db, join(base, "t.db"));
+  const add = (id: string, state: string) => {
+    db.prepare(
+      "INSERT INTO letters (id, listing, title, state, step, started) VALUES (?, 'l1', 'A made-up job', ?, '', ?)",
+    ).run(id, state, "2026-11-23T10:00:00Z");
+    mkdirSync(join(dataDir(), "letters", id), { recursive: true });
+  };
+  const done = "11111111-1111-4111-8111-111111111111";
+  const running = "22222222-2222-4222-8222-222222222222";
+  add(done, "done");
+  add(running, "running");
+  deleteLetter(db, done);
+  assert.equal(db.prepare("SELECT id FROM letters WHERE id = ?").get(done), undefined);
+  assert.equal(existsSync(join(dataDir(), "letters", done)), false);
+  assert.throws(() => deleteLetter(db, running), /still being written/);
+  assert.throws(() => deleteLetter(db, "../../etc"), /no such try/);
 });

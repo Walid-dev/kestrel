@@ -1,6 +1,6 @@
 // Versions: a restore writes an earlier version back and keeps the current words as a version; a file changed
-// outside kestrel is never overwritten; my voice and stories open in Notes from the applications' folder, and no
-// other file outside Notes' folders does. Made-up files only.
+// outside kestrel is never overwritten; my voice and stories open in Notes from the applications' folder, About me
+// from Research's, and no other file outside Notes' folders does. Made-up files only.
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -9,6 +9,8 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { migrate } from "../../db/migrate.ts";
 import type { Settings } from "../../platform/config.ts";
+import { dataDir } from "../../platform/paths.ts";
+import { makeAbout } from "../research.ts";
 import { openFile } from "./documents.ts";
 import { listVersions, restoreVersion } from "./save.ts";
 
@@ -29,6 +31,14 @@ test("my voice opens in Notes from the applications' folder; another file there 
   const { db, apply, settings } = setup();
   assert.equal(openFile(db, settings, join(apply, "voice.md")).name, "voice.md");
   assert.throws(() => openFile(db, settings, join(apply, "secrets.md")), /outside the folders/);
+});
+
+test("About me opens in Notes (made first when it isn't there); another file in Research's folder doesn't", () => {
+  const { db, settings } = setup();
+  const doc = openFile(db, settings, makeAbout());
+  assert.equal(doc.name, "about-me.md");
+  writeFileSync(join(dataDir(), "research", "other.md"), "Not for Notes.\n");
+  assert.throws(() => openFile(db, settings, join(dataDir(), "research", "other.md")), /outside the folders/);
 });
 
 test("a restore brings an earlier version back and keeps the current one; a file changed outside is left alone", () => {

@@ -2,7 +2,7 @@
 // the stages, Queue to apply and the attempts so far. A native dialog: Esc, Back and a tap outside close it.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { ago, DEAL, day, type Listing, MATCH, payOf, ReadBox, STAGES, str, VERDICT } from "./cards.tsx";
+import { ApplyButton, ago, DEAL, day, type Listing, MATCH, payOf, ReadBox, STAGES, str, VERDICT } from "./cards.tsx";
 
 type Deep = {
   state: "running" | "done" | "failed";
@@ -139,11 +139,13 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
     // while a deep check runs, its steps arrive every two seconds
     refetchInterval: (q) => (q.state.data?.deep?.state === "running" ? 2000 : false),
   });
-  const refresh = () => {
-    queryClient.invalidateQueries({ queryKey: ["listing", id] });
-    queryClient.invalidateQueries({ queryKey: ["listings"] });
-    queryClient.invalidateQueries({ queryKey: ["search-counts"] });
-  };
+  // the button stays busy until the listing's new state is in, so it never flashes back to Apply
+  const refresh = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["listing", id] }),
+      queryClient.invalidateQueries({ queryKey: ["listings"] }),
+      queryClient.invalidateQueries({ queryKey: ["search-counts"] }),
+    ]);
   const act = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
       const res = await fetch(`/api/search/listings/${encodeURIComponent(id)}`, {
@@ -352,14 +354,7 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
               <span style={{ color: "var(--yellow)" }}>★</span> {l.starred === 1 ? "Starred" : "Star"}
             </button>
             {l.kind === "jobs" && (
-              <button
-                type="button"
-                className="btn btn-primary ml-auto"
-                disabled={queue.isPending}
-                onClick={() => queue.mutate()}
-              >
-                Queue to apply
-              </button>
+              <ApplyButton state={l.applications[0]?.state} onQueue={() => queue.mutate()} pending={queue.isPending} />
             )}
           </section>
           {why && (

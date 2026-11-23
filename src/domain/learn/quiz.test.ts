@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
-import { explainPrompt } from "../../ai/quiz/prompt.ts";
+import { explainPrompt, makePrompt } from "../../ai/quiz/prompt.ts";
 import { Explained, Grade } from "../../ai/quiz/shape.ts";
 import { startStandIn } from "../../ai/stand-in.ts";
 import { migrate } from "../../db/migrate.ts";
@@ -66,6 +66,16 @@ test("missed lately first, then due, then the rest; a lesson with no check comes
   assert.equal(items[0].a, "Holding the pot.");
   assert.equal(items[3].q, null);
   assert.equal(items[0].packName, "Teapots");
+});
+
+test("new questions: every lesson's question is left for the model, which is told the lesson's own to avoid", () => {
+  const db = setup();
+  const items = pickQuiz(db, { area: "learn", count: 10, fresh: true }, NOW, () => 0.5);
+  assert.equal(items.length, 4);
+  assert.ok(items.every((i) => i.q === null && i.a === null));
+  const prompt = makePrompt("Steeping", "How long to steep.", false, ["How long does green tea steep?"]);
+  assert.match(prompt, /already asked[^\n]*\n- How long does green tea steep\?/);
+  assert.doesNotMatch(makePrompt("Steeping", "How long to steep."), /already asked/);
 });
 
 test("a pack or a group narrows the quiz, and the count is kept between one and thirty", () => {

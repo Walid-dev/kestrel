@@ -26,14 +26,16 @@ type Chat = {
 };
 const RECENT_MS = 2 * 3600_000; // an ended chat stays on Live this long
 
-// the agent's chats at work, waiting on me or ended lately, from the old setup's Live; a second's reads are shared
-let cache: { at: number; chats: Chat[] } = { at: 0, chats: [] };
-async function agentChats(url: string): Promise<Chat[]> {
-  if (!url) return [];
-  if (Date.now() - cache.at < 2000) return cache.chats;
+// the agent's chats at work, waiting on me or ended lately, and whether the queue is paused, from the old setup's Live;
+// a second's reads are shared
+type Agents = { chats: Chat[]; paused: boolean | null };
+let cache: { at: number } & Agents = { at: 0, chats: [], paused: null };
+async function agentChats(url: string): Promise<Agents> {
+  if (!url) return { chats: [], paused: null };
+  if (Date.now() - cache.at < 2000) return cache;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
-    const data = (await res.json()) as { chats?: Chat[] };
+    const data = (await res.json()) as { chats?: Chat[]; queuePaused?: unknown };
     const now = Date.now();
     const chats = (data.chats ?? [])
       .filter((c) => c.working || c.waiting || now - Date.parse(c.updated) < RECENT_MS)
@@ -50,12 +52,31 @@ async function agentChats(url: string): Promise<Chat[]> {
         steps: c.steps.slice(-60).map((s) => ({ at: s.at, kind: s.kind, text: s.text, why: s.why })),
         job: c.job ? { title: c.job.title, company: c.job.company } : null,
       }));
-    cache = { at: now, chats };
-    return chats;
+    cache = { at: now, chats, paused: typeof data.queuePaused === "boolean" ? data.queuePaused : null };
+    return cache;
   } catch {
-    return cache.chats; // the old setup not answering: the last read stands until it does
+    return cache; // the old setup not answering: the last read stands until it does
   }
 }
+
+// Stop and Pause go to the old setup's server, which runs the applications (its queue claims kestrel's too): Stop
+// ends the chat's running turn in dsh, Pause keeps the next queued application from starting until Play
+async function toOldSetup(oldLive: string, path: string, body: unknown): Promise<{ code: number; body: unknown }> {
+  if (!oldLive) return { code: 503, body: { error: "the old setup's Live isn't set (settings.json: oldLive)" } };
+  try {
+    const res = await fetch(new URL(path, oldLive), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(8000),
+    });
+    cache.at = 0; // the next read shows the change
+    return { code: res.status, body: await res.json().catch(() => ({})) };
+  } catch {
+    return { code: 502, body: { error: "the old setup's server didn't answer: is hunt serve running?" } };
+  }
+}
+const CHAT_ID = /^session-[0-9a-f-]{36}$/;
 
 export function mountLive(app: Hono, db: DatabaseSync, oldLive = "") {
   const waiting = () =>
@@ -151,9 +172,29 @@ export function mountLive(app: Hono, db: DatabaseSync, oldLive = "") {
       at: new Date().toISOString(),
       now: running(),
       apps,
-      chats: await agentChats(oldLive),
+      ...(({ chats, paused }) => ({ chats, paused }))(await agentChats(oldLive)),
       recent: log(1).slice(0, 30),
     });
+  });
+  // Stop on a running chat: {chat, all}; all also pauses the queue first, so nothing new starts after it
+  app.post("/api/live/stop", async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as { chat?: unknown; all?: unknown };
+    const chat = String(body.chat ?? "");
+    if (!CHAT_ID.test(chat)) return c.json({ error: 'which chat? {"chat": "session-…"}' }, 400);
+    if (body.all === true) {
+      const paused = await toOldSetup(oldLive, "/api/queue/pause", { paused: true });
+      if (paused.code !== 200) return c.json(paused.body as object, paused.code as 502);
+    }
+    const got = await toOldSetup(oldLive, "/api/chat/stop", { chat });
+    bus.emit("change", { kind: "live" });
+    return c.json(got.body as object, got.code as 200);
+  });
+  // the queue's Pause and Play: {paused: true | false}
+  app.post("/api/live/pause", async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as { paused?: unknown };
+    const got = await toOldSetup(oldLive, "/api/queue/pause", { paused: body.paused === true });
+    bus.emit("change", { kind: "live" });
+    return c.json(got.body as object, got.code as 200);
   });
   app.get("/api/live/activity", (c) => {
     const days = Math.min(30, Math.max(1, Number(c.req.query("days") ?? "7") || 7));

@@ -8,6 +8,7 @@ import { homedir } from "node:os";
 import { basename, extname, join, sep } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import type { Settings } from "../../platform/config.ts";
+import { aboutFile } from "../../platform/paths.ts";
 import type { DocumentFull, DocumentMeta } from "../../shared/notes.ts";
 
 export const MAX_BYTES = 200 * 1024;
@@ -133,13 +134,16 @@ const meta = (r: Record<string, unknown>): DocumentMeta => ({
 
 // open a file from the folders: refused outside them (a symbolic link counts where it points), refused when not a
 // text format, too big, or not UTF-8; opening again refreshes the same document
-// my voice and my stories, the two files every application reads: Notes may open them wherever the applications'
-// folder is, so they are reworked there, every save kept as a version (Writing links here)
-export function writingFiles(settings: Settings): string[] {
-  if (!settings.apply.folder) return [];
-  return ["voice.md", "stories.md"].flatMap((f) => {
+// my own files, which Notes may open wherever they are, so they are reworked there, every save kept as a version: my
+// voice and my stories, which every application reads (Writing links here), and About me, which Research reads
+export function ownFiles(settings: Settings): string[] {
+  const files = [
+    ...(settings.apply.folder ? ["voice.md", "stories.md"].map((f) => join(expand(settings.apply.folder), f)) : []),
+    aboutFile(),
+  ];
+  return files.flatMap((f) => {
     try {
-      return [realpathSync(join(expand(settings.apply.folder), f))];
+      return [realpathSync(f)];
     } catch {
       return [];
     }
@@ -154,7 +158,7 @@ export function openFile(db: DatabaseSync, settings: Settings, path: string): Do
   } catch {
     throw new Refused("no such file");
   }
-  if (!dirs.some((d) => real === d || real.startsWith(d + sep)) && !writingFiles(settings).includes(real))
+  if (!dirs.some((d) => real === d || real.startsWith(d + sep)) && !ownFiles(settings).includes(real))
     throw new Refused("outside the folders Notes may open: list its folder in settings.json under notes.folders");
   const ext = extname(real).toLowerCase();
   if (BINARY_EXT.has(ext)) throw new Refused(`${ext} is not a text format`);

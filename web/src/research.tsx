@@ -5,8 +5,9 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { Ask as AskBox } from "./ask.tsx";
+import { enterSends } from "./keys.ts";
 import { block, type Cite, Cites, heard, type Say } from "./learn/blocks.tsx";
 import { type Spoken, useReader } from "./learn/voice.ts";
 
@@ -83,6 +84,11 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
     },
     refetchInterval: (q) => (q.state.data?.research.some((r) => r.state === "running") ? 2000 : false),
   });
+  // a kept answer goes with the ✕ on its card
+  const forget = useMutation({
+    mutationFn: (id: string) => send(`/api/research/${encodeURIComponent(id)}`, "DELETE"),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["research"] }),
+  });
   const [askMe, setAskMe] = useState(true);
   const [questions, setQuestions] = useState<string[] | null>(null);
   const [answers, setAnswers] = useState<string[]>([]);
@@ -136,13 +142,12 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
       <section className="card grid gap-3">
         <textarea
           className="btn min-h-[96px] text-[15px] leading-relaxed"
-          placeholder="Anything: should I take creatine, which laptop to buy, how a visa works, why my code fails…"
+          placeholder="Anything: which laptop to buy, how a visa works, why my code fails…"
           value={question}
           maxLength={1000}
           onChange={(e) => setQuestion(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && question.trim()) go();
-          }}
+          enterKeyHint="send"
+          onKeyDown={enterSends(() => question.trim() && go())}
         />
         <div className="flex flex-wrap items-center gap-2">
           {LEVELS.map(([k, label, hint]) => (
@@ -238,11 +243,10 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
         {rows
           .filter((r) => r.state !== "running")
           .map((r) => (
-            <button
+            <div
               key={r.id}
-              type="button"
-              className="card card-link grid content-start gap-1.5 text-left"
-              onClick={() => onOpen(r.id)}
+              className="card card-link relative grid content-start gap-1.5"
+              style={forget.isPending && forget.variables === r.id ? { opacity: 0.5 } : undefined}
             >
               <div className="flex items-center gap-2">
                 <span className={`chip chip-caps ${r.level === "deep" ? "tone-purple" : "tone-accent"}`}>
@@ -250,14 +254,28 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
                 </span>
                 {r.state === "failed" && <span className="chip chip-caps tone-red">failed</span>}
                 <span className="eyebrow ml-auto">{when(r.started)}</span>
+                <button
+                  type="button"
+                  className="card-remove"
+                  aria-label={`Delete "${r.title || r.question}"`}
+                  title="Delete"
+                  onClick={() => confirm("Delete this answer?") && forget.mutate(r.id)}
+                >
+                  ✕
+                </button>
               </div>
-              <span className="font-cond text-[19px] font-bold leading-tight" style={{ color: "var(--strong)" }}>
+              <button
+                type="button"
+                className="card-open font-cond text-left text-[19px] font-bold leading-tight"
+                style={{ color: "var(--strong)" }}
+                onClick={() => onOpen(r.id)}
+              >
                 {r.title || r.question}
-              </span>
+              </button>
               <span className="line-clamp-2 text-[14px]" style={{ color: "var(--muted)" }}>
                 {r.state === "failed" ? r.error : r.short}
               </span>
-            </button>
+            </div>
           ))}
       </section>
       {list.data && rows.length === 0 && (
@@ -465,62 +483,38 @@ function ReportView({ id, onBack }: { id: string; onBack: () => void }) {
   );
 }
 
-// what Research knows about me, so it asks less and answers for me: About me (edited here), the context folder's files
+// what Research knows about me, so it asks less and answers for me: About me, a file I write in Notes like my voice
+// and stories (every save kept as a version), and the context folder's files
 function AboutMe({ context }: { context: Context | undefined }) {
-  const queryClient = useQueryClient();
-  const [text, setText] = useState<string | null>(null);
-  const shown = text ?? context?.about ?? "";
-  const save = useMutation({
-    mutationFn: () => send("/api/research/context", "PUT", { about: shown }),
-    onSuccess: () => {
-      setText(null);
-      queryClient.invalidateQueries({ queryKey: ["research-context"] });
+  const navigate = useNavigate();
+  const open = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/research/about/open", { method: "POST" });
+      const data = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
+      if (!res.ok || !data.id) throw new Error(data.error ?? `${res.status}`);
+      return data.id;
     },
+    onSuccess: (id) => navigate(`/notes/${id}`),
   });
+  const files = context?.files.length ?? 0;
   return (
-    <details className="card">
-      <summary className="flex cursor-pointer items-center gap-2">
-        <span className="eyebrow" style={{ color: "var(--purple)" }}>
-          About me
+    <section className="card flex flex-wrap items-center gap-3 !py-3">
+      <span className="min-w-0 flex-1 text-[14px]" style={{ color: "var(--text)" }}>
+        <b style={{ color: "var(--strong)" }}>About me</b>
+        <span style={{ color: "var(--muted)" }}>
+          {" "}
+          · read before every answer, never put into a web search
+          {files ? ` · ${files} context file${files === 1 ? "" : "s"}` : ""}
         </span>
-        <span className="text-[13px]" style={{ color: "var(--muted)" }}>
-          {context?.about.trim() ? "what it knows about you" : "tell it about you, so it answers for you"}
-          {context?.files.length
-            ? ` · ${context.files.length} context file${context.files.length === 1 ? "" : "s"}`
-            : ""}
+      </span>
+      <button type="button" className="btn" disabled={open.isPending} onClick={() => open.mutate()}>
+        {open.isPending ? "Opening…" : "Edit in Notes →"}
+      </button>
+      {open.isError && (
+        <span className="basis-full text-[13px]" style={{ color: "var(--red)" }}>
+          {(open.error as Error).message}
         </span>
-      </summary>
-      <div className="mt-3 grid gap-2">
-        <textarea
-          className="btn min-h-[140px] text-[14px] leading-relaxed"
-          placeholder="Your age, where you live, your work, your goals, health facts that matter, your budget, what you like…"
-          value={shown}
-          onChange={(e) => setText(e.target.value)}
-        />
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[12.5px]" style={{ color: "var(--muted)" }}>
-            Kept on this computer and read only by its model; never put into a web search. More files: research/context
-            in kestrel's data folder (.md or .txt).
-          </span>
-          <button
-            type="button"
-            className="btn btn-primary ml-auto"
-            disabled={text === null || save.isPending}
-            onClick={() => save.mutate()}
-          >
-            {save.isPending ? "Saving…" : "Save"}
-          </button>
-        </div>
-        {(context?.files.length ?? 0) > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {context?.files.map((f) => (
-              <span key={f.name} className="chip tone-purple">
-                {f.name}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-    </details>
+      )}
+    </section>
   );
 }

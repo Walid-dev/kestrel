@@ -5,7 +5,7 @@
 // each save kept as a version. Each try keeps its folder: the letter, the posting, the PDF, the voice it was written with.
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { callModel } from "../ai/client.ts";
@@ -230,6 +230,15 @@ export function getLetter(db: DatabaseSync, id: string) {
   const dir = join(dataDir(), "letters", String(r.id));
   const voice = existsSync(join(dir, "voice.md")) ? readFileSync(join(dir, "voice.md"), "utf8") : "";
   return { ...r, notes: JSON.parse(String(r.notes)) as Record<string, unknown>, voice };
+}
+
+// a try I don't want, gone with its folder (its PDF and the voice it read); one still writing stays until it ends
+export function deleteLetter(db: DatabaseSync, id: string): void {
+  const r = db.prepare("SELECT state FROM letters WHERE id = ?").get(id) as { state: string } | undefined;
+  if (!r || !ID.test(id)) throw new Refused("no such try");
+  if (r.state === "running") throw new Refused("this try is still being written: delete it once it ends");
+  db.prepare("DELETE FROM letters WHERE id = ?").run(id);
+  rmSync(join(dataDir(), "letters", id), { recursive: true, force: true });
 }
 
 // the PDF of one try, or null: the id is checked, the file is the one the PDF tool made in the try's own folder

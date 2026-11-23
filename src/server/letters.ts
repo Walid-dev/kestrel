@@ -8,6 +8,7 @@ import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import { z } from "zod";
 import {
+  deleteLetter,
   getLetter,
   labMissing,
   letterJobs,
@@ -64,6 +65,14 @@ export function mountLetters(app: Hono, db: DatabaseSync, settings: Settings) {
   app.get("/api/letters/:id", (c) => {
     const r = getLetter(db, c.req.param("id"));
     return r ? c.json(r) : c.json({ error: "no such try" }, 404);
+  });
+  app.delete("/api/letters/:id", (c) => {
+    try {
+      deleteLetter(db, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (e) {
+      return refusing(c, e);
+    }
   });
   app.get("/api/letters/:id/pdf", (c) => {
     const file = letterPdf(c.req.param("id"));

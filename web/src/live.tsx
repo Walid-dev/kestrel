@@ -8,6 +8,7 @@ import { useNavigate } from "react-router";
 import { onComputer, useChatLink } from "./chats.tsx";
 import { useEvents } from "./events.ts";
 import { ListingSheet } from "./search/sheet.tsx";
+import { QueueLine, StopChat } from "./stop.tsx";
 
 type Item = {
   id: string;
@@ -44,7 +45,7 @@ type AgentChat = {
   steps: ChatStep[];
   job: { title?: string; company?: string } | null;
 };
-type Live = { at: string; now: Item[]; apps: App[]; chats?: AgentChat[]; recent: Item[] };
+type Live = { at: string; now: Item[]; apps: App[]; chats?: AgentChat[]; paused?: boolean | null; recent: Item[] };
 
 // one line per step, as the old Live has it: a green check for a step that went through, red with its error for one
 // that failed, amber for a question or a wait on me, the agent's own words quiet, the last step turning while it works
@@ -106,7 +107,8 @@ function AgentSteps({ chat }: { chat: AgentChat }) {
   );
 }
 
-// a chat's state in words, with the way to open it: on a computer in dsh itself, on a phone in kestrel's Chat
+// a chat's state in words, with the way to open it (on a computer in dsh itself, on a phone in kestrel's Chat) and to
+// stop it while it works or waits
 function ChatState({ chat, open }: { chat: AgentChat; open: (id: string) => void }) {
   return (
     <div className="flex flex-wrap items-center gap-2 text-[13px]">
@@ -130,6 +132,7 @@ function ChatState({ chat, open }: { chat: AgentChat; open: (id: string) => void
       <button type="button" className="btn btn-quiet ml-auto" onClick={() => open(chat.id)}>
         Open the chat
       </button>
+      {(chat.working || chat.waiting) && <StopChat chat={chat.id} applying={chat.applying} />}
     </div>
   );
 }
@@ -332,6 +335,7 @@ export function LivePage() {
 
       {view === "now" && d && (
         <>
+          <QueueLine queued={d.apps.filter((a) => a.state === "queued").length} paused={d.paused} />
           {busy === 0 && d.apps.length === 0 && (
             <section className="grid justify-items-center gap-2 py-10 text-center">
               <h2 className="font-cond m-0 text-[26px] font-bold">Nothing is running right now</h2>

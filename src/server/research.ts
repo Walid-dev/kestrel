@@ -4,12 +4,13 @@ import type { DatabaseSync } from "node:sqlite";
 import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import { z } from "zod";
-import { Refused } from "../domain/notes/documents.ts";
+import { openFile, Refused } from "../domain/notes/documents.ts";
 import {
   askFirst,
   deleteResearch,
   getResearch,
   listResearch,
+  makeAbout,
   researchContext,
   saveAbout,
   startResearch,
@@ -50,12 +51,21 @@ export function mountResearch(app: Hono, db: DatabaseSync, settings: Settings) {
       throw e;
     }
   });
-  // what it knows about me: About me, and the files in the context folder
+  // what it knows about me: About me, and the files in the context folder; the PUT keeps answers I chose to keep
   app.get("/api/research/context", (c) => c.json(researchContext()));
   app.put("/api/research/context", zValidator("json", z.object({ about: z.string().max(20_000) })), (c) => {
     try {
       saveAbout(c.req.valid("json").about);
       return c.json({ ok: true });
+    } catch (e) {
+      if (e instanceof Refused) return c.json({ error: e.message }, 400);
+      throw e;
+    }
+  });
+  // About me, opened in Notes to write it (every save kept as a version)
+  app.post("/api/research/about/open", (c) => {
+    try {
+      return c.json(openFile(db, settings, makeAbout()));
     } catch (e) {
       if (e instanceof Refused) return c.json({ error: e.message }, 400);
       throw e;

@@ -1,5 +1,6 @@
 // The quiz: questions from my lessons, the lessons' own Check yourself first (instant, no model); a lesson without one
-// gets a question the model writes. I answer in my words; the model marks the meaning and says why. What I missed in
+// gets a question the model writes, and a quiz of new questions has the model write each one, away from the lesson's
+// own. I answer in my words; the model marks the meaning and says why. What I missed in
 // the last two weeks comes back first, then what is due for review, then the rest at random. After each question, an
 // explanation: a small lesson written once by the local model (its own pick, the fast one unless I change it) and kept.
 // A quiz is kept as I take it — its questions, my answers and marks, the question I'm on — so leaving loses nothing,
@@ -21,7 +22,7 @@ export type QuizItem = { lesson: string; title: string; packName: string; q: str
 
 export function pickQuiz(
   db: DatabaseSync,
-  opts: { area: Area; pack?: string; group?: string; count: number },
+  opts: { area: Area; pack?: string; group?: string; count: number; fresh?: boolean },
   now: Date,
   random: () => number = Math.random,
 ): QuizItem[] {
@@ -55,14 +56,15 @@ export function pickQuiz(
   const ranked = rows
     .map((r) => {
       const checks = (JSON.parse(r.body) as Partial<LessonBody>).check ?? [];
-      // a lesson with its own check first; among them, missed, then due, then the rest, each at random within
-      const tier = (checks.length ? 0 : 3) + (r.missed > 0 ? 0 : r.due && r.due <= nowIso ? 1 : 2);
+      // a lesson with its own check first (new questions: any lesson); among them, missed, then due, then the rest,
+      // each at random within
+      const tier = (checks.length || opts.fresh ? 0 : 3) + (r.missed > 0 ? 0 : r.due && r.due <= nowIso ? 1 : 2);
       return { r, checks, rank: tier + random() * 0.9 };
     })
     .sort((a, b) => a.rank - b.rank)
     .slice(0, Math.max(1, Math.min(30, opts.count)));
   return ranked.map(({ r, checks }) => {
-    const c = checks.length ? checks[Math.floor(random() * checks.length)] : null;
+    const c = checks.length && !opts.fresh ? checks[Math.floor(random() * checks.length)] : null;
     return { lesson: r.id, title: r.title, packName: r.packName, q: c?.q ?? null, a: c?.a ?? null };
   });
 }
@@ -92,7 +94,12 @@ export async function makeQuestion(
     {
       model,
       system: SYSTEM,
-      prompt: makePrompt(lesson.title, textOf(lesson.body), mineOf(db, lesson.pack)),
+      prompt: makePrompt(
+        lesson.title,
+        textOf(lesson.body),
+        mineOf(db, lesson.pack),
+        (lesson.body.check ?? []).map((c) => c.q),
+      ),
       maxTokens: 800,
       thinking: true,
     },
@@ -258,7 +265,7 @@ const save = (db: DatabaseSync, id: string, what: "items" | "answers", value: un
 // a new quiz from the lessons: picked as pickQuiz picks, kept at once
 export function startQuiz(
   db: DatabaseSync,
-  opts: { area: Area; pack?: string; group?: string; count: number },
+  opts: { area: Area; pack?: string; group?: string; count: number; fresh?: boolean },
   now: Date = new Date(),
   random: () => number = Math.random,
 ): Quiz {
