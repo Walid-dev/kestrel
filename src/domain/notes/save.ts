@@ -1,12 +1,13 @@
 // Save writes the real file, but only if its bytes haven't changed since the draft was made: another tool may have
 // touched it. It writes a sibling file and swaps it in, keeping the permissions, the encoding (BOM), the line endings
 // and the final newline. The previous version is kept once for Undo, and the notes the saved changes answered move to
-// Done. An upload has no file: its kept text is the original, saved in place.
+// Done. An upload has no file: its kept text is the original, saved in place. My own edit, typed in the editor, saves
+// the same way (saveText).
 import { createHash, randomUUID } from "node:crypto";
 import { chmodSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
-import { Refused } from "./documents.ts";
+import { MAX_BYTES, Refused } from "./documents.ts";
 import { getDraft } from "./drafts.ts";
 
 type DocRow = {
@@ -121,6 +122,57 @@ export function undoSave(db: DatabaseSync, documentId: string): { where: string 
     documentId,
   );
   return { where };
+}
+
+// the document changed in kestrel since the editor opened it (another device, a draft's save, a restore): the
+// refusal carries the newer revision, so my words can still be saved over it on purpose
+export class Changed extends Refused {
+  rev: string;
+  constructor(message: string, rev: string) {
+    super(message);
+    this.rev = rev;
+  }
+}
+
+// my own edit, typed in the editor: written like a draft's save (the file's BOM, line endings and final newline back
+// on; a file changed outside kestrel is never overwritten), the words it replaces kept as a version and for Undo.
+// rev is the revision the editor started from (DocumentFull.rev).
+export function saveText(
+  db: DatabaseSync,
+  documentId: string,
+  given: string,
+  rev: string,
+): { where: string; rev: string } {
+  const doc = db.prepare("SELECT * FROM documents WHERE id = ?").get(documentId) as DocRow | undefined;
+  if (!doc) throw new Refused("no such document");
+  if (doc.sha256 !== rev)
+    throw new Changed("the document changed since you started editing; your words are still here", doc.sha256);
+  const text = given.replaceAll("\r\n", "\n"); // kept as LF, like every document; the file gets its own endings back
+  if (Buffer.byteLength(text, "utf8") > MAX_BYTES) throw new Refused(`bigger than ${MAX_BYTES / 1024} KB`);
+  const where = doc.source === "file" && doc.path ? doc.path : "the upload, kept in kestrel";
+  if (text === doc.text) return { where, rev: doc.sha256 }; // nothing changed: no version, no write
+  let sha = hash(Buffer.from(text, "utf8"));
+  if (doc.source === "file" && doc.path) {
+    let now: Buffer;
+    try {
+      now = readFileSync(doc.path);
+    } catch {
+      throw new Refused(`the file is gone: ${doc.path}`);
+    }
+    if (hash(now) !== doc.sha256)
+      throw new Refused("the file changed outside kestrel: copy your words, open the file again, then save");
+    const out = encode(text, doc);
+    writeBeside(doc.path, out);
+    sha = hash(out);
+  }
+  keepVersion(db, documentId, doc.text);
+  db.prepare("UPDATE documents SET previous_text = ?, text = ?, sha256 = ? WHERE id = ?").run(
+    doc.text,
+    text,
+    sha,
+    documentId,
+  );
+  return { where, rev: sha };
 }
 
 // the words a save or a restore replaces, kept: any earlier version can come back

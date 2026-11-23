@@ -8,7 +8,8 @@ export type DocumentMeta = {
   chars: number;
   addedAt: string;
 };
-export type DocumentFull = DocumentMeta & { text: string; previous: boolean };
+// rev: the text's revision (its hash); an edit saves only over the revision it started from
+export type DocumentFull = DocumentMeta & { text: string; previous: boolean; rev: string };
 
 export type Note = {
   id: string;

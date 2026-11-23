@@ -50,4 +50,9 @@ test("a sentence the PDF broke across lines runs on again; a heading, a bullet a
     ),
     "SUMMARY\nKeeper with five years on a hive, building it from every side.\nWorks with (Wax, Comb Honey) daily.\n- Ran 40 hives",
   );
+  // a line that starts with a web address is a line of its own, lower case or not
+  assert.equal(
+    reflow("Head Keeper · Lisbon\nexample.org/robin · on request"),
+    "Head Keeper · Lisbon\nexample.org/robin · on request",
+  );
 });

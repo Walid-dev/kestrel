@@ -224,7 +224,7 @@ export function listDocuments(db: DatabaseSync): DocumentMeta[] {
 
 export function getDocument(db: DatabaseSync, id: string): DocumentFull | null {
   const r = db.prepare("SELECT * FROM documents WHERE id = ?").get(id) as Record<string, unknown> | undefined;
-  return r ? { ...meta(r), text: String(r.text), previous: r.previous_text != null } : null;
+  return r ? { ...meta(r), text: String(r.text), previous: r.previous_text != null, rev: String(r.sha256) } : null;
 }
 
 // forget a document: its notes go with it (the table cascades); a file stays in its folder, an upload is gone
