@@ -27,8 +27,9 @@ export function gradeLesson(
 // I graded whose review date has come. One never graded is new, not due: unread is not "to review" (the brief,
 // 2026-11-21). In SQL, with the lesson's review row as r and the time as its argument:
 export const DUE = "(r.due IS NOT NULL AND r.due <= ?)";
-// a new lesson Practice can ask: never graded, and with a check question
-const NEW_WITH_CHECK = `(r.lesson IS NULL AND l.body LIKE '%"check":[{%')`;
+// a lesson Practice can ask has a check question; a guide (read, then marked Done) has none, so Practice skips it
+const HAS_CHECK = `l.body LIKE '%"check":[{%'`;
+const NEW_WITH_CHECK = `(r.lesson IS NULL AND ${HAS_CHECK})`;
 const FROM_AREA =
   "FROM lessons l JOIN packs p ON p.id = l.pack LEFT JOIN reviews r ON r.lesson = l.id WHERE p.area = ?";
 
@@ -41,13 +42,13 @@ export function countDue(db: DatabaseSync, area: "learn" | "interview", now: Dat
   return (db.prepare(`SELECT COUNT(*) AS n ${FROM_AREA} AND ${DUE}`).get(area, now.toISOString()) as { n: number }).n;
 }
 
-// an area's lessons whose review date has come, the longest waiting first (the area filters before the limit, so
-// another area's many never crowd it out)
+// an area's due lessons Practice can ask, the longest waiting first (the area and the check filter before the limit,
+// so another area's many, or many due guides, never crowd them out)
 export function dueLessons(db: DatabaseSync, area: "learn" | "interview", now: Date, limit = 20): string[] {
   return (
-    db.prepare(`SELECT l.id ${FROM_AREA} AND ${DUE} ORDER BY r.due LIMIT ?`).all(area, now.toISOString(), limit) as {
-      id: string;
-    }[]
+    db
+      .prepare(`SELECT l.id ${FROM_AREA} AND ${DUE} AND ${HAS_CHECK} ORDER BY r.due LIMIT ?`)
+      .all(area, now.toISOString(), limit) as { id: string }[]
   ).map((r) => r.id);
 }
 
@@ -60,20 +61,24 @@ export function neverGraded(db: DatabaseSync, area: "learn" | "interview", limit
   ).map((r) => r.id);
 }
 
-// Practice: the due lessons, then the new ones it can ask, and how many of each there are in all
+// Practice: the due lessons it can ask, then the new ones it can ask, and how many of each there are in all. The due
+// lessons without a question (reread) are the rest of countDue: due + reread is the one "due" every screen shows.
 export function practiceList(
   db: DatabaseSync,
   area: "learn" | "interview",
   now: Date,
   limit = 20,
-): { ids: string[]; due: number; fresh: number } {
-  const due = dueLessons(db, area, now, limit);
-  const fresh = (
-    db.prepare(`SELECT COUNT(*) AS n ${FROM_AREA} AND ${NEW_WITH_CHECK}`).get(area) as {
-      n: number;
-    }
-  ).n;
-  return { ids: [...due, ...neverGraded(db, area, limit - due.length)], due: countDue(db, area, now), fresh };
+): { ids: string[]; due: number; fresh: number; reread: number } {
+  const ids = dueLessons(db, area, now, limit);
+  const count = (where: string, ...args: string[]) =>
+    (db.prepare(`SELECT COUNT(*) AS n ${FROM_AREA} AND ${where}`).get(area, ...args) as { n: number }).n;
+  const due = count(`${DUE} AND ${HAS_CHECK}`, now.toISOString());
+  return {
+    ids: [...ids, ...neverGraded(db, area, limit - ids.length)],
+    due,
+    fresh: count(NEW_WITH_CHECK),
+    reread: countDue(db, area, now) - due,
+  };
 }
 
 export type LessonState = "due" | "new" | "learning" | "known";

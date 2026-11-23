@@ -72,3 +72,28 @@ test("due is one number on the front page, the pack pills, the quiz, Practice an
   );
   assert.ok(morningBrief(db, new Date(now)).includes("3 lessons are up for review today."));
 });
+
+test("Practice asks the lesson it can when 20 due guides, without a question, come first (review)", async () => {
+  const { db, get } = setup();
+  const review = db.prepare("INSERT INTO reviews (lesson, due, interval_days, ease, level) VALUES (?, ?, 1, 2.5, 1)");
+  const guides = addPack(db, "Made-up guide");
+  for (let i = 0; i < 20; i++) {
+    addLesson(db, guides, `Made-up part ${i}`, { say: ["Read me."] }, i, `part-${i}`);
+    review.run(`part-${i}`, "2026-01-01T00:00:00.000Z"); // waited longest
+  }
+  const pack = addPack(db, "Made-up queues");
+  addLesson(db, pack, "What a queue is", CHECK, 0, "queue");
+  addLesson(db, pack, "What a burst is", CHECK, 1, "burst"); // never graded
+  review.run("queue", "2026-02-01T00:00:00.000Z");
+  const overview = await get<{ summary: { due: number } }>("/api/learn/overview?area=learn");
+  const practice = await get<{ lessons: { id: string }[]; due: number; new: number; reread: number }>(
+    "/api/learn/due?area=learn",
+  );
+  assert.deepEqual(
+    practice.lessons.map((l) => l.id),
+    ["queue", "burst"],
+  );
+  // Practice counts what it can ask; the guides due are the rest of the one number, read again on Learn
+  assert.deepEqual([practice.due, practice.new, practice.reread], [1, 1, 20]);
+  assert.equal(practice.due + practice.reread, overview.summary.due);
+});

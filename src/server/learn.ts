@@ -180,7 +180,7 @@ export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
     (c) => {
       const got = practiceList(db, c.req.valid("query").area, new Date());
       const lessons = got.ids.map((id) => getLesson(db, id)).filter((l) => l !== null);
-      return c.json({ lessons, due: got.due, new: got.fresh });
+      return c.json({ lessons, due: got.due, new: got.fresh, reread: got.reread });
     },
   );
   app.post(
