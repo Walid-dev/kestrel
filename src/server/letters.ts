@@ -2,6 +2,7 @@
 // written for, a try (a cover letter, an answer or any text; it runs in the background and Live follows it), the
 // tries, one try whole, and a letter's PDF.
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
@@ -13,11 +14,10 @@ import {
   letterPdf,
   listLetters,
   readFiles,
-  saveFile,
   startLetter,
   sweepLetters,
 } from "../domain/letters.ts";
-import { Refused } from "../domain/notes/documents.ts";
+import { openFile, Refused } from "../domain/notes/documents.ts";
 import type { Settings } from "../platform/config.ts";
 
 export function mountLetters(app: Hono, db: DatabaseSync, settings: Settings) {
@@ -30,12 +30,12 @@ export function mountLetters(app: Hono, db: DatabaseSync, settings: Settings) {
     const missing = labMissing(settings);
     return c.json(missing ? { ready: false, why: missing } : { ready: true, ...readFiles(settings) });
   });
-  app.put("/api/letters/files/:which", zValidator("json", z.object({ text: z.string().max(400_000) })), (c) => {
+  // my voice and stories open in Notes, where they are reworked and every save is kept as a version
+  app.post("/api/letters/files/:which/open", (c) => {
     const which = c.req.param("which");
     if (which !== "voice" && which !== "stories") return c.json({ error: "only the voice and the stories" }, 400);
     try {
-      saveFile(settings, which, c.req.valid("json").text);
-      return c.json({ ok: true });
+      return c.json(openFile(db, settings, join(settings.apply.folder, `${which}.md`)));
     } catch (e) {
       return refusing(c, e);
     }

@@ -2,7 +2,7 @@
 // touched it. It writes a sibling file and swaps it in, keeping the permissions, the encoding (BOM), the line endings
 // and the final newline. The previous version is kept once for Undo, and the notes the saved changes answered move to
 // Done. An upload has no file: its kept text is the original, saved in place.
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { chmodSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
@@ -75,6 +75,7 @@ export function saveDraft(db: DatabaseSync, draftId: string, documentId: string)
     newSha = hash(Buffer.from(result.newText, "utf8"));
     where = "the upload, kept in kestrel";
   }
+  keepVersion(db, documentId, doc.text);
   db.prepare("UPDATE documents SET previous_text = ?, text = ?, sha256 = ? WHERE id = ?").run(
     doc.text,
     result.newText,
@@ -113,8 +114,65 @@ export function undoSave(db: DatabaseSync, documentId: string): { where: string 
     sha = hash(out);
     where = doc.path;
   }
+  keepVersion(db, documentId, doc.text);
   db.prepare("UPDATE documents SET text = ?, previous_text = NULL, sha256 = ? WHERE id = ?").run(
     doc.previous_text,
+    sha,
+    documentId,
+  );
+  return { where };
+}
+
+// the words a save or a restore replaces, kept: any earlier version can come back
+function keepVersion(db: DatabaseSync, documentId: string, text: string): void {
+  db.prepare("INSERT INTO document_versions (id, document_id, text, saved_at) VALUES (?, ?, ?, ?)").run(
+    randomUUID(),
+    documentId,
+    text,
+    new Date().toISOString(),
+  );
+}
+
+export type Version = { id: string; savedAt: string; chars: number; start: string };
+
+// a document's earlier versions, the newest first: when each was replaced, its length and how it starts
+export function listVersions(db: DatabaseSync, documentId: string): Version[] {
+  return (
+    db
+      .prepare("SELECT id, saved_at, text FROM document_versions WHERE document_id = ? ORDER BY saved_at DESC LIMIT 50")
+      .all(documentId) as { id: string; saved_at: string; text: string }[]
+  ).map((v) => ({ id: v.id, savedAt: v.saved_at, chars: v.text.length, start: v.text.slice(0, 120) }));
+}
+
+// an earlier version back in its place, the current words kept as a version first; a file changed outside kestrel
+// since it was opened is never overwritten (as for Undo)
+export function restoreVersion(db: DatabaseSync, documentId: string, versionId: string): { where: string } {
+  const doc = db.prepare("SELECT * FROM documents WHERE id = ?").get(documentId) as DocRow | undefined;
+  if (!doc) throw new Refused("no such document");
+  const v = db
+    .prepare("SELECT text FROM document_versions WHERE id = ? AND document_id = ?")
+    .get(versionId, documentId) as { text: string } | undefined;
+  if (!v) throw new Refused("no such version");
+  let where = "the upload, kept in kestrel";
+  let sha = hash(Buffer.from(v.text, "utf8"));
+  if (doc.source === "file" && doc.path) {
+    let now: Buffer;
+    try {
+      now = readFileSync(doc.path);
+    } catch {
+      throw new Refused(`the file is gone: ${doc.path}`);
+    }
+    if (hash(now) !== doc.sha256)
+      throw new Refused("the file changed outside kestrel: open it again before restoring a version");
+    const out = encode(v.text, doc);
+    writeBeside(doc.path, out);
+    sha = hash(out);
+    where = doc.path;
+  }
+  keepVersion(db, documentId, doc.text);
+  db.prepare("UPDATE documents SET previous_text = ?, text = ?, sha256 = ? WHERE id = ?").run(
+    doc.text,
+    v.text,
     sha,
     documentId,
   );

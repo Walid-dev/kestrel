@@ -495,14 +495,14 @@ function Answer({ text, writing }: { text: string; writing: boolean }) {
             return <Code key={key} text={p.text} />;
           case "flow":
             return (
-              <figure key={key} className={`ask-flow ${p.steps.length <= 4 ? "ask-flow-row" : ""}`}>
+              <figure key={key} className="ask-flow">
                 {p.title && <figcaption className="eyebrow">{p.title}</figcaption>}
                 <ol>
                   {p.steps.map((st, j) => (
                     // biome-ignore lint/suspicious/noArrayIndexKey: a drawing's steps are fixed once written
                     <li key={j}>
-                      <span className="ask-mark">{j + 1}</span>
-                      <span className="min-w-0">
+                      <span className="ask-step">{j + 1}</span>
+                      <span className="min-w-0 pt-0.5">
                         <Inline text={st} />
                       </span>
                     </li>

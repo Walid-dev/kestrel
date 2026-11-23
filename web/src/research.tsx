@@ -347,9 +347,9 @@ function ReportView({ id, onBack }: { id: string; onBack: () => void }) {
   };
   return (
     <Cites.Provider value={cites}>
-      <main className="grid max-w-3xl gap-4">
+      <main className="mx-auto grid w-full max-w-6xl gap-5">
         {back}
-        <article className="grid gap-4">
+        <article className="grid gap-5">
           <div className="grid gap-2">
             <span className="eyebrow">
               Research · {r.level === "deep" ? "Deep" : "Quick"} · {when(r.started)}
@@ -390,47 +390,54 @@ function ReportView({ id, onBack }: { id: string; onBack: () => void }) {
               Slow
             </button>
           </div>
-          <section className="card grid gap-3 text-[16px] leading-relaxed">{body}</section>
-          {words.length > 0 && (
-            <section className="card grid gap-1.5">
-              <span className="eyebrow" style={{ color: "var(--accent)" }}>
-                {wordsHead}
-              </span>
-              {words}
-            </section>
-          )}
-          {rep.unsure.length > 0 && (
-            <section className="callout grid gap-1">
-              <span className="eyebrow" style={{ color: "var(--accent)" }}>
-                Not settled
-              </span>
-              {rep.unsure.map((u) => (
-                <p key={u} className="m-0">
-                  {u}
-                </p>
-              ))}
-            </section>
-          )}
-          {used.length > 0 && (
-            <section className="grid gap-1.5">
-              <span className="eyebrow">Sources</span>
-              {used.map((s) => (
-                <a
-                  key={s.n}
-                  href={s.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex min-w-0 items-baseline gap-2 text-[14px] hover:underline"
-                  style={{ color: "var(--accent)" }}
-                >
-                  <span className="cite !ml-0 shrink-0">{host(s.url)}</span>
-                  <span className="truncate" style={{ color: "var(--text)" }}>
-                    {s.title || s.url}
+          {/* the report and, beside it on a computer, its words, what it wasn't sure of and its sources */}
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+            <section className="card grid gap-3 !p-5 text-[16.5px] leading-relaxed md:!p-6">{body}</section>
+            <aside className="grid gap-4 lg:sticky lg:top-6">
+              {words.length > 0 && (
+                <section className="card grid gap-1.5 !p-4">
+                  <span className="eyebrow" style={{ color: "var(--accent)" }}>
+                    {wordsHead}
                   </span>
-                </a>
-              ))}
-            </section>
-          )}
+                  {words}
+                </section>
+              )}
+              {rep.unsure.length > 0 && (
+                <section className="callout grid gap-1">
+                  <span className="eyebrow" style={{ color: "var(--accent)" }}>
+                    Not settled
+                  </span>
+                  {rep.unsure.map((u) => (
+                    <p key={u} className="m-0">
+                      {u}
+                    </p>
+                  ))}
+                </section>
+              )}
+              {used.length > 0 && (
+                <section className="card grid gap-1.5 !p-4">
+                  <h3 className="font-cond m-0 mb-1 text-[17px] font-bold" style={{ color: "var(--strong)" }}>
+                    Sources
+                  </h3>
+                  {used.map((s) => (
+                    <a
+                      key={s.n}
+                      href={s.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex min-w-0 items-baseline gap-2 rounded-xl px-3 py-2 text-[14px] hover:underline"
+                      style={{ color: "var(--accent)", background: "var(--surface-2)" }}
+                    >
+                      <span className="cite !ml-0 shrink-0">{host(s.url)}</span>
+                      <span className="truncate" style={{ color: "var(--text)" }}>
+                        {s.title || s.url}
+                      </span>
+                    </a>
+                  ))}
+                </section>
+              )}
+            </aside>
+          </div>
           <p className="m-0 text-[12.5px]" style={{ color: "var(--muted)" }}>
             Written by {rep.model} from {rep.read.length} pages it read.{" "}
             <button

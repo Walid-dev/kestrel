@@ -9,7 +9,7 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { migrate } from "../../db/migrate.ts";
 import { addUpload, getDocument, Refused } from "./documents.ts";
-import { isPdf, readPdf } from "./pdf.ts";
+import { isPdf, readPdf, reflow } from "./pdf.ts";
 
 function reader(body: string): string {
   const dir = mkdtempSync(join(tmpdir(), "kestrel-reader-"));
@@ -41,4 +41,13 @@ test("the PDF's text lands as a document keeping its .pdf name; a PDF's bytes se
   assert.equal(getDocument(db, doc.id)?.text, "Made-up CV"); // the final newline is kept apart, as for any upload
   assert.equal(doc.name, "cv.pdf");
   assert.throws(() => addUpload(db, "other.pdf", PDF), /not a text format/);
+});
+
+test("a sentence the PDF broke across lines runs on again; a heading, a bullet and a new sentence stay apart", () => {
+  assert.equal(
+    reflow(
+      "SUMMARY\nKeeper with five years on a hive,\nbuilding it from\nevery side.\nWorks with (Wax, Comb\nHoney) daily.\n- Ran 40 hives",
+    ),
+    "SUMMARY\nKeeper with five years on a hive, building it from every side.\nWorks with (Wax, Comb Honey) daily.\n- Ran 40 hives",
+  );
 });

@@ -1,21 +1,11 @@
 // Writing: a text for a real job, written the way an application writes it (the apply skill's own step for its texts,
 // my voice, my stories, the posting) — a cover letter, the answer to a form's question, or any text I describe — then
 // checked with the applications' own check — each problem it names goes back to the model to fix, twice at most — and,
-// for a letter, laid out with the applications' own PDF tool, so what I see here is what an employer would get. My voice and stories are edited here: each save keeps the previous version
-// in the data folder. Each try keeps its folder: the letter, the posting, the PDF, the voice it was written with.
+// for a letter, laid out with the applications' own PDF tool, so what I see here is what an employer would get. My voice and stories are reworked in Notes,
+// each save kept as a version. Each try keeps its folder: the letter, the posting, the PDF, the voice it was written with.
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import {
-  chmodSync,
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  renameSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { callModel } from "../ai/client.ts";
@@ -63,20 +53,6 @@ export function readFiles(settings: Settings): { voice: string; stories: string 
   if (missing) throw new Refused(missing);
   const read = (f: string) => readFileSync(join(settings.apply.folder, f), "utf8");
   return { voice: read(FILES.voice), stories: read(FILES.stories) };
-}
-
-// a save keeps the file's previous words in the data folder first, then replaces it whole, its mode kept
-export function saveFile(settings: Settings, which: Editable, text: string, now = new Date()): void {
-  const missing = labMissing(settings);
-  if (missing) throw new Refused(missing);
-  if (text.trim().length < 20) throw new Refused("that would empty the file: keep its words");
-  const file = join(settings.apply.folder, FILES[which]);
-  const history = join(dataDir(), "letters", "history");
-  mkdirSync(history, { recursive: true });
-  copyFileSync(file, join(history, `${which}-${now.toISOString().replaceAll(":", "-")}.md`));
-  writeFileSync(`${file}.tmp`, text.endsWith("\n") ? text : `${text}\n`);
-  chmodSync(`${file}.tmp`, statSync(file).mode & 0o777);
-  renameSync(`${file}.tmp`, file);
 }
 
 // one of the applications' tools: its exit code and everything it said

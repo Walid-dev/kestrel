@@ -75,6 +75,10 @@ const modelOf = (db: DatabaseSync, settings: Settings) => {
 };
 
 // a question for a lesson that has none of its own
+// a lesson of my own packs (the Personal group) may speak of my setup; every other teaches the field
+const mineOf = (db: DatabaseSync, pack: string) =>
+  (db.prepare("SELECT grp FROM packs WHERE id = ?").get(pack) as { grp: string } | undefined)?.grp === "Personal";
+
 export async function makeQuestion(
   db: DatabaseSync,
   settings: Settings,
@@ -85,7 +89,13 @@ export async function makeQuestion(
   const { model, effective } = modelOf(db, settings);
   const got = await callModel(
     effective,
-    { model, system: SYSTEM, prompt: makePrompt(lesson.title, textOf(lesson.body)), maxTokens: 800, thinking: true },
+    {
+      model,
+      system: SYSTEM,
+      prompt: makePrompt(lesson.title, textOf(lesson.body), mineOf(db, lesson.pack)),
+      maxTokens: 800,
+      thinking: true,
+    },
     Made,
   );
   recordCall(db, `quiz-make:v${QUIZ_VERSION}`, got);
@@ -159,12 +169,15 @@ export async function explainAnswer(
     {
       model,
       system: SYSTEM,
-      prompt: explainPrompt({
-        title: lesson.title,
-        question: input.question,
-        expected: input.expected,
-        lesson: textOf(lesson.body),
-      }),
+      prompt: explainPrompt(
+        {
+          title: lesson.title,
+          question: input.question,
+          expected: input.expected,
+          lesson: textOf(lesson.body),
+        },
+        mineOf(db, lesson.pack),
+      ),
       // room to think and to write a rich answer: a short one is what this replaces
       maxTokens: 8000,
       thinking: true,

@@ -33,14 +33,30 @@ export async function readPdf(bytes: Buffer, reader = READER): Promise<string> {
     );
     if (got.code === 2) throw new Refused("this file isn't a PDF the computer can read");
     if (got.code !== 0) throw new Refused("the PDF reader stopped before it finished: try again");
-    const text = got.text
-      .replaceAll("\r", "")
-      .replace(/[ \t]+\n/g, "\n")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
+    const text = reflow(
+      got.text
+        .replaceAll("\r", "")
+        .replace(/[ \t]+\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim(),
+    );
     if (!text) throw new Refused("this PDF has no text to read: a scan holds only pictures of its pages");
     return `${text}\n`;
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+}
+
+// a PDF breaks its sentences where its lines end: a line runs on into the next when that one starts in lower case,
+// or when it left a bracket open ("(React, React Native" / "Web), …"); a heading, a bullet or a new sentence stays
+export function reflow(text: string): string {
+  const out: string[] = [];
+  for (const line of text.split("\n")) {
+    const prev = out.at(-1);
+    const open = prev !== undefined && (prev.match(/\(/g)?.length ?? 0) > (prev.match(/\)/g)?.length ?? 0);
+    if (prev && line && (/^[a-z]/.test(line) || open) && !/^[-•*]\s/.test(line))
+      out[out.length - 1] = `${prev} ${line}`;
+    else out.push(line);
+  }
+  return out.join("\n");
 }

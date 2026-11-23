@@ -9,18 +9,27 @@ const LESSON_CHARS = 24_000; // a long guide still leaves room for the conversat
 export function lessonPage(db: DatabaseSync, ref: string): AskPage | null {
   const lesson = getLesson(db, ref);
   if (!lesson) return null;
+  const group = (db.prepare("SELECT grp FROM packs WHERE id = ?").get(lesson.pack) as { grp: string } | undefined)?.grp;
   return lessonAskPage(
     { id: lesson.id, title: lesson.title, text: lessonText(lesson.body) },
     listLessons(db, lesson.pack).map((l) => ({ id: l.id, title: l.title })),
+    group === "Personal",
   );
 }
+
+// outside my own packs a lesson teaches the field, not my setup (my ask, 2026-11-23: "I'm here to learn real lessons")
+const FIELD =
+  "Teach the subject as the field knows it: the standard practice, the well-known tools and real examples from the industry. Don't bring my own setup, apps, models or projects into it unless I ask about them, even where the lesson mentions them.";
+const MINE = "This lesson is about my own setup: answer about it, and say plainly where the general practice differs.";
 
 // the page in words, from the lesson's lines and the pack's map (the eval builds it the same way)
 export function lessonAskPage(
   lesson: { id: string; title: string; text: string[] },
   map: { id: string; title: string }[],
+  mine = false,
 ): AskPage {
   return {
+    tools: mine ? MINE : FIELD,
     app: "learn",
     what: "a lesson I am reading in my learning app",
     title: lesson.title,

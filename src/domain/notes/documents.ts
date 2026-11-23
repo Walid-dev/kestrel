@@ -133,6 +133,19 @@ const meta = (r: Record<string, unknown>): DocumentMeta => ({
 
 // open a file from the folders: refused outside them (a symbolic link counts where it points), refused when not a
 // text format, too big, or not UTF-8; opening again refreshes the same document
+// my voice and my stories, the two files every application reads: Notes may open them wherever the applications'
+// folder is, so they are reworked there, every save kept as a version (Writing links here)
+export function writingFiles(settings: Settings): string[] {
+  if (!settings.apply.folder) return [];
+  return ["voice.md", "stories.md"].flatMap((f) => {
+    try {
+      return [realpathSync(join(expand(settings.apply.folder), f))];
+    } catch {
+      return [];
+    }
+  });
+}
+
 export function openFile(db: DatabaseSync, settings: Settings, path: string): DocumentMeta {
   const dirs = folders(settings);
   let real: string;
@@ -141,7 +154,7 @@ export function openFile(db: DatabaseSync, settings: Settings, path: string): Do
   } catch {
     throw new Refused("no such file");
   }
-  if (!dirs.some((d) => real === d || real.startsWith(d + sep)))
+  if (!dirs.some((d) => real === d || real.startsWith(d + sep)) && !writingFiles(settings).includes(real))
     throw new Refused("outside the folders Notes may open: list its folder in settings.json under notes.folders");
   const ext = extname(real).toLowerCase();
   if (BINARY_EXT.has(ext)) throw new Refused(`${ext} is not a text format`);

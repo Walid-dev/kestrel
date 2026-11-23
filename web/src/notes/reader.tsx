@@ -46,7 +46,8 @@ export function Reader() {
   const article = useRef<HTMLDivElement>(null);
   const [sheet, setSheet] = useState<SheetTarget | null>(null);
   const [speed, setSpeed] = useState<"careful" | "fast">("careful");
-  const [noteMode, setNoteMode] = useState(false);
+  // what I picked in the document, waiting for its note: the words, where they start, where the button shows
+  const [pick, setPick] = useState<{ quote: string; start: number; x: number; y: number; words: boolean } | null>(null);
   const [review, setReview] = useState(false);
   const [askWhy, setAskWhy] = useState("");
   // the last document opened is where Notes opens next time, on this device
@@ -175,31 +176,61 @@ export function Reader() {
     wasMaking.current = current?.status === "making";
   }, [current?.status]);
 
+  // picking words (or, on a phone, tapping a paragraph) shows a small "Note" button beside them; its tap opens the
+  // note. No mode to switch on first: selecting is how a note starts (my ask, 2026-11-23: selecting did nothing)
   const onSelect = (ev: React.MouseEvent | React.TouchEvent) => {
-    if (!noteMode) return;
     const sel = getSelection();
     const el = article.current;
     if (!sel || !el || !doc.data) return;
-    // a tap, no words selected: the paragraph under it (a mark keeps its own way). It is decided here, once — a click
-    // handler came after the note box took the focus, found the selection gone and swapped the words for the paragraph
+    const target = ev.target as HTMLElement;
+    if (target.closest("button")) return;
     if (sel.isCollapsed) {
-      const target = ev.target as HTMLElement;
-      if (target.closest("button")) return;
       const lineEl = target.closest("[data-at]") as HTMLElement | null;
       const ln = lineEl ? lines.find((x) => x.at === Number(lineEl.dataset.at)) : undefined;
-      if (ln && ln.text.trim() !== "") setSheet({ kind: "new", quote: ln.text, start: ln.at });
+      const touch = matchMedia("(pointer: coarse)").matches;
+      if (touch && lineEl && ln && ln.text.trim() !== "") {
+        const r = lineEl.getBoundingClientRect();
+        setPick({ quote: ln.text, start: ln.at, x: r.left + r.width / 2, y: r.bottom, words: false });
+      } else setPick(null);
       return;
     }
     const r = sel.getRangeAt(0);
     const a = offsetIn(el, r.startContainer, r.startOffset);
     const b = offsetIn(el, r.endContainer, r.endOffset);
-    if (a === null || b === null || a === b) return;
-    const [s, e] = a < b ? [a, b] : [b, a];
-    const quote = doc.data.text.slice(s, e);
-    if (quote.trim() === "") return;
-    // note mode is on: selecting words asks for the note at once
-    setSheet({ kind: "new", quote, start: s });
+    if (a === null || b === null || a === b) return setPick(null);
+    const [from, to] = a < b ? [a, b] : [b, a];
+    const quote = doc.data.text.slice(from, to);
+    if (quote.trim() === "") return setPick(null);
+    const box = r.getBoundingClientRect();
+    setPick({ quote, start: from, x: box.left + box.width / 2, y: box.bottom, words: true });
   };
+  // the button stays by the words only while they sit still
+  useEffect(() => {
+    if (!pick) return;
+    const hide = () => setPick(null);
+    window.addEventListener("scroll", hide, { passive: true });
+    return () => window.removeEventListener("scroll", hide);
+  }, [pick]);
+  const openNotes = (notes.data?.notes ?? []).filter((n) => n.state === "open").length;
+  const versions = useQuery({
+    queryKey: ["versions", id],
+    queryFn: async () => {
+      const res = await fetch(`/api/notes/documents/${id}/versions`);
+      if (!res.ok) throw new Error(`versions: ${res.status}`);
+      return (await res.json()) as { versions: { id: string; savedAt: string; chars: number; start: string }[] };
+    },
+  });
+  const restore = useMutation({
+    mutationFn: async (vid: string) => {
+      const res = await fetch(`/api/notes/documents/${id}/versions/${vid}/restore`, { method: "POST" });
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["doc", id] });
+      queryClient.invalidateQueries({ queryKey: ["notes", id] });
+      queryClient.invalidateQueries({ queryKey: ["versions", id] });
+    },
+  });
 
   if (doc.isError)
     return (
@@ -213,67 +244,48 @@ export function Reader() {
   if (!doc.data) return null;
   return (
     <main className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6">
-      <div className="mb-1 flex flex-wrap items-center gap-3 lg:col-start-1">
-        <Link to="/notes?list=1" className="btn">
-          Documents
+      <header className="mb-4 grid gap-2 lg:col-start-1">
+        <Link to="/notes?list=1" className="justify-self-start text-sm font-medium" style={{ color: "var(--accent)" }}>
+          ← All my documents
         </Link>
-        <p
-          className="font-mono min-w-0 flex-1 truncate text-[11px] uppercase tracking-[0.18em]"
-          style={{ color: "var(--muted)" }}
-        >
+        <span className="eyebrow">
+          {doc.data.source === "upload" ? "Uploaded to kestrel" : "A file on this computer"}
+          {doc.data.path ? ` · ${doc.data.path.split("/").slice(-2).join("/")}` : ""}
+        </span>
+        <h2 className="font-cond m-0 break-all text-[32px] font-bold leading-tight" style={{ color: "var(--strong)" }}>
           {doc.data.name}
+        </h2>
+        <p className="m-0 max-w-2xl text-[15px] leading-relaxed" style={{ color: "var(--muted)" }}>
+          Select words to leave a note on them. Your notes then become one edit, which you check before it is saved.
+          Every save keeps the previous version.
         </p>
-        {noteMode && (
-          <button type="button" className="btn" onClick={() => setSheet({ kind: "whole" })}>
-            Note on the document
-          </button>
-        )}
-        <button
-          type="button"
-          role="switch"
-          aria-checked={noteMode}
-          className="btn"
-          style={
-            noteMode
-              ? { background: "var(--accent-soft)", borderColor: "var(--accent)", color: "var(--accent)" }
-              : undefined
-          }
-          onClick={() => setNoteMode((v) => !v)}
-        >
-          {noteMode ? "Notes on" : "Notes off"}
-        </button>
-      </div>
-      {doc.data.path && (
-        <p className="font-mono mb-3 break-all text-[11px] lg:col-start-1" style={{ color: "var(--muted)" }}>
-          {doc.data.path}
-        </p>
-      )}
-      <div className="mb-3 flex flex-wrap items-center gap-2 lg:col-start-1">
+      </header>
+      <div className="mb-4 flex flex-wrap items-center gap-2 lg:col-start-1">
         {(!current || current.status === "failed") && (
           <>
-            <button type="button" className="btn btn-primary" disabled={ask.isPending} onClick={() => ask.mutate()}>
-              Ask for changes
-            </button>
-            <div
-              className="font-mono flex overflow-hidden rounded-full border text-xs"
-              style={{ borderColor: "var(--line)" }}
+            <button
+              type="button"
+              className="btn btn-primary btn-head"
+              disabled={ask.isPending || openNotes === 0}
+              title={openNotes === 0 ? "Leave a note first: select words in the document" : undefined}
+              onClick={() => ask.mutate()}
             >
-              {(["careful", "fast"] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  className="cursor-pointer px-3 py-1.5"
-                  style={
-                    speed === s
-                      ? { background: "var(--accent-soft)", color: "var(--accent)" }
-                      : { color: "var(--muted)" }
-                  }
-                  onClick={() => setSpeed(s)}
-                >
-                  {s}
+              {openNotes === 0
+                ? "Turn my notes into an edit"
+                : `Turn my ${openNotes} note${openNotes === 1 ? "" : "s"} into an edit`}
+            </button>
+            <fieldset className="seg seg-modes" aria-label="Which model writes the edit">
+              {(
+                [
+                  ["careful", "Careful"],
+                  ["fast", "Fast"],
+                ] as const
+              ).map(([k, label]) => (
+                <button key={k} type="button" aria-pressed={speed === k} onClick={() => setSpeed(k)}>
+                  {label}
                 </button>
               ))}
-            </div>
+            </fieldset>
           </>
         )}
         {current?.status === "making" && (
@@ -289,10 +301,13 @@ export function Reader() {
           </button>
         )}
         {doc.data?.previous && (
-          <button type="button" className="btn btn-quiet" onClick={() => undo.mutate()}>
+          <button type="button" className="btn btn-quiet btn-head" onClick={() => undo.mutate()}>
             Undo the last save
           </button>
         )}
+        <button type="button" className="btn btn-head ml-auto" onClick={() => setSheet({ kind: "whole" })}>
+          + A note on the whole document
+        </button>
         {current?.status === "failed" && (
           <button
             type="button"
@@ -316,7 +331,7 @@ export function Reader() {
         ref={article}
         onMouseUp={onSelect}
         onTouchEnd={onSelect}
-        className={`reader rounded-2xl border p-4 md:p-6 ${noteMode ? "noting" : ""}`}
+        className="reader rounded-2xl border p-5 md:p-8"
         style={{ borderColor: "var(--line)", background: "var(--surface)" }}
       >
         {lines.map((ln) => (
@@ -355,12 +370,73 @@ export function Reader() {
           </div>
         ))}
       </article>
-      <div className="lg:col-start-2 lg:row-start-1 lg:row-span-4 lg:sticky lg:top-6">
+      {pick && (
+        <button
+          type="button"
+          className="note-pick"
+          style={{ left: pick.x, top: pick.y + 8 }}
+          // keep the selection: the press must not clear it before the note opens
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            setSheet({ kind: "new", quote: pick.quote, start: pick.start });
+            setPick(null);
+          }}
+        >
+          ✎ Note on {pick.words ? "these words" : "this paragraph"}
+        </button>
+      )}
+      <div className="grid gap-4 lg:col-start-2 lg:row-start-1 lg:row-span-4 lg:sticky lg:top-6">
         <NotesList
           notes={placed}
           onOpen={(n) => setSheet({ kind: "edit", note: n })}
           onDelete={(n) => remove.mutate(n.id)}
         />
+        {(versions.data?.versions.length ?? 0) > 0 && (
+          <details className="card grid gap-2 !p-4">
+            <summary className="font-cond cursor-pointer text-[17px] font-bold" style={{ color: "var(--strong)" }}>
+              Earlier versions · {versions.data?.versions.length}
+            </summary>
+            <div className="mt-2 grid gap-1.5">
+              {versions.data?.versions.map((v) => (
+                <div
+                  key={v.id}
+                  className="flex items-center gap-2 rounded-xl px-3 py-2"
+                  style={{ background: "var(--surface-2)" }}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[13.5px] font-semibold" style={{ color: "var(--strong)" }}>
+                      {new Date(v.savedAt).toLocaleString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    <span className="block truncate text-[12.5px]" style={{ color: "var(--muted)" }}>
+                      {v.start}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    className="btn shrink-0"
+                    disabled={restore.isPending}
+                    onClick={() => {
+                      if (confirm("Bring this version back? What the document says now is kept as a version too."))
+                        restore.mutate(v.id);
+                    }}
+                  >
+                    Restore
+                  </button>
+                </div>
+              ))}
+            </div>
+            {restore.isError && (
+              <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
+                {(restore.error as Error).message}
+              </p>
+            )}
+          </details>
+        )}
       </div>
       {/* Ask, about this document, the whole page wide under it: it proposes notes as cards, which join mine on a tap */}
       <div className="mt-5 lg:col-span-2">

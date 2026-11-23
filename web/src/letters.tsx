@@ -6,7 +6,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { Ask } from "./ask.tsx";
 
 type Job = { id: string; title: string; org: string; state: string; at: string };
@@ -350,7 +350,7 @@ export function Writing() {
               )}
             </>
           )}
-          {files.data?.ready && <FilesEditor files={files.data} />}
+          {files.data?.ready && <YourFiles />}
         </section>
       </div>
       {/* Ask, the page wide under it: about this job's writing, its latest try and what the check said */}
@@ -371,59 +371,52 @@ export function Writing() {
   );
 }
 
-// my voice and my stories, the files every application reads: a save keeps the old words in kestrel's data folder
-function FilesEditor({ files }: { files: { voice: string; stories: string } }) {
-  const queryClient = useQueryClient();
-  const [which, setWhich] = useState<"voice" | "stories">("voice");
-  const [text, setText] = useState(files[which]);
-  useEffect(() => setText(files[which]), [files, which]);
-  const save = useMutation({
-    mutationFn: () => send(`/api/letters/files/${which}`, "PUT", { text }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["letter-files"] }),
+// my voice and my stories, the files every application reads: reworked in Notes (select words, note what should
+// change, turn the notes into an edit I review), every save kept as a version I can bring back
+function YourFiles() {
+  const navigate = useNavigate();
+  const open = useMutation({
+    mutationFn: async (which: "voice" | "stories") => {
+      const res = await fetch(`/api/letters/files/${which}/open`, { method: "POST" });
+      const data = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
+      if (!res.ok || !data.id) throw new Error(data.error ?? `${res.status}`);
+      return data.id;
+    },
+    onSuccess: (id) => navigate(`/notes/${id}`),
   });
-  const changed = text !== files[which];
   return (
     <section className="card grid gap-3 !p-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <h3 className="font-cond m-0 text-[19px] font-bold" style={{ color: "var(--strong)" }}>
-          Your files
-        </h3>
-        <fieldset className="seg seg-modes" aria-label="Which file">
-          {(
-            [
-              ["voice", "Voice"],
-              ["stories", "Stories"],
-            ] as const
-          ).map(([k, label]) => (
-            <button key={k} type="button" aria-pressed={which === k} onClick={() => setWhich(k)}>
-              {label}
-            </button>
-          ))}
-        </fieldset>
-        <button
-          type="button"
-          className="btn btn-primary btn-head ml-auto"
-          disabled={!changed || save.isPending}
-          onClick={() => save.mutate()}
-        >
-          {save.isPending ? "Saving…" : "Save"}
-        </button>
-      </div>
-      <p className="m-0 text-[13px]" style={{ color: "var(--muted)" }}>
-        Every application reads this file. Saving keeps the previous words in kestrel's data folder.
-        {save.isSuccess && !changed ? " Saved." : ""}
+      <h3 className="font-cond m-0 text-[19px] font-bold" style={{ color: "var(--strong)" }}>
+        Your voice and stories
+      </h3>
+      <p className="m-0 text-[14.5px] leading-relaxed" style={{ color: "var(--text)" }}>
+        Every application writes from these two files. Rework them in Notes: select words, say what should change, and
+        turn your notes into an edit you check before it is saved. Every save keeps the previous version.
       </p>
-      {save.isError && (
+      <div className="grid gap-2 sm:grid-cols-2">
+        {(
+          [
+            ["voice", "Rework my voice"],
+            ["stories", "Rework my stories"],
+          ] as const
+        ).map(([k, label]) => (
+          <button
+            key={k}
+            type="button"
+            className="btn btn-big inline-flex items-center justify-center gap-2"
+            disabled={open.isPending}
+            onClick={() => open.mutate(k)}
+          >
+            {open.isPending && open.variables === k && <span className="spin" />}
+            {label} →
+          </button>
+        ))}
+      </div>
+      {open.isError && (
         <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-          {(save.error as Error).message}
+          {(open.error as Error).message}
         </p>
       )}
-      <textarea
-        className="btn font-mono min-h-[420px] text-[13px] leading-relaxed"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        spellCheck
-      />
     </section>
   );
 }

@@ -18,7 +18,7 @@ import {
 import { discardDraft, draftFor, getDraft, startDraft } from "../domain/notes/drafts.ts";
 import { addNote, deleteNote, editNote, listNotes } from "../domain/notes/notes.ts";
 import { isPdf, PDF_MAX_BYTES, readPdf } from "../domain/notes/pdf.ts";
-import { saveDraft, undoSave } from "../domain/notes/save.ts";
+import { listVersions, restoreVersion, saveDraft, undoSave } from "../domain/notes/save.ts";
 import { record } from "../platform/activity.ts";
 import type { Settings } from "../platform/config.ts";
 
@@ -114,6 +114,15 @@ export function mountNotes(app: Hono, db: DatabaseSync, settings: Settings) {
   app.post("/api/notes/documents/:id/undo", (c) => {
     try {
       return c.json(undoSave(db, c.req.param("id")));
+    } catch (e) {
+      return refusing(c, e);
+    }
+  });
+  // a document's earlier versions, and one brought back (the current words kept as a version first)
+  app.get("/api/notes/documents/:id/versions", (c) => c.json({ versions: listVersions(db, c.req.param("id")) }));
+  app.post("/api/notes/documents/:id/versions/:vid/restore", (c) => {
+    try {
+      return c.json(restoreVersion(db, c.req.param("id"), c.req.param("vid")));
     } catch (e) {
       return refusing(c, e);
     }
