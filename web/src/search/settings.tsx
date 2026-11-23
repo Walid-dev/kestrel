@@ -3,8 +3,9 @@
 // freshness; a deal's price cap). New makes one from nothing. Saving writes the search's own file in the data folder,
 // checked first; fields this page doesn't show are kept as they are.
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
+import { Pills } from "../ui/pills.tsx";
 
 type Raw = Record<string, unknown>;
 type Words = { want?: unknown; avoid?: unknown };
@@ -47,6 +48,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 
 export function SearchSettings() {
   const navigate = useNavigate();
+  const hintId = useId();
   const [params] = useSearchParams();
   const editing = params.get("spec") ?? "";
   const fresh = params.get("new") === "deals" ? "deals" : "jobs";
@@ -134,6 +136,8 @@ export function SearchSettings() {
   const price = (scoring.price ?? {}) as { cap?: number };
   const places = (scoring.places ?? {}) as { words?: unknown; remoteOk?: boolean; within?: unknown; closed?: unknown };
   const others = Object.entries(env).filter(([k]) => !KNOBS.some(([n]) => n === k));
+  // the collectors in the data folder, and the one this search names even when its file has gone
+  const pickable = [...new Set([...(collectors.data?.collectors ?? []), String(raw.collector ?? "")].filter(Boolean))];
 
   return (
     <main className="mx-auto grid w-full max-w-4xl gap-4">
@@ -230,22 +234,28 @@ export function SearchSettings() {
 
         <section className="card grid gap-3">
           <span className="eyebrow">Where it looks</span>
-          <Field label="Collector" hint="a script in the data folder's collectors; it prints the listings it finds">
-            <select
-              className="btn"
-              value={String(raw.collector ?? "")}
-              onChange={(e) => put({ collector: e.target.value })}
-            >
-              <option value="">Pick a collector</option>
-              {[...new Set([...(collectors.data?.collectors ?? []), String(raw.collector ?? "")].filter(Boolean))].map(
-                (c) => (
-                  <option key={c} value={c}>
-                    {c.replace(/^collectors\//, "")}
-                  </option>
-                ),
-              )}
-            </select>
-          </Field>
+          {/* every collector in sight, one tap to pick: pills, the app's way to choose, never a dropdown */}
+          <div className="grid gap-1">
+            <span className="text-[13px] font-semibold" style={{ color: "var(--strong)" }} aria-hidden="true">
+              Collector
+            </span>
+            {pickable.length > 0 ? (
+              <Pills
+                label="Collector"
+                options={pickable.map((c) => ({ value: c, label: c.replace(/^collectors\//, "") }))}
+                value={String(raw.collector ?? "") || null}
+                onChange={(c) => put({ collector: c })}
+                describedBy={hintId}
+              />
+            ) : (
+              <p className="m-0 text-[13.5px]" style={{ color: "var(--muted)" }}>
+                {collectors.isPending ? "Loading the collectors…" : "No collector yet."}
+              </p>
+            )}
+            <span id={hintId} className="text-[12px]" style={{ color: "var(--muted)" }}>
+              a script in the data folder's collectors; it prints the listings it finds
+            </span>
+          </div>
           <div className="grid gap-3 md:grid-cols-3">
             {KNOBS.map(([k, label, hint]) => (
               <Field key={k} label={label} hint={hint}>

@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Ask } from "./ask.tsx";
 import { enterSends } from "./keys.ts";
+import { useConfirm } from "./ui/confirm.tsx";
 
 type Job = { id: string; title: string; org: string; state: string; at: string };
 type Kind = "letter" | "answer" | "text";
@@ -22,6 +23,8 @@ type TryRow = {
   error: string;
   kind: Kind;
   ask: string;
+  // the PDF's file name, when the try made one
+  pdf?: string | null;
 };
 const KINDS: [Kind, string, string][] = [
   ["letter", "Cover letter", ""],
@@ -105,6 +108,7 @@ export function Writing() {
   });
   const shown = pickedTry ?? tries.data?.[0]?.id ?? null;
   // a try goes with the ✕ on its row; the one on show gives way to the newest left
+  const sure = useConfirm();
   const forget = useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/letters/${encodeURIComponent(id)}`, { method: "DELETE" });
@@ -269,13 +273,32 @@ export function Writing() {
                       className="card-remove"
                       aria-label="Delete this try"
                       title="Delete"
-                      onClick={() => confirm("Delete this try?") && forget.mutate(x.id)}
+                      onClick={async () => {
+                        const yes = await sure({
+                          title: "Delete this try?",
+                          // name only what goes: a failed try wrote nothing, and only a letter can have a PDF
+                          body: x.pdf
+                            ? "Its text and its PDF are deleted too."
+                            : x.state === "done"
+                              ? "Its text is deleted too."
+                              : undefined,
+                          yes: "Delete",
+                          danger: true,
+                        });
+                        if (yes) forget.mutate(x.id);
+                      }}
                     >
                       ✕
                     </button>
                   )}
                 </div>
               ))}
+              {/* a refused delete (a try still being written) says so: the box named what would go */}
+              {forget.isError && (
+                <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
+                  The delete didn't land: {(forget.error as Error).message}
+                </p>
+              )}
             </div>
           )}
         </section>
