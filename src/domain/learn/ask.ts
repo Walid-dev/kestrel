@@ -1,48 +1,37 @@
-// Ask on a lesson: the one client, the learn-ask pick, the pack's map as context. The call is awaited — an answer
-// takes seconds on the fast model — and recorded like every call.
+// Ask on a lesson: what the lesson page shows the model — the open lesson whole, and the pack's map, so an answer
+// can link the lesson that covers it. The conversation itself is Ask's (src/domain/ask/ask.ts).
 import type { DatabaseSync } from "node:sqlite";
-import { callModel } from "../../ai/client.ts";
-import { ASK_VERSION, askPrompt } from "../../ai/learn/prompt.ts";
-import { AskAnswer } from "../../ai/learn/shape.ts";
-import { begin } from "../../platform/activity.ts";
-import type { Settings } from "../../platform/config.ts";
-import { recordCall } from "../calls.ts";
-import { modelFor } from "../models.ts";
-import { Refused } from "../notes/documents.ts";
+import type { AskPage } from "../../ai/ask/prompt.ts";
 import { getLesson, lessonText, listLessons } from "./lessons.ts";
 
-export async function askLesson(
-  db: DatabaseSync,
-  settings: Settings,
-  lessonId: string,
-  question: string,
-): Promise<{ answer: string; drewOn: { id: string; title: string }[] }> {
-  const lesson = getLesson(db, lessonId);
-  if (!lesson) throw new Refused("no such lesson");
-  if (question.trim() === "") throw new Refused("ask something");
-  const packMap = listLessons(db, lesson.pack).map((l) => ({ id: l.id, title: l.title }));
-  const { system, prompt } = askPrompt(
-    {
-      id: lesson.id,
-      title: lesson.title,
-      say: lesson.body.say,
-      explain: lesson.body.blocks.length ? lessonText(lesson.body) : lesson.body.explain,
-      words: lesson.body.words,
-    },
-    packMap,
-    question.trim(),
+const LESSON_CHARS = 24_000; // a long guide still leaves room for the conversation
+
+export function lessonPage(db: DatabaseSync, ref: string): AskPage | null {
+  const lesson = getLesson(db, ref);
+  if (!lesson) return null;
+  return lessonAskPage(
+    { id: lesson.id, title: lesson.title, text: lessonText(lesson.body) },
+    listLessons(db, lesson.pack).map((l) => ({ id: l.id, title: l.title })),
   );
-  const model = modelFor(db, settings, "learn-ask");
-  const effective = { ...settings.models, fast: model, careful: model };
-  const live = begin("model", `Ask: ${lesson.title}`.slice(0, 120), `/learn/lesson/${encodeURIComponent(lesson.id)}`);
-  live.step(`${model} answers a question`);
-  const got = await callModel(effective, { model, system, prompt, maxTokens: 2000, thinking: true }, AskAnswer);
-  live.end(got.ok ? "done" : "failed", got.ok ? "" : got.why);
-  recordCall(db, `learn-ask:v${ASK_VERSION}`, got);
-  if (!got.ok) throw new Refused(`the model didn't answer well: ${got.why}`);
-  const titles = new Map(packMap.map((l) => [l.id, l.title]));
+}
+
+// the page in words, from the lesson's lines and the pack's map (the eval builds it the same way)
+export function lessonAskPage(
+  lesson: { id: string; title: string; text: string[] },
+  map: { id: string; title: string }[],
+): AskPage {
   return {
-    answer: got.value.answer,
-    drewOn: got.value.drewOn.filter((id) => titles.has(id)).map((id) => ({ id, title: titles.get(id) as string })),
+    app: "learn",
+    what: "a lesson I am reading in my learning app",
+    title: lesson.title,
+    link: `/learn/lesson/${encodeURIComponent(lesson.id)}`,
+    context: [
+      `THE OPEN LESSON (${lesson.id}): ${lesson.title}`,
+      lesson.text.join("\n").slice(0, LESSON_CHARS),
+      `THE PACK'S LESSONS:\n${map
+        .slice(0, 120)
+        .map((l) => `- ${l.id}: ${l.title}`)
+        .join("\n")}`,
+    ].join("\n\n"),
   };
 }

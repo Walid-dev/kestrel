@@ -5,7 +5,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
-import { block, heard, Inline, lines, plain, type Say } from "./blocks.tsx";
+import { Ask } from "../ask.tsx";
+import { block, heard, lines, type Say } from "./blocks.tsx";
 import { type Spoken, useReader } from "./voice.ts";
 
 type Body = {
@@ -97,7 +98,6 @@ export function LearnLesson() {
   const queryClient = useQueryClient();
   const reader = useReader();
   const [opened, setOpened] = useState<Set<string>>(new Set());
-  const [question, setQuestion] = useState("");
   const list = useRef<Spoken[]>([]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new lesson resets the page, nothing else does
   useEffect(() => {
@@ -141,19 +141,6 @@ export function LearnLesson() {
       queryClient.invalidateQueries({ queryKey: ["brief"] });
     },
   });
-  const ask = useMutation({
-    mutationFn: async () => {
-      const res = await fetch("/api/learn/ask", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ lesson: id, question }),
-      });
-      const data = (await res.json()) as { answer?: string; drewOn?: { id: string; title: string }[]; error?: string };
-      if (!res.ok) throw new Error(data.error ?? `${res.status}`);
-      return data as { answer: string; drewOn: { id: string; title: string }[] };
-    },
-  });
-
   if (lesson.isError)
     return (
       <main className="grid gap-3">
@@ -432,53 +419,18 @@ export function LearnLesson() {
           )}
         </section>
       )}
-      <section className="grid gap-2">
-        <form
-          className="flex gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (question.trim() && !ask.isPending) ask.mutate();
-          }}
-        >
-          <input
-            type="text"
-            className="btn min-w-0 flex-1"
-            placeholder="Ask about this lesson"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-          />
-          <button type="submit" className="btn btn-primary" disabled={ask.isPending || !question.trim()}>
-            {ask.isPending ? "Asking…" : "Ask"}
-          </button>
-        </form>
-        {ask.isError && (
-          <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-            {String((ask.error as Error).message)}
-          </p>
-        )}
-        {ask.data && (
-          <div className="read-box grid gap-1.5">
-            {ask.data.answer.split("\n").map((l) => (
-              <p key={l} className="m-0 text-[15.5px] leading-relaxed">
-                <Inline text={l} />
-              </p>
-            ))}
-            {ask.data.drewOn.length > 0 && (
-              <p className="font-mono m-0 text-[11px]" style={{ color: "var(--muted)" }}>
-                drew on:{" "}
-                {ask.data.drewOn.map((d, i) => (
-                  <span key={d.id}>
-                    {i > 0 && " · "}
-                    <Link to={`/learn/lesson/${encodeURIComponent(d.id)}`} style={{ color: "var(--accent)" }}>
-                      {plain(d.title)}
-                    </Link>
-                  </span>
-                ))}
-              </p>
-            )}
-          </div>
-        )}
-      </section>
+      {/* Ask: a conversation about this lesson with the computer's model, kept with the lesson */}
+      <Ask
+        app="learn"
+        refId={L.id}
+        placeholder="Ask about this lesson"
+        starters={[
+          "Explain it more simply",
+          "Give me another example",
+          "Show me how this looks in code",
+          "What do people often get wrong here?",
+        ]}
+      />
       <nav className="flex gap-2">
         {at > 0 && (
           <Link

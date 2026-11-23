@@ -19,7 +19,7 @@ import { Models } from "./models.tsx";
 import { NotesList } from "./notes/list.tsx";
 import { Reader } from "./notes/reader.tsx";
 import { NotesSet } from "./notes/set.tsx";
-import { Quiz } from "./quiz.tsx";
+import { Quiz, QuizRun } from "./quiz.tsx";
 import { Research } from "./research.tsx";
 import { Searches } from "./search/searches.tsx";
 import { SearchSettings } from "./search/settings.tsx";
@@ -55,6 +55,7 @@ if (rootEl)
               <Route path="chats" element={<Chats />} />
               <Route path="research" element={<Research />} />
               <Route path="quiz" element={<Quiz />} />
+              <Route path="quiz/:id" element={<QuizRun />} />
               <Route path="writing" element={<Writing />} />
               <Route path="letters" element={<Writing />} />
               <Route path="notes/set" element={<NotesSet />} />

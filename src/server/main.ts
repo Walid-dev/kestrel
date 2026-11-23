@@ -11,6 +11,7 @@ import { loadSettings } from "../platform/config.ts";
 import { dataDir, isDeployed } from "../platform/paths.ts";
 import { app } from "./app.ts";
 import { mountApply } from "./apply.ts";
+import { mountAsk } from "./ask.ts";
 import { mountBrief } from "./brief.ts";
 import { mountCost } from "./cost.ts";
 import { mountEvents } from "./events.ts";
@@ -44,6 +45,7 @@ if (applied) console.log(`migrations: ${applied} applied${copy ? ", the database
 mountNotes(app, db, settings);
 mountModels(app, db, settings);
 mountLearn(app, db, settings);
+mountAsk(app, db, settings);
 mountResearch(app, db, settings);
 mountLetters(app, db, settings);
 mountVoice(app, settings);

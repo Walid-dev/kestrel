@@ -2,8 +2,11 @@
 // gets a question the model writes. I answer in my words; the model marks the meaning and says why. What I missed in
 // the last two weeks comes back first, then what is due for review, then the rest at random. After each question, an
 // explanation: a small lesson written once by the local model (its own pick, the fast one unless I change it) and kept.
+// A quiz is kept as I take it — its questions, my answers and marks, the question I'm on — so leaving loses nothing,
+// and Ask on a question sees all of it.
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
+import type { AskPage } from "../../ai/ask/prompt.ts";
 import { callModel } from "../../ai/client.ts";
 import { EXPLAIN_VERSION, explainPrompt, gradePrompt, makePrompt, QUIZ_VERSION, SYSTEM } from "../../ai/quiz/prompt.ts";
 import { Explained, Grade, Made } from "../../ai/quiz/shape.ts";
@@ -12,7 +15,7 @@ import type { Settings } from "../../platform/config.ts";
 import { recordCall } from "../calls.ts";
 import { modelFor } from "../models.ts";
 import { Refused } from "../notes/documents.ts";
-import { type Area, getLesson, type LessonBody, lessonText } from "./lessons.ts";
+import { type Area, getLesson, LessonBody, lessonText } from "./lessons.ts";
 
 export type QuizItem = { lesson: string; title: string; packName: string; q: string | null; a: string | null };
 
@@ -184,4 +187,211 @@ export function skipQuestion(db: DatabaseSync, input: { lesson: string; question
   db.prepare(
     "INSERT INTO quiz_answers (id, lesson, question, answer, verdict, at) VALUES (?, ?, ?, ?, 'wrong', ?)",
   ).run(randomUUID(), lesson.id, input.question, "(I didn't know)", new Date().toISOString());
+}
+
+// ---- a quiz as I take it, kept ----
+
+export type QuizAnswer = {
+  answer: string;
+  verdict: Grade["verdict"];
+  why: string;
+  correct: Grade["correct"];
+  skipped: boolean;
+};
+export type Quiz = {
+  id: string;
+  area: Area;
+  scope: string; // what it was drawn from, in words: Everything, a group, a pack
+  items: QuizItem[];
+  answers: (QuizAnswer | null)[];
+  place: number; // the question I'm on; items.length once it ended
+  started: string;
+  updated: string;
+  finished: string | null;
+};
+export type QuizSummary = Omit<Quiz, "items" | "answers"> & {
+  total: number;
+  answered: number;
+  right: number;
+  partly: number;
+};
+
+const readQuiz = (r: Record<string, unknown>): Quiz => ({
+  id: String(r.id),
+  area: r.area as Area,
+  scope: String(r.scope),
+  items: JSON.parse(String(r.items)) as QuizItem[],
+  answers: JSON.parse(String(r.answers)) as (QuizAnswer | null)[],
+  place: Number(r.place),
+  started: String(r.started),
+  updated: String(r.updated),
+  finished: r.finished == null ? null : String(r.finished),
+});
+
+export function getQuiz(db: DatabaseSync, id: string): Quiz | null {
+  const r = db.prepare("SELECT * FROM quizzes WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+  return r ? readQuiz(r) : null;
+}
+const mustQuiz = (db: DatabaseSync, id: string): Quiz => {
+  const q = getQuiz(db, id);
+  if (!q) throw new Refused("that quiz isn't there any more");
+  return q;
+};
+const save = (db: DatabaseSync, id: string, what: "items" | "answers", value: unknown) =>
+  db
+    .prepare(`UPDATE quizzes SET ${what} = ?, updated = ? WHERE id = ?`)
+    .run(JSON.stringify(value), new Date().toISOString(), id);
+
+// a new quiz from the lessons: picked as pickQuiz picks, kept at once
+export function startQuiz(
+  db: DatabaseSync,
+  opts: { area: Area; pack?: string; group?: string; count: number },
+  now: Date = new Date(),
+  random: () => number = Math.random,
+): Quiz {
+  const items = pickQuiz(db, opts, now, random);
+  if (!items.length) throw new Refused("No lessons there yet.");
+  const pack = opts.pack
+    ? (db.prepare("SELECT name FROM packs WHERE id = ?").get(opts.pack) as { name: string } | undefined)?.name
+    : undefined;
+  const scope = pack ?? opts.group ?? "Everything";
+  const id = randomUUID();
+  const at = now.toISOString();
+  db.prepare(
+    "INSERT INTO quizzes (id, area, scope, items, answers, place, started, updated) VALUES (?, ?, ?, ?, ?, 0, ?, ?)",
+  ).run(id, opts.area, scope, JSON.stringify(items), JSON.stringify(items.map(() => null)), at, at);
+  return mustQuiz(db, id);
+}
+
+// the quizzes, the started ones first (the last touched on top), then the ended ones
+export function listQuizzes(db: DatabaseSync, limit = 12): QuizSummary[] {
+  const rows = db
+    .prepare("SELECT * FROM quizzes ORDER BY finished IS NOT NULL, updated DESC LIMIT ?")
+    .all(limit) as Record<string, unknown>[];
+  return rows.map(readQuiz).map(({ items, answers, ...q }) => ({
+    ...q,
+    total: items.length,
+    answered: answers.filter(Boolean).length,
+    right: answers.filter((a) => a?.verdict === "right").length,
+    partly: answers.filter((a) => a?.verdict === "partly").length,
+  }));
+}
+
+const itemAt = (quiz: Quiz, index: number): QuizItem => {
+  const item = quiz.items[index];
+  if (!item) throw new Refused("no such question in this quiz");
+  return item;
+};
+
+// a lesson without its own check gets a question written for it, once: kept in the quiz, so coming back finds it
+export async function makeQuizQuestion(db: DatabaseSync, settings: Settings, id: string, index: number): Promise<Quiz> {
+  const item = itemAt(mustQuiz(db, id), index);
+  if (item.q && item.a) return mustQuiz(db, id);
+  const made = await makeQuestion(db, settings, item.lesson);
+  const fresh = mustQuiz(db, id); // read again: the model took seconds
+  if (!fresh.items[index].q) {
+    fresh.items[index] = { ...fresh.items[index], q: made.q, a: made.a };
+    save(db, id, "items", fresh.items);
+  }
+  return mustQuiz(db, id);
+}
+
+// my answer, marked by the model and kept with the quiz (a second tap on the same question changes nothing)
+export async function answerQuiz(
+  db: DatabaseSync,
+  settings: Settings,
+  id: string,
+  index: number,
+  answer: string,
+): Promise<Quiz> {
+  const quiz = mustQuiz(db, id);
+  const item = itemAt(quiz, index);
+  if (!item.q) throw new Refused("the question isn't written yet");
+  if (quiz.answers[index]) return quiz;
+  const grade = await gradeAnswer(db, settings, {
+    lesson: item.lesson,
+    question: item.q,
+    expected: item.a ?? "",
+    answer,
+  });
+  const fresh = mustQuiz(db, id);
+  if (!fresh.answers[index]) {
+    fresh.answers[index] = { answer: answer.trim(), ...grade, skipped: false };
+    save(db, id, "answers", fresh.answers);
+  }
+  return mustQuiz(db, id);
+}
+
+// "I don't know": a miss, kept, and the explanation does the teaching
+export function skipQuiz(db: DatabaseSync, id: string, index: number): Quiz {
+  const quiz = mustQuiz(db, id);
+  const item = itemAt(quiz, index);
+  if (!item.q) throw new Refused("the question isn't written yet");
+  if (quiz.answers[index]) return quiz;
+  skipQuestion(db, { lesson: item.lesson, question: item.q });
+  quiz.answers[index] = {
+    answer: "",
+    verdict: "wrong",
+    why: "Here is how it works.",
+    correct: [item.a ?? ""],
+    skipped: true,
+  };
+  save(db, id, "answers", quiz.answers);
+  return mustQuiz(db, id);
+}
+
+// the question I'm on; past the last one, the quiz has ended
+export function moveQuiz(db: DatabaseSync, id: string, place: number): Quiz {
+  const quiz = mustQuiz(db, id);
+  const p = Math.max(0, Math.min(quiz.items.length, Math.floor(place)));
+  const now = new Date().toISOString();
+  db.prepare("UPDATE quizzes SET place = ?, updated = ?, finished = ? WHERE id = ?").run(
+    p,
+    now,
+    p >= quiz.items.length ? (quiz.finished ?? now) : null,
+    id,
+  );
+  return mustQuiz(db, id);
+}
+
+export function dropQuiz(db: DatabaseSync, id: string): void {
+  mustQuiz(db, id);
+  db.prepare("DELETE FROM quizzes WHERE id = ?").run(id);
+  db.prepare("DELETE FROM ask_messages WHERE app = 'quiz' AND ref LIKE ?").run(`${id}:%`);
+}
+
+// Ask on a quiz question (ref: the quiz's id and the question's place, "<id>:<n>"): the question, the lesson's answer,
+// mine and its mark, the explanation I was shown, and the lesson it comes from
+export function quizPage(db: DatabaseSync, ref: string): AskPage | null {
+  const cut = ref.lastIndexOf(":");
+  const quiz = cut > 0 ? getQuiz(db, ref.slice(0, cut)) : null;
+  const index = Number(ref.slice(cut + 1));
+  const item = quiz && Number.isInteger(index) ? quiz.items[index] : undefined;
+  if (!quiz || !item?.q) return null;
+  const mine = quiz.answers[index];
+  const lesson = getLesson(db, item.lesson);
+  const explained = keptExplanation(db, item.lesson, item.q);
+  const said = !mine
+    ? "I haven't answered yet."
+    : mine.skipped
+      ? "I said I didn't know."
+      : `${mine.answer}\nTHE MARK: ${mine.verdict}. ${mine.why}`;
+  const shown = explained
+    ? [...lessonText(LessonBody.parse({ blocks: explained.blocks })), explained.remember].filter(Boolean).join("\n")
+    : "";
+  return {
+    app: "quiz",
+    what: "a question from my lessons, with my answer, its mark and the explanation I was shown",
+    title: `Quiz: ${item.title}`,
+    link: `/quiz/${quiz.id}`,
+    context: [
+      `THE QUESTION: ${item.q}`,
+      `THE LESSON'S ANSWER: ${item.a ?? ""}`,
+      `MY ANSWER: ${said}`,
+      shown && `THE EXPLANATION I WAS SHOWN:\n${shown.slice(0, 8000)}`,
+      lesson && `THE LESSON IT COMES FROM (${lesson.id}): ${lesson.title}\n${textOf(lesson.body).slice(0, 8000)}`,
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
+  };
 }

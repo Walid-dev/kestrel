@@ -6,7 +6,7 @@ import type { Settings } from "../platform/config.ts";
 export type Use =
   | "notes-careful"
   | "notes-fast"
-  | "learn-ask"
+  | "ask"
   | "search-deep"
   | "research"
   | "research-ask"
@@ -16,7 +16,7 @@ export type Use =
 export const USES: { use: Use; what: string }[] = [
   { use: "notes-careful", what: "Notes' careful asks: changes written with time to think" },
   { use: "notes-fast", what: "Notes' fast asks: changes in seconds" },
-  { use: "learn-ask", what: "Learn's Ask: a question on the open lesson" },
+  { use: "ask", what: "Ask, on a page (a lesson, a quiz question): a conversation about what it shows" },
   { use: "search-deep", what: "Searches' deep check: a longer look at one job or one deal" },
   { use: "research", what: "Research: a question answered from the web, quick or deep" },
   { use: "research-ask", what: "Research: the questions it asks me first, when it needs to" },
@@ -25,13 +25,11 @@ export const USES: { use: Use; what: string }[] = [
   { use: "letter", what: "Cover letters: a letter written the way an application writes it" },
 ];
 
-// learn-ask falls back to careful: the live eval (docs/eval/2026-11-21-learn-ask.md) showed the fast model
-// breaking the one-breath line rule 3 runs in 8, while the careful one passed 8 of 8.
-// the fast model for what wants speed: Notes' fast asks, and the quiz's explanations (written while I answer)
+// the fast model for what wants speed: Notes' fast asks, the quiz's explanations (written while I answer), Research's
+// questions first, and Ask's conversation (an answer that streams while I wait; docs/eval/2026-11-22-ask.md)
+const FAST: Use[] = ["notes-fast", "quiz-explain", "research-ask", "ask"];
 export const fallbackFor = (settings: Settings, use: Use): string =>
-  use === "notes-fast" || use === "quiz-explain" || use === "research-ask"
-    ? settings.models.fast
-    : settings.models.careful;
+  FAST.includes(use) ? settings.models.fast : settings.models.careful;
 
 export function modelFor(db: DatabaseSync, settings: Settings, use: Use): string {
   const row = db.prepare("SELECT model FROM model_settings WHERE use = ?").get(use) as { model: string } | undefined;

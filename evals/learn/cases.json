@@ -24,15 +24,9 @@
       }
     ],
     "question": "Why does a queue help with bursts?",
-    "good": {
-      "answer": "A queue takes the burst so the worker never drowns.\nWork waits in line until a worker is free.\nThe sender moves on at once.",
-      "drewOn": ["l1"]
-    },
-    "bad": {
-      "answer": "",
-      "drewOn": ["l1"]
-    },
-    "badWhy": "answer"
+    "good": "A queue **takes the burst**, so the worker never drowns.\n\nWork waits in line until a worker is free, and the sender moves on at once. The lesson [What a queue is](lesson:l1) says it in its words.",
+    "bad": "",
+    "badWhy": "empty"
   },
   {
     "name": "another-lesson-covers-it",
@@ -54,15 +48,9 @@
       }
     ],
     "question": "What is a cache?",
-    "good": {
-      "answer": "A cache keeps a copy close so the next read is fast.\nIt trades freshness for speed.\nThe pack covers this in the cache lesson.",
-      "drewOn": ["l2"]
-    },
-    "bad": {
-      "answer": "A cache keeps a copy close.",
-      "drewOn": ["l9"]
-    },
-    "badWhy": "drew on a lesson that is not in the map"
+    "good": "A **cache** keeps a copy close, so the next read is fast. It trades freshness for speed.\n\nThe pack covers it in [What a cache is](lesson:l2).",
+    "bad": "A cache keeps a copy close. More in [Caching, the deep dive](lesson:l9).",
+    "badWhy": "not in the map"
   },
   {
     "name": "beyond-the-pack",
@@ -80,15 +68,9 @@
       }
     ],
     "question": "What year did a made-up standard body form?",
-    "good": {
-      "answer": "I can answer from general knowledge: a made-up body like that has no one year.\nNothing in this pack covers it.",
-      "drewOn": []
-    },
-    "bad": {
-      "answer": "line\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\n",
-      "drewOn": []
-    },
-    "badWhy": "more than ten lines"
+    "good": "I don't know. The lesson doesn't say, and I don't know of that body.",
+    "bad": "A queue is a line of work that waits, and it helps because the work that comes in a rush can sit there while the worker takes one piece at a time, which means nothing is lost and nobody has to wait for the worker to be free before they send more, so the sender keeps going and the worker keeps a steady pace, and this is why queues are everywhere in systems that get bursts of work at odd hours.",
+    "badWhy": "paragraph too long"
   },
   {
     "name": "stays-grounded-in-words",
@@ -111,14 +93,37 @@
       }
     ],
     "question": "How should I start an answer?",
-    "good": {
-      "answer": "Start with the point itself.\nThe how comes after it.\nAn example comes last.",
-      "drewOn": ["l1"]
-    },
-    "bad": {
-      "answer": "It depends on many factors and contexts, generally speaking one might consider various approaches.",
-      "drewOn": ["l1"]
-    },
+    "good": "Start with **the point**, in one sentence.\n\nThen say how it works, and give one example when it helps.",
+    "bad": "It depends on many factors and contexts, generally speaking one might consider various approaches.",
     "badWhy": "filler"
+  },
+  {
+    "name": "a-short-question-gets-a-short-answer",
+    "lesson": {
+      "id": "l1",
+      "title": "What a queue is",
+      "say": ["A queue holds work until a worker is free.", "The sender never waits on the receiver."],
+      "explain": ["A burst piles up in the queue, not on the worker."],
+      "words": [
+        {
+          "w": "queue",
+          "m": "a waiting line for work"
+        }
+      ]
+    },
+    "packMap": [
+      {
+        "id": "l1",
+        "title": "What a queue is"
+      },
+      {
+        "id": "l2",
+        "title": "What a cache is"
+      }
+    ],
+    "question": "Where does a burst pile up?",
+    "good": "**In the queue**, never on the worker.\n\nThe worker takes the next piece when it is free; the rest waits in line.",
+    "bad": "A queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.\n\nA queue holds work until a worker is free. The sender moves on at once.",
+    "badWhy": "longer than the question needs"
   }
 ]

@@ -1,11 +1,11 @@
-// The Ask eval, end to end: cases through the real prompt and shape; --stand-in inside the check, --live for the
-// record before first use.
+// The Ask eval on a lesson page, end to end: each case's lesson made into the page the app builds, through Ask's real
+// prompt and the conversation client; --stand-in inside the check, --live for the record (docs/eval/).
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { callModel, type ModelSettings } from "../../src/ai/client.ts";
-import { askPrompt } from "../../src/ai/learn/prompt.ts";
-import { AskAnswer } from "../../src/ai/learn/shape.ts";
+import { askMessages } from "../../src/ai/ask/prompt.ts";
+import { chatModel, type ModelSettings } from "../../src/ai/client.ts";
 import { startStandIn } from "../../src/ai/stand-in.ts";
+import { lessonAskPage } from "../../src/domain/learn/ask.ts";
 import { loadSettings } from "../../src/platform/config.ts";
 import { type Case, score } from "./score.ts";
 
@@ -20,8 +20,17 @@ const { values } = parseArgs({
 });
 
 async function runCase(c: Case, settings: ModelSettings, model: string, run: number) {
-  const { system, prompt } = askPrompt(c.lesson, c.packMap, c.question);
-  const got = await callModel(settings, { model, system, prompt, maxTokens: 2000, thinking: true }, AskAnswer);
+  const page = lessonAskPage(
+    {
+      id: c.lesson.id,
+      title: c.lesson.title,
+      text: [...c.lesson.say, ...c.lesson.explain, ...c.lesson.words.map((w) => `${w.w}: ${w.m}`)],
+    },
+    c.packMap,
+  );
+  const { system, messages } = askMessages(page, [], c.question);
+  // the app's own budget for an answer (domain/ask/ask.ts)
+  const got = await chatModel(settings, { model, system, messages, maxTokens: 6000, thinking: true });
   if (!got.ok)
     return { name: c.name, model, run, pass: false, why: `${got.why}: ${got.detail.slice(0, 60)}`, ms: got.ms };
   const judged = score(c, got.value);
@@ -46,9 +55,9 @@ if (values.live) {
       }
 } else {
   const standIn = await startStandIn((body) => {
-    const asked = body.messages.map((m) => m.content).join("\n");
-    const c = cases.find((x) => asked.includes(`THE QUESTION: ${x.question}`));
-    return { content: JSON.stringify(c?.good ?? {}) };
+    const asked = body.messages.at(-1)?.content ?? "";
+    const c = cases.find((x) => asked === x.question);
+    return { content: c?.good ?? "" };
   });
   const settings: ModelSettings = {
     url: standIn.url,

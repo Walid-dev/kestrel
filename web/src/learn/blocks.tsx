@@ -3,6 +3,7 @@
 // hand-placed diagrams. Every line meant to be heard registers with `say`, so Listen reads the page in order and
 // lights the line it is on.
 import { type CSSProperties, createContext, type ReactNode, useContext } from "react";
+import { Link } from "react-router";
 
 export type Say = {
   add: (text: string, opts?: { pause?: number }) => number;
@@ -22,6 +23,7 @@ export const plain = (s: string) =>
   s
     .replaceAll(/`([^`]+)`/g, "$1")
     .replaceAll(/\*\*([^*]+)\*\*/g, "$1")
+    .replaceAll(/\[([^\]\n]+)\]\((?:lesson:|https?:\/\/)[^)\s]+\)/g, "$1")
     .replaceAll(/\s*\[\d+(?:\s*[,–-]\s*\d+)*\]/g, "");
 
 // a research answer's sources by number: inside it, [2] becomes a link named for its site
@@ -35,11 +37,13 @@ const site = (url: string) => {
   }
 };
 
-// `code` and **bold**, the guides' inline marks; inside a research answer, its [n] sources as links
+// `code` and **bold**, the guides' inline marks; inside a research answer, its [n] sources as links; in an Ask
+// answer, *a stress* and [words](links) — a lesson's own (lesson:<id>) opens it here, any other opens a tab
 export function Inline({ text }: { text: string }) {
   const cites = useContext(Cites);
   const out: ReactNode[] = [];
-  const re = /`([^`]+)`|\*\*([^*]+)\*\*|\s?\[(\d+(?:\s*[,–-]\s*\d+)*)\]/g;
+  const re =
+    /`([^`]+)`|\*\*([^*]+)\*\*|\s?\[(\d+(?:\s*[,–-]\s*\d+)*)\]|\[([^\]\n]+)\]\(((?:lesson:|https?:\/\/)[^)\s]+)\)|(?<![\w*])\*(?![\s*])([^*\n]+?)(?<![\s*])\*(?![\w*])/g;
   let last = 0;
   let m: RegExpExecArray | null = re.exec(text);
   while (m) {
@@ -77,10 +81,20 @@ export function Inline({ text }: { text: string }) {
         <code key={m.index} className="inline">
           {m[1]}
         </code>
-      ) : (
+      ) : m[2] !== undefined ? (
         <strong key={m.index} style={{ color: "var(--strong)" }}>
           {m[2]}
         </strong>
+      ) : m[5]?.startsWith("lesson:") ? (
+        <Link key={m.index} to={`/learn/lesson/${encodeURIComponent(m[5].slice(7))}`} className="md-link">
+          {m[4]}
+        </Link>
+      ) : m[5] !== undefined ? (
+        <a key={m.index} href={m[5]} target="_blank" rel="noopener noreferrer" className="md-link">
+          {m[4]}
+        </a>
+      ) : (
+        <em key={m.index}>{m[6]}</em>
       ),
     );
     last = m.index + m[0].length;

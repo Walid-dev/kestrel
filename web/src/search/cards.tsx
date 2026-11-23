@@ -60,12 +60,13 @@ export const DEAL: Record<string, { label: string; tone: string }> = {
   fair: { label: "Fair price", tone: "tone-fair" },
   over: { label: "Overpriced", tone: "tone-poor" },
 };
+// a deep check's verdict, each in its own colour wherever it shows: go in green, think twice in orange, no in coral
 export const VERDICT: Record<string, { label: string; tone: string }> = {
-  apply: { label: "Apply", tone: "tone-green" },
-  maybe: { label: "Maybe", tone: "tone-yellow" },
-  skip: { label: "Skip", tone: "tone-red" },
-  buy: { label: "Buy", tone: "tone-green" },
-  negotiate: { label: "Negotiate", tone: "tone-yellow" },
+  apply: { label: "Apply", tone: "tone-great" },
+  maybe: { label: "Maybe", tone: "tone-orange" },
+  skip: { label: "Skip", tone: "tone-poor" },
+  buy: { label: "Buy", tone: "tone-great" },
+  negotiate: { label: "Negotiate", tone: "tone-orange" },
   unsure: { label: "Unsure", tone: "tone-muted" },
 };
 
@@ -241,8 +242,8 @@ function Head({ l }: { l: Listing }) {
   );
 }
 
-// the model's read stays on the card, words and all: it is short. The deep check shows only its verdict, as a chip —
-// the report waits in the open listing — or, with none yet, the blue button that starts one
+// the model's read stays on the card, words and all: it is short. The deep check shows only its verdict, as a chip in
+// the verdict's colour — the report waits in the open listing — or, with none yet, the blue button that starts one
 function Results({ l, onDeep, busy }: { l: Listing; onDeep: () => void; busy?: string }) {
   let verdict = "";
   try {
@@ -269,7 +270,7 @@ function Results({ l, onDeep, busy }: { l: Listing; onDeep: () => void; busy?: s
       <div className="flex flex-wrap items-center gap-1.5">
         {!why && fit != null && <span className={`chip ${fitTone(fit)}`}>Model's read {fit}/10</span>}
         {v && !running ? (
-          <span className="chip tone-accent">
+          <span className={`chip ${v.tone}`}>
             Deep check · <b>{v.label}</b>
           </span>
         ) : (

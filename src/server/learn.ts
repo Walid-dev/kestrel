@@ -1,12 +1,12 @@
 // The Learn routes, mounted on the one app by main.ts: packs by area (Learn, Interview prep), the front page's
-// overview, lessons, search, Ask, the review ladder, and the interview helper's ears — sound in, the nearest prepared
-// answer out. A Refused from the domain answers 400 with its reason.
+// overview, lessons, search, the quiz (kept as I take it), the review ladder, and the interview helper's ears — sound
+// in, the nearest prepared answer out. Ask on a lesson or a question is Ask's (server/ask.ts). A Refused from the
+// domain answers 400 with its reason.
 import type { DatabaseSync } from "node:sqlite";
 import { zValidator } from "@hono/zod-validator";
-import type { Hono } from "hono";
+import type { Context, Hono } from "hono";
 import { z } from "zod";
 import { hear } from "../ai/asr.ts";
-import { askLesson } from "../domain/learn/ask.ts";
 import type { Area } from "../domain/learn/lessons.ts";
 import {
   addLesson,
@@ -19,7 +19,17 @@ import {
   setPackGroup,
 } from "../domain/learn/lessons.ts";
 import { bestAnswer } from "../domain/learn/match.ts";
-import { explainAnswer, gradeAnswer, makeQuestion, pickQuiz, skipQuestion } from "../domain/learn/quiz.ts";
+import {
+  answerQuiz,
+  dropQuiz,
+  explainAnswer,
+  getQuiz,
+  listQuizzes,
+  makeQuizQuestion,
+  moveQuiz,
+  skipQuiz,
+  startQuiz,
+} from "../domain/learn/quiz.ts";
 import { dueLessons, gradeLesson, lessonStates, neverGraded } from "../domain/learn/review.ts";
 import { Refused } from "../domain/notes/documents.ts";
 import { record } from "../platform/activity.ts";
@@ -91,59 +101,59 @@ export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
       })),
     }),
   );
-  app.post(
-    "/api/learn/ask",
-    zValidator("json", z.object({ lesson: z.string().min(1), question: z.string().min(1).max(2000) })),
-    async (c) => {
-      try {
-        const { lesson, question } = c.req.valid("json");
-        return c.json(await askLesson(db, settings, lesson, question));
-      } catch (e) {
-        return refusing(c, e);
-      }
-    },
-  );
-  // the quiz: questions picked from the lessons, a question made for a lesson without one, an answer marked
-  app.get("/api/learn/quiz", (c) =>
-    c.json({
-      items: pickQuiz(
-        db,
-        {
-          area: area(c.req.query("area")) ?? "learn",
-          pack: c.req.query("pack") || undefined,
-          group: c.req.query("group") || undefined,
-          count: Number(c.req.query("count") ?? "10") || 10,
-        },
-        new Date(),
-      ),
+  // the quiz, kept as I take it: start one, list them (started first), open one, and on a question: write it (a lesson
+  // without its own check), answer it, skip it; move to a question; drop the quiz
+  const quizBody = z.object({
+    area: z.enum(["learn", "interview"]).default("learn"),
+    pack: z.string().optional(),
+    group: z.string().optional(),
+    count: z.number().int().min(1).max(30).default(10),
+  });
+  const index = z.object({ index: z.number().int().min(0) });
+  const quizRoute = async (c: Context, run: () => unknown) => {
+    try {
+      return c.json({ quiz: await run() });
+    } catch (e) {
+      return refusing(c, e);
+    }
+  };
+  app.get("/api/learn/quizzes", (c) => c.json({ quizzes: listQuizzes(db) }));
+  app.post("/api/learn/quizzes", zValidator("json", quizBody), (c) =>
+    quizRoute(c, () => {
+      const { area: a, pack, group, count } = c.req.valid("json");
+      return startQuiz(db, { area: a, pack: pack || undefined, group: group || undefined, count });
     }),
   );
-  app.post("/api/learn/quiz/make", zValidator("json", z.object({ lesson: z.string().min(1) })), async (c) => {
+  app.get("/api/learn/quizzes/:id", (c) => {
+    const quiz = getQuiz(db, c.req.param("id"));
+    return quiz ? c.json({ quiz }) : c.json({ error: "that quiz isn't there any more" }, 404);
+  });
+  app.post("/api/learn/quizzes/:id/make", zValidator("json", index), (c) =>
+    quizRoute(c, () => makeQuizQuestion(db, settings, c.req.param("id"), c.req.valid("json").index)),
+  );
+  app.post(
+    "/api/learn/quizzes/:id/answer",
+    zValidator("json", index.extend({ answer: z.string().min(1).max(4000) })),
+    (c) =>
+      quizRoute(c, () => {
+        const { index: n, answer } = c.req.valid("json");
+        return answerQuiz(db, settings, c.req.param("id"), n, answer);
+      }),
+  );
+  app.post("/api/learn/quizzes/:id/skip", zValidator("json", index), (c) =>
+    quizRoute(c, () => skipQuiz(db, c.req.param("id"), c.req.valid("json").index)),
+  );
+  app.post("/api/learn/quizzes/:id/place", zValidator("json", z.object({ place: z.number().int().min(0) })), (c) =>
+    quizRoute(c, () => moveQuiz(db, c.req.param("id"), c.req.valid("json").place)),
+  );
+  app.delete("/api/learn/quizzes/:id", (c) => {
     try {
-      return c.json(await makeQuestion(db, settings, c.req.valid("json").lesson));
+      dropQuiz(db, c.req.param("id"));
+      return c.json({ ok: true });
     } catch (e) {
       return refusing(c, e);
     }
   });
-  app.post(
-    "/api/learn/quiz/grade",
-    zValidator(
-      "json",
-      z.object({
-        lesson: z.string().min(1),
-        question: z.string().min(1).max(4000),
-        expected: z.string().max(8000),
-        answer: z.string().min(1).max(4000),
-      }),
-    ),
-    async (c) => {
-      try {
-        return c.json(await gradeAnswer(db, settings, c.req.valid("json")));
-      } catch (e) {
-        return refusing(c, e);
-      }
-    },
-  );
   app.post(
     "/api/learn/quiz/explain",
     zValidator(
@@ -157,18 +167,6 @@ export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
     async (c) => {
       try {
         return c.json(await explainAnswer(db, settings, c.req.valid("json")));
-      } catch (e) {
-        return refusing(c, e);
-      }
-    },
-  );
-  app.post(
-    "/api/learn/quiz/skip",
-    zValidator("json", z.object({ lesson: z.string().min(1), question: z.string().min(1).max(4000) })),
-    (c) => {
-      try {
-        skipQuestion(db, c.req.valid("json"));
-        return c.json({ ok: true });
       } catch (e) {
         return refusing(c, e);
       }

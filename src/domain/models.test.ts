@@ -37,7 +37,7 @@ test("the settings answer until a pick is made; the pick wins and survives a reo
     [
       ["notes-careful", "careful-model"],
       ["notes-fast", "another-made-up"],
-      ["learn-ask", "careful-model"], // the live eval moved Ask's fallback to the careful model
+      ["ask", "fast-model"], // a conversation that streams while I wait: the fast model by default
       ["search-deep", "careful-model"],
       ["research", "careful-model"],
       ["research-ask", "fast-model"], // its quick questions first: the fast model by default

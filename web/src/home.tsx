@@ -78,77 +78,83 @@ export const ICONS: Record<string, ReactNode> = {
   ),
 };
 
+// each app its own colour, the same on Home's cards and in the dock: no two apps share one
+export const APP_COLOR: Record<string, string> = {
+  Home: "var(--strong)",
+  Searches: "var(--purple)",
+  Chat: "var(--cyan)",
+  Learn: "var(--great)",
+  Notes: "var(--accent)",
+  Tasks: "var(--pink)",
+  Research: "var(--yellow)",
+  Quiz: "var(--good)",
+  Applications: "var(--orange)",
+  Writing: "var(--red)",
+  "Interview prep": "var(--fair)",
+  Live: "var(--green)",
+};
+
 // the order is mine: Searches, Chat, Learn, Notes, Tasks, then the rest
-const APPS: { name: string; what: string; when: string; to: string | null; color: string }[] = [
+const APPS: { name: string; what: string; when: string; to: string | null }[] = [
   {
     name: "Searches",
     what: "Job and deal hunts that run on their own, each listing whole, deep checks on a tap.",
     when: "v0.2",
     to: "/searches",
-    color: "var(--purple)",
   },
   {
     name: "Chat",
     what: "The agent's chats, live as they work: write to one, answer its questions, stop it.",
     when: "",
     to: "/chats",
-    color: "var(--accent)",
   },
   {
     name: "Learn",
     what: "One lesson per page, read aloud, with practice and Ask.",
     when: "v0.4",
     to: "/learn",
-    color: "var(--green)",
   },
   {
     name: "Notes",
     what: "A document, my notes on its words, and the changes the computer's model proposes.",
     when: "v0.1",
     to: "/notes",
-    color: "var(--accent)",
   },
   {
     name: "Tasks",
     what: "One line each; an agent closes one with a note of what was done.",
     when: "v0.5",
     to: "/tasks",
-    color: "var(--pink)",
   },
   {
     name: "Research",
     what: "Ask anything: the computer's model searches the web, quick or deep, and writes it plain, like a lesson.",
     when: "v0.6",
     to: "/research",
-    color: "var(--yellow)",
   },
   {
     name: "Quiz",
-    what: "Questions from my lessons; I answer, the model corrects me and says why.",
+    what: "Questions from my lessons; the model marks my answer, explains it and answers my questions. My place is kept.",
     when: "v0.6",
     to: "/quiz",
-    color: "var(--green)",
   },
   {
     name: "Applications",
     what: "One page by state; what needs me waits here and nothing gets lost.",
     when: "v0.3",
     to: "/applications",
-    color: "var(--orange)",
   },
   {
     name: "Writing",
     what: "A cover letter, a form's answer or any text for a job, written the way an application writes it.",
     when: "v0.6",
     to: "/writing",
-    color: "var(--orange)",
   },
   {
     name: "Interview prep",
     what: "Answers to say for a job or a project, and the helper that finds them while you're asked.",
     when: "v0.4",
     to: "/interview",
-    color: "var(--yellow)",
   },
 ];
 
@@ -197,7 +203,7 @@ export function Home() {
             }}
           >
             <div className="flex items-center gap-3">
-              <span style={{ color: app.color, opacity: soon ? 0.75 : 1 }}>{ICONS[app.name]}</span>
+              <span style={{ color: APP_COLOR[app.name], opacity: soon ? 0.75 : 1 }}>{ICONS[app.name]}</span>
               <h2 className="font-cond text-xl font-bold" style={{ color: soon ? "var(--muted)" : "var(--text)" }}>
                 {app.name}
               </h2>
