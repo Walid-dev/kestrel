@@ -71,8 +71,11 @@ for (const [net, bits] of [
 ] as const)
   HOME4.addSubnet(net, bits, "ipv4");
 for (const [net, bits] of [
-  ["::", 127], // unspecified and this computer (::1)
+  ["::", 96], // unspecified, this computer (::1) and an IPv4 address written into IPv6 the old way
   ["::ffff:0:0", 96], // an IPv4 address written as IPv6
+  ["::ffff:0:0:0", 96], // an IPv4 address translated to IPv6
+  ["2002::", 16], // 6to4: an IPv4 address inside, long retired
+  ["2001::", 32], // Teredo: an IPv4 address inside, long retired
   ["64:ff9b::", 96], // an IPv4 address behind NAT64
   ["fc00::", 7], // private
   ["fe80::", 10], // link-local
@@ -129,7 +132,9 @@ async function checkOne(url: string, reach: Reach): Promise<URL> {
 }
 
 // the link where its redirects end, each step checked; it throws, in words, when one isn't on the public web. A page
-// that doesn't answer the HEAD is left to the door as it is (its address was checked).
+// that doesn't answer the HEAD is left to the door as it is (its address was checked). The limit: the door fetches
+// and resolves on its own, so a site that redirects a GET but not a HEAD, or a name that resolves again to a home
+// address, gets past this; only the door refusing home addresses closes that.
 export async function publicUrl(url: string, reach: Reach = NETWORK): Promise<string> {
   let u = await checkOne(url, reach);
   for (let hop = 0; hop < HOPS; hop++) {

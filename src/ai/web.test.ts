@@ -78,6 +78,10 @@ test("the page reader refuses this computer, the home network and the tailnet, b
     "https://[fe80::1]/",
     "https://[fd00::1]/",
     "https://[::ffff:127.0.0.1]/",
+    "http://[::127.0.0.1]/", // IPv4-compatible (review)
+    "https://[::ffff:0:7f00:1]/", // IPv4-translated (review)
+    "https://[2002:7f00:1::]/", // 6to4 (review)
+    "https://[2001:0:4136:e378::1]/", // Teredo
     "https://sneaky.example.com/", // one of its addresses is at home
     "https://example.com/moved", // redirected home
     "https://nowhere.example.com/", // resolves to nothing
