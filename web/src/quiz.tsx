@@ -84,8 +84,17 @@ export function Quiz() {
   const [allLessons, setAllLessons] = useState(false); // a long list starts with the due and the picked ones
   const [count, setCount] = useState(10);
   const [fresh, setFresh] = useState(false); // new questions, each written by the model
+  const [allStarted, setAllStarted] = useState(false);
   const [allDone, setAllDone] = useState(false);
   const [archivedOpen, setArchivedOpen] = useState(false);
+  // "Show all" and "Show fewer" leave the pills; the lesson pill to focus next, so the keyboard stays in the list
+  const lessonPills = useRef<HTMLDivElement>(null);
+  const focusPill = useRef<number | null>(null);
+  useEffect(() => {
+    if (focusPill.current === null) return;
+    lessonPills.current?.querySelectorAll<HTMLButtonElement>("button.pill")[focusPill.current]?.focus();
+    focusPill.current = null;
+  });
 
   const packs = useQuery({
     queryKey: ["learn-packs", area],
@@ -96,10 +105,14 @@ export function Quiz() {
     queryFn: () => call<{ lessons: QuizLesson[] }>(`/api/learn/quiz/lessons?area=${area}`),
   });
   const all = packs.data?.packs ?? [];
-  const sum = (ps: Pack[]) => ({
-    lessons: ps.reduce((n, p) => n + (p.lessons ?? 0), 0),
-    due: ps.reduce((n, p) => n + (p.due ?? 0), 0),
-  });
+  const lessonsOf = lessonList.data?.lessons ?? [];
+  // a topic's lessons and what is due, counted from the lessons the pills show: the tile, the header and the pills
+  // then say the same (Learn's own lesson state, and what the quiz draws first)
+  const sum = (ps: Pack[]) => {
+    const ids = new Set(ps.map((p) => p.id));
+    const ls = lessonsOf.filter((l) => ids.has(l.pack));
+    return { lessons: ls.length, due: ls.filter((l) => l.due).length };
+  };
   const topics = [
     { key: "", name: "Everything", ...sum(all) },
     ...[...new Set(all.map((p) => p.group).filter(Boolean))].map((g) => ({
@@ -113,11 +126,12 @@ export function Quiz() {
   // the topic's packs, then the lessons in the packs picked (all the topic's when none is), then the lessons picked
   const topicPacks = group ? all.filter((p) => p.group === group) : all;
   const packIds = new Set(packsPicked.length ? packsPicked : topicPacks.map((p) => p.id));
-  const shown = (lessonList.data?.lessons ?? []).filter((l) => packIds.has(l.pack));
+  const shown = lessonsOf.filter((l) => packIds.has(l.pack));
   const pool = lessonsPicked.length ? shown.filter((l) => lessonsPicked.includes(l.id)) : shown;
-  const questions = lessonList.data ? questionsIn(pool, count, fresh) : count;
-  const longList = shown.length > LONG_LIST && !allLessons;
-  const listed = longList ? shown.filter((l) => l.due || lessonsPicked.includes(l.id)) : shown;
+  const questions = lessonList.data ? questionsIn(pool, count, fresh, lessonsPicked.length > 0) : count;
+  const longList = shown.length > LONG_LIST;
+  const short = shown.filter((l) => l.due || lessonsPicked.includes(l.id));
+  const listed = longList && !allLessons ? short : shown;
   const packName = (id: string) => all.find((p) => p.id === id)?.name ?? "";
   // what the quiz draws from, in a few words: the line under the pills and the start button's end
   const drawn = lessonsPicked.length
@@ -126,8 +140,8 @@ export function Quiz() {
       ? `All ${plural(shown.length, "lesson")} in ${packsPicked.length === 1 ? packName(packsPicked[0]) : plural(packsPicked.length, "pack")}`
       : `All ${plural(shown.length, "lesson")}`;
   const on =
-    lessonsPicked.length === 1
-      ? shown.find((l) => l.id === lessonsPicked[0])?.title
+    lessonsPicked.length === 1 || lessonsPicked.length === 2
+      ? lessonsPicked.map((id) => shown.find((l) => l.id === id)?.title).join(" + ")
       : lessonsPicked.length
         ? plural(lessonsPicked.length, "lesson")
         : packsPicked.length === 1
@@ -173,9 +187,11 @@ export function Quiz() {
       navigate(`/quiz/${got.quiz.id}`);
     },
   });
-  // archive, restore, delete: each refreshes both lists (the key ["quizzes"] covers the archived one too)
+  // archive, restore, delete: each refreshes both lists (the key ["quizzes"] covers the archived one too). It knows
+  // the list it came from and the quiz's name, so a failure shows beside that list, naming the quiz.
+  type Change = { id: string; to: "archive" | "restore" | "delete"; list: List; name: string };
   const change = useMutation({
-    mutationFn: ({ id, to }: { id: string; to: "archive" | "restore" | "delete" }) =>
+    mutationFn: ({ id, to }: Change) =>
       to === "delete" ? call(`/api/learn/quizzes/${id}`, "DELETE") : call(`/api/learn/quizzes/${id}/${to}`, "POST"),
     onSuccess: (_, { id, to }) => {
       if (to === "delete") queryClient.removeQueries({ queryKey: ["quiz", id] });
@@ -183,20 +199,27 @@ export function Quiz() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["quizzes"] }),
   });
   const busy = (id: string) => (change.isPending && change.variables?.id === id ? { opacity: 0.5 } : undefined);
-  const remove = async (q: Summary) => {
+  const act = (q: Summary, to: Change["to"], list: List) => change.mutate({ id: q.id, to, list, name: named(q) });
+  const failedIn = (list: List) =>
+    change.isError && change.variables?.list === list
+      ? `Couldn't ${change.variables.to} “${change.variables.name}”: ${(change.error as Error).message}`
+      : null;
+  const remove = async (q: Summary, list: List) => {
     const yes = await sure({
       title: "Delete this quiz?",
       body: `“${named(q)}” and what you asked about it are deleted for good. What you missed in it still comes first in new quizzes, for two weeks after you answered.`,
       yes: "Delete",
       danger: true,
     });
-    if (yes) change.mutate({ id: q.id, to: "delete" });
+    if (yes) act(q, "delete", list);
   };
-  const failing = [start, change, quizzes].find((x) => x.isError);
+  // the start's own trouble under its button: the start itself, or the topics and lessons it needs
+  const failing = [start, packs, lessonList].find((x) => x.isError);
   const started = (quizzes.data?.quizzes ?? []).filter((q) => !q.finished);
   const ended = (quizzes.data?.quizzes ?? []).filter((q) => q.finished);
   const archived = archivedList.data?.quizzes ?? [];
   const due = topics[0].due;
+  const startedShown = allStarted ? started : started.slice(0, STARTED_SHOWN);
 
   return (
     <main className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:grid-rows-[auto_auto_auto_1fr] lg:items-start lg:gap-x-8">
@@ -214,10 +237,11 @@ export function Quiz() {
         </p>
       </header>
 
-      {started.length > 0 && (
+      {(started.length > 0 || failedIn("started") || quizzes.isError) && (
         <section className="grid content-start gap-3 lg:col-start-2 lg:row-start-2">
           <span className="eyebrow">Pick up where you left off</span>
-          {started.map((q) => (
+          <Failed message={quizzes.isError ? (quizzes.error as Error).message : failedIn("started")} />
+          {startedShown.map((q) => (
             <article key={q.id} className="card quiz-list grid gap-4 !p-5" style={busy(q.id)}>
               <div className="flex items-start gap-2">
                 <Link to={`/quiz/${q.id}`} className="flex min-w-0 flex-1 items-center gap-4">
@@ -245,7 +269,7 @@ export function Quiz() {
                   className="card-remove"
                   aria-label={`Delete "${named(q)}"`}
                   title="Delete"
-                  onClick={() => remove(q)}
+                  onClick={() => remove(q, "started")}
                 >
                   ✕
                 </button>
@@ -257,13 +281,19 @@ export function Quiz() {
                 <button
                   type="button"
                   className="btn btn-quiet btn-big"
-                  onClick={() => change.mutate({ id: q.id, to: "archive" })}
+                  aria-label={`Archive "${named(q)}"`}
+                  onClick={() => act(q, "archive", "started")}
                 >
                   Archive
                 </button>
               </div>
             </article>
           ))}
+          {started.length > STARTED_SHOWN && (
+            <button type="button" className="btn btn-quiet min-h-11 py-3" onClick={() => setAllStarted(!allStarted)}>
+              {allStarted ? "Show fewer" : `Show all ${started.length}`}
+            </button>
+          )}
         </section>
       )}
 
@@ -327,26 +357,40 @@ export function Quiz() {
               />
             )}
             {shown.length > 0 && (
-              <Pills
-                label="Lessons"
-                showLabel
-                multiple
-                describedBy="quiz-drawn"
-                options={[
-                  ...listed.map((l) => ({
-                    value: l.id,
-                    label: l.title,
-                    ...(l.due ? { tone: "cyan" as const, hint: "due" } : {}),
-                  })),
-                  // the rest of a long list, one tap away: a pill among the pills, so it wraps with them
-                  ...(longList ? [{ value: SHOW_ALL, label: `Show all ${shown.length}` }] : []),
-                ]}
-                value={lessonsPicked}
-                onChange={(next) => {
-                  if (next.includes(SHOW_ALL)) setAllLessons(true);
-                  setLessonsPicked(next.filter((v) => v !== SHOW_ALL));
-                }}
-              />
+              <div ref={lessonPills}>
+                <Pills
+                  label="Lessons"
+                  showLabel
+                  multiple
+                  describedBy="quiz-drawn"
+                  options={[
+                    ...listed.map((l) => ({
+                      value: l.id,
+                      label: l.title,
+                      ...(l.due ? { tone: "cyan" as const, hint: "due" } : {}),
+                    })),
+                    // the rest of a long list, one tap away, and back: a pill among the pills, so it wraps with them
+                    ...(longList
+                      ? [{ value: SHOW_MORE, label: allLessons ? "Show fewer" : `Show all ${shown.length}` }]
+                      : []),
+                  ]}
+                  value={lessonsPicked}
+                  onChange={(next) => {
+                    if (next.includes(SHOW_MORE)) {
+                      // the pill tapped leaves: focus the first lesson that came into sight, or, folding, the pill
+                      // that brings them back (the last one of the short list)
+                      focusPill.current = allLessons
+                        ? short.length
+                        : Math.max(
+                            0,
+                            shown.findIndex((l) => !short.includes(l)),
+                          );
+                      setAllLessons(!allLessons);
+                    }
+                    setLessonsPicked(next.filter((v) => v !== SHOW_MORE));
+                  }}
+                />
+              </div>
             )}
             <p id="quiz-drawn" className="m-0 text-[14px]" style={{ color: "var(--muted)" }}>
               {drawn}
@@ -397,16 +441,13 @@ export function Quiz() {
               ? "No lessons here yet"
               : `Start ${plural(questions, "question")}${on ? ` on ${on}` : ""}`}
         </button>
-        {failing && (
-          <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-            {(failing.error as Error).message}
-          </p>
-        )}
+        <Failed message={failing ? (failing.error as Error).message : null} />
       </section>
 
-      {ended.length > 0 && (
+      {(ended.length > 0 || failedIn("done")) && (
         <section className="grid content-start gap-3 lg:col-start-2">
           <span className="eyebrow">Done</span>
+          <Failed message={failedIn("done")} />
           <div className="card quiz-list grid overflow-hidden !p-0">
             {(allDone ? ended : ended.slice(0, DONE_SHOWN)).map((q, i) => (
               <div
@@ -437,7 +478,7 @@ export function Quiz() {
                     className="card-remove quiz-keep"
                     aria-label={`Archive "${named(q)}"`}
                     title="Archive"
-                    onClick={() => change.mutate({ id: q.id, to: "archive" })}
+                    onClick={() => act(q, "archive", "done")}
                   >
                     <ArchiveIcon />
                   </button>
@@ -446,7 +487,7 @@ export function Quiz() {
                     className="card-remove"
                     aria-label={`Delete "${named(q)}"`}
                     title="Delete"
-                    onClick={() => remove(q)}
+                    onClick={() => remove(q, "done")}
                   >
                     ✕
                   </button>
@@ -467,7 +508,7 @@ export function Quiz() {
         </section>
       )}
 
-      {archived.length > 0 && (
+      {(archived.length > 0 || failedIn("archived") || archivedList.isError) && (
         <section className="grid content-start gap-3 lg:col-start-2">
           <Pills
             label="Archived quizzes"
@@ -476,8 +517,9 @@ export function Quiz() {
             value={archivedOpen ? ["archived"] : []}
             onChange={(v) => setArchivedOpen(v.length > 0)}
           />
-          {archivedOpen && (
-            <div className="card grid overflow-hidden !p-0">
+          <Failed message={archivedList.isError ? (archivedList.error as Error).message : failedIn("archived")} />
+          {archivedOpen && archived.length > 0 && (
+            <div className="card quiz-list grid overflow-hidden !p-0">
               {archived.map((q, i) => (
                 <div
                   key={q.id}
@@ -497,10 +539,20 @@ export function Quiz() {
                     {named(q)}
                   </Link>
                   <span className="relative z-[1] ml-auto flex shrink-0 gap-2">
-                    <button type="button" className="btn" onClick={() => change.mutate({ id: q.id, to: "restore" })}>
+                    <button
+                      type="button"
+                      className="btn"
+                      aria-label={`Restore "${named(q)}"`}
+                      onClick={() => act(q, "restore", "archived")}
+                    >
                       Restore
                     </button>
-                    <button type="button" className="btn btn-danger" onClick={() => remove(q)}>
+                    <button
+                      type="button"
+                      className="btn btn-danger"
+                      aria-label={`Delete "${named(q)}"`}
+                      onClick={() => remove(q, "archived")}
+                    >
                       Delete
                     </button>
                   </span>
@@ -515,9 +567,20 @@ export function Quiz() {
 }
 
 const LONG_LIST = 12; // past this many lessons, the pills start with the due and the picked ones
-const SHOW_ALL = "\u0000all"; // the "Show all" pill's value: no lesson id can be it
+const SHOW_MORE = "\u0000more"; // the "Show all" / "Show fewer" pill's value: no lesson id can be it
+const STARTED_SHOWN = 3; // started quizzes shown before "Show all": the new quiz's form stays near the top
 const DONE_SHOWN = 8; // ended quizzes shown before "Show all"
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+type List = "started" | "done" | "archived"; // where an archive, restore or delete was asked from
+
+// what went wrong, in red, where it went wrong
+function Failed({ message }: { message: string | null }) {
+  return message ? (
+    <p className="m-0 text-sm" role="alert" style={{ color: "var(--red)" }}>
+      {message}
+    </p>
+  ) : null;
+}
 
 // Archive's mark: a box with its lid, the slot on its front
 function ArchiveIcon() {
@@ -706,6 +769,7 @@ export function QuizRun() {
           }}
         />
       </div>
+      <ArchivedNote quiz={quiz} />
       <section className="card grid gap-3">
         <Link
           to={`/learn/lesson/${encodeURIComponent(item.lesson)}`}
@@ -861,6 +925,34 @@ export function QuizRun() {
   );
 }
 
+// an archived quiz opened from Archived says so, with Restore one tap away: answering it here doesn't bring it back to
+// the list, so I'd otherwise finish a quiz that then shows nowhere but Archived
+function ArchivedNote({ quiz }: { quiz: QuizData }) {
+  const queryClient = useQueryClient();
+  const restore = useMutation({
+    mutationFn: () => call<{ quiz: QuizData }>(`/api/learn/quizzes/${quiz.id}/restore`, "POST"),
+    onSuccess: (got) => {
+      queryClient.setQueryData(["quiz", quiz.id], got);
+      queryClient.invalidateQueries({ queryKey: ["quizzes"] });
+    },
+  });
+  if (!quiz.archived) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px]" style={{ color: "var(--muted)" }}>
+      <span>This quiz is archived.</span>
+      <button
+        type="button"
+        className="btn btn-quiet quiz-restore"
+        disabled={restore.isPending}
+        onClick={() => restore.mutate()}
+      >
+        Restore
+      </button>
+      <Failed message={restore.isError ? (restore.error as Error).message : null} />
+    </div>
+  );
+}
+
 // the end: the score, and every question a tap away to read again (and ask about)
 function QuizEnd({ quiz }: { quiz: QuizData }) {
   const right = quiz.answers.filter((m) => m?.verdict === "right").length;
@@ -873,6 +965,7 @@ function QuizEnd({ quiz }: { quiz: QuizData }) {
         </Link>
         <span className="eyebrow truncate">{named(quiz)}</span>
       </div>
+      <ArchivedNote quiz={quiz} />
       <section className="card grid gap-1">
         <span className="font-cond text-[44px] font-bold leading-none" style={{ color: "var(--strong)" }}>
           {right} of {quiz.items.length}

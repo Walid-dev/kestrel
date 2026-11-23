@@ -90,14 +90,16 @@ export function pickQuiz(
       return { r, checks, rank: tier + random() * 0.9 };
     })
     .sort((a, b) => a.rank - b.rank);
-  // each lesson's questions, in turn: its own checks in a random order (null: one the model writes); a quiz on a few
-  // lessons goes round them again with their next question, so two picked lessons can still make a round of six
+  // each lesson's questions, in turn: its own checks in a random order (null: one the model writes). Only a quiz on
+  // picked lessons goes round them again with their next question, so two picked lessons can still make a round of
+  // six; a topic or a pack asks each lesson once, as it always has.
+  const round = picked.size > 0;
   const turns = ranked.map(({ r, checks }) => {
     const own = opts.fresh ? [] : shuffled(checks, random);
     const slots: ({ q: string; a: string } | null)[] = own.length
       ? own
-      : Array(questionsFrom(checks.length, Boolean(opts.fresh))).fill(null);
-    return { r, slots };
+      : Array(questionsFrom(checks.length, Boolean(opts.fresh), true)).fill(null);
+    return { r, slots: slots.slice(0, questionsFrom(checks.length, Boolean(opts.fresh), round)) };
   });
   const items: QuizItem[] = [];
   const want = clampCount(opts.count);
@@ -343,15 +345,17 @@ const save = (db: DatabaseSync, id: string, what: "items" | "answers", value: un
     .prepare(`UPDATE quizzes SET ${what} = ?, updated = ? WHERE id = ?`)
     .run(JSON.stringify(value), new Date().toISOString(), id);
 
-// what a quiz is drawn from, in words, for its card: a lesson's title, a pack's name, two packs' names, or the topic
-// with how many it picked ("AI · 3 lessons")
-function scopeOf(db: DatabaseSync, from: QuizFrom, items: QuizItem[]): string {
+// what a quiz is drawn from, in words, for its card: one or two lessons' titles, one or two packs' names, or the topic
+// with how many it picked ("AI · 3 lessons"). Two quizzes on different pairs of lessons must not share a name: the
+// list, Archived and the delete question would show two cards I can't tell apart.
+function scopeOf(db: DatabaseSync, from: QuizFrom): string {
   const topic = from.group || "Everything";
-  const packs = [...new Set(from.packs ?? [])].map(
-    (id) => (db.prepare("SELECT name FROM packs WHERE id = ?").get(id) as { name: string } | undefined)?.name ?? "",
-  );
+  const name = (table: "packs" | "lessons", col: "name" | "title", id: string) =>
+    (db.prepare(`SELECT ${col} AS n FROM ${table} WHERE id = ?`).get(id) as { n: string } | undefined)?.n ?? "";
+  const packs = [...new Set(from.packs ?? [])].map((id) => name("packs", "name", id));
   const lessons = [...new Set(from.lessons ?? [])];
-  if (lessons.length === 1) return items[0]?.title ?? topic;
+  if (lessons.length === 1 || lessons.length === 2)
+    return lessons.map((id) => name("lessons", "title", id)).join(" + ");
   if (lessons.length) return `${packs.length === 1 ? packs[0] : topic} · ${lessons.length} lessons`;
   if (packs.length === 1 || packs.length === 2) return packs.join(" + ");
   if (packs.length) return `${topic} · ${packs.length} packs`;
@@ -371,7 +375,7 @@ export function startQuiz(
   const at = now.toISOString();
   db.prepare(
     "INSERT INTO quizzes (id, area, scope, items, answers, place, started, updated) VALUES (?, ?, ?, ?, ?, 0, ?, ?)",
-  ).run(id, opts.area, scopeOf(db, opts, items), JSON.stringify(items), JSON.stringify(items.map(() => null)), at, at);
+  ).run(id, opts.area, scopeOf(db, opts), JSON.stringify(items), JSON.stringify(items.map(() => null)), at, at);
   return mustQuiz(db, id);
 }
 

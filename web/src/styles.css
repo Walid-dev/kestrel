@@ -1025,6 +1025,11 @@ pre.code .f {
   .quiz-list .card-remove:last-child {
     margin-right: -10px;
   }
+  /* the text buttons in a quiz list (Restore, Delete, Show all) and an archived quiz's Restore, a thumb's height too */
+  .quiz-list .btn,
+  .quiz-restore {
+    min-height: 44px;
+  }
 }
 /* a flow the model drew: steps side by side, each a card in its own colour with an arrow to the next; where the room
    is narrow (a phone), a vertical stepper on one soft panel, each step's number in a ring on a thin line */

@@ -38,7 +38,7 @@ test("a quiz on picked lessons draws only from them; a pick outside the topic is
   assert.equal(res.status, 200);
   const { quiz } = (await res.json()) as { quiz: { items: { lesson: string }[]; scope: string } };
   assert.deepEqual(quiz.items.map((i) => i.lesson).sort(), ["lid", "spout"]);
-  assert.equal(quiz.scope, "Kitchen · 2 lessons");
+  assert.equal(quiz.scope, "About spout + About lid");
   const outside = await send(app, "/api/learn/quizzes", "POST", { group: "Garden", lessons: ["spout"] });
   assert.equal(outside.status, 400);
   assert.match(((await outside.json()) as { error: string }).error, /isn't in this topic/);

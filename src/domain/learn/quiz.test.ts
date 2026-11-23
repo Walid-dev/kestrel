@@ -76,11 +76,16 @@ test("missed lately first, then due, then the rest; a lesson with no check comes
 
 test("new questions: every lesson's question is left for the model, which is told the lesson's own to avoid", () => {
   const db = setup();
-  // four lessons fill a round of ten with new questions: each lesson asked again, three times at most
+  // a whole topic asks each lesson once, new questions or not: four lessons make four questions, even for ten
   const items = pickQuiz(db, { area: "learn", count: 10, fresh: true }, NOW, () => 0.5);
-  assert.equal(items.length, 10);
+  assert.equal(items.length, 4);
   assert.ok(items.every((i) => i.q === null && i.a === null));
-  for (const l of ["spout", "lid", "handle", "glaze"]) assert.ok(items.filter((i) => i.lesson === l).length <= 3, l);
+  assert.equal(questionsIn([{ checks: 1 }, { checks: 1 }, { checks: 1 }, { checks: 0 }], 10, true, false), 4);
+  // picked lessons go round: up to three new questions each
+  const two = pickQuiz(db, { area: "learn", lessons: ["spout", "glaze"], count: 10, fresh: true }, NOW, () => 0.5);
+  assert.equal(two.length, 6);
+  for (const l of ["spout", "glaze"]) assert.equal(two.filter((i) => i.lesson === l).length, 3, l);
+  assert.equal(questionsIn([{ checks: 1 }, { checks: 0 }], 10, true, true), 6);
   const prompt = makePrompt("Steeping", "How long to steep.", false, ["How long does green tea steep?"]);
   assert.match(prompt, /already asked[^\n]*\n- How long does green tea steep\?/);
   assert.doesNotMatch(makePrompt("Steeping", "How long to steep."), /already asked/);
@@ -248,7 +253,7 @@ test("picked lessons narrow the quiz to them, going round their checks; nothing 
   assert.equal(items.length, 4);
   assert.equal(new Set(items.map((i) => i.q)).size, 4);
   // what the start page promises is what is drawn
-  assert.equal(questionsIn([{ checks: 2 }, { checks: 2 }], 10, false), 4);
+  assert.equal(questionsIn([{ checks: 2 }, { checks: 2 }], 10, false, true), 4);
   assert.equal(pickQuiz(db, { area: "learn", lessons: ["mug"], count: 1 }, NOW).length, 1);
   // picked packs: only their lessons
   const cups = pickQuiz(db, { area: "learn", packs: ["pack:cups"], count: 30 }, NOW);
@@ -285,8 +290,20 @@ test("a quiz is named after what it was drawn from", () => {
   assert.equal(name({ area: "learn", count: 5 }), "Everything");
   assert.equal(name({ area: "learn", group: "Kitchen", count: 5 }), "Kitchen");
   assert.equal(name({ area: "learn", group: "Kitchen", lessons: ["mug"], count: 5 }), "About mug");
-  assert.equal(name({ area: "learn", group: "Kitchen", lessons: ["mug", "saucer"], count: 5 }), "Kitchen · 2 lessons");
-  assert.equal(name({ area: "learn", packs: ["pack:cups"], lessons: ["mug", "saucer"], count: 5 }), "Cups · 2 lessons");
+  // two lessons by their titles, so quizzes on different pairs stay apart; three or more by their count
+  assert.equal(
+    name({ area: "learn", group: "Kitchen", lessons: ["mug", "saucer"], count: 5 }),
+    "About mug + About saucer",
+  );
+  assert.equal(name({ area: "learn", lessons: ["saucer", "beaker"], count: 1 }), "About saucer + About beaker");
+  assert.equal(
+    name({ area: "learn", group: "Kitchen", lessons: ["mug", "saucer", "beaker"], count: 5 }),
+    "Kitchen · 3 lessons",
+  );
+  assert.equal(
+    name({ area: "learn", packs: ["pack:cups"], lessons: ["mug", "saucer", "beaker"], count: 5 }),
+    "Cups · 3 lessons",
+  );
   assert.equal(name({ area: "learn", packs: ["pack:cups", "pack:teapots"], count: 5 }), "Cups + Teapots");
 });
 
