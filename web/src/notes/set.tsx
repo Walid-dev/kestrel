@@ -1,13 +1,17 @@
 // Several documents reviewed together: notes on each, one Apply, one overview that covers them all — and each
 // document's changes save on their own (the review's Save buttons, one per document, each with its Keep or Drop).
+// Each save is said under Apply, with that document's Download, Save as PDF and Undo, as in the reader.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import type { DocumentMeta, Draft, PlacedNote } from "../../../src/shared/notes.ts";
+import { docKind } from "../../../src/shared/markdown.ts";
+import type { DocumentFull, DocumentMeta, Draft, PlacedNote } from "../../../src/shared/notes.ts";
+import { useConfirm } from "../ui/confirm.tsx";
+import { downloadText } from "../ui/doc.tsx";
 import { EmptyState } from "../ui/empty.tsx";
 import { List, Row } from "../ui/list.tsx";
 import { Page } from "../ui/page.tsx";
-import { Apply } from "./apply.tsx";
+import { type AppliedSave, Apply } from "./apply.tsx";
 import type { Pace } from "./parts.tsx";
 import { Review } from "./review.tsx";
 
@@ -19,6 +23,12 @@ export function NotesSet() {
   const [review, setReview] = useState(false);
   const [why, setWhy] = useState("");
   const [saveWhy, setSaveWhy] = useState("");
+  const sure = useConfirm();
+  // the last document saved here, said under Apply until I close it or apply again
+  const [applied, setApplied] = useState<(AppliedSave & { id: string }) | null>(null);
+  // what the review dropped, by draft, so a box closed by accident keeps my picks
+  const [dropped, setDropped] = useState<Record<string, Record<string, number[]>>>({});
+  const [asked, setAsked] = useState<number>();
 
   const docs = useQuery({
     queryKey: ["docs"],
@@ -69,7 +79,10 @@ export function NotesSet() {
       });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
     },
-    onSuccess: () => setWhy(""),
+    onSuccess: () => {
+      setWhy("");
+      setApplied(null);
+    },
     onError: (e) => setWhy(e.message),
     onSettled: refresh,
   });
@@ -80,12 +93,33 @@ export function NotesSet() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ document: input.documentId, keep: input.keep }),
       });
-      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
+      const data = (await res.json()) as { error?: string; saved?: number };
+      if (!res.ok) throw new Error(data.error ?? `${res.status}`);
+      return { id: input.documentId, changes: data.saved ?? input.keep.length };
     },
-    onSuccess: () => setSaveWhy(""),
+    onSuccess: (s) => {
+      setSaveWhy("");
+      const name = docs.data?.documents.find((d) => d.id === s.id)?.name ?? "the document";
+      setApplied({ ...s, name });
+    },
     onError: (e) => setSaveWhy(e.message),
     onSettled: refresh,
   });
+  const undo = useMutation({
+    mutationFn: async (documentId: string) => {
+      const res = await fetch(`/api/notes/documents/${documentId}/undo`, { method: "POST" });
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
+    },
+    onSuccess: () => setApplied(null),
+    onSettled: refresh,
+  });
+  // the saved document's new text, fetched as Download is pressed (this page holds no document's words)
+  const download = async (documentId: string) => {
+    const res = await fetch(`/api/notes/documents/${documentId}`);
+    if (!res.ok) return;
+    const d = (await res.json()) as DocumentFull;
+    downloadText(d.name, d.text, docKind(d.name));
+  };
   const discard = useMutation({
     mutationFn: async (draftId: string) => {
       await fetch(`/api/notes/drafts/${draftId}/discard`, { method: "POST" });
@@ -153,12 +187,29 @@ export function NotesSet() {
           draft={setDraft}
           speed={speed}
           onSpeed={setSpeed}
-          onApply={() => ask.mutate()}
+          asked={asked}
+          onApply={() => {
+            setAsked(openNotes);
+            ask.mutate();
+          }}
           applying={ask.isPending}
           askWhy={why}
-          onStop={() => setDraft && discard.mutate(setDraft.id)}
+          onStop={async () => {
+            const yes = await sure({
+              title: "Stop applying your notes?",
+              body: "The model's work so far goes; your notes stay open.",
+              yes: "Stop",
+            });
+            if (yes && setDraft) discard.mutate(setDraft.id);
+          }}
           onReview={() => setReview(true)}
           onDismiss={() => (setDraft?.status === "failed" ? discard.mutate(setDraft.id) : setWhy(""))}
+          saved={applied}
+          onCloseSaved={() => setApplied(null)}
+          onDownload={applied ? () => download(applied.id) : undefined}
+          printHref={applied ? `/notes/${encodeURIComponent(applied.id)}/print` : undefined}
+          onUndo={applied ? () => undo.mutate(applied.id) : undefined}
+          undoing={undo.isPending}
         />
       </div>
       {review && setDraft?.status === "ready" && (
@@ -171,6 +222,8 @@ export function NotesSet() {
               .flat()
               .map((n) => [n.id, n.text]),
           )}
+          dropped={dropped[setDraft.id] ?? {}}
+          onDropped={(next) => setDropped((all) => ({ ...all, [setDraft.id]: next }))}
           onSave={(documentId, keep) => saveDoc.mutate({ documentId, keep })}
           saving={saveDoc.isPending}
           saveWhy={saveWhy}

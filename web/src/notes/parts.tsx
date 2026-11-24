@@ -28,6 +28,13 @@ export function shortPath(path: string): string {
   return parts.length > 4 ? `${parts[0] || ""}/…/${parts.slice(-2).join("/")}` : home;
 }
 
+// a PDF's text: the upload keeps the PDF's name (src/domain/notes/pdf.ts), and only a PDF upload may
+export const isPdfText = (d: { name: string; source: string }) => d.source === "upload" && /\.pdf$/i.test(d.name);
+
+// where a document comes from, as its chip says it on the list and in the reader alike
+export const sourceOf = (d: { name: string; source: string }) =>
+  isPdfText(d) ? "pdf" : d.source === "upload" ? "upload" : "file";
+
 export type Pace = "careful" | "fast";
 
 const PACES: { value: Pace; label: string; hint: string }[] = [

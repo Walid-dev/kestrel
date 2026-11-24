@@ -63,7 +63,9 @@ export function NotesList({
       )}
       {done.length > 0 && (
         <details className="note-fold">
-          <summary className="disclosure">Done · {done.length}</summary>
+          <summary className="disclosure">
+            Done · <span className="font-mono tabular-nums">{done.length}</span>
+          </summary>
           {done.map(card)}
         </details>
       )}

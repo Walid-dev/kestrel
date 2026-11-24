@@ -3,7 +3,7 @@
 // Cancel goes back to reading and keeps the words. On a computer-wide screen, Side by side shows the source on the
 // left and the preview on the right, as VS Code does. Words not saved yet wait on this device until Save or Discard.
 // Its head holds the switch and Download: the text as a file, Save as PDF (a clean print page), Copy. While reading,
-// a page can put its own buttons there too, before Download (tools). Notes keeps its Apply beside the notes instead.
+// a page can put its own buttons there too, before Download (tools: Notes' Apply, on a short screen).
 import { type ReactNode, useDeferredValue, useEffect, useId, useRef, useState } from "react";
 import { type DocKind, docKind } from "../../../src/shared/markdown.ts";
 import { type Mark, Markdown } from "./markdown.tsx";

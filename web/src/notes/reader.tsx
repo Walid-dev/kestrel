@@ -3,7 +3,9 @@
 // My notes show as marks on the rendered words and as a list beside. Selecting words notes exactly those words of the
 // source; a tap on a paragraph notes the paragraph; a button takes a note on the whole document; the sheet is a
 // native dialog. Apply (apply.tsx) sits where the notes are: at the head of their column on a computer, in a bar at
-// the screen's foot on a phone. The document's own head keeps to Read, Edit and Download.
+// the screen's foot on a phone. On a short screen (a phone on its side) the bar would take a third of the text: while
+// notes wait, Apply sits in the document's own head there, beside Read, Edit and Download, and its other states keep
+// to one row of the bar.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
@@ -19,7 +21,7 @@ import { Page, PageHead } from "../ui/page.tsx";
 import { type AppliedSave, Apply } from "./apply.tsx";
 import { NoteSheet, type SheetTarget } from "./note-sheet.tsx";
 import { NotesList } from "./notes-list.tsx";
-import { type Pace, sentence, shortPath } from "./parts.tsx";
+import { isPdfText, type Pace, sentence, shortPath, sourceOf } from "./parts.tsx";
 import { Review } from "./review.tsx";
 
 export const LAST_DOC = "kestrel-notes-last";
@@ -31,8 +33,20 @@ function ownTitle(d: { name: string; text: string }): string {
   return first?.k === "heading" && first.level === 1 ? plain(first.runs).trim() : "";
 }
 
-// a PDF's text: the upload keeps the PDF's name (src/domain/notes/pdf.ts), and only a PDF upload may
-const isPdfText = (d: { name: string; source: string }) => d.source === "upload" && /\.pdf$/i.test(d.name);
+// where the Note button goes: under the words, or over them when under would put it behind the Apply bar or the tab
+// bar (or off the screen); h is the button with its touch area
+const NOTE_H = 44;
+function noteY(top: number, bottom: number): number {
+  let floor = window.innerHeight;
+  for (const el of document.querySelectorAll(".note-bar, .tabbar")) {
+    const r = el.getBoundingClientRect();
+    if (r.height > 0 && r.top < floor) floor = r.top;
+  }
+  if (bottom + 8 + NOTE_H <= floor - 8) return bottom + 8;
+  if (top - 8 - NOTE_H >= 8) return top - 8 - NOTE_H;
+  // a paragraph taller than the screen: the button at the foot of what shows
+  return floor - 8 - NOTE_H;
+}
 
 export function Reader() {
   const sure = useConfirm();
@@ -52,6 +66,10 @@ export function Reader() {
     words: boolean;
   } | null>(null);
   const [review, setReview] = useState(false);
+  // what the review dropped, by draft: closing the box by accident keeps my picks (a new draft has a new id)
+  const [dropped, setDropped] = useState<Record<string, Record<string, number[]>>>({});
+  // how many notes the running Apply took, to name them while the model works
+  const [asked, setAsked] = useState<number>();
   const [askWhy, setAskWhy] = useState("");
   // the last save of the model's changes, said at Apply's place until I close it or leave a new note
   const [applied, setApplied] = useState<AppliedSave | null>(null);
@@ -264,7 +282,7 @@ export function Reader() {
           start: block.from,
           shown: block.el.textContent ?? quote,
           x: r.left + r.width / 2,
-          y: r.bottom,
+          y: noteY(r.top, r.bottom),
           words: false,
         });
       } else setPick(null);
@@ -278,7 +296,14 @@ export function Reader() {
     const quote = doc.data.text.slice(from, to);
     if (quote.trim() === "") return setPick(null);
     const box = r.getBoundingClientRect();
-    setPick({ quote, start: from, shown: sel.toString(), x: box.left + box.width / 2, y: box.bottom, words: true });
+    setPick({
+      quote,
+      start: from,
+      shown: sel.toString(),
+      x: box.left + box.width / 2,
+      y: noteY(box.top, box.bottom),
+      words: true,
+    });
   };
   // the Note button, centred under the words but never past the screen's edges (it is about 210 px wide)
   const inside = (x: number) => Math.min(Math.max(x, 116), window.innerWidth - 116);
@@ -352,10 +377,14 @@ export function Reader() {
   const applyProps = {
     open: openNotes,
     draft: current,
+    asked,
     editing: !reading,
     speed,
     onSpeed: setSpeed,
-    onApply: () => ask.mutate(),
+    onApply: () => {
+      setAsked(openNotes);
+      ask.mutate();
+    },
     applying: ask.isPending,
     askWhy,
     onStop: async () => {
@@ -405,9 +434,7 @@ export function Reader() {
           <>
             {/* where it comes from, as a chip, and where the file is: one short line, the whole path in its title */}
             <span className={cx("note-where", !(d.path || titled) && "note-where-inline")}>
-              <span className="chip chip-caps tone-muted">
-                {pdf ? "pdf" : d.source === "upload" ? "upload" : "file"}
-              </span>
+              <span className="chip chip-caps tone-muted">{sourceOf(d)}</span>
               {(d.path || titled) && (
                 <span className="font-mono min-w-0 truncate text-small" title={d.path ?? d.name}>
                   {d.path ? shortPath(d.path) : d.name}
@@ -468,6 +495,13 @@ export function Reader() {
           onSave={saveText}
           printHref={`/notes/${encodeURIComponent(id)}/print`}
           onMode={setMode}
+          // a short screen's Apply while notes wait, in the head's row (styles.css shows it only there; its other
+          // states stay in the bar, one row each)
+          tools={
+            <span className="note-apply-head">
+              <Apply {...applyProps} bar />
+            </span>
+          }
         />
       </div>
       {/* the phone's Apply: held at the screen's foot while I read, at rest above the notes at the document's end */}
@@ -489,7 +523,9 @@ export function Reader() {
         {(versions.data?.versions.length ?? 0) > 0 && (
           // a fold-out in the column, not a card of its own: closed, it is one quiet row under the notes
           <details className="note-versions">
-            <summary className="disclosure">Earlier versions · {versions.data?.versions.length}</summary>
+            <summary className="disclosure">
+              Earlier versions · <span className="font-mono tabular-nums">{versions.data?.versions.length}</span>
+            </summary>
             <p className="m-0 text-small text-muted">
               The text as it was before each save, here in kestrel. Restore brings one back.
             </p>
@@ -538,7 +574,7 @@ export function Reader() {
           type="button"
           className="note-pick"
           // where the words are: known only at run time, so it reaches the class as two variables
-          style={{ "--x": `${inside(pick.x)}px`, "--y": `${pick.y + 8}px` } as CSSProperties}
+          style={{ "--x": `${inside(pick.x)}px`, "--y": `${pick.y}px` } as CSSProperties}
           // keep the selection: the press must not clear it before the note opens
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => {
@@ -569,6 +605,8 @@ export function Reader() {
           targets={{ [id]: d.path ?? "the upload, kept in kestrel" }}
           texts={{ [id]: current.perDocument[id]?.oldText ?? d.text }}
           noteText={Object.fromEntries(placed.map((n) => [n.id, n.text]))}
+          dropped={dropped[current.id] ?? {}}
+          onDropped={(next) => setDropped((all) => ({ ...all, [current.id]: next }))}
           onSave={(documentId, keep) => saveDoc.mutate({ documentId, keep })}
           saving={saveDoc.isPending}
           saveWhy={saveWhy}

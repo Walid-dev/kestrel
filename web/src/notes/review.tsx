@@ -2,8 +2,8 @@
 // in green), with Keep or Drop; the whole document's diff one tap away. Save writes the kept changes only, and only
 // their notes go to Done; a dropped change's note stays open for the next Apply. Discard asks first, since a draft
 // took the model a while. In the app's one box (ui/dialog.tsx), wide, its title and Save held in view on a tall
-// screen while the changes scroll between them.
-import { useState } from "react";
+// screen while the changes scroll between them. What I dropped lives with the page, not the box: a tap outside, Esc
+// or Back closes the box, and opening it again shows my picks as I left them.
 import { type DiffRow, diffRows } from "../../../src/shared/diff.ts";
 import type { Draft, DraftDocumentResult } from "../../../src/shared/notes.ts";
 import { useConfirm } from "../ui/confirm.tsx";
@@ -48,6 +48,8 @@ export function Review({
   targets,
   texts,
   noteText,
+  dropped,
+  onDropped,
   onSave,
   saving,
   saveWhy,
@@ -60,6 +62,9 @@ export function Review({
   texts: Record<string, string>;
   // my notes' words, by id: each change shows the note it answers
   noteText: Record<string, string>;
+  // what I dropped, per document, by the change's place in its list; everything else is kept
+  dropped: Record<string, number[]>;
+  onDropped: (next: Record<string, number[]>) => void;
   // keep: the kept changes' places in the document's list
   onSave: (documentId: string, keep: number[]) => void;
   saving: boolean;
@@ -68,8 +73,6 @@ export function Review({
   onClose: () => void;
 }) {
   const sure = useConfirm();
-  // what I dropped, per document, by the change's place in its list; everything else is kept
-  const [dropped, setDropped] = useState<Record<string, number[]>>({});
   const one = draft.documents.length === 1 ? draft.documents[0] : null;
   const keepOf = (id: string) =>
     (draft.perDocument[id]?.placed ?? []).map((_, i) => i).filter((i) => !(dropped[id] ?? []).includes(i));
@@ -86,10 +89,13 @@ export function Review({
   const oneResult = one ? draft.perDocument[one.id] : null;
   const where = (id: string, name: string) => {
     const t = targets[id] ?? name;
-    return (
-      <p className="font-mono m-0 break-all text-small text-muted" title={t}>
-        Writes {t.startsWith("/") ? shortPath(t) : t}
+    // mono for a path only; an upload's place is said in words
+    return t.startsWith("/") ? (
+      <p className="m-0 text-small text-muted" title={t}>
+        Writes <span className="font-mono break-all">{shortPath(t)}</span>
       </p>
+    ) : (
+      <p className="m-0 text-small text-muted">Writes {t}</p>
     );
   };
   return (
@@ -150,20 +156,22 @@ export function Review({
                             </p>
                           ))}
                         </div>
-                        <Seg
-                          label={`Keep or drop change ${i + 1}`}
-                          options={[
-                            { value: "keep", label: "Keep" },
-                            { value: "drop", label: "Drop" },
-                          ]}
-                          value={off ? "drop" : "keep"}
-                          onChange={(v) =>
-                            setDropped((all) => {
-                              const mine = (all[d.id] ?? []).filter((x) => x !== i);
-                              return { ...all, [d.id]: v === "drop" ? [...mine, i] : mine };
-                            })
-                          }
-                        />
+                        {/* a set's document already saved: its picks are written, no longer a choice (its Save says
+                            Saved) */}
+                        {!result.savedAt && (
+                          <Seg
+                            label={`Keep or drop change ${i + 1}`}
+                            options={[
+                              { value: "keep", label: "Keep" },
+                              { value: "drop", label: "Drop" },
+                            ]}
+                            value={off ? "drop" : "keep"}
+                            onChange={(v) => {
+                              const mine = (dropped[d.id] ?? []).filter((x) => x !== i);
+                              onDropped({ ...dropped, [d.id]: v === "drop" ? [...mine, i] : mine });
+                            }}
+                          />
+                        )}
                       </div>
                       <Diff old={pl.change.find} now={pl.change.replace} />
                     </li>

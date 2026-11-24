@@ -3363,6 +3363,25 @@ body:has(.paper-view) {
 .paper-how {
   flex: 1 1 240px;
 }
+/* Android's way to a PDF, as numbered steps that wrap as whole steps: two short lines on a phone */
+.paper-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.paper-step {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.paper-step-n {
+  font-family: var(--mono);
+  font-weight: 500;
+  color: var(--strong);
+}
 .paper {
   max-width: 760px;
   margin: 0 auto;
@@ -3484,10 +3503,21 @@ body:has(.paper-view) {
 }
 /* Apply (notes/apply.tsx), where the notes are: at the head of the notes' column from 64rem, where the column sits
    beside the text; under that, a bar held at the screen's foot (over the tab bar on touch) that comes to rest above
-   the notes at the document's end. Each place shows only while it has something to say */
+   the notes at the document's end. On a short screen under 64rem (a phone on its side) the bar would take a third of
+   the text: while notes wait, Apply sits in the document's head row there instead, and the other states (working,
+   ready, failed, saved) keep to one row of the bar. Each place shows only while it has something to say */
 .note-apply-col,
-.note-bar {
+.note-bar,
+.note-apply-head {
   display: none;
+}
+@media (max-width: 63.99rem) and (max-height: 500px) {
+  .note-apply-head:has(> .note-apply-how) {
+    display: contents;
+  }
+  .note-reader > .note-bar:has(> .note-apply-how) {
+    display: none;
+  }
 }
 @media (min-width: 64rem) {
   .note-apply-col:not(:empty) {
@@ -3584,10 +3614,48 @@ body:has(.paper-view) {
   background: none;
   box-shadow: none;
 }
-/* a fold under the notes (Done) or in the review (the whole document): its parts 12 apart once open */
+/* a short, wide screen (a phone on its side) keeps every state in one row of the bar where it fits: the words cut to
+   one line (the column under the text says them whole), the buttons beside them, the ✕ last */
+@media (max-width: 63.99rem) and (max-height: 500px) {
+  .note-bar .note-apply-say {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+  }
+  .note-bar .note-apply-stack > .note-apply-acts {
+    flex-basis: auto;
+    margin-left: auto;
+  }
+  .note-bar .note-apply-x {
+    order: 1;
+  }
+  .note-bar .note-apply-pair {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+  }
+  .note-bar .note-apply-pair > .note-apply-box {
+    flex: 1 1 24rem;
+  }
+}
+/* a fold under the notes (Done) or in the review (the whole document): its parts 12 apart once open; closed, no gap
+   (a closed details still holds its hidden part, which the gap would space out) */
 .note-fold {
   display: grid;
+}
+.note-fold[open] {
   gap: 12px;
+}
+/* saved, then what comes next (the other documents' review, or Apply for the notes still open) under it */
+.note-apply-pair {
+  display: grid;
+  gap: 12px;
+}
+.note-bar .note-apply-pair {
+  gap: 8px;
 }
 /* the review: each change the model placed as a block (the note it answers, Keep or Drop, its own short diff), on
    the card's ground over the wide box's page ground */
@@ -3612,12 +3680,12 @@ body:has(.paper-view) {
   font: 400 var(--text-detail) / var(--text-detail--line-height) var(--sans);
   color: var(--text);
 }
+/* a change's diff is a block inside the change's card (as .inner: sunk, no edge of its own) */
 .note-diff {
   overflow-x: auto;
   padding-block: 8px;
-  border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--surface);
+  background: var(--surface-2);
   font: 400 var(--text-small) / var(--text-small--line-height) var(--sans);
 }
 /* a dropped change stays in its place, faded, so Keep brings it back */
@@ -3647,9 +3715,11 @@ body:has(.paper-view) {
     background: var(--bg);
   }
 }
-/* Earlier versions: a fold-out in the notes' column, its versions as inner blocks under it */
+/* Earlier versions: a fold-out in the notes' column, its versions as inner blocks under it (spaced once open) */
 .note-versions {
   display: grid;
+}
+.note-versions[open] {
   gap: 8px;
 }
 /* a document's line in the list: where it comes from (a chip), its folder (cut short), when it came */

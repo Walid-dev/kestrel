@@ -1,6 +1,7 @@
 // Notes' documents: the ones already here, the files my folders offer, and Upload. Notes itself opens on the last
 // document I worked on; this list is its switcher, and the start when nothing is open yet. A row is its name, where
-// it comes from and when it came; Select shows the ticks (for a set reviewed together) and each row's Forget.
+// it comes from and when it came; Select shows each row's Forget and, with two documents or more, the ticks for a set
+// reviewed together (a row's tap then ticks it).
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -9,7 +10,7 @@ import { useConfirm } from "../ui/confirm.tsx";
 import { EmptyState } from "../ui/empty.tsx";
 import { List, Row } from "../ui/list.tsx";
 import { Page } from "../ui/page.tsx";
-import { sentence, shortPath } from "./parts.tsx";
+import { sentence, shortPath, sourceOf } from "./parts.tsx";
 import { LAST_DOC } from "./reader.tsx";
 
 // the day a document came in, short ("Nov 24"), with the year when it isn't this one
@@ -30,8 +31,9 @@ export function NotesList() {
   const queryClient = useQueryClient();
   const [why, setWhy] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
-  // Select: the rows' ticks and Forget show; otherwise a row is one tap that opens it
+  // Select: the rows' Forget (and ticks) show; otherwise a row is one tap that opens it
   const [selecting, setSelecting] = useState(false);
+  const tick = (id: string, on: boolean) => setPicked((p) => (on ? [...p, id] : p.filter((x) => x !== id)));
   const file = useRef<HTMLInputElement>(null);
   const docs = useQuery({
     queryKey: ["docs"],
@@ -89,6 +91,9 @@ export function NotesList() {
     if (last && docs.data.documents.some((d) => d.id === last)) navigate(`/notes/${last}`, { replace: true });
   }, [docs.data, navigate]);
   const documents = docs.data?.documents ?? [];
+  // Select lasts while there is a document to act on; ticks only where a set can be made
+  const choosing = selecting && documents.length > 0;
+  const sets = choosing && documents.length > 1;
   const opened = new Set(documents.map((d) => d.path).filter(Boolean));
   const offered = (files.data?.files ?? []).filter((f) => !opened.has(f.path));
   // two names alike (two folders' plan.md): those rows show their whole path, so they can be told apart
@@ -110,24 +115,24 @@ export function NotesList() {
     <Page
       title="Notes"
       line="Read a document and leave notes on its words."
-      // with nothing here yet, Upload is the empty state's own button; Select once there are two to pick
+      // with nothing here yet, Upload is the empty state's own button; Select as soon as there is one to forget
       actions={
         documents.length > 0 && (
           <>
-            {documents.length > 1 && (
-              <button
-                type="button"
-                className="btn"
-                aria-pressed={selecting}
-                title="Tick documents to review them together, or forget one"
-                onClick={() => {
-                  setSelecting((v) => !v);
-                  setPicked([]);
-                }}
-              >
-                {selecting ? "Done" : "Select"}
-              </button>
-            )}
+            <button
+              type="button"
+              className="btn"
+              aria-pressed={choosing}
+              title={
+                documents.length > 1 ? "Tick documents to review them together, or forget one" : "Forget a document"
+              }
+              onClick={() => {
+                setSelecting(!choosing);
+                setPicked([]);
+              }}
+            >
+              {choosing ? "Cancel" : "Select"}
+            </button>
             {upload(false)}
           </>
         )
@@ -176,29 +181,31 @@ export function NotesList() {
               {documents.map((d) => (
                 <Row
                   key={d.id}
-                  to={`/notes/${d.id}`}
+                  // while ticking, a row's tap ticks it; otherwise it opens the document
+                  to={sets ? undefined : `/notes/${d.id}`}
+                  onOpen={sets ? () => tick(d.id, !picked.includes(d.id)) : undefined}
                   title={d.name}
                   line={
                     <span className="notes-line">
-                      <span className="chip chip-caps tone-muted">{d.path ? "file" : "upload"}</span>
+                      <span className="chip chip-caps tone-muted">{sourceOf(d)}</span>
                       {d.path && where(d.path, d.name)}
                     </span>
                   }
                   end={
-                    !selecting ? (
+                    !choosing ? (
                       <span className="font-mono text-small text-muted tabular-nums">{added(d.addedAt)}</span>
                     ) : (
                       <>
-                        <label className="notes-pick">
-                          <input
-                            type="checkbox"
-                            aria-label={`Pick ${d.name} for a set`}
-                            checked={picked.includes(d.id)}
-                            onChange={(e) =>
-                              setPicked((p) => (e.target.checked ? [...p, d.id] : p.filter((x) => x !== d.id)))
-                            }
-                          />
-                        </label>
+                        {sets && (
+                          <label className="notes-pick">
+                            <input
+                              type="checkbox"
+                              aria-label={`Pick ${d.name} for a set`}
+                              checked={picked.includes(d.id)}
+                              onChange={(e) => tick(d.id, e.target.checked)}
+                            />
+                          </label>
+                        )}
                         <button
                           type="button"
                           className="card-remove"
@@ -215,7 +222,7 @@ export function NotesList() {
                 />
               ))}
             </List>
-            {selecting && picked.length >= 2 && (
+            {sets && picked.length >= 2 && (
               <Link to={`/notes/set?ids=${picked.join(",")}`} className="btn btn-primary justify-self-start">
                 Review {picked.length} together →
               </Link>

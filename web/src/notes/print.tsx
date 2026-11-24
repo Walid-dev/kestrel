@@ -3,9 +3,10 @@
 // computer's side. A page of its own (/notes/<id>/print, opened in a tab of its own) because a home-screen app on the
 // iPhone can't print in place: there, Share, Print, Save to Files. On a computer the print dialog opens by itself
 // (Save as PDF is in it) and the tab closes after. On Android the button opens the system's print screen, whose list
-// at the top (a printer's name) holds Save as PDF: the page says so first, and never opens it by itself.
+// at the top (a printer's name) holds Save as PDF: the page says so first, as three short steps, and never opens it
+// by itself.
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { Link, useParams } from "react-router";
 import { docKind } from "../../../src/shared/markdown.ts";
 import type { DocumentFull } from "../../../src/shared/notes.ts";
@@ -20,10 +21,20 @@ const device = (): Device =>
     : /Android/i.test(navigator.userAgent)
       ? "android"
       : "iphone";
-const HOW: Record<Device, string> = {
+const ANDROID = ["Tap Save as PDF", "At the top, pick Save as PDF", "Tap the round PDF button"];
+const HOW: Record<Device, ReactNode> = {
   computer: "In the print dialog, choose Save as PDF.",
-  android:
-    "Tap Save as PDF. On the next screen, open the list at the top (where a printer's name shows), choose Save as PDF, then tap the round PDF button.",
+  // the list at the top of Android's print screen shows a printer's name; Save as PDF is one of its entries
+  android: (
+    <ol className="paper-steps" title="The list at the top shows a printer's name: open it, and Save as PDF is in it.">
+      {ANDROID.map((step, i) => (
+        <li key={step} className="paper-step">
+          <span className="paper-step-n">{i + 1}</span>
+          {step}
+        </li>
+      ))}
+    </ol>
+  ),
   iphone: "To keep it as a PDF: tap Share, then Print, then Save to Files.",
 };
 
@@ -78,7 +89,7 @@ export function NotesPrint() {
         <Link to={`/notes/${encodeURIComponent(id)}`} className="paper-back">
           ← Back to the document
         </Link>
-        <span className="paper-how">{HOW[on]}</span>
+        <div className="paper-how">{HOW[on]}</div>
         <button type="button" className="btn" onClick={() => window.print()}>
           {on === "iphone" ? "Print" : "Save as PDF"}
         </button>
