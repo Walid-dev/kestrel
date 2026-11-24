@@ -23,7 +23,14 @@ import {
   usualPrices,
 } from "../domain/search/listings.ts";
 import { lastRun, pendingSearches, runSearch } from "../domain/search/runs.ts";
-import { listCollectors, loadSpecs, readSpecFile, type Spec, writeSpecFile } from "../domain/search/specs.ts";
+import {
+  listCollectors,
+  loadSpecs,
+  readSpecFile,
+  type Spec,
+  SpecRefused,
+  writeSpecFile,
+} from "../domain/search/specs.ts";
 import {
   type HuntMode,
   type LastSearch,
@@ -261,14 +268,19 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
   app.put("/api/search/specs/:id", async (c) => {
     if (Number(c.req.header("content-length") ?? "0") > 100_000)
       return c.json({ error: "that is too big to be a search" }, 400);
+    const raw: unknown = await c.req.json().catch(() => undefined);
+    if (raw === undefined) return c.json({ error: "the request's body isn't JSON" }, 400);
+    // only the check's refusal is a bad request; a disk or database failure is the computer's, a plain 500
+    let spec: Spec;
     try {
-      const spec = writeSpecFile(c.req.param("id"), await c.req.json(), specsDir());
-      // new scoring rules apply to what this search already found, not only to what it finds next
-      const rescored = rescoreSearch(db, spec.id, spec.scoring ?? {}, spec.kind, new Date());
-      return c.json({ ok: true, id: spec.id, rescored });
+      spec = writeSpecFile(c.req.param("id"), raw, specsDir());
     } catch (e) {
-      return c.json({ error: e instanceof Error ? e.message : String(e) }, 400);
+      if (e instanceof SpecRefused) return c.json({ error: e.message }, 400);
+      throw e;
     }
+    // new scoring rules apply to what this search already found, not only to what it finds next
+    const rescored = rescoreSearch(db, spec.id, spec.scoring ?? {}, spec.kind, new Date());
+    return c.json({ ok: true, id: spec.id, rescored });
   });
   // Search now for a whole hunt: each of its searches that is on joins the one line, in the background; the hunts list
   // counts them down
