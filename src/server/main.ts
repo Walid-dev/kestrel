@@ -7,6 +7,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { openDb } from "../db/db.ts";
 import { migrate } from "../db/migrate.ts";
+import { newsTick } from "../domain/news/brief.ts";
 import { sweepDeepChecks } from "../domain/search/deep.ts";
 import { loadSettings } from "../platform/config.ts";
 import { dataDir, isDeployed } from "../platform/paths.ts";
@@ -23,6 +24,7 @@ import { mountLearn } from "./learn.ts";
 import { mountLetters } from "./letters.ts";
 import { mountLive } from "./live.ts";
 import { mountModels } from "./models.ts";
+import { mountNews } from "./news.ts";
 import { mountNotes } from "./notes.ts";
 import { mountResearch } from "./research.ts";
 import { startScheduler } from "./scheduler.ts";
@@ -103,6 +105,7 @@ mountTasks(app, db);
 mountLive(app, db, settings.oldLive ?? "");
 mountCost(app, settings);
 mountBrief(app, db, settings);
+mountNews(app, db, settings);
 mountEvents(app);
 // an api path with no door answers so, in words — never the app's page with a 200. It comes last: a route mounted
 // after it is never reached (the live stream was, until 2026-11-22, so every screen fell back to its timer)
@@ -112,6 +115,7 @@ startScheduler(db, {
   backupsDir: join(dataDir(), "backups"),
   mirrorFile: join(dataDir(), "mirror-v1.json"),
   afterRun: (spec, run) => alertRun(db, settings, spec, run),
+  news: (now) => newsTick(db, settings, now),
 });
 
 // every request through the identity check: enforced when deployed, open on made-up data (identity.ts says why).

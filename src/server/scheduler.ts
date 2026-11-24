@@ -18,6 +18,8 @@ export type SchedulerDirs = {
   backupsDir: string;
   mirrorFile?: string;
   afterRun?: (spec: Spec, run: Run) => Promise<void>; // a hunt that is On pings my phone (server/alerts.ts)
+  // the morning news (domain/news/brief.ts): starts what is due in the background and says what it started
+  news?: (now: Date) => string | null;
 };
 
 // a copy that failed (a full disk, a folder it can't write) tries again an hour later, not every minute: each try
@@ -39,6 +41,13 @@ export async function tick(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Pr
 
 async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promise<string[]> {
   const did: string[] = [];
+  // first, since it only starts its work: the brief (or a read of the feeds) never waits behind a long search
+  try {
+    const news = dirs.news?.(now);
+    if (news) did.push(`news:${news}`);
+  } catch (e) {
+    console.error(`the news couldn't start: ${plainWords((e as Error).message)}`);
+  }
   // an application at work has the agent's browser and the model: the searches wait for the next tick (two hours at
   // most, should its end never be reported)
   const applying = db

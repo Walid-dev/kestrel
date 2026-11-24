@@ -1,0 +1,19 @@
+{
+  "hits": [
+    {
+      "objectID": "4242",
+      "title": "Open kettles and the made-up rules",
+      "url": "https://blog.example.com/open-kettles",
+      "points": 1886,
+      "created_at": "2026-11-24T02:00:00.000Z"
+    },
+    {
+      "objectID": "4243",
+      "title": "Ask: which teapot do you use?",
+      "url": null,
+      "points": 312,
+      "created_at": "2026-11-24T04:00:00.000Z"
+    }
+  ],
+  "nbHits": 2
+}

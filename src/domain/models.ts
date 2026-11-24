@@ -12,7 +12,9 @@ export type Use =
   | "research-ask"
   | "quiz"
   | "quiz-explain"
-  | "letter";
+  | "letter"
+  | "news-pick"
+  | "news-write";
 export const USES: { use: Use; what: string }[] = [
   { use: "notes-careful", what: "Notes' careful asks: changes written with time to think" },
   { use: "notes-fast", what: "Notes' fast asks: changes in seconds" },
@@ -23,6 +25,8 @@ export const USES: { use: Use; what: string }[] = [
   { use: "quiz", what: "Quiz: marking my answer to a lesson's question" },
   { use: "quiz-explain", what: "Quiz: the rich explanation after each question" },
   { use: "letter", what: "Cover letters: a letter written the way an application writes it" },
+  { use: "news-pick", what: "The morning news: choosing the day's stories from what the feeds brought" },
+  { use: "news-write", what: "The morning news: the brief, written in plain words" },
 ];
 
 // the fast model for what wants speed: Notes' fast asks, the quiz's explanations (written while I answer), Research's
