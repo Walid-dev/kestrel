@@ -143,8 +143,10 @@ export function Applications() {
           setLimit(PAGE);
         }}
       />
-      {/* the words on a row of their own, so the box keeps its width on a phone; the period under it, beside it wider */}
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_20rem] md:items-center">
+      {/* the words on a row of their own, so the box keeps its width on a phone; the period under it, beside it wider,
+          where the box grows to the bar's height and its words stay in the middle, so both edges line up (the
+          box's own rule sets its words at the bottom, and a utility can't outrank it, so the words fill it instead) */}
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_20rem] md:[&_.field-box]:h-full md:[&_.field-input]:self-stretch">
         <Field
           label="Search title, company or reason"
           value={q}
@@ -195,7 +197,15 @@ export function Applications() {
         {lists.data && rows.length === 0 && (
           <EmptyState
             title="Nothing here right now."
-            line={needle || period !== "all" ? "Other words or a longer period may find some." : undefined}
+            line={
+              needle && period !== "all"
+                ? "Other words or a longer period may find some."
+                : needle
+                  ? "Other words may find some."
+                  : period !== "all"
+                    ? "A longer period may find some."
+                    : undefined
+            }
           />
         )}
         <div className="grid gap-3 md:grid-cols-2">

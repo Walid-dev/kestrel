@@ -122,16 +122,22 @@ export function StopRunning({ className = "" }: { className?: string }) {
   if (!running.length) return null;
   return (
     <div className={`grid gap-2 ${className}`}>
-      {running.map((c) => (
-        <div key={c.id} className="flex flex-wrap items-center gap-2 text-detail">
-          <span className={`dot ${c.working ? "tone-green pulse" : "tone-yellow"}`} />
-          <b className={c.working ? "text-green" : "text-yellow"}>{c.working ? "Working" : "Waiting"}</b>
-          <span className="min-w-0 flex-1 truncate text-ink">
-            {c.job?.title ? `${c.job.title}${c.job.company ? ` · ${c.job.company}` : ""}` : c.title || "A chat"}
-          </span>
-          <StopChat chat={c.id} applying={c.applying} />
-        </div>
-      ))}
+      {running.map((c) => {
+        // a chat waiting on me needs me: pink, as on Live; a wait on something else stays yellow
+        const tone = c.working ? "green" : c.waiting === "you" ? "pink" : "yellow";
+        return (
+          <div key={c.id} className="flex flex-wrap items-center gap-2 text-detail">
+            <span className={`dot tone-${tone} ${c.working ? "pulse" : ""}`} />
+            <b className={tone === "green" ? "text-green" : tone === "pink" ? "text-pink" : "text-yellow"}>
+              {c.working ? "Working" : "Waiting"}
+            </b>
+            <span className="min-w-0 flex-1 truncate text-ink">
+              {c.job?.title ? `${c.job.title}${c.job.company ? ` · ${c.job.company}` : ""}` : c.title || "A chat"}
+            </span>
+            <StopChat chat={c.id} applying={c.applying} />
+          </div>
+        );
+      })}
     </div>
   );
 }

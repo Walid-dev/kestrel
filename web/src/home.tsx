@@ -145,7 +145,7 @@ function AppFace({ name, what }: { name: string; what: string }) {
     <>
       <span className="flex items-center gap-3">
         <span className={APP_COLOR[name]}>{ICONS[name]}</span>
-        <span className="font-cond text-head font-bold text-strong">{name}</span>
+        <h2 className="m-0 font-cond text-head font-bold text-strong">{name}</h2>
       </span>
       <span className="text-detail text-muted">{what}</span>
     </>

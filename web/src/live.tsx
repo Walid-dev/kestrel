@@ -119,8 +119,8 @@ function ChatState({ chat, open }: { chat: AgentChat; open: (id: string) => void
         </>
       ) : chat.waiting ? (
         <>
-          <span className="dot tone-yellow" />
-          <b className="text-yellow">
+          <span className={`dot ${chat.waiting === "you" ? "tone-pink" : "tone-yellow"}`} />
+          <b className={chat.waiting === "you" ? "text-pink" : "text-yellow"}>
             Waiting for {chat.waiting}
             {chat.help && ":"}
           </b>
@@ -228,6 +228,12 @@ function Row({ a, go }: { a: Item; go: (link: string) => void }) {
               <span className={`dot ${failed ? "tone-red" : "tone-green"}`} />
               {clock(a.ended ?? a.started)}
               {a.ended && a.ended !== a.started && ` · ${length(a.started, a.ended)}`}
+              {/* the arrow says this row opens: a touch screen has no hover to tell it */}
+              {a.link && (
+                <span className="text-accent" aria-hidden="true">
+                  →
+                </span>
+              )}
             </span>
           }
         />
@@ -409,25 +415,29 @@ export function LivePage() {
               </Card>
             );
           })}
-          {loose.map((c) => (
-            <Card
-              key={c.id}
-              tone={c.working ? "green" : c.waiting ? "yellow" : undefined}
-              title={c.job?.title ? `${c.job.title}${c.job.company ? ` · ${c.job.company}` : ""}` : c.title || "A chat"}
-              meta={
-                <span
-                  className={`chip chip-caps ${c.working ? "tone-green" : c.waiting ? "tone-yellow" : "tone-muted"}`}
-                >
-                  {c.applying ? "Application" : "Agent"}
-                </span>
-              }
-            >
-              <div className="grid gap-3">
-                <ChatState chat={c} open={openChat} />
-                <AgentSteps chat={c} />
-              </div>
-            </Card>
-          ))}
+          {loose.map((c) => {
+            // a chat waiting on me needs me, pink as everywhere; a wait on something else stays yellow
+            const tone = c.working ? "green" : c.waiting === "you" ? "pink" : c.waiting ? "yellow" : undefined;
+            return (
+              <Card
+                key={c.id}
+                tone={tone}
+                title={
+                  c.job?.title ? `${c.job.title}${c.job.company ? ` · ${c.job.company}` : ""}` : c.title || "A chat"
+                }
+                meta={
+                  <span className={`chip chip-caps tone-${tone ?? "muted"}`}>
+                    {c.applying ? "Application" : "Agent"}
+                  </span>
+                }
+              >
+                <div className="grid gap-3">
+                  <ChatState chat={c} open={openChat} />
+                  <AgentSteps chat={c} />
+                </div>
+              </Card>
+            );
+          })}
           {busy === 0 && last && (
             <section className="grid gap-2">
               <span className="eyebrow">Last finished</span>
@@ -461,7 +471,7 @@ export function LivePage() {
           {log.data && log.data.activity.length === 0 && (
             <EmptyState
               title={`Nothing in the last week${kind !== "all" ? " of this kind" : ""}.`}
-              line={kind !== "all" ? "Everything shows the other kinds." : "Work shows here once it ends."}
+              line={kind !== "all" ? "Pick Everything to see the other kinds." : "Work shows here once it ends."}
             />
           )}
         </section>

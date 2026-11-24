@@ -92,14 +92,20 @@ function ChatFrame({ link }: { link: Link }) {
     // them, so the title starts where every page's does
     <main className="-mx-4 -mb-28 grid md:-mx-6 md:-mb-16">
       <div className="grid gap-2 px-4 pb-3 md:px-6">
-        <PageHead
-          title="Chat"
-          actions={
-            <a href={link.phone ?? frame} target="_blank" rel="noopener noreferrer" className="btn btn-quiet">
-              Open in its own window ↗
-            </a>
-          }
-        />
+        {/* the window link sits beside the title, as a phone app's bar has it, not on a row of its own: on an upright
+            phone every row the head takes comes off the chats. PageHead puts a top page's buttons under the title on
+            a phone, so this page lays the row out itself. The link's tap area grows to 44 px without taking room */}
+        <div className="flex items-center justify-between gap-3">
+          <PageHead title="Chat" />
+          <a
+            href={link.phone ?? frame}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="relative shrink-0 text-detail font-medium text-accent after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']"
+          >
+            Open in its own window ↗
+          </a>
+        </div>
         <StopRunning />
       </div>
       <iframe
