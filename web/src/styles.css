@@ -2477,8 +2477,11 @@ body:has(.paper-view) {
     color: inherit;
   }
 }
+/* the Note button by the picked words: where they are is known only at run time (--x, --y, set by the reader) */
 .note-pick {
   position: fixed;
+  left: var(--x);
+  top: var(--y);
   z-index: 40;
   transform: translateX(-50%);
   white-space: nowrap;
@@ -2490,6 +2493,12 @@ body:has(.paper-view) {
   font: 600 14px / 1 var(--sans);
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
   cursor: pointer;
+}
+/* Careful or Fast, beside the button that asks for an edit: the buttons' own size, so the two sit on one row on a
+   phone (the 44 px floor still holds on touch) */
+.note-speed button {
+  padding: 6px 12px;
+  font-size: 13.5px;
 }
 /* a research answer's source, inline: the site's name, a small link that opens the page */
 .cite {

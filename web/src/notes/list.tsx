@@ -4,8 +4,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import type { DocumentMeta } from "../../../src/shared/notes.ts";
+import { Card } from "../ui/card.tsx";
 import { useConfirm } from "../ui/confirm.tsx";
-import { LAST_DOC } from "./reader.tsx";
+import { EmptyState } from "../ui/empty.tsx";
+import { Page } from "../ui/page.tsx";
+import { LAST_DOC, sentence } from "./reader.tsx";
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -59,6 +62,7 @@ export function NotesList() {
       });
       if (!yes) return;
       await fetch(`/api/notes/documents/${d.id}`, { method: "DELETE" });
+      setPicked((p) => p.filter((x) => x !== d.id));
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["docs"] }),
   });
@@ -73,115 +77,129 @@ export function NotesList() {
     }
     if (last && docs.data.documents.some((d) => d.id === last)) navigate(`/notes/${last}`, { replace: true });
   }, [docs.data, navigate]);
-  const opened = new Set((docs.data?.documents ?? []).map((d) => d.path).filter(Boolean));
+  const documents = docs.data?.documents ?? [];
+  const opened = new Set(documents.map((d) => d.path).filter(Boolean));
   const offered = (files.data?.files ?? []).filter((f) => !opened.has(f.path));
+  const upload = (
+    <button type="button" className="btn btn-primary" onClick={() => file.current?.click()}>
+      Upload a text
+    </button>
+  );
 
   return (
-    <main className="grid gap-3.5">
-      <div className="flex items-baseline">
-        <h2 className="font-cond text-xl font-bold">Documents</h2>
-        <button type="button" className="btn ml-auto" onClick={() => file.current?.click()}>
-          Upload a text
-        </button>
-        <input
-          ref={file}
-          type="file"
-          accept="text/*,.md,.markdown,.txt,.text,.csv,.json,.rst,.org,.yaml,.yml,.toml,.ini,.log,.pdf,application/pdf"
-          hidden
-          onChange={async (e) => {
-            const f = e.target.files?.[0];
-            if (f) {
-              // the raw bytes go up, base64, so the server judges the file's own encoding
-              const raw = new Uint8Array(await f.arrayBuffer());
-              let bin = "";
-              for (let i = 0; i < raw.length; i += 0x8000) bin += String.fromCharCode(...raw.subarray(i, i + 0x8000));
-              open.mutate({ kind: "upload", payload: { name: f.name, bytes: btoa(bin) } });
-            }
-            e.target.value = "";
-          }}
-        />
-      </div>
+    <Page
+      title="Notes"
+      line={
+        documents.length > 1
+          ? "Open a document to read it and leave notes. Tick two or more to review them together."
+          : "Open a document to read it and leave notes on its words."
+      }
+      // with nothing here yet, Upload is the empty state's own button
+      actions={documents.length > 0 && upload}
+    >
+      <input
+        ref={file}
+        type="file"
+        accept="text/*,.md,.markdown,.txt,.text,.csv,.json,.rst,.org,.yaml,.yml,.toml,.ini,.log,.pdf,application/pdf"
+        hidden
+        onChange={async (e) => {
+          const f = e.target.files?.[0];
+          if (f) {
+            // the raw bytes go up, base64, so the server judges the file's own encoding
+            const raw = new Uint8Array(await f.arrayBuffer());
+            let bin = "";
+            for (let i = 0; i < raw.length; i += 0x8000) bin += String.fromCharCode(...raw.subarray(i, i + 0x8000));
+            open.mutate({ kind: "upload", payload: { name: f.name, bytes: btoa(bin) } });
+          }
+          e.target.value = "";
+        }}
+      />
       {why && (
-        <p
-          className="rounded-xl border px-4 py-3 text-sm"
-          style={{ borderColor: "var(--line)", background: "var(--warn-soft)" }}
-        >
-          {why}
+        <p role="alert" className="m-0 rounded-xl border border-line bg-warn-soft px-4 py-3 text-detail">
+          {sentence(why)}
         </p>
       )}
-      {(docs.data?.documents ?? []).map((d) => (
-        <div key={d.id} className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            aria-label={`Pick ${d.name} for a set`}
-            checked={picked.includes(d.id)}
-            onChange={(e) => setPicked((p) => (e.target.checked ? [...p, d.id] : p.filter((x) => x !== d.id)))}
-            className="h-4 w-4 shrink-0 accent-[var(--accent)]"
-          />
-          <Link
-            to={`/notes/${d.id}`}
-            className="min-w-0 flex-1 rounded-2xl border p-4 transition-all duration-200 hover:-translate-y-px"
-            style={{ borderColor: "var(--line)", background: "var(--surface)" }}
-          >
-            <span className="font-cond text-lg font-bold">{d.name}</span>
-            <span className="font-mono mt-1 block break-all text-xs" style={{ color: "var(--muted)" }}>
-              {d.source === "upload" ? "upload" : d.path} · {Math.max(1, Math.round(d.chars / 1000))}k characters
-            </span>
-          </Link>
-          <button
-            type="button"
-            aria-label={`Forget ${d.name}`}
-            title="Forget this document"
-            className="cursor-pointer rounded-full border px-2.5 py-1 text-xs"
-            style={{ borderColor: "var(--line)", color: "var(--muted)" }}
-            onClick={() => forget.mutate(d)}
-          >
-            ×
-          </button>
-        </div>
-      ))}
-      {picked.length >= 2 && (
-        <Link to={`/notes/set?ids=${picked.join(",")}`} className="btn btn-primary text-center">
-          Review {picked.length} together →
-        </Link>
-      )}
-      {docs.data && docs.data.documents.length === 0 && (
-        <p className="text-sm" style={{ color: "var(--muted)" }}>
-          Nothing opened yet. Pick a file below, or upload one.
-        </p>
+      {docs.data && documents.length === 0 ? (
+        <EmptyState
+          title="No documents yet."
+          line={
+            offered.length > 0
+              ? "Upload a text or a PDF, or open a file from your folders below."
+              : "Upload a text or a PDF to read it here and leave notes on its words."
+          }
+          action={upload}
+          // the setting is the fix only when no folder is listed
+          detail={files.data && files.data.files.length === 0 ? "settings.json · notes.folders" : undefined}
+        />
+      ) : (
+        documents.length > 0 && (
+          <section className="grid gap-3" aria-label="My documents">
+            <ul className="m-0 grid list-none gap-3 p-0 lg:grid-cols-2">
+              {documents.map((d) => (
+                <li key={d.id} className="flex gap-1">
+                  {/* the box itself is small; its label is the thumb's 44 px, reaching into the gutter so the box
+                      lines up with the page's edge */}
+                  <label className="-ml-3 grid size-11 shrink-0 cursor-pointer place-items-center self-center">
+                    <input
+                      type="checkbox"
+                      aria-label={`Pick ${d.name} for a set`}
+                      checked={picked.includes(d.id)}
+                      onChange={(e) =>
+                        setPicked((p) => (e.target.checked ? [...p, d.id] : p.filter((x) => x !== d.id)))
+                      }
+                      className="size-[18px] cursor-pointer accent-accent"
+                    />
+                  </label>
+                  <div className="min-w-0 flex-1 [&>*]:h-full">
+                    <Card
+                      title={d.name}
+                      to={`/notes/${d.id}`}
+                      busy={forget.isPending && forget.variables?.id === d.id}
+                      meta={
+                        <span className="font-mono text-small text-muted">
+                          {d.source === "upload" ? "Upload" : "File"} · {Math.max(1, Math.round(d.chars / 1000))}k
+                          characters
+                        </span>
+                      }
+                      onRemove={() => forget.mutate(d)}
+                      removeLabel={`Forget ${d.name}`}
+                    >
+                      {d.path && <span className="font-mono block break-all text-small">{d.path}</span>}
+                    </Card>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {picked.length >= 2 && (
+              <Link to={`/notes/set?ids=${picked.join(",")}`} className="btn btn-primary justify-self-start">
+                Review {picked.length} together →
+              </Link>
+            )}
+          </section>
+        )
       )}
       {offered.length > 0 && (
-        <section
-          className="rounded-2xl border p-4"
-          style={{ borderColor: "var(--line)", background: "var(--surface)" }}
-        >
-          <h3 className="font-mono text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--muted)" }}>
+        <section className="grid gap-2" aria-labelledby="notes-folders">
+          <h2 id="notes-folders" className="eyebrow m-0">
             From your folders
-          </h3>
-          <ul className="mt-2 grid gap-1.5">
+          </h2>
+          <ul className="card m-0 grid list-none gap-1 !p-2">
             {offered.map((f) => (
               <li key={f.path}>
                 <button
                   type="button"
-                  className="cursor-pointer text-sm underline-offset-4 hover:underline"
-                  style={{ color: "var(--accent)" }}
+                  className="grid min-h-11 w-full cursor-pointer gap-0.5 rounded-lg px-2 py-2 text-left hover:bg-surface-2"
+                  disabled={open.isPending}
                   onClick={() => open.mutate({ kind: "open", payload: { path: f.path } })}
                 >
-                  {f.name}
+                  <span className="text-body text-accent">{f.name}</span>
+                  <span className="font-mono break-all text-small text-muted">{f.path}</span>
                 </button>
-                <span className="font-mono block break-all text-xs" style={{ color: "var(--muted)" }}>
-                  {f.path}
-                </span>
               </li>
             ))}
           </ul>
         </section>
       )}
-      {files.data && files.data.files.length === 0 && (
-        <p className="text-sm" style={{ color: "var(--muted)" }}>
-          No folders are listed yet (settings.json, notes.folders), so Upload is the way in.
-        </p>
-      )}
-    </main>
+    </Page>
   );
 }

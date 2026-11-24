@@ -4,6 +4,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import type { DocumentMeta, Draft, PlacedNote } from "../../../src/shared/notes.ts";
+import { Card } from "../ui/card.tsx";
+import { EmptyState } from "../ui/empty.tsx";
+import { Page } from "../ui/page.tsx";
+import { Speed, sentence, Writing } from "./reader.tsx";
 import { Review } from "./review.tsx";
 
 export function NotesSet() {
@@ -98,56 +102,54 @@ export function NotesSet() {
     wasMaking.current = current?.status === "making";
   }, [current?.status]);
   const setDraft = current && ids.every((id) => current.documents.some((d) => d.id === id)) ? current : null;
+  const back = { to: "/notes?list=1", label: "Notes" };
+  if (docs.data && picked.length === 0)
+    return (
+      <Page title="Review together" back={back}>
+        <EmptyState
+          title="No documents picked."
+          line="Tick two documents or more in Notes, then Review them together."
+          action={
+            <Link to="/notes?list=1" className="btn btn-primary">
+              Pick documents
+            </Link>
+          }
+        />
+      </Page>
+    );
   return (
-    <main className="grid gap-3.5">
-      <h2 className="font-cond text-xl font-bold">Review together</h2>
-      {picked.map((d) => (
-        <Link
-          key={d.id}
-          to={`/notes/${d.id}`}
-          className="rounded-2xl border p-4"
-          style={{ borderColor: "var(--line)", background: "var(--surface)" }}
-        >
-          <span className="font-cond text-lg font-bold">{d.name}</span>
-          <span className="font-mono ml-3 text-xs" style={{ color: "var(--muted)" }}>
-            {notes.data?.[d.id] ?? "…"} open notes
-          </span>
-        </Link>
-      ))}
+    <Page
+      title="Review together"
+      back={back}
+      line="One ask covers every document here; each one's changes save on their own."
+    >
+      <div className="grid gap-3 lg:grid-cols-2">
+        {picked.map((d) => {
+          const open = notes.data?.[d.id];
+          return (
+            <Card
+              key={d.id}
+              title={d.name}
+              to={`/notes/${d.id}`}
+              meta={
+                <span className={`chip chip-caps ${open ? "tone-pink" : "tone-muted"}`}>
+                  {open === undefined ? "…" : `${open} open note${open === 1 ? "" : "s"}`}
+                </span>
+              }
+            />
+          );
+        })}
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         {(!setDraft || setDraft.status === "failed") && (
           <>
             <button type="button" className="btn btn-primary" disabled={ask.isPending} onClick={() => ask.mutate()}>
               Ask for changes on {ids.length} documents
             </button>
-            <div
-              className="font-mono flex overflow-hidden rounded-full border text-xs"
-              style={{ borderColor: "var(--line)" }}
-            >
-              {(["careful", "fast"] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  className="cursor-pointer px-3 py-1.5"
-                  style={
-                    speed === s
-                      ? { background: "var(--accent-soft)", color: "var(--accent)" }
-                      : { color: "var(--muted)" }
-                  }
-                  onClick={() => setSpeed(s)}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
+            <Speed value={speed} onChange={setSpeed} />
           </>
         )}
-        {setDraft?.status === "making" && (
-          <span className="font-mono flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
-            <span className="block h-2 w-2 animate-pulse rounded-full" style={{ background: "var(--accent)" }} />
-            the model is writing…
-          </span>
-        )}
+        {setDraft?.status === "making" && <Writing model={setDraft.model} />}
         {setDraft?.status === "ready" && (
           <button type="button" className="btn btn-primary" onClick={() => setReview(true)}>
             Review the changes
@@ -155,16 +157,13 @@ export function NotesSet() {
         )}
         {setDraft?.status === "failed" && (
           <button type="button" className="btn btn-danger" onClick={() => discard.mutate(setDraft.id)}>
-            the ask failed — clear it
+            Clear the failed ask
           </button>
         )}
       </div>
       {(why || setDraft?.status === "failed") && (
-        <p
-          className="rounded-xl border px-4 py-3 text-sm"
-          style={{ borderColor: "var(--line)", background: "var(--warn-soft)" }}
-        >
-          {why || setDraft?.error}
+        <p role="alert" className="m-0 rounded-xl border border-line bg-warn-soft px-4 py-3 text-detail">
+          {sentence(why || setDraft?.error || "")}
         </p>
       )}
       {review && setDraft?.status === "ready" && (
@@ -179,6 +178,6 @@ export function NotesSet() {
           onClose={() => setReview(false)}
         />
       )}
-    </main>
+    </Page>
   );
 }

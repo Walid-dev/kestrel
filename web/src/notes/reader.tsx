@@ -4,18 +4,53 @@
 // source; a tap on a paragraph notes the paragraph; a button takes a note on the whole document; the sheet is a
 // native dialog.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import type { DocumentFull, Draft, PlacedNote } from "../../../src/shared/notes.ts";
 import { Ask } from "../ask.tsx";
 import { useConfirm } from "../ui/confirm.tsx";
 import { Doc, type DocMode, type Saved } from "../ui/doc.tsx";
+import { EmptyState } from "../ui/empty.tsx";
 import { blockAt, sourceAt } from "../ui/markdown.tsx";
+import { Page } from "../ui/page.tsx";
 import { NoteSheet, type SheetTarget } from "./note-sheet.tsx";
 import { NotesList } from "./notes-list.tsx";
 import { Review } from "./review.tsx";
 
 export const LAST_DOC = "kestrel-notes-last";
+
+// the server's reasons start in lower case, as they read in its log; on screen a sentence starts with a capital
+export const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+type Pace = "careful" | "fast";
+// which model writes the edit: one small switch, beside the button that asks
+export function Speed({ value, onChange }: { value: Pace; onChange: (v: Pace) => void }) {
+  return (
+    <fieldset className="seg seg-modes note-speed" aria-label="Which model writes the edit">
+      {(
+        [
+          ["careful", "Careful"],
+          ["fast", "Fast"],
+        ] as const
+      ).map(([k, label]) => (
+        <button key={k} type="button" aria-pressed={value === k} onClick={() => onChange(k)}>
+          {label}
+        </button>
+      ))}
+    </fieldset>
+  );
+}
+
+// the model at work on the edit, named by its pace
+export function Writing({ model }: { model: string }) {
+  const pace = model.includes("Qwen") || model.includes("careful") ? "careful" : "fast";
+  return (
+    <span className="font-mono flex items-center gap-2 text-small text-muted" role="status">
+      <span className="block size-2 animate-pulse rounded-full bg-accent" />
+      The {pace} model is writing…
+    </span>
+  );
+}
 
 // a PDF's text: the upload keeps the PDF's name (src/domain/notes/pdf.ts), and only a PDF upload may
 const isPdfText = (d: { name: string; source: string }) => d.source === "upload" && /\.pdf$/i.test(d.name);
@@ -26,7 +61,7 @@ export function Reader() {
   const queryClient = useQueryClient();
   const article = useRef<HTMLElement>(null);
   const [sheet, setSheet] = useState<SheetTarget | null>(null);
-  const [speed, setSpeed] = useState<"careful" | "fast">("careful");
+  const [speed, setSpeed] = useState<Pace>("careful");
   const [mode, setMode] = useState<DocMode>("read");
   // what I picked in the document, waiting for its note: the words, where they start, where the button shows
   const [pick, setPick] = useState<{
@@ -263,141 +298,202 @@ export function Reader() {
     },
   });
 
+  const back = { to: "/notes?list=1", label: "Notes" };
   if (doc.isError)
     return (
-      <p
-        className="rounded-xl border px-4 py-3 text-sm"
-        style={{ borderColor: "var(--line)", background: "var(--warn-soft)" }}
-      >
-        This document didn't open: {String(doc.error.message)}
-      </p>
+      <Page title="This document didn't open" back={back} line={sentence(String(doc.error.message))}>
+        <EmptyState
+          title="It may have been forgotten, or its file moved."
+          line="Pick it again from Notes, or upload it."
+          action={
+            <Link to="/notes?list=1" className="btn btn-primary">
+              All my documents
+            </Link>
+          }
+        />
+      </Page>
     );
   if (!doc.data) return null;
-  const pdf = isPdfText(doc.data);
+  const d = doc.data;
+  const pdf = isPdfText(d);
   const reading = mode === "read";
   // side by side takes the whole width: my notes go under it
   const side = mode === "side";
+  // the edit's controls come once there is something for them to do: open notes to turn into an edit, a draft on
+  // its way or ready, a save to undo. Until then the document starts right under its title (on a phone, the first
+  // screen is the document, not a row of buttons that can't be used yet)
+  const asking = openNotes > 0 && (!current || current.status === "failed");
+  const tools = reading && (asking || current !== null || d.previous);
+  const deleteNote = async (n: PlacedNote) => {
+    const yes = await sure({
+      title: "Delete this note?",
+      body: n.text.length > 120 ? `“${n.text.slice(0, 120)}…”` : `“${n.text}”`,
+      yes: "Delete",
+      danger: true,
+    });
+    if (yes) remove.mutate(n.id);
+  };
   return (
-    <main className={side ? "" : "lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-x-6"}>
-      <header className="mb-4 grid gap-2 lg:col-start-1">
-        <Link to="/notes?list=1" className="justify-self-start text-sm font-medium" style={{ color: "var(--accent)" }}>
-          ← All my documents
-        </Link>
-        <span className="eyebrow">
-          {pdf ? "An uploaded PDF" : doc.data.source === "upload" ? "Uploaded to kestrel" : "A file on this computer"}
-          {doc.data.path ? ` · ${doc.data.path.split("/").slice(-2).join("/")}` : ""}
-        </span>
-        <h2 className="font-cond m-0 break-all text-[32px] font-bold leading-tight" style={{ color: "var(--strong)" }}>
-          {doc.data.name}
-        </h2>
-        <p className="m-0 max-w-2xl text-[15px] leading-relaxed" style={{ color: "var(--muted)" }}>
-          {pdf ? (
-            "The PDF file itself is unchanged, and kestrel keeps no copy of it. You edit its text here; Save as PDF, under Download, makes a new PDF from it."
-          ) : (
-            <>
-              {/* on a phone the document should start high: the short line says the same */}
-              <span className="sm:hidden">Select words to leave a note, or tap Edit. Every save keeps a version.</span>
-              <span className="hidden sm:inline">
-                Select words to leave a note, then turn your notes into an edit you check first. Or tap Edit and change
-                the text yourself. Every save keeps the previous version.
-              </span>
-            </>
-          )}
-        </p>
-      </header>
-      {reading && (
-        <div className="mb-4 flex flex-wrap items-center gap-2 lg:col-start-1">
-          {(!current || current.status === "failed") && (
-            <>
-              <button
-                type="button"
-                className="btn btn-primary btn-head"
-                disabled={ask.isPending || openNotes === 0}
-                title={openNotes === 0 ? "Leave a note first: select words in the document" : undefined}
-                onClick={() => ask.mutate()}
-              >
-                {openNotes === 0
-                  ? "Turn my notes into an edit"
-                  : `Turn my ${openNotes} note${openNotes === 1 ? "" : "s"} into an edit`}
-              </button>
-              <fieldset className="seg seg-modes" aria-label="Which model writes the edit">
-                {(
-                  [
-                    ["careful", "Careful"],
-                    ["fast", "Fast"],
-                  ] as const
-                ).map(([k, label]) => (
-                  <button key={k} type="button" aria-pressed={speed === k} onClick={() => setSpeed(k)}>
-                    {label}
-                  </button>
-                ))}
-              </fieldset>
-            </>
-          )}
-          {current?.status === "making" && (
-            <span className="font-mono flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
-              <span className="block h-2 w-2 animate-pulse rounded-full" style={{ background: "var(--accent)" }} />
-              the {current.model.includes("Qwen") || current.model.includes("careful") ? "careful" : "fast"} model is
-              writing…
+    <Page
+      back={back}
+      eyebrow={
+        <>
+          {pdf ? "An uploaded PDF" : d.source === "upload" ? "Uploaded to kestrel" : "A file on this computer"}
+          {d.path ? ` · ${d.path.split("/").slice(-2).join("/")}` : ""}
+        </>
+      }
+      title={d.name}
+      line={
+        pdf ? (
+          <>
+            <span className="lg:hidden">The PDF stays as it is: you edit its text here.</span>
+            <span className="hidden lg:inline">
+              The PDF file itself is unchanged, and kestrel keeps no copy of it. You edit its text here; Save as PDF,
+              under Download, makes a new PDF from it.
             </span>
-          )}
-          {current?.status === "ready" && (
-            <button type="button" className="btn btn-primary" onClick={() => setReview(true)}>
-              Review the changes
-            </button>
-          )}
-          {doc.data?.previous && (
-            <button type="button" className="btn btn-quiet btn-head" onClick={() => undo.mutate()}>
-              Undo the last save
-            </button>
-          )}
-          <button type="button" className="btn btn-head ml-auto" onClick={() => setSheet({ kind: "whole" })}>
-            + A note on the whole document
+          </>
+        ) : (
+          <>
+            {/* on a phone, upright or turned, the document should start high: the short line, and only until the
+                first note; the whole explanation where a computer has the room */}
+            {placed.length === 0 && <span className="lg:hidden">Select words to leave a note, or tap Edit.</span>}
+            <span className="hidden lg:inline">
+              Select words to leave a note, then turn your notes into an edit you check first. Or tap Edit and change
+              the text yourself. Every save keeps the previous version.
+            </span>
+          </>
+        )
+      }
+      actions={
+        reading && (
+          <button
+            type="button"
+            className="btn"
+            aria-label="A note on the whole document"
+            onClick={() => setSheet({ kind: "whole" })}
+          >
+            {/* the bar keeps one row on a phone: the short name there, the whole one where there is room */}
+            <span className="sm:hidden">+ Note</span>
+            <span className="hidden sm:inline">+ A note on the whole document</span>
           </button>
-          {current?.status === "failed" && (
-            <button
-              type="button"
-              className="btn btn-danger"
-              onClick={() => discard.mutate(current.id)}
-              title={current.error}
-            >
-              the ask failed — clear it
-            </button>
+        )
+      }
+    >
+      <div className={side ? "grid gap-5" : "grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-x-6"}>
+        <div className="grid min-w-0 gap-4">
+          {tools && (
+            <div className="flex flex-wrap items-center gap-2">
+              {asking && (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={ask.isPending}
+                    onClick={() => ask.mutate()}
+                  >
+                    Turn my {openNotes === 1 ? "note" : `${openNotes} notes`} into an edit
+                  </button>
+                  <Speed value={speed} onChange={setSpeed} />
+                </>
+              )}
+              {current?.status === "making" && <Writing model={current.model} />}
+              {current?.status === "ready" && (
+                <button type="button" className="btn btn-primary" onClick={() => setReview(true)}>
+                  Review the changes
+                </button>
+              )}
+              {current?.status === "failed" && (
+                <button type="button" className="btn btn-danger" onClick={() => discard.mutate(current.id)}>
+                  Clear the failed ask
+                </button>
+              )}
+              {d.previous && (
+                <button type="button" className="btn btn-quiet" onClick={() => undo.mutate()}>
+                  Undo the last save
+                </button>
+              )}
+            </div>
+          )}
+          {reading && (askWhy || current?.status === "failed") && (
+            <p role="alert" className="m-0 rounded-xl border border-line bg-warn-soft px-4 py-3 text-detail">
+              {sentence(askWhy || current?.error || "")}
+            </p>
+          )}
+          <Doc
+            key={id}
+            id={id}
+            name={d.name}
+            text={d.text}
+            rev={d.rev}
+            marks={placed}
+            onMark={(noteId) => {
+              const n = placed.find((x) => x.id === noteId);
+              if (n) setSheet({ kind: "edit", note: n });
+            }}
+            articleRef={article}
+            onPick={onSelect}
+            onSave={saveText}
+            printHref={`/notes/${encodeURIComponent(id)}/print`}
+            onMode={setMode}
+          />
+        </div>
+        <div className={side ? "grid gap-4" : "grid gap-4 lg:sticky lg:top-6"}>
+          <NotesList notes={placed} onOpen={(n) => setSheet({ kind: "edit", note: n })} onDelete={deleteNote} />
+          {(versions.data?.versions.length ?? 0) > 0 && (
+            <details className="card card-stack">
+              <summary className="font-cond cursor-pointer text-head font-bold text-strong">
+                Earlier versions · {versions.data?.versions.length}
+              </summary>
+              <p className="m-0 text-small text-muted">
+                The text as it was before each save, here in kestrel. Restore brings one back.
+              </p>
+              <ul className="m-0 grid list-none gap-1.5 p-0">
+                {versions.data?.versions.map((v) => (
+                  <li key={v.id} className="flex items-center gap-2 rounded-xl bg-surface-2 py-2 pr-2 pl-3">
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-detail font-semibold text-strong">
+                        {new Date(v.savedAt).toLocaleString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                      <span className="block truncate text-small text-muted">{v.start}</span>
+                    </span>
+                    <button
+                      type="button"
+                      className="btn shrink-0"
+                      disabled={restore.isPending}
+                      onClick={async () => {
+                        const yes = await sure({
+                          title: "Bring this version back?",
+                          body: "What the document says now is kept as a version too.",
+                          yes: "Restore",
+                        });
+                        if (yes) restore.mutate(v.id);
+                      }}
+                    >
+                      Restore
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {restore.isError && (
+                <p role="alert" className="m-0 text-detail text-red">
+                  {sentence((restore.error as Error).message)}
+                </p>
+              )}
+            </details>
           )}
         </div>
-      )}
-      {reading && (askWhy || current?.status === "failed") && (
-        <p
-          className="mb-3 rounded-xl border px-4 py-3 text-sm lg:col-start-1"
-          style={{ borderColor: "var(--line)", background: "var(--warn-soft)" }}
-        >
-          {askWhy || current?.error}
-        </p>
-      )}
-      <div className="lg:col-start-1">
-        <Doc
-          key={id}
-          id={id}
-          name={doc.data.name}
-          text={doc.data.text}
-          rev={doc.data.rev}
-          marks={placed}
-          onMark={(noteId) => {
-            const n = placed.find((x) => x.id === noteId);
-            if (n) setSheet({ kind: "edit", note: n });
-          }}
-          articleRef={article}
-          onPick={onSelect}
-          onSave={saveText}
-          printHref={`/notes/${encodeURIComponent(id)}/print`}
-          onMode={setMode}
-        />
       </div>
       {pick && reading && (
         <button
           type="button"
           className="note-pick"
-          style={{ left: inside(pick.x), top: pick.y + 8 }}
+          // where the words are: known only at run time, so it reaches the class as two variables
+          style={{ "--x": `${inside(pick.x)}px`, "--y": `${pick.y + 8}px` } as CSSProperties}
           // keep the selection: the press must not clear it before the note opens
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => {
@@ -408,82 +504,20 @@ export function Reader() {
           ✎ Note on {pick.words ? "these words" : "this paragraph"}
         </button>
       )}
-      <div className={`grid gap-4 ${side ? "mt-6" : "lg:col-start-2 lg:row-start-1 lg:row-span-4 lg:sticky lg:top-6"}`}>
-        <NotesList
-          notes={placed}
-          onOpen={(n) => setSheet({ kind: "edit", note: n })}
-          onDelete={(n) => remove.mutate(n.id)}
-        />
-        {(versions.data?.versions.length ?? 0) > 0 && (
-          <details className="card grid gap-2 !p-4">
-            <summary className="font-cond cursor-pointer text-[17px] font-bold" style={{ color: "var(--strong)" }}>
-              Earlier versions · {versions.data?.versions.length}
-            </summary>
-            <p className="m-0 mt-1 text-[13px]" style={{ color: "var(--muted)" }}>
-              The text as it was before each save, here in kestrel. Restore brings one back.
-            </p>
-            <div className="mt-2 grid gap-1.5">
-              {versions.data?.versions.map((v) => (
-                <div
-                  key={v.id}
-                  className="flex items-center gap-2 rounded-xl px-3 py-2"
-                  style={{ background: "var(--surface-2)" }}
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[13.5px] font-semibold" style={{ color: "var(--strong)" }}>
-                      {new Date(v.savedAt).toLocaleString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                    <span className="block truncate text-[12.5px]" style={{ color: "var(--muted)" }}>
-                      {v.start}
-                    </span>
-                  </span>
-                  <button
-                    type="button"
-                    className="btn shrink-0"
-                    disabled={restore.isPending}
-                    onClick={async () => {
-                      const yes = await sure({
-                        title: "Bring this version back?",
-                        body: "What the document says now is kept as a version too.",
-                        yes: "Restore",
-                      });
-                      if (yes) restore.mutate(v.id);
-                    }}
-                  >
-                    Restore
-                  </button>
-                </div>
-              ))}
-            </div>
-            {restore.isError && (
-              <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-                {(restore.error as Error).message}
-              </p>
-            )}
-          </details>
-        )}
-      </div>
       {/* Ask, about this document, the whole page wide under it: it proposes notes as cards, which join mine on a tap */}
-      <div className="mt-5 lg:col-span-2">
-        <Ask
-          app="notes"
-          refId={id}
-          title="Ask about this document"
-          placeholder="Ask, or say what should change"
-          starters={["Where is it weakest?", "What could be cut?", "Check it for clarity and mistakes"]}
-          onChange={changed}
-        />
-      </div>
+      <Ask
+        app="notes"
+        refId={id}
+        title="Ask about this document"
+        placeholder="Ask, or say what should change"
+        starters={["Where is it weakest?", "What could be cut?", "Check it for clarity and mistakes"]}
+        onChange={changed}
+      />
       {review && current?.status === "ready" && (
         <Review
           draft={current}
-          targets={{ [id]: doc.data.path ?? "the upload, kept in kestrel" }}
-          texts={{ [id]: current.perDocument[id]?.oldText ?? doc.data.text }}
+          targets={{ [id]: d.path ?? "the upload, kept in kestrel" }}
+          texts={{ [id]: current.perDocument[id]?.oldText ?? d.text }}
           onSave={(documentId) => saveDoc.mutate(documentId)}
           saving={saveDoc.isPending}
           saveWhy={saveWhy}
@@ -506,6 +540,6 @@ export function Reader() {
           onClose={() => setSheet(null)}
         />
       )}
-    </main>
+    </Page>
   );
 }

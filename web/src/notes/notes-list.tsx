@@ -1,7 +1,15 @@
-// The document's notes: each with its words (or "the whole document"), a tap to open, and a small × to delete it
+// The document's notes: each with its words (or "the whole document"), a tap to open, and the card's ✕ to delete it
 // right here. Detached and done notes say so.
 import { bare } from "../../../src/shared/markdown.ts";
 import type { PlacedNote } from "../../../src/shared/notes.ts";
+import { Card } from "../ui/card.tsx";
+import { EmptyState } from "../ui/empty.tsx";
+
+const quoted = (n: PlacedNote) => {
+  if (n.quote === "") return "The whole document";
+  const words = bare(n.quote);
+  return `“${words.length > 80 ? `${words.slice(0, 80)}…` : words}”`;
+};
 
 export function NotesList({
   notes,
@@ -12,61 +20,36 @@ export function NotesList({
   onOpen: (n: PlacedNote) => void;
   onDelete: (n: PlacedNote) => void;
 }) {
-  // none yet: the card says how a note starts, so the column never stands empty
-  if (notes.length === 0)
-    return (
-      <section className="card mt-5 grid gap-2 !p-4 lg:mt-0">
-        <h3 className="font-cond m-0 text-[17px] font-bold" style={{ color: "var(--strong)" }}>
-          Your notes
-        </h3>
-        <p className="m-0 text-[14px] leading-relaxed" style={{ color: "var(--muted)" }}>
-          None yet. Select words in the document, then tap Note beside them, and say what should change.
-        </p>
-      </section>
-    );
   return (
-    <section className="mt-5 grid gap-3 lg:mt-0">
-      <h3 className="font-cond m-0 text-[17px] font-bold" style={{ color: "var(--strong)" }}>
-        Your notes
-      </h3>
-      {notes.map((n) => (
-        <div key={n.id} className="card flex items-start gap-3">
-          <button type="button" onClick={() => onOpen(n)} className="min-w-0 flex-1 cursor-pointer text-left">
-            <span className="font-mono block break-words text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
-              {n.quote === ""
-                ? "the whole document"
-                : `“${bare(n.quote).length > 80 ? `${bare(n.quote).slice(0, 80)}…` : bare(n.quote)}”`}
-              {n.detached && (
-                <span
-                  className="ml-2 rounded-full px-2 py-0.5"
-                  style={{ background: "var(--warn-soft)", color: "var(--warn)" }}
-                >
-                  detached
-                </span>
-              )}
-              {n.state === "done" && (
-                <span
-                  className="ml-2 rounded-full px-2 py-0.5"
-                  style={{ background: "var(--add-soft)", color: "var(--green)" }}
-                >
-                  done
-                </span>
-              )}
-            </span>
-            <span className="mt-2 block text-[15px] leading-relaxed">{n.text}</span>
-          </button>
-          <button
-            type="button"
-            aria-label="Delete this note"
-            title="Delete this note"
-            className="shrink-0 cursor-pointer rounded-full border px-2 py-0.5 text-xs"
-            style={{ borderColor: "var(--line)", color: "var(--muted)" }}
-            onClick={() => onDelete(n)}
-          >
-            ×
-          </button>
-        </div>
-      ))}
+    <section className="grid gap-3" aria-labelledby="notes-mine">
+      <h2 id="notes-mine" className="font-cond m-0 text-head font-bold">
+        Your notes{notes.length > 0 && <span className="font-mono ml-2 text-small text-muted">{notes.length}</span>}
+      </h2>
+      {/* none yet: the column says how a note starts, so it never stands empty */}
+      {notes.length === 0 ? (
+        <EmptyState
+          title="No notes yet."
+          line="Select words in the document, then tap Note beside them, and say what should change."
+        />
+      ) : (
+        notes.map((n) => (
+          <Card
+            key={n.id}
+            // the note's own words are what I look for; the words it sits on come first, small
+            title={<span className="line-clamp-4 font-sans text-body font-normal text-ink">{n.text}</span>}
+            onOpen={() => onOpen(n)}
+            onRemove={() => onDelete(n)}
+            removeLabel="Delete this note"
+            meta={
+              <>
+                <span className="font-mono min-w-0 break-words text-small text-muted">{quoted(n)}</span>
+                {n.detached && <span className="chip chip-caps tone-orange">detached</span>}
+                {n.state === "done" && <span className="chip chip-caps tone-green">done</span>}
+              </>
+            }
+          />
+        ))
+      )}
     </section>
   );
 }
