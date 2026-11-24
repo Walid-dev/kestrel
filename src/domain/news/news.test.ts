@@ -421,7 +421,7 @@ test("a good answer: links only from each story's own items, a web address cut, 
     (db.prepare("SELECT purpose, outcome FROM model_calls ORDER BY at, purpose").all() as Record<string, string>[]).map(
       (r) => `${r.purpose} ${r.outcome}`,
     ),
-    ["news-pick:v2 ok", "news-write:v2 ok"],
+    ["news-pick:v3 ok", "news-write:v3 ok"],
   );
   const live = finished().find((a) => a.kind === "news");
   assert.equal(live?.outcome, "done");
@@ -502,7 +502,7 @@ test("the model down: the brief fails plainly, and the items stay for Make it no
       .prepare("SELECT purpose, outcome FROM model_calls")
       .all()
       .map((r) => ({ ...r })),
-    [{ purpose: "news-pick:v2", outcome: "down" }],
+    [{ purpose: "news-pick:v3", outcome: "down" }],
   );
 });
 

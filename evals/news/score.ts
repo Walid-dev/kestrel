@@ -57,6 +57,9 @@ const HYPE =
   /\b(revolutionary|revolutioni[sz]e\w*|game[- ]chang\w*|groundbreaking|massive|unprecedented|huge|stunning|incredible|skyrocket\w*|in today's)\b/i;
 const HEDGE = /\b(arguably|it seems|seemingly|perhaps|it could be said)\b/i;
 const ADDRESS = /https?:\/\/|\bwww\./i;
+// the brief talks about its sources instead of the news: "that is all the summary provides" (the first live brief)
+const META =
+  /\b(?:the|this|that|its|their) (?:summary|summaries|item|items|article|articles|feed|source text)\b(?: \w+){0,3} (?:says?|provides?|gives?|mentions?|offers?|includes?|is all)\b|\bthat is all (?:we|i) know\b|\bdetails are (?:scarce|thin)\b/i;
 const VIEW = /\b(argues?|says|said|thinks|believes|writes|wrote|according to|in (?:his|her|their) view|view)\b/i;
 const sentencesOf = (s: string) => s.split(/(?<=[.!?])\s+/).filter((x) => x.trim());
 const words = (s: string) => s.split(/\s+/).filter(Boolean).length;
@@ -94,6 +97,8 @@ export function score(expect: Expect, run: Run): { pass: boolean; reasons: strin
   const all = `${prose} ${brief.stories.map((s) => s.headline).join(" ")}`;
   const hype = all.match(HYPE);
   if (hype) reasons.push(`a hype word: ${hype[0]}`);
+  const meta = all.match(META);
+  if (meta) reasons.push(`talks about its sources: ${meta[0]}`);
   const hedge = all.match(HEDGE);
   if (hedge) reasons.push(`a hedge: ${hedge[0]}`);
   if (all.includes("!")) reasons.push("an exclamation mark");

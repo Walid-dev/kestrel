@@ -4,7 +4,7 @@
 // writes a link: it names the items it used, and the code adds their links. Nothing about me is in either prompt.
 import { NEWS_INTERESTS, type Section } from "../../shared/news.ts";
 
-export const NEWS_VERSION = 2;
+export const NEWS_VERSION = 3;
 export const SYSTEM =
   "You write a morning news brief for one person who builds software with AI and wants to keep up with AI and " +
   "tech. Reply with ONE JSON OBJECT only, no prose around it.";
@@ -138,6 +138,8 @@ export function writePrompt(stories: PromptStory[], yesterdayOpening: string[]):
     "- Use only what the items and articles say. Never add a number, name, date or quote they don't contain.",
     "- When sources disagree, say so in one sentence.",
     "- When no article was read and the summaries are thin, write less, not more.",
+    '- Never talk about the items, summaries or articles themselves ("the summary says", "that is all the summary',
+    '  provides", "details are scarce"): tell the story, and stop when you have told what is known.',
     "- Never write a link or a web address: list the item numbers you used, and the page adds the links.",
     "",
     ...DATA_RULE,
