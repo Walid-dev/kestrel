@@ -1,5 +1,5 @@
-// A failed import closes the old database it opened: the nightly mirror retries, and each try must not leave one more
-// file open. A made-up old database.
+// A failed import closes the old database it opened: the mirror retries, and each try must not leave one more file
+// open. A made-up old database.
 import assert from "node:assert/strict";
 import { mkdtempSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";

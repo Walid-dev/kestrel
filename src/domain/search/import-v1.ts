@@ -1,8 +1,8 @@
 // The import from the old setup, idempotent: the old database stays the authority for statuses, stars and notes until
 // the cutover, so re-running refreshes and never double-lists. It carries the jobs with my own marks (the owner
 // column: stars, notes, application attempts), the deals with their hunt, model and price history, and every deep
-// check already written. The nightly mirror runs this during the side-by-side weeks; scripts/import-v1.ts is the
-// by-hand door.
+// check already written. The mirror (server/scheduler.ts) runs this after each of the old setup's runs during the
+// side-by-side weeks; scripts/import-v1.ts is the by-hand door.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -310,9 +310,29 @@ function importDeals(db: DatabaseSync, old: DatabaseSync, write: boolean, opts: 
   return counts;
 }
 
+// The old setup's newest job run and deal run, as one mark. Each run writes its row as it ends, and SQLite numbers a
+// new row above every row there, so the mark moves whenever a run ends, however long it took and whenever it started
+// (a run's own time can fall before a mirror made while it ran). One read-only query; null when the old database can't
+// be read (no file, a table missing, busy for a moment), and the mirror's clock alone decides.
+export function v1RunMark(from: string): string | null {
+  let old: DatabaseSync | undefined;
+  try {
+    old = new DatabaseSync(from, { readOnly: true });
+    const r = old
+      .prepare("SELECT (SELECT MAX(rowid) FROM job_runs) AS jobs, (SELECT MAX(rowid) FROM runs) AS deals")
+      .get() as { jobs: number | null; deals: number | null };
+    return `${r.jobs ?? 0}:${r.deals ?? 0}`;
+  } catch {
+    return null;
+  } finally {
+    old?.close();
+  }
+}
+
 export function importV1(db: DatabaseSync, from: string, write: boolean, opts: ImportOptions = {}): ImportCounts {
   const old = new DatabaseSync(from, { readOnly: true });
-  // closed however it ends: a failed import is retried each night, and each try would leave one more file open
+  // closed however it ends: a failed import is tried again at the mirror's next turn, and each try would leave one
+  // more file open
   try {
     const cols = (old.prepare("PRAGMA table_info(job_listings)").all() as { name: string }[]).map((c) => c.name);
     const rows = old
@@ -351,7 +371,7 @@ export function importV1(db: DatabaseSync, from: string, write: boolean, opts: I
       // the old setup's "fair" is kestrel's possible tier
       const match = String(data.match ?? "") === "fair" ? "weak" : String(data.match ?? "");
       const updatedAt = String(data.lastSeen ?? r.found);
-      // a job open only where I can't work is set aside here too, each night, as kestrel's own finds are
+      // a job open only where I can't work is set aside here too, at each mirror, as kestrel's own finds are
       const outside = data.leftOut ? null : outsideOf(opts.jobScoring?.(r.hunt), data as unknown as ScoredJob);
       const carried = JSON.stringify({
         ...data,

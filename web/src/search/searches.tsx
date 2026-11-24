@@ -13,7 +13,7 @@ import { EmptyState } from "../ui/empty.tsx";
 import { Field } from "../ui/field.tsx";
 import { Page } from "../ui/page.tsx";
 import { Pills, type Tone } from "../ui/pills.tsx";
-import { ago, DEAL, DealCard, JobCard, type Listing, MATCH, Swipe, sourceName, stageTone } from "./cards.tsx";
+import { DEAL, DealCard, JobCard, type Listing, MATCH, Swipe, sourceName, stageTone } from "./cards.tsx";
 import { ListingSheet } from "./sheet.tsx";
 
 type Run = { started: string; found: number; kept: number; problem: string } | null;
@@ -103,8 +103,14 @@ function StatusLine({ hunt, mirror, about }: { hunt: Hunt; mirror?: Run; about: 
           )}
         </span>
       ) : hunt.mirrored ? (
-        <span title="Mirrored nightly from the old setup">
-          Mirrored{mirror ? <b className="text-ink"> {ago(mirror.started)}</b> : " nightly"}
+        <span title="Brought in from the old setup a minute after each of its searches, and once a day at least">
+          {mirror ? (
+            <>
+              Mirrored <b className="text-ink">{when(mirror.started)}</b>
+            </>
+          ) : (
+            "Not mirrored yet"
+          )}
         </span>
       ) : (
         <span>No search yet</span>
@@ -172,9 +178,11 @@ type Counts = {
 };
 
 // the stages the page offers (offers and closed jobs stay under All). It opens on To review, best first: the new
-// great and good matches, the ones worth a look now
+// great and good matches, the ones worth a look now. All, every card the hunt has, comes first, where a phone finds
+// it at once (as Research's All does): last, it sat on the sixth row of pills
 const STAGE_LIST: Record<"jobs" | "deals", [string, string][]> = {
   jobs: [
+    ["all", "All"],
     ["review", "To review"],
     ["priority", "★ Priority"],
     ["possible", "Possible"],
@@ -185,21 +193,23 @@ const STAGE_LIST: Record<"jobs" | "deals", [string, string][]> = {
     ["rejected", "Rejected"],
     ["fake", "Not real"],
     ["passed", "Not for me"],
-    ["all", "All"],
     ["leftout", "Left out by the rules"],
   ],
   deals: [
+    ["all", "All"],
     ["new", "To review"],
     ["interested", "Interested"],
     ["maybe", "Not sure"],
     ["applied", "Contacted"],
     ["passed", "Not interested"],
     ["closed", "Sold"],
-    ["all", "All"],
     ["leftout", "Hidden by the rules"],
   ],
 };
 const DEFAULT_STAGE = { jobs: "review", deals: "new" } as const;
+// the review views, the only ones Not applied yet narrows (listings.ts, TODO_STAGES): All and a status view show all
+// of their own, so the switch shows only here
+const TODO_VIEWS = new Set(["review", "priority", "possible", "leftout"]);
 const PAGE = 120;
 const FOLD = "kestrel-search-filters";
 
@@ -803,7 +813,7 @@ export function Searches() {
                     value={stage}
                     onChange={(s) => set("stage", s)}
                   />
-                  {kind === "jobs" && (
+                  {kind === "jobs" && TODO_VIEWS.has(stage) && (
                     <button
                       type="button"
                       className="pill tone-green"
@@ -927,7 +937,7 @@ export function Searches() {
                   {sourceName(source)}
                 </button>
               )}
-              {kind === "jobs" && todo && (
+              {kind === "jobs" && todo && TODO_VIEWS.has(stage) && (
                 <button type="button" className="pill tone-green" aria-pressed onClick={() => fold(true)}>
                   <span className="dot" /> Not applied yet
                 </button>

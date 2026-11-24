@@ -21,6 +21,7 @@ export type ListingRow = {
   data: Record<string, unknown>;
   kind: "jobs" | "deals";
   priority: boolean;
+  leftOut: string | null; // why the rules set it aside, while they do (LEFT): the card says it in its head
 };
 
 export const normalizeDedupe = (org: string, title: string) =>
@@ -49,7 +50,12 @@ const row = (r: Record<string, unknown>): ListingRow => {
     match: String(r.match),
     data: JSON.parse(String(r.data)) as Record<string, unknown>,
   };
-  return { ...base, kind: r.kind === "deals" ? "deals" : "jobs", priority: isPriority(base) };
+  return {
+    ...base,
+    kind: r.kind === "deals" ? "deals" : "jobs",
+    priority: isPriority(base),
+    leftOut: r.left_out ? String(base.data.leftOut) : null, // the query's own LEFT (COLUMNS), never a second rule
+  };
 };
 
 // keep a run's items: a known dedupe or link updates lastSeen and the score; a new one lands as status new
@@ -139,7 +145,7 @@ export type ListingFilters = {
   search?: string;
   group?: string; // a job's family (Full-stack, AI engineering) or a deal's category (the model)
   // the old hunt page's stages: review (new, a great or good match), possible (new, a weaker one), leftout (new, set
-  // aside by the rules until I mark or note it), priority, all (everything but the left out), or a status
+  // aside by the rules until I mark or note it), priority, all (every listing, the left out ones too), or a status
   stage?: string;
   sort?: "best" | "newest" | "money";
 };
@@ -149,18 +155,20 @@ const HUNT = "COALESCE(NULLIF(json_extract(data, '$.hunt'), ''), search)";
 const GROUP = "COALESCE(NULLIF(json_extract(data, '$.family'), ''), NULLIF(json_extract(data, '$.category'), ''), '')";
 const PRIORITY = "(starred = 1 OR (starred IS NULL AND match = 'great' AND status NOT IN ('passed', 'fake')))";
 // left out: new, set aside by the rules (a weak match, pay far below the floor, a removed search, an old ad) and not
-// yet marked or noted — the old page's "Left out", hidden from everything else
+// yet marked or noted — the old page's "Left out", kept out of every view but its own and All
 export const LEFT = `(status = 'new' AND json_extract(data, '$.leftOut') IS NOT NULL AND json_extract(data, '$.leftOut') NOT IN (0, '') AND COALESCE(json_extract(data, '$.note'), '') = '')`;
+// every column, and whether LEFT holds: a card set aside says why from this, so it can't disagree with the views
+const COLUMNS = `*, ${LEFT} AS left_out`;
 // left to do: no application for it (queued, at work, sent or not sent) and not applied or further; it narrows the
-// review views only, so a status view (Applied, Not for me…) still shows all of its own
+// review views only, so All and a status view (Applied, Not for me…) still show all of their own
 const TODO = `(status NOT IN ('applied', 'interviewing', 'offer') AND NOT EXISTS (SELECT 1 FROM applications a WHERE a.listing = listings.id OR a.link = listings.link))`;
-const TODO_STAGES = new Set(["review", "possible", "priority", "all", "leftout"]);
+const TODO_STAGES = new Set(["review", "possible", "priority", "leftout"]);
 const STAGE: Record<string, string> = {
   review: `(status = 'new' AND match IN ('great', 'good') AND NOT ${LEFT})`,
   possible: `(status = 'new' AND match NOT IN ('great', 'good') AND NOT ${LEFT})`,
   leftout: LEFT,
   priority: `(${PRIORITY} AND NOT ${LEFT})`,
-  all: `(NOT ${LEFT})`,
+  all: "1 = 1", // every listing of the hunt, whatever its status, the left out ones too: a left-out card says why
 };
 
 // the filters as SQL, all of them before the limit — an old starred listing must never fall off the Priority view
@@ -226,15 +234,14 @@ export function listListings(db: DatabaseSync, filters: ListingFilters = {}, lim
         : filters.sort === "best"
           ? "COALESCE(score, -1) DESC, found DESC"
           : "found DESC";
-  const rows = db.prepare(`SELECT * FROM listings ${sql} ORDER BY ${order} LIMIT ?`).all(...params, limit) as Record<
-    string,
-    unknown
-  >[];
+  const rows = db
+    .prepare(`SELECT ${COLUMNS} FROM listings ${sql} ORDER BY ${order} LIMIT ?`)
+    .all(...params, limit) as Record<string, unknown>[];
   return rows.map(row);
 }
 
 export function getListing(db: DatabaseSync, id: string): ListingRow | null {
-  const r = db.prepare("SELECT * FROM listings WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+  const r = db.prepare(`SELECT ${COLUMNS} FROM listings WHERE id = ?`).get(id) as Record<string, unknown> | undefined;
   return r ? row(r) : null;
 }
 

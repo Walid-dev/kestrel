@@ -23,6 +23,7 @@ export type Listing = {
   app: { state: string; reason: string } | null;
   deepVerdict: string | null;
   deepState: string | null; // the latest deep check: running, done or failed
+  leftOut: string | null; // why the rules set it aside, while they do: its chip leads the card's head
 };
 
 export const STAGES: Record<"jobs" | "deals", { status: string; label: string; tone: Tone }[]> = {
@@ -230,16 +231,57 @@ export function ApplyButton({
   );
 }
 
+// a reason the rules gave, in the few words a chip has room for (the whole reason is its title): the long sentences
+// kestrel's rules and the old setup's write, cut to what tells them apart; any other reason as it is
+const SHORT: [RegExp, string][] = [
+  [/^not open in ([^:]+): the posting says .*$/i, "not open in $1"],
+  [/^not open in [^:]+: (US only)$/i, "$1"],
+  [/^not open in [^:]+: (.+)$/i, "only $1"], // the place it is open in: the chip says why, not only where
+  [/^in (.+), outside your area$/i, "in $1"],
+  [/^remote, but not open to (.+)$/i, "not open to $1"],
+  [/^pay well below .*$/i, "low pay"],
+  [/^a junior role.*$/i, "junior role"],
+  [/^another (role|stack)\b.*$/i, "another $1"],
+  [/^the same job.*$/i, "listed twice"],
+  [/^the title names none of .*$/i, "wrong title"],
+  [/^(posted more than|an ad older than) .*$/i, "old ad"],
+  [/^from a search you removed$/i, "removed search"],
+  [/^outside your price limits$/i, "price out of range"],
+];
+const leftOutWords = (reason: string): string => {
+  const hit = SHORT.find(([pattern]) => pattern.test(reason));
+  return hit ? reason.replace(hit[0], hit[1]) : reason;
+};
+// the stage's own word for a listing set aside: a job's "Left out", a deal's "Hidden" (as the stage pills say them)
+const SET_ASIDE = { jobs: "Left out", deals: "Hidden" } as const;
+
 function Head({ l }: { l: Listing }) {
   const stage = stageOf(l.kind, l.status);
   const app = l.app && l.status === "new" ? APP_CHIP[l.app.state] : null;
   const group = str(l.data.family) || str(l.data.category);
+  // set aside by the rules: why takes the stage's place, in the Left out stage's colour (an application says so first).
+  // The rules hold only while it waits for me (LEFT): a stage pressed a moment ago drops the chip before the reload
+  const setAside = l.status === "new" ? l.leftOut : null;
+  const out = app ? null : setAside;
   return (
-    <div className="flex items-center gap-2 text-small text-muted">
-      <span className={`chip chip-caps tone-${app ? app[1] : stage.tone}`}>{app ? app[0] : stage.label}</span>
+    // its one-line words never widen the card: the row takes the card's width, and the group and the source shorten
+    // with an ellipsis first, the reason last (contain-inline-size: the row's own width doesn't count toward the card's)
+    <div className="flex items-center gap-2 text-small text-muted contain-inline-size">
+      {out ? (
+        <span
+          className={`chip chip-caps max-w-full shrink-0 tone-${stageTone(l.kind, "leftout") ?? "muted"}`}
+          title={`${SET_ASIDE[l.kind]} by the rules: ${out}`}
+        >
+          <span className="min-w-0 truncate">
+            {SET_ASIDE[l.kind]} · {leftOutWords(out)}
+          </span>
+        </span>
+      ) : (
+        <span className={`chip chip-caps tone-${app ? app[1] : stage.tone}`}>{app ? app[0] : stage.label}</span>
+      )}
       {group && <span className="min-w-0 truncate">{group}</span>}
       <span className="ml-auto min-w-0 truncate">{sourceName(l.source)}</span>
-      {(l.starred === 1 || (l.kind === "jobs" && l.priority)) && (
+      {(l.starred === 1 || (l.kind === "jobs" && l.priority && !setAside)) && (
         <span className="text-yellow" title="Starred">
           ★
         </span>
