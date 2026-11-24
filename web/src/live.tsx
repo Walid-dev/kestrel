@@ -3,12 +3,16 @@
 // its work. Activity is the week: everything that ran and every mark I made (a lesson graded, a task done, a stage
 // set, an application sent), by day, each opening the work itself — the listing, the lesson, the task list, the note.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { onComputer, useChatLink } from "./chats.tsx";
 import { useEvents } from "./events.ts";
 import { ListingSheet } from "./search/sheet.tsx";
 import { QueueLine, StopChat } from "./stop.tsx";
+import { Card } from "./ui/card.tsx";
+import { EmptyState } from "./ui/empty.tsx";
+import { Page } from "./ui/page.tsx";
+import { Pills, type Tone } from "./ui/pills.tsx";
 
 type Item = {
   id: string;
@@ -50,17 +54,24 @@ type Live = { at: string; now: Item[]; apps: App[]; chats?: AgentChat[]; paused?
 // one line per step, as the old Live has it: a green check for a step that went through, red with its error for one
 // that failed, amber for a question or a wait on me, the agent's own words quiet, the last step turning while it works
 const MARK: Record<string, [string, string]> = {
-  passed: ["✓", "var(--green)"],
-  ok: ["✓", "var(--green)"],
-  done: ["■", "var(--muted)"],
-  did: ["•", "var(--muted)"],
-  failed: ["✕", "var(--red)"],
-  no: ["✕", "var(--red)"],
-  asked: ["?", "var(--yellow)"],
-  wait: ["…", "var(--yellow)"],
-  said: ["“", "var(--muted)"],
-  you: ["›", "var(--accent)"],
+  passed: ["✓", "text-green"],
+  ok: ["✓", "text-green"],
+  done: ["■", "text-muted"],
+  did: ["•", "text-muted"],
+  failed: ["✕", "text-red"],
+  no: ["✕", "text-red"],
+  asked: ["?", "text-yellow"],
+  wait: ["…", "text-yellow"],
+  said: ["“", "text-muted"],
+  you: ["›", "text-accent"],
 };
+// an application's state on its card: needs me in pink, as everywhere; at work green
+const APP_STATE: Record<string, [string, Tone]> = {
+  "needs-me": ["Needs me", "pink"],
+  applying: ["Applying", "green"],
+  queued: ["Queued", "muted"],
+};
+const WORDS: Record<string, string> = { said: "text-muted italic", failed: "text-red" };
 const SHOWN = 14;
 
 function AgentSteps({ chat }: { chat: AgentChat }) {
@@ -69,36 +80,25 @@ function AgentSteps({ chat }: { chat: AgentChat }) {
   return (
     <div className="grid gap-1">
       {chat.steps.length > SHOWN && !all && (
-        <button
-          type="button"
-          className="btn btn-quiet justify-self-start !py-0.5 text-[12.5px]"
-          onClick={() => setAll(true)}
-        >
+        <button type="button" className="btn btn-quiet justify-self-start" onClick={() => setAll(true)}>
           Show the {chat.steps.length - SHOWN} steps before
         </button>
       )}
       <ol className="m-0 grid list-none gap-1 p-0">
         {steps.map((st, i) => {
           const lastOne = i === steps.length - 1;
-          const [mark, colour] = MARK[st.kind] ?? ["•", "var(--muted)"];
+          const [mark, colour] = MARK[st.kind] ?? ["•", "text-muted"];
           const turning = lastOne && chat.working && st.kind === "did";
           return (
             <li
               // biome-ignore lint/suspicious/noArrayIndexKey: a chat's steps only grow at the end
               key={i}
-              className="grid grid-cols-[18px_minmax(0,1fr)] items-baseline gap-2 text-[14px] leading-snug"
+              className="grid grid-cols-[18px_minmax(0,1fr)] items-baseline gap-2 text-detail"
             >
-              <span className="text-center font-bold" style={{ color: colour }} aria-hidden="true">
+              <span className={`text-center font-bold ${colour}`} aria-hidden="true">
                 {turning ? <span className="spin inline-block" /> : mark}
               </span>
-              <span
-                style={{
-                  color: st.kind === "said" ? "var(--muted)" : st.kind === "failed" ? "var(--red)" : "var(--text)",
-                  fontStyle: st.kind === "said" ? "italic" : undefined,
-                }}
-              >
-                {st.kind === "you" ? `You: ${st.text}` : st.text}
-              </span>
+              <span className={WORDS[st.kind] ?? "text-ink"}>{st.kind === "you" ? `You: ${st.text}` : st.text}</span>
             </li>
           );
         })}
@@ -111,22 +111,25 @@ function AgentSteps({ chat }: { chat: AgentChat }) {
 // stop it while it works or waits
 function ChatState({ chat, open }: { chat: AgentChat; open: (id: string) => void }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 text-[13px]">
+    <div className="flex flex-wrap items-center gap-2 text-small">
       {chat.working ? (
         <>
           <span className="dot tone-green pulse" />
-          <b style={{ color: "var(--green)" }}>Working</b>
+          <b className="text-green">Working</b>
         </>
       ) : chat.waiting ? (
         <>
-          <span className="dot tone-yellow" />
-          <b style={{ color: "var(--yellow)" }}>Waiting for {chat.waiting}</b>
-          {chat.help && <span style={{ color: "var(--text)" }}>: {chat.help}</span>}
+          <span className={`dot ${chat.waiting === "you" ? "tone-pink" : "tone-yellow"}`} />
+          <b className={chat.waiting === "you" ? "text-pink" : "text-yellow"}>
+            Waiting for {chat.waiting}
+            {chat.help && ":"}
+          </b>
+          {chat.help && <span className="text-ink">{chat.help}</span>}
         </>
       ) : (
-        <span style={{ color: "var(--muted)" }}>Ended {clock(chat.updated)}</span>
+        <span className="text-muted">Ended {clock(chat.updated)}</span>
       )}
-      <span className="font-mono" style={{ color: "var(--muted)" }}>
+      <span className="font-mono text-muted">
         {length(chat.started, chat.working || chat.waiting ? Date.now() : Date.parse(chat.updated))}
       </span>
       <button type="button" className="btn btn-quiet ml-auto" onClick={() => open(chat.id)}>
@@ -137,23 +140,24 @@ function ChatState({ chat, open }: { chat: AgentChat; open: (id: string) => void
   );
 }
 
-const KIND: Record<string, [string, string]> = {
-  search: ["Search", "tone-purple"],
-  deep: ["Deep check", "tone-accent"],
-  model: ["Model", "tone-yellow"],
-  mirror: ["Mirror", "tone-muted"],
-  backup: ["Copy", "tone-muted"],
-  lesson: ["Lesson", "tone-green"],
-  task: ["Task", "tone-pink"],
-  apply: ["Application", "tone-orange"],
-  notes: ["Notes", "tone-accent"],
-  listing: ["Listing", "tone-purple"],
-  research: ["Research", "tone-yellow"],
-  quiz: ["Quiz", "tone-green"],
-  letter: ["Writing", "tone-orange"],
+// each kind's name and its one colour (a tone, so its chip and its filter's dot match)
+const KIND: Record<string, [string, Tone]> = {
+  search: ["Search", "purple"],
+  deep: ["Deep check", "accent"],
+  model: ["Model", "yellow"],
+  mirror: ["Mirror", "muted"],
+  backup: ["Copy", "muted"],
+  lesson: ["Lesson", "green"],
+  task: ["Task", "pink"],
+  apply: ["Application", "orange"],
+  notes: ["Notes", "accent"],
+  listing: ["Listing", "purple"],
+  research: ["Research", "yellow"],
+  quiz: ["Quiz", "green"],
+  letter: ["Writing", "orange"],
 };
 const FILTERS: [string, string][] = [
-  ["", "Everything"],
+  ["all", "Everything"],
   ["apply", "Applications"],
   ["listing", "Listings"],
   ["deep", "Deep checks"],
@@ -163,6 +167,9 @@ const FILTERS: [string, string][] = [
   ["search", "Searches"],
   ["model", "Models"],
 ];
+const kindChip = (kind: string, tone?: Tone) => (
+  <span className={`chip chip-caps tone-${tone ?? KIND[kind]?.[1] ?? "muted"}`}>{KIND[kind]?.[0] ?? kind}</span>
+);
 const clock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 const dayName = (iso: string) => {
   const d = new Date(iso);
@@ -185,49 +192,55 @@ function Steps({ steps }: { steps: { at: string; text: string }[] }) {
   return (
     <ol className="m-0 grid list-none gap-1.5 p-0">
       {steps.map((s) => (
-        <li
-          key={`${s.at}|${s.text}`}
-          className="grid grid-cols-[64px_minmax(0,1fr)] items-baseline gap-2 text-[14.5px]"
-        >
-          <span className="font-mono text-[11px]" style={{ color: "var(--muted)" }}>
-            {clock(s.at)}
-          </span>
-          <span>{s.text}</span>
+        <li key={`${s.at}|${s.text}`} className="grid grid-cols-[64px_minmax(0,1fr)] items-baseline gap-2 text-detail">
+          <span className="font-mono text-label text-muted">{clock(s.at)}</span>
+          <span className="text-ink">{s.text}</span>
         </li>
       ))}
     </ol>
   );
 }
 
-function Row({ a, go }: { a: Item; go: (link: string) => void }) {
+// a card's top line: the kind's chip, then how long, at the far end; the title gets the next line whole, so a long
+// job's name is read, not cut, on a phone
+function Meta({ chip, time }: { chip: ReactNode; time: ReactNode }) {
   return (
-    <button
-      type="button"
-      className="card card-link flex w-full items-center gap-3 !py-3 text-left"
-      onClick={() => go(a.link)}
-      style={{ cursor: a.link ? "pointer" : "default" }}
+    <>
+      {chip}
+      <span className="ml-auto font-mono text-small text-muted">{time}</span>
+    </>
+  );
+}
+
+// a finished piece of work: the chip and the time on top, what it was under them, its note (red when it failed);
+// a tap opens the work itself
+function Row({ a, go }: { a: Item; go: (link: string) => void }) {
+  const failed = a.outcome === "failed";
+  return (
+    <Card
+      title={a.title}
+      onOpen={a.link ? () => go(a.link) : undefined}
+      meta={
+        <Meta
+          chip={kindChip(a.kind)}
+          time={
+            <span className="flex items-center gap-2">
+              <span className={`dot ${failed ? "tone-red" : "tone-green"}`} />
+              {clock(a.ended ?? a.started)}
+              {a.ended && a.ended !== a.started && ` · ${length(a.started, a.ended)}`}
+              {/* the arrow says this row opens: a touch screen has no hover to tell it */}
+              {a.link && (
+                <span className="text-accent" aria-hidden="true">
+                  →
+                </span>
+              )}
+            </span>
+          }
+        />
+      }
     >
-      <span className={`chip chip-caps ${KIND[a.kind]?.[1] ?? "tone-muted"}`}>{KIND[a.kind]?.[0] ?? a.kind}</span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate" style={{ color: "var(--strong)" }}>
-          {a.title}
-        </span>
-        {a.note && (
-          <span
-            className="block truncate text-[12.5px]"
-            style={{ color: a.outcome === "failed" ? "var(--red)" : "var(--muted)" }}
-          >
-            {a.note}
-          </span>
-        )}
-      </span>
-      <span className="dot" style={{ background: a.outcome === "failed" ? "var(--red)" : "var(--green)" }} />
-      <span className="font-mono shrink-0 text-[12px]" style={{ color: "var(--muted)" }}>
-        {clock(a.ended ?? a.started)}
-        {a.ended && a.ended !== a.started && ` · ${length(a.started, a.ended)}`}
-      </span>
-      {a.link && <span style={{ color: "var(--accent)" }}>→</span>}
-    </button>
+      {a.note && <span className={failed ? "text-red" : undefined}>{a.note}</span>}
+    </Card>
   );
 }
 
@@ -237,7 +250,7 @@ export function LivePage() {
   const [picked, setView] = useState<"now" | "activity" | null>(
     location.hash === "#activity" ? "activity" : location.hash === "#now" ? "now" : null,
   );
-  const [kind, setKind] = useState("");
+  const [kind, setKind] = useState("all");
   const [open, setOpen] = useState<string | null>(null);
   const [, tick] = useState(0);
   const live = useQuery({
@@ -256,7 +269,7 @@ export function LivePage() {
   const log = useQuery({
     queryKey: ["live-activity", kind],
     queryFn: async () => {
-      const res = await fetch(`/api/live/activity?days=7${kind ? `&kind=${kind}` : ""}`);
+      const res = await fetch(`/api/live/activity?days=7${kind !== "all" ? `&kind=${kind}` : ""}`);
       if (!res.ok) throw new Error(`The activity didn't load (${res.status})`);
       return (await res.json()) as { activity: Item[] };
     },
@@ -313,21 +326,22 @@ export function LivePage() {
   }
 
   return (
-    <main className="mx-auto grid w-full max-w-4xl gap-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <button type="button" className="pill" aria-pressed={view === "now"} onClick={() => setView("now")}>
-          {busy > 0 && <span className="dot tone-green pulse" />} Now
+    <Page
+      title="Live"
+      width="reading"
+      line={d ? `What runs now, and the week's work. Updated ${clock(d.at)}.` : undefined}
+    >
+      <fieldset className="seg sm:w-80 sm:justify-self-start" aria-label="Show">
+        <button type="button" aria-pressed={view === "now"} onClick={() => setView("now")}>
+          <span className="flex items-center gap-2">{busy > 0 && <span className="dot tone-green pulse" />}Now</span>
         </button>
-        <button type="button" className="pill" aria-pressed={view === "activity"} onClick={() => setView("activity")}>
+        <button type="button" aria-pressed={view === "activity"} onClick={() => setView("activity")}>
           Activity
         </button>
-        <span className="ml-auto text-xs" style={{ color: "var(--muted)" }}>
-          {d ? `Updated ${clock(d.at)}` : ""}
-        </span>
-      </div>
+      </fieldset>
       {[live, log].map((x) =>
         x.isError ? (
-          <p key={String(x.error)} className="m-0 text-sm" style={{ color: "var(--red)" }}>
+          <p key={String(x.error)} className="m-0 text-detail text-red">
             {String((x.error as Error).message)}
           </p>
         ) : null,
@@ -337,126 +351,98 @@ export function LivePage() {
         <>
           <QueueLine queued={d.apps.filter((a) => a.state === "queued").length} paused={d.paused} />
           {busy === 0 && d.apps.length === 0 && (
-            <section className="grid justify-items-center gap-2 py-10 text-center">
-              <h2 className="font-cond m-0 text-[26px] font-bold">Nothing is running right now</h2>
-              <p className="m-0 text-sm" style={{ color: "var(--muted)" }}>
-                A search, a deep check, a model writing or an agent applying shows here while it works, step by step.
-              </p>
-            </section>
+            <EmptyState
+              title="Nothing is running right now."
+              line="A search, a deep check, a model writing or an agent applying shows here while it works, step by step."
+            />
           )}
           {d.now.map((a) => (
-            <section
+            <Card
               key={a.id}
-              className="card grid gap-3"
-              style={{ borderColor: "color-mix(in srgb, var(--green) 45%, var(--line))" }}
+              tone="green"
+              title={a.title}
+              meta={<Meta chip={kindChip(a.kind)} time={length(a.started, Date.now())} />}
             >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={`chip chip-caps ${KIND[a.kind]?.[1] ?? "tone-muted"}`}>
-                  {KIND[a.kind]?.[0] ?? a.kind}
-                </span>
-                <h3 className="font-cond m-0 min-w-0 flex-1 truncate text-lg font-bold">{a.title}</h3>
+              <div className="grid gap-3">
+                <div className="flex items-center gap-2 text-small">
+                  <span className="dot tone-green pulse" />
+                  <b className="text-green">Working</b>
+                  {a.link && (
+                    <button type="button" className="btn btn-quiet ml-auto" onClick={() => go(a.link)}>
+                      Open
+                    </button>
+                  )}
+                </div>
+                <Steps steps={a.steps} />
               </div>
-              <div className="flex items-center gap-2 text-[13px]">
-                <span className="dot tone-green pulse" />
-                <b style={{ color: "var(--green)" }}>Working</b>
-                <span className="font-mono" style={{ color: "var(--muted)" }}>
-                  {length(a.started, Date.now())}
-                </span>
-                {a.link && (
-                  <button type="button" className="btn btn-quiet ml-auto" onClick={() => go(a.link)}>
-                    Open
-                  </button>
-                )}
-              </div>
-              <Steps steps={a.steps} />
-            </section>
+            </Card>
           ))}
-          {d.apps.map((a) => (
-            <section
-              key={a.id}
-              className="card grid gap-2"
-              style={a.state === "needs-me" ? { borderColor: "var(--pink)" } : undefined}
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={`chip chip-caps ${a.state === "needs-me" ? "tone-pink" : a.state === "applying" ? "tone-green" : "tone-muted"}`}
-                >
-                  {a.state === "needs-me" ? "Needs me" : a.state === "applying" ? "Applying" : "Queued"}
-                </span>
-                <h3 className="font-cond m-0 min-w-0 flex-1 truncate text-lg font-bold">{a.title || a.link}</h3>
-                <span className="font-mono text-[12px]" style={{ color: "var(--muted)" }}>
-                  {length(a.updated, Date.now())}
-                </span>
-              </div>
-              {a.org && <p className="m-0 text-sm">{a.org}</p>}
-              {a.reason && (
-                <p className="m-0 rounded-lg px-3 py-2 text-[14px]" style={{ background: "var(--pink-soft)" }}>
-                  {a.reason}
-                </p>
-              )}
-              {(() => {
-                const chat = chatOf(a);
-                return chat ? (
-                  <>
-                    <ChatState chat={chat} open={openChat} />
-                    <AgentSteps chat={chat} />
-                  </>
-                ) : null;
-              })()}
-              <div className="flex gap-2">
-                {a.listing && (
-                  <button type="button" className="btn" onClick={() => setOpen(a.listing)}>
-                    The listing
-                  </button>
-                )}
-                <a
-                  href={a.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn"
-                  style={{ color: "var(--accent)" }}
-                >
-                  The page ↗
-                </a>
-              </div>
-            </section>
-          ))}
-          {loose.map((c) => (
-            <section
-              key={c.id}
-              className="card grid gap-3"
-              style={
-                c.working
-                  ? { borderColor: "color-mix(in srgb, var(--green) 45%, var(--line))" }
-                  : c.waiting
-                    ? { borderColor: "color-mix(in srgb, var(--yellow) 55%, var(--line))" }
-                    : undefined
-              }
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={`chip chip-caps ${c.working ? "tone-green" : c.waiting ? "tone-yellow" : "tone-muted"}`}
-                >
-                  {c.applying ? "Application" : "Agent"}
-                </span>
-                <h3 className="font-cond m-0 min-w-0 flex-1 truncate text-lg font-bold">
-                  {c.job?.title ? `${c.job.title}${c.job.company ? ` · ${c.job.company}` : ""}` : c.title || "A chat"}
-                </h3>
-              </div>
-              <ChatState chat={c} open={openChat} />
-              <AgentSteps chat={c} />
-            </section>
-          ))}
+          {d.apps.map((a) => {
+            const chat = chatOf(a);
+            const [words, tone] = APP_STATE[a.state] ?? APP_STATE.queued;
+            return (
+              <Card
+                key={a.id}
+                tone={a.state === "needs-me" ? "pink" : undefined}
+                title={a.title || a.link}
+                meta={
+                  <Meta
+                    chip={<span className={`chip chip-caps tone-${tone}`}>{words}</span>}
+                    time={length(a.updated, Date.now())}
+                  />
+                }
+              >
+                <div className="grid gap-3">
+                  {a.org && <p className="m-0 text-ink">{a.org}</p>}
+                  {a.reason && <p className="m-0 rounded-lg bg-pink-soft px-3 py-2 text-ink">{a.reason}</p>}
+                  {chat && (
+                    <>
+                      <ChatState chat={chat} open={openChat} />
+                      <AgentSteps chat={chat} />
+                    </>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {a.listing && (
+                      <button type="button" className="btn" onClick={() => a.listing && setOpen(a.listing)}>
+                        The listing
+                      </button>
+                    )}
+                    <a href={a.link} target="_blank" rel="noopener noreferrer" className="btn">
+                      The page ↗
+                    </a>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+          {loose.map((c) => {
+            // a chat waiting on me needs me, pink as everywhere; a wait on something else stays yellow
+            const tone = c.working ? "green" : c.waiting === "you" ? "pink" : c.waiting ? "yellow" : undefined;
+            return (
+              <Card
+                key={c.id}
+                tone={tone}
+                title={
+                  c.job?.title ? `${c.job.title}${c.job.company ? ` · ${c.job.company}` : ""}` : c.title || "A chat"
+                }
+                meta={
+                  <span className={`chip chip-caps tone-${tone ?? "muted"}`}>
+                    {c.applying ? "Application" : "Agent"}
+                  </span>
+                }
+              >
+                <div className="grid gap-3">
+                  <ChatState chat={c} open={openChat} />
+                  <AgentSteps chat={c} />
+                </div>
+              </Card>
+            );
+          })}
           {busy === 0 && last && (
             <section className="grid gap-2">
               <span className="eyebrow">Last finished</span>
               <Row a={last} go={go} />
-              <button
-                type="button"
-                className="justify-self-center text-sm underline"
-                style={{ color: "var(--accent)" }}
-                onClick={() => setView("activity")}
-              >
+              <button type="button" className="btn btn-quiet justify-self-start" onClick={() => setView("activity")}>
                 See the whole week
               </button>
             </section>
@@ -465,41 +451,32 @@ export function LivePage() {
       )}
 
       {view === "activity" && (
-        <section className="grid gap-3">
-          <div className="flex flex-wrap gap-2">
-            {FILTERS.map(([k, label]) => (
-              <button
-                key={k || "all"}
-                type="button"
-                className="pill"
-                aria-pressed={kind === k}
-                onClick={() => setKind(k)}
-              >
-                {k && <span className={`dot ${KIND[k]?.[1] ?? "tone-muted"}`} />} {label}
-              </button>
-            ))}
-          </div>
+        <section className="grid gap-4">
+          <Pills
+            label="Which kind"
+            options={FILTERS.map(([k, label]) => ({ value: k, label, tone: k === "all" ? undefined : KIND[k]?.[1] }))}
+            value={kind}
+            onChange={setKind}
+          />
           {days.map(([name, items]) => (
             <div key={name} className="grid gap-2">
-              <h3 className="font-cond m-0 mt-2 text-lg font-bold">
-                {name}{" "}
-                <span className="font-mono text-sm" style={{ color: "var(--muted)" }}>
-                  {items.length}
-                </span>
-              </h3>
+              <h2 className="font-cond m-0 mt-2 text-head font-bold">
+                {name} <span className="font-mono text-small text-muted">{items.length}</span>
+              </h2>
               {items.map((a) => (
                 <Row key={a.id} a={a} go={go} />
               ))}
             </div>
           ))}
           {log.data && log.data.activity.length === 0 && (
-            <p className="m-0 text-sm" style={{ color: "var(--muted)" }}>
-              Nothing in the last week{kind ? " of this kind" : ""}.
-            </p>
+            <EmptyState
+              title={`Nothing in the last week${kind !== "all" ? " of this kind" : ""}.`}
+              line={kind !== "all" ? "Pick Everything to see the other kinds." : "Work shows here once it ends."}
+            />
           )}
         </section>
       )}
       {open && <ListingSheet id={open} onClose={() => setOpen(null)} />}
-    </main>
+    </Page>
   );
 }

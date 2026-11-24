@@ -1,10 +1,6 @@
 {
-  "web/src/apply/applications.tsx": 18,
   "web/src/ask.tsx": 11,
-  "web/src/chats.tsx": 4,
   "web/src/cost.tsx": 37,
-  "web/src/home.tsx": 16,
-  "web/src/live.tsx": 28,
   "web/src/models.tsx": 12,
   "web/src/notes/list.tsx": 14,
   "web/src/notes/note-sheet.tsx": 9,
@@ -13,6 +9,5 @@
   "web/src/notes/review.tsx": 13,
   "web/src/notes/set.tsx": 11,
   "web/src/quiz.tsx": 36,
-  "web/src/stop.tsx": 6,
   "web/src/tasks.tsx": 18
 }

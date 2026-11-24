@@ -3,6 +3,7 @@
 // Play); Pause and Play hold the queue. Both go through kestrel to the old setup's server, which runs the applications.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Card } from "./ui/card.tsx";
 
 async function post(path: string, body: unknown): Promise<void> {
   const res = await fetch(path, {
@@ -27,17 +28,8 @@ function useLivePost(path: string) {
 export function StopChat({ chat, applying }: { chat: string; applying: boolean }) {
   const stop = useLivePost("/api/live/stop");
   const [asking, setAsking] = useState(false);
-  if (stop.isSuccess)
-    return (
-      <span className="text-[13px] font-medium" style={{ color: "var(--muted)" }}>
-        Stopped
-      </span>
-    );
-  const error = stop.isError && (
-    <span className="text-[13px]" style={{ color: "var(--red)" }}>
-      {(stop.error as Error).message}
-    </span>
-  );
+  if (stop.isSuccess) return <span className="text-small font-medium text-muted">Stopped</span>;
+  const error = stop.isError && <span className="text-small text-red">{(stop.error as Error).message}</span>;
   // a chat that isn't an application has no queue behind it: Stop is just Stop
   if (!applying || !asking)
     return (
@@ -82,26 +74,27 @@ export function QueueLine({ queued, paused }: { queued: number; paused: boolean 
   if (paused === null || paused === undefined || (!paused && queued === 0)) return null;
   const words = queued === 0 ? "The queue is empty" : `${queued} application${queued === 1 ? "" : "s"} queued`;
   return (
-    <div className="card flex flex-wrap items-center gap-3 !py-3">
-      <span className={`dot ${paused ? "tone-yellow" : "tone-green"}`} />
-      <span className="text-[14.5px]" style={{ color: "var(--strong)" }}>
-        {words}
-        {paused ? " · paused: nothing new starts" : " · each starts once nothing else works"}
-      </span>
-      {pause.isError && (
-        <span className="text-[13px]" style={{ color: "var(--red)" }}>
-          {(pause.error as Error).message}
-        </span>
-      )}
-      <button
-        type="button"
-        className={`btn ml-auto ${paused ? "btn-primary" : ""}`}
-        disabled={pause.isPending}
-        onClick={() => pause.mutate({ paused: !paused })}
-      >
-        {paused ? "Play" : "Pause the queue"}
-      </button>
-    </div>
+    <Card>
+      {/* the dot stays beside the words when they wrap, and the button drops under them on a phone */}
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="m-0 flex min-w-0 flex-1 basis-56 items-baseline gap-2.5 text-detail text-strong">
+          <span className={`dot ${paused ? "tone-yellow" : "tone-green"}`} />
+          <span>
+            {words}
+            {paused ? " · paused: nothing new starts" : " · each starts once nothing else works"}
+          </span>
+        </p>
+        {pause.isError && <span className="text-small text-red">{(pause.error as Error).message}</span>}
+        <button
+          type="button"
+          className={`btn ml-auto ${paused ? "btn-primary" : ""}`}
+          disabled={pause.isPending}
+          onClick={() => pause.mutate({ paused: !paused })}
+        >
+          {paused ? "Play" : "Pause the queue"}
+        </button>
+      </div>
+    </Card>
   );
 }
 
@@ -129,16 +122,22 @@ export function StopRunning({ className = "" }: { className?: string }) {
   if (!running.length) return null;
   return (
     <div className={`grid gap-2 ${className}`}>
-      {running.map((c) => (
-        <div key={c.id} className="flex flex-wrap items-center gap-2 text-[13.5px]">
-          <span className={`dot ${c.working ? "tone-green pulse" : "tone-yellow"}`} />
-          <b style={{ color: c.working ? "var(--green)" : "var(--yellow)" }}>{c.working ? "Working" : "Waiting"}</b>
-          <span className="min-w-0 flex-1 truncate" style={{ color: "var(--text)" }}>
-            {c.job?.title ? `${c.job.title}${c.job.company ? ` · ${c.job.company}` : ""}` : c.title || "A chat"}
-          </span>
-          <StopChat chat={c.id} applying={c.applying} />
-        </div>
-      ))}
+      {running.map((c) => {
+        // a chat waiting on me needs me: pink, as on Live; a wait on something else stays yellow
+        const tone = c.working ? "green" : c.waiting === "you" ? "pink" : "yellow";
+        return (
+          <div key={c.id} className="flex flex-wrap items-center gap-2 text-detail">
+            <span className={`dot tone-${tone} ${c.working ? "pulse" : ""}`} />
+            <b className={tone === "green" ? "text-green" : tone === "pink" ? "text-pink" : "text-yellow"}>
+              {c.working ? "Working" : "Waiting"}
+            </b>
+            <span className="min-w-0 flex-1 truncate text-ink">
+              {c.job?.title ? `${c.job.title}${c.job.company ? ` · ${c.job.company}` : ""}` : c.title || "A chat"}
+            </span>
+            <StopChat chat={c.id} applying={c.applying} />
+          </div>
+        );
+      })}
     </div>
   );
 }
