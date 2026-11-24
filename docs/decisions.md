@@ -5,6 +5,19 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-24 · Every page to the Searches standard; Notes' Apply; the chat page never blocks.**
+  The Searches page is the bar: one card anatomy repeated, numbers in mono on scales and tones, few chips, almost no
+  prose, grids that use the width, one filled button per screen. A study scored every page against it; the lowest
+  were rebuilt. Cost: a strip of five figures, the 30-day chart (the period's days lit), one aligned table by model
+  with the cloud price as a pill, prices behind a fold, one period switch driving every number. Research: the landing
+  fills the height with the ask, the answers kept and About me in two columns. Notes: "Apply N notes" is the one
+  filled button, where the notes are (the pinned column's head on a computer, a bar over the tab bar on a phone),
+  then the review (keep or drop each change), Save, and a line offering Download and Save as PDF; a draft waiting is
+  said in the notes column (migration 026); the print page tells Android to pick Save as PDF as the printer. Home's
+  brief became figures, each opening its page; Learn and a pack lead with a figures card; Live's head counts as its
+  cards do; Writing and Practice lost their paragraphs. Kestrel's Chat page lost its head on a phone (the tab bar says
+  Chat) and shows its own-window link only when the frame reports it isn't up. The light accent stays as it is.
+
 - **2026-11-24 · Every page in the new look.**
   Four groups took the spec's page entries, each built, reviewed and fixed. Searches: the title is the hunt switcher
   (its dialog ends with + New hunt); the filters fold on touch and sit one row per part under a mouse (the first
@@ -27,8 +40,7 @@ technical; the plan and the runbook carry the detail.
   found no clash with the row gaps the rule sets). Cards flat, radius 12; one filled button per screen; motion in five
   tokens, all off under reduced motion. The top bar went (its chip repeated the Live tab's dot): each page starts at
   its title, the wolf is Home in the tab bar and the dock, Live carries the status as a badge, and under a mouse the
-  same mark sits in a corner, never on Live. Left for a yes: the light accent (#3d74f0, 4.06:1 for its words; #2f64de
-  would read 4.86:1, but the palette is shared with the hub's pages).
+  same mark sits in a corner, never on Live. The light accent stays #3d74f0 (4.06:1 for its words; kept by choice on 2026-11-24).
 
 - **2026-11-24 · One file per page; a bad request answers 400; test copies never reach the models.**
   The web app was one 566 KB file: each page is now its own file (React's `lazy`, one table in `web/src/pages.tsx`),

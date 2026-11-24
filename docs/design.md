@@ -144,6 +144,11 @@ reading width is 720.
   document is Doc without `onSave`; a page whose item is gone says so in plain words and doesn't retry; the listing
   sheet is the wide Dialog, its title and ✕ kept in view on tall screens, Apply at its foot; a stage's colour comes
   from one map (`STAGES`).
+- The Searches standard, for every page: one card anatomy repeated (a meta chip on the left, the date or source on
+  the right; the title with its key number as a pill beside it; one muted subline; facts in muted text with only the
+  values bold; the actions last); numbers in mono, on scales and tones; a page's figures as one strip of cells (label,
+  mono value, one quiet line) before its detail; tables with aligned mono columns; explanations in hints and titles,
+  never a paragraph over two lines.
 - `/design` shows every shared part in its states, the ladder at real size with its drawn and touch heights measured
   on the device that shows it, and every type step with its roles; a new part is reviewed there first.
 
