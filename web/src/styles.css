@@ -1889,16 +1889,45 @@ pre.code .f {
 .home-live .list-title {
   font: 600 var(--text-detail) / var(--text-detail--line-height) var(--sans);
 }
-/* Chat on a phone: the frame runs from edge to edge and down to the tab bar, over the shell's gutters and its foot;
-   the head above it keeps the gutters, so the title starts where every page's does */
+/* Chat on a phone: the frame runs from edge to edge, from just under the status bar down to the tab bar, over the
+   shell's gutters, most of its top room and its foot (the chats page inside keeps its own gutters). No head: the tab
+   bar says Chat. The chats at work are one line over it, only while some are */
 .chat-page {
   display: grid;
-  margin: 0 calc(-1 * var(--gutter)) calc(-1 * (49px + env(safe-area-inset-bottom) + 24px));
+  margin: -12px calc(-1 * var(--gutter)) calc(-1 * (49px + env(safe-area-inset-bottom) + 24px));
 }
-.chat-page-head {
-  display: grid;
+.chat-running {
+  display: flex;
+  align-items: center;
   gap: 8px;
-  padding: 0 var(--gutter) 12px;
+  padding: 0 var(--gutter) 4px;
+}
+.chat-running-line {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  min-width: 0;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+  line-height: var(--text-small--line-height);
+}
+.chat-running-line > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.chat-running-line b {
+  font-family: var(--mono);
+  font-weight: 500;
+}
+/* a short screen (a phone sideways, a keyboard up) gives every row to the chats; Stop is in each chat's own head */
+@media (max-height: 500px) {
+  .chat-running:not(:has(dialog[open])) {
+    display: none;
+  }
 }
 /* Tasks: a task is a list row, laid out as a grid: the round box, the words (the row's target: a tap edits them) in
    running text, not a title's weight, when and the note under them, whom it is for and the ✕ at the end. On a narrow
