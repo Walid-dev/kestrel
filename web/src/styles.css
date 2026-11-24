@@ -3771,8 +3771,42 @@ body:has(.paper-view) {
     white-space: nowrap;
   }
 }
-/* Research: how deep and Ask me first on one row, the depth's hint under both (its field lets go of its box, so the
-   switch and the button share the row and the hint spans it) */
+/* Research's landing: on a computer the question in a 400 px column on the left, sticky while the answers scroll
+   when the screen is tall enough to hold it (not while the questions round is open: the round can outgrow the
+   window), About me under it; the answers take the rest of the width. On a phone one column, About me at the foot
+   (research.tsx renders it there) */
+.research-land {
+  display: grid;
+  gap: var(--page-gap);
+  align-items: start;
+}
+.research-side {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+.research-answers {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+@media (min-width: 64rem) {
+  .research-land {
+    grid-template-columns: 400px minmax(0, 1fr);
+  }
+  /* the box is a place to write in its column: five lines from the start */
+  .research-ask .field-tall .field-input {
+    min-height: calc(5lh + 6px);
+  }
+}
+@media (min-width: 64rem) and (min-height: 45rem) {
+  .research-side:not([data-round]) {
+    position: sticky;
+    top: var(--page-gap);
+  }
+}
+/* how deep and Ask me first on one row, the depth's hint under both (its field lets go of its box, so the switch and
+   the toggle share the row and the hint spans it) */
 .research-how {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -3782,13 +3816,101 @@ body:has(.paper-view) {
 .research-how > .seg-field {
   display: contents;
 }
-.research-how > .btn {
+.research-how > .pill {
   grid-area: 1 / 2;
   justify-self: start;
   white-space: nowrap;
 }
 .research-how .seg-hint {
   grid-area: 2 / 1 / 3 / -1;
+}
+/* a toggle pill (Ask me first, Keep in About me): on, its dot filled and its words in ink on the picked ground; off,
+   the dot hollow and the words muted, so the state reads at a glance even alone beside a switch */
+.research-toggle:not([aria-pressed="true"]) {
+  color: var(--muted);
+}
+.research-toggle:not([aria-pressed="true"]) > .dot {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--tone, var(--muted));
+}
+/* the writing card's date, where the others' sits: it keeps the room of the ✕ it doesn't have (.card-remove's
+   width, less its negative margin, plus the meta row's gap) */
+.research-date-end {
+  margin-right: 28px;
+}
+@media (pointer: coarse) {
+  .research-date-end {
+    margin-right: 32px;
+  }
+}
+/* the answers' filter: the search box with its Reset, then the pills; one row when the column has the room */
+.research-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+.research-find {
+  display: flex;
+  flex: 1 1 260px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.research-find > .field {
+  flex: 1;
+  min-width: 0;
+}
+@media (pointer: coarse) {
+  .research-filter {
+    row-gap: 12px;
+  }
+}
+/* the answers: as many columns of at least 340 px as the column holds, one on a phone */
+.research-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 12px;
+}
+/* a report's head line: the depth's chip, then the facts, a dot in the gap between two facts. A fact that wraps to a
+   new line starts it: its dot falls left of the line, where the line clips it */
+.research-line {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  overflow: hidden;
+}
+.research-line > span:not(.chip) {
+  position: relative;
+}
+.research-line > span:not(.chip) + span:not(.chip)::before {
+  content: "·";
+  position: absolute;
+  left: -7px;
+  transform: translateX(-50%);
+  color: var(--muted);
+}
+/* a report: the lede, what I asked and the body on the left; on a computer its words, what it wasn't sure of and its
+   sources beside it, sticky under the bar */
+.research-report {
+  display: grid;
+  gap: 20px;
+}
+.research-aside {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+@media (min-width: 64rem) {
+  .research-report {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    align-items: start;
+  }
+  .research-aside {
+    position: sticky;
+    top: 64px;
+  }
 }
 /* a research answer's source, inline: the site's name, a small link that opens the page */
 .cite {
