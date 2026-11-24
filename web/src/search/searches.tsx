@@ -543,7 +543,7 @@ export function Searches() {
           {spec && (
             <button
               type="button"
-              className="btn btn-head"
+              className="btn"
               disabled={runNow.isPending || hunt.running > 0}
               onClick={() => runNow.mutate(hunt)}
             >
@@ -554,7 +554,7 @@ export function Searches() {
                   : "Search now"}
             </button>
           )}
-          <Link to={`/searches/settings?new=${kind}`} className="btn btn-head">
+          <Link to={`/searches/settings?new=${kind}`} className="btn">
             + New hunt
           </Link>
           <Link
@@ -563,7 +563,7 @@ export function Searches() {
                 ? `/searches/settings?spec=${encodeURIComponent(hunt.specs[0].id)}`
                 : `/searches/settings?new=${kind}`
             }
-            className="btn btn-head inline-flex items-center gap-2"
+            className="btn inline-flex items-center gap-2"
             title={
               hunt.specs[0] ? "This search's settings" : "This hunt runs in the old setup: make its kestrel search"
             }
@@ -587,7 +587,7 @@ export function Searches() {
           {/* on, it takes Ask's purple, the way every pressed button takes its tone */}
           <button
             type="button"
-            className="btn btn-head tone-purple inline-flex items-center gap-1.5"
+            className="btn tone-purple inline-flex items-center gap-1.5"
             aria-pressed={asking}
             onClick={() => {
               setAsking(!asking);
@@ -607,7 +607,7 @@ export function Searches() {
           {all.length > 1 && (
             <button
               type="button"
-              className="btn btn-head ml-auto inline-flex items-center gap-1.5"
+              className="btn ml-auto inline-flex items-center gap-1.5"
               aria-haspopup="dialog"
               onClick={() => setSwitching(true)}
             >
@@ -698,11 +698,7 @@ export function Searches() {
             {/* the round Reset: always there, lit when a filter differs from how the page opens */}
             <button
               type="button"
-              className={cx(
-                // the thumb's 44 px on touch; under a mouse, the size it had
-                "btn grid size-9.5 shrink-0 place-items-center !rounded-full !p-0 pointer-coarse:size-11",
-                changed && "!text-accent",
-              )}
+              className={cx("btn btn-icon shrink-0", changed && "!text-accent")}
               disabled={!changed}
               onClick={reset}
               aria-label="Reset the filters"
@@ -849,7 +845,7 @@ export function Searches() {
           )}
           {/* folded, the panel still says what is picked: each a pill that opens the filters again */}
           {!shown && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 pointer-coarse:gap-y-3">
               <button
                 type="button"
                 className={cx("pill", toneClass(stageTone(kind, stage)))}

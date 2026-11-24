@@ -1,8 +1,10 @@
 // The design check on made-up samples: it finds an inline colour, size or spacing and names the class to use, finds a
-// raw colour outside comments, leaves run-time variables and marked exceptions alone, and fails only on a rise.
+// raw colour outside comments, leaves run-time variables and marked exceptions alone, and fails only on a rise. In a
+// page's class lists it finds btn-head, font-bold beside a heading step and a radius off the ladder; in styles.css, a
+// font size in px and a radius off the five.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { compare, scan } from "./check-design.ts";
+import { compare, scan, scanStyles } from "./check-design.ts";
 
 const sample = `export function Row() {
   return (
@@ -27,7 +29,7 @@ test("inline colours, sizes and spacing are found on their lines, each with the 
   );
   assert.equal(hits[0].fix, "text-muted");
   assert.equal(hits[2].fix, "bg-surface-2");
-  assert.match(hits[3].fix, /text-small 13/);
+  assert.match(hits[3].fix, /text-detail 13/);
 });
 
 test("a run-time variable, a width and a line marked design-ok are not one-offs; a bare marker is", () => {
@@ -86,4 +88,64 @@ test("a style held in a named object, a CSSProperties object or a shorthand key 
 test("a link to a place on the page is not a raw colour", () => {
   assert.equal(scan(`<a href="#feed">Feed</a>`).length, 0);
   assert.equal(scan(`const ink = "#feed";`).length, 1);
+});
+
+test("a page's class lists: btn-head, font-bold beside a heading step and a radius off the ladder are found", () => {
+  const page = [
+    `<button className="btn btn-head">Go</button>`,
+    `<h2 className={cx("font-cond text-head font-bold", wide && "mt-2")}>A</h2>`,
+    `<div className={\`card rounded-2xl \${on ? "md:rounded-sm" : ""}\`} />`,
+    `<i className="skeleton h-4 rounded" />`,
+    `<b className="font-bold text-body">fine: body has no weight of its own</b>`,
+    `<p className="rounded-md rounded-t-lg rounded-xl rounded-full !rounded-none">fine</p>`,
+    `const words = "rounded up, in font-bold text-head";`,
+    `<p className={on ? "text-lead font-bold" : "rounded-2xl"} />`,
+    `<p className={on ? "rounded-[14px] p-2" : undefined}>fine</p>`,
+  ].join("\n");
+  assert.deepEqual(
+    scan(page).map((h) => [h.line, h.what]),
+    [
+      [1, "btn-head"],
+      [2, "font-bold beside text-head"],
+      [3, "rounded-2xl"],
+      [3, "md:rounded-sm"],
+      [4, "rounded"],
+      [8, "font-bold beside text-lead"],
+      [8, "rounded-2xl"],
+    ],
+  );
+  assert.match(scan(page)[1].fix, /carries its own weight/);
+});
+
+test("styles.css: a font size in px, rem or em and a radius off the five are found, one-line rules too; a step, a comment and design-ok are not", () => {
+  const css = [
+    `.a { font: 500 var(--text-detail) / 20px var(--sans); }`,
+    `.b {`,
+    `  font-size: 13.5px;`,
+    `  font: 600 15px / 1.2 var(--cond);`,
+    `  border-radius: 10px;`,
+    `  border-radius: 12px 12px 4px 12px;`,
+    `  border-radius: 12px 12px 4px 12px; /* design-ok: the bubble's tail */`,
+    `  border-radius: 999px;`,
+    `  /* a comment that says font-size: 30px and`,
+    `     border-radius: 3px is not a rule */`,
+    `  font-size: max(16px, 1em); /* design-ok: the touch floor */`,
+    `  font-size: 1.1rem;`,
+    `  font: 0.85em var(--mono);`,
+    `}`,
+    `.c { font-size: 15px; border-radius: 5px }`,
+  ].join("\n");
+  assert.deepEqual(
+    scanStyles(css).map((h) => [h.line, h.what]),
+    [
+      [3, "font size 13.5px"],
+      [4, "font size 15px"],
+      [5, "radius 10px"],
+      [6, "radius 4px"],
+      [12, "font size 1.1rem"],
+      [13, "font size 0.85em"],
+      [15, "font size 15px"],
+      [15, "radius 5px"],
+    ],
+  );
 });

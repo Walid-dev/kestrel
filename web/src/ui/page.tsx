@@ -1,9 +1,10 @@
-// Every page's frame and head, one way. The head: the back link when the page has a parent, an eyebrow, the title in
-// one size and one case, the line under it, the page's own buttons. The frame: one of two widths, wide for lists and
-// grids, reading for text; both start at the shell's left edge, under the name kestrel, so a title never jumps
-// between pages. A page with a parent works like a phone's navigation bar: the back link on the left, its buttons on
-// the right, the title below; a top page has its buttons beside the title. Its buttons take the head's size up from
-// the others (styles.css, .page-actions .btn), so a page never sets it.
+// Every page's frame and head, one way, and the top of every page: there is no bar above it. The head: the back link
+// when the page has a parent, an eyebrow, the title in one case, the line under it, the page's own buttons (plain
+// .btn, no size of their own). A top page's title is the title step; a child page's (it has a back link) a step down,
+// so a counter or a file name never outweighs what is under it. A child page works like a phone's navigation bar:
+// the back link on the left, its buttons on the right, the title under them; a top page has its buttons beside the
+// title under a mouse, and in a row under the line on touch. The frame: one of two widths, wide for lists and grids,
+// reading for text; both start at the shell's left edge, so a title never jumps between pages.
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { cx } from "./cx.ts";
@@ -37,8 +38,8 @@ export function PageHead({ title, eyebrow, line, actions, back, sticky = false, 
             <Link to={back.to} className="page-back">
               <svg
                 viewBox="0 0 24 24"
-                width="18"
-                height="18"
+                width="16"
+                height="16"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2.2"
@@ -59,7 +60,7 @@ export function PageHead({ title, eyebrow, line, actions, back, sticky = false, 
         {/* read in this order (title, line, buttons), as a phone shows it; a wider screen moves the buttons up beside
             the title (styles.css) */}
         <div className="page-title-row">
-          <Title className="page-title">{title}</Title>
+          <Title className={cx("page-title", back && "page-title-child")}>{title}</Title>
           {line && <p className="page-line">{line}</p>}
           {actions && !bar && <div className="page-actions">{actions}</div>}
         </div>

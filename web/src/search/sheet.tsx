@@ -266,7 +266,7 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
 
         <section className="card card-stack">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-cond m-0 text-head font-bold">Deep check</h3>
+            <h3 className="font-cond m-0 text-head">Deep check</h3>
             {l.deep?.finished && <span className="text-small text-muted">{day(l.deep.finished)}</span>}
             <button
               type="button"

@@ -179,8 +179,8 @@ export function Cost() {
       ) : !r || !t ? (
         // the page's shape while the figures come, so nothing jumps when they land
         <div className="grid gap-4" aria-busy="true">
-          <div className="skeleton h-72 rounded-2xl" />
-          <div className="skeleton h-56 rounded-2xl" />
+          <div className="skeleton h-72 rounded-xl" />
+          <div className="skeleton h-56 rounded-xl" />
         </div>
       ) : (
         <>
@@ -240,7 +240,7 @@ function Counted({
     <>
       <section className="card grid gap-4">
         <p className="m-0 flex flex-wrap items-baseline gap-x-3">
-          <span className="font-cond text-title font-bold text-strong">{n(tokens)}</span>
+          <span className="font-cond text-title text-strong">{n(tokens)}</span>
           <span className="text-read text-muted">tokens</span>
         </p>
         <p className="m-0 text-detail text-muted">{daysCounted} days of this computer's models, counted by oMLX</p>
@@ -254,7 +254,7 @@ function Counted({
           ].map(([k, v]) => (
             <div key={k} className="grid gap-1 bg-surface-2 px-3 py-2.5 outline outline-line">
               <span className="text-small text-muted">{k}</span>
-              <span className="font-cond text-head font-bold text-strong">{v}</span>
+              <span className="font-cond text-head text-strong">{v}</span>
             </div>
           ))}
         </div>
@@ -268,7 +268,7 @@ function Counted({
           {t.cloud.map((c) => (
             <div key={c.id} className="flex items-baseline gap-3 border-t border-line py-2.5">
               <span className="text-body">{c.name}</span>
-              <span className="font-cond ml-auto text-head font-bold text-strong">{usd(c.usd)}</span>
+              <span className="font-cond ml-auto text-head text-strong">{usd(c.usd)}</span>
             </div>
           ))}
           {t.electricity && (

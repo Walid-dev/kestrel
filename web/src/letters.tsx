@@ -176,7 +176,7 @@ export function Writing() {
         {/* the job, and its tries */}
         <section className="grid content-start gap-5">
           <Card>
-            <h2 className="font-cond m-0 text-head font-bold">The job</h2>
+            <h2 className="font-cond m-0 text-head">The job</h2>
             <Field label="Search your applications" value={q} onChange={setQ} />
             {jobs.data && list.length === 0 ? (
               <p className="m-0 text-detail text-muted">
@@ -209,7 +209,7 @@ export function Writing() {
                 ))}
               </div>
             )}
-            <h2 className="font-cond m-0 text-head font-bold">What to write</h2>
+            <h2 className="font-cond m-0 text-head">What to write</h2>
             <fieldset className="seg" aria-label="What to write">
               {KINDS.map(([k, label]) => (
                 <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)}>
@@ -251,7 +251,7 @@ export function Writing() {
           </Card>
           {job && (tries.data?.length ?? 0) > 0 && (
             <section className="grid gap-3">
-              <h2 className="font-cond m-0 text-head font-bold">Tries</h2>
+              <h2 className="font-cond m-0 text-head">Tries</h2>
               {tries.data?.map((x) => (
                 <Card
                   key={x.id}
@@ -362,7 +362,7 @@ function TryView({ t }: { t: Try }) {
     <>
       <div className="grid gap-2">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h2 className="font-cond m-0 text-head font-bold">{t.title}</h2>
+          <h2 className="font-cond m-0 text-head">{t.title}</h2>
           <span className="ml-auto text-small text-muted">
             {when(t.started)}
             {t.notes.model ? ` · ${t.notes.model}` : ""}
@@ -420,7 +420,7 @@ function TryView({ t }: { t: Try }) {
               href={`/api/letters/${t.id}/pdf`}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn btn-head btn-quiet justify-self-end"
+              className="btn btn-quiet justify-self-end"
             >
               Open the PDF ↗
             </a>
@@ -428,7 +428,7 @@ function TryView({ t }: { t: Try }) {
             <iframe
               title="The PDF"
               src={`/api/letters/${t.id}/pdf`}
-              className="h-[70vh] w-full rounded-2xl border border-line bg-white"
+              className="h-[70vh] w-full rounded-xl border border-line bg-white"
             />
           </div>
         ) : (
@@ -520,7 +520,7 @@ function YourFiles() {
   });
   return (
     <Card>
-      <h2 className="font-cond m-0 text-head font-bold">Your voice and stories</h2>
+      <h2 className="font-cond m-0 text-head">Your voice and stories</h2>
       <p className="m-0 text-detail text-ink">
         Every application writes from these two files. Rework them in Notes: select words, say what should change, and
         turn your notes into an edit you check before it is saved. Every save keeps the previous version.

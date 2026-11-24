@@ -1,9 +1,11 @@
-// Home: the launcher. What needs me and this morning's brief first, then each app as a card that opens it, then Cost
-// and Models, the two pages about the models themselves.
+// Home: the launcher, and the page that carries the name: the date over it and the pink wolf with kestrel as its
+// title (there is no bar above the pages). What needs me and this morning's brief first, then each app as a card that
+// opens it, then Cost and Models, the two pages about the models themselves.
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useChatLink } from "./chats.tsx";
 import { LiveStrip } from "./live-strip.tsx";
+import { Mark } from "./mark.tsx";
 import { Card } from "./ui/card.tsx";
 import { Page } from "./ui/page.tsx";
 
@@ -145,7 +147,7 @@ function AppFace({ name, what }: { name: string; what: string }) {
     <>
       <span className="flex items-center gap-3">
         <span className={APP_COLOR[name]}>{ICONS[name]}</span>
-        <h2 className="m-0 font-cond text-head font-bold text-strong">{name}</h2>
+        <h2 className="m-0 font-cond text-head text-strong">{name}</h2>
       </span>
       <span className="text-detail text-muted">{what}</span>
     </>
@@ -157,11 +159,14 @@ function ToolFace({ icon, name, what }: { icon: ReactNode; name: string; what: s
   return (
     <span className="flex items-center gap-3">
       <span className="text-yellow">{icon}</span>
-      <span className="font-cond text-head font-bold text-strong">{name}</span>
+      <span className="font-cond text-head text-strong">{name}</span>
       <span className="ml-auto min-w-0 truncate text-detail text-muted">{what}</span>
     </span>
   );
 }
+
+// today, as the eyebrow says it, in the order every other date in the app takes (the browser's own): MON, NOV 23
+const today = () => new Date().toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 
 export function Home() {
   const chat = useChatLink();
@@ -176,7 +181,16 @@ export function Home() {
   });
   const lines = brief.data?.lines ?? [];
   return (
-    <Page title="Home" line="One app, one computer, my own models.">
+    <Page
+      eyebrow={today()}
+      title={
+        <span className="inline-flex items-center gap-2">
+          <Mark size={24} />
+          kestrel
+        </span>
+      }
+      line="One app, one computer, my own models."
+    >
       <div className="grid gap-3 md:grid-cols-2">
         <LiveStrip />
         {lines.length > 0 && (

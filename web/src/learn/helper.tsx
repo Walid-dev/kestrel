@@ -164,7 +164,7 @@ export function InterviewHelper() {
             <Card tone="accent">
               <span className="eyebrow tone-accent">{got.lesson.title}</span>
               {got.lesson.body.say.map((line) => (
-                <p key={line} className="font-cond m-0 text-lead font-bold text-strong">
+                <p key={line} className="font-cond m-0 text-lead text-strong">
                   {line}
                 </p>
               ))}

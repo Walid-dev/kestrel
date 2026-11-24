@@ -261,7 +261,7 @@ export function Quiz() {
                       {q.answered}/{q.total}
                     </Ring>
                     <span className="grid min-w-0 flex-1 gap-1">
-                      <span className="font-cond truncate text-head font-bold text-strong">{named(q)}</span>
+                      <span className="font-cond truncate text-head text-strong">{named(q)}</span>
                       <span className="text-detail text-ink">
                         Question {Math.min(q.place + 1, q.total)} of {q.total} · {q.right} right
                         {q.partly ? ` · ${q.partly} partly` : ""}
@@ -304,7 +304,7 @@ export function Quiz() {
         <div className="lg:col-start-1 lg:row-span-2 lg:row-start-1">
           <Card>
             <div className="grid gap-6">
-              <h2 className="font-cond m-0 text-head font-bold">{started.length ? "A new quiz" : "Start a quiz"}</h2>
+              <h2 className="font-cond m-0 text-head">{started.length ? "A new quiz" : "Start a quiz"}</h2>
               <div className="grid gap-2.5">
                 <span className="eyebrow">From</span>
                 <fieldset className="seg" aria-label="From">
@@ -634,7 +634,7 @@ function Ring({ part, children }: { part: number; children: ReactNode }) {
           transform="rotate(-90 28 28)"
         />
       </svg>
-      <span className="font-mono text-small font-semibold text-strong">{children}</span>
+      <span className="font-mono text-small font-medium text-strong">{children}</span>
     </span>
   );
 }
@@ -774,7 +774,7 @@ export function QuizRun() {
         >
           {item.packName} · {item.title}
         </Link>
-        <p className="font-cond m-0 text-lead font-bold text-strong">
+        <p className="font-cond m-0 text-lead text-strong">
           {question ? <Inline text={question} /> : made.isError ? "No question this time." : "Writing a question…"}
         </p>
 
@@ -864,7 +864,7 @@ export function QuizRun() {
                   <span className="spin" /> Writing the explanation
                 </span>
                 {["w1", "w2", "w3"].map((k) => (
-                  <div key={k} className={cx("skeleton h-4 rounded", k === "w3" ? "w-3/5" : "w-full")} />
+                  <div key={k} className={cx("skeleton h-4 rounded-md", k === "w3" ? "w-3/5" : "w-full")} />
                 ))}
               </div>
             )}
@@ -992,7 +992,7 @@ function Explanation({ e }: { e: Explained }) {
   const body = e.blocks.map((b, i) => block(b, say, `x${i}`));
   const remember = e.remember ? say.add(e.remember) : -1;
   return (
-    <section className="grid gap-3 rounded-2xl border border-line bg-page p-4">
+    <section className="grid gap-3 rounded-xl border border-line bg-page p-4">
       <div className="flex items-center gap-2">
         <span className="eyebrow tone-purple">Explained</span>
         <button

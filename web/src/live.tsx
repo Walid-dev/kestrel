@@ -461,7 +461,7 @@ export function LivePage() {
           />
           {days.map(([name, items]) => (
             <div key={name} className="grid gap-2">
-              <h2 className="font-cond m-0 mt-2 text-head font-bold">
+              <h2 className="font-cond m-0 mt-2 text-head">
                 {name} <span className="font-mono text-small text-muted">{items.length}</span>
               </h2>
               {items.map((a) => (

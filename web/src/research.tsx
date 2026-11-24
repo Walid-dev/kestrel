@@ -438,7 +438,7 @@ function ReportView({ id, onBack }: { id: string; onBack: () => void }) {
             )}
             {used.length > 0 && (
               <Card>
-                <h2 className="font-cond m-0 text-head font-bold">Sources</h2>
+                <h2 className="font-cond m-0 text-head">Sources</h2>
                 <div className="grid gap-1.5">
                   {used.map((s) => (
                     <a

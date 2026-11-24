@@ -26,7 +26,7 @@ export function NotesList({
 }) {
   return (
     <section className="grid gap-3" aria-labelledby="notes-mine">
-      <h2 id="notes-mine" ref={headRef} tabIndex={-1} className="font-cond m-0 text-head font-bold">
+      <h2 id="notes-mine" ref={headRef} tabIndex={-1} className="font-cond m-0 text-head">
         Your notes{notes.length > 0 && <span className="font-mono ml-2 text-small text-muted">{notes.length}</span>}
       </h2>
       {/* none yet: the column says how a note starts, so it never stands empty */}

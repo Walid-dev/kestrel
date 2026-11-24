@@ -204,7 +204,7 @@ export function LearnLesson() {
     const due = (L.state === "due" || L.state === "learning") && b.check.length > 0;
     const review = due ? (
       <Card tone="cyan">
-        <h2 className="font-cond m-0 text-head font-bold">{heard("Review first: answer from memory", say)}</h2>
+        <h2 className="font-cond m-0 text-head">{heard("Review first: answer from memory", say)}</h2>
         {b.check.map((c) => check(`review:${c.q}`, c.q, c.a, say, true))}
       </Card>
     ) : null;
@@ -251,7 +251,7 @@ export function LearnLesson() {
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           {b.say.length > 0 && (
             <Card>
-              <h2 className="font-cond m-0 text-head font-bold">{sayHead}</h2>
+              <h2 className="font-cond m-0 text-head">{sayHead}</h2>
               <p className="m-0 text-detail text-muted">
                 Tap a sentence to hear it. Listen, then say it with the voice.
               </p>
@@ -279,7 +279,7 @@ export function LearnLesson() {
           <section className="grid content-start gap-4 text-read">
             {b.explain.length > 0 && (
               <div className="grid gap-2">
-                <h2 className="font-cond m-0 text-head font-bold">{meansHead}</h2>
+                <h2 className="font-cond m-0 text-head">{meansHead}</h2>
                 {means}
               </div>
             )}
@@ -291,7 +291,7 @@ export function LearnLesson() {
             )}
             {b.words.length > 0 && (
               <div className="grid gap-2">
-                <h2 className="font-cond m-0 text-head font-bold">{wordsHead}</h2>
+                <h2 className="font-cond m-0 text-head">{wordsHead}</h2>
                 {words}
               </div>
             )}
@@ -338,7 +338,7 @@ export function LearnLesson() {
       {(b.check.length > 0 || guide) && (
         <Card>
           <div className="flex flex-wrap items-center gap-3">
-            <span className="font-cond text-head font-bold text-strong">
+            <span className="font-cond text-head text-strong">
               {guide ? "Done with this topic?" : "How did it go?"}
             </span>
             <span className="text-detail text-muted">
