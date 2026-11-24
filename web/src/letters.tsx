@@ -632,7 +632,7 @@ function Folds({ t, r, needs }: { t: Try; r: Exclude<Review, { failed: string }>
 }
 
 // my voice and my stories, the files every application reads, in the page's head: each opens in Notes (select
-// words, note what should change, turn the notes into an edit I review), every save kept as a version I can bring back
+// words, note what should change, apply the notes as an edit I review), every save kept as a version I can bring back
 function YourFiles() {
   const navigate = useNavigate();
   const open = useMutation({
