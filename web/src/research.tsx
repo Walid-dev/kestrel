@@ -4,7 +4,7 @@
 // About me and in the context folder (read on this computer only, never put into a search). Every answer is kept.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Ask as AskBox } from "./ask.tsx";
 import { block, type Cite, Cites, heard, type Say } from "./learn/blocks.tsx";
@@ -55,6 +55,30 @@ const LEVELS: [Level, string, string][] = [
 // a depth's colour, the same on a card's chip and on its filter pill
 const LEVEL_TONE = { quick: "accent", deep: "purple" } as const;
 const ASK_ME = "Up to three questions first, when the answer depends on you";
+// a toggle beside the depth: a pill whose dot is filled when on and hollow when off (styles.css, .research-toggle)
+function Toggle({
+  on,
+  set,
+  hint,
+  children,
+}: {
+  on: boolean;
+  set: (on: boolean) => void;
+  hint: string;
+  children: string;
+}) {
+  return (
+    <button
+      type="button"
+      className="pill tone-purple research-toggle"
+      aria-pressed={on}
+      title={hint}
+      onClick={() => set(!on)}
+    >
+      <span className="dot" aria-hidden="true" /> {children}
+    </button>
+  );
+}
 const QUESTION_MAX = 1000; // the server's limit on a question
 // the filter row joins the answers once there are this many: fewer fit on a screen without it
 const FILTER_FROM = 5;
@@ -77,13 +101,19 @@ const when = (iso: string) =>
 // a card's date: short enough to share the meta row with two chips on a phone
 const day = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-// how long an answer took, from its start to its end: "40 s", "3 min", "1 h 5 min"
-const took = (from: string, to: string | null) => {
-  if (!to) return "";
+// how long an answer took, from its start to its end, as values and units: 40 s, 3 min, 1 h 5 min, 2 h
+const took = (from: string, to: string | null): [number, string][] => {
+  if (!to) return [];
   const s = Math.max(0, Math.round((Date.parse(to) - Date.parse(from)) / 1000));
-  if (s < 60) return `${s} s`;
+  if (s < 60) return [[s, "s"]];
   const m = Math.round(s / 60);
-  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
+  if (m < 60) return [[m, "min"]];
+  return m % 60
+    ? [
+        [Math.floor(m / 60), "h"],
+        [m % 60, "min"],
+      ]
+    : [[m / 60, "h"]];
 };
 const levelChip = (level: Level) => `chip chip-caps tone-${LEVEL_TONE[level]}`;
 // the server's reasons start in lower case, as they read in its log; on the page they start a sentence
@@ -241,27 +271,41 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
       (!words || `${r.title} ${r.question} ${r.short}`.toLowerCase().includes(words)),
   );
   const filtering = kept.length >= FILTER_FROM || changed;
+  // the newest kept answer (the server sends the newest first; the sort keeps that true either way)
+  const latest = kept.reduce<Row | undefined>((a, r) => (!a || r.started > a.started ? r : a), undefined);
+  // the one being written shows unless a filter is set: a filter picks among the answers kept
+  const writing = changed ? undefined : running;
+  // after a delete the focus goes to the card that took its place, or the one before, or the question box
+  const grid = useRef<HTMLDivElement>(null);
+  const refocus = (at: number) =>
+    requestAnimationFrame(() => {
+      const opens = grid.current?.querySelectorAll<HTMLElement>(".card-open") ?? [];
+      (opens[Math.min(at, opens.length - 1)] ?? askBox.current?.querySelector("textarea"))?.focus();
+    });
 
   return (
     <Page
       title="Research"
       line={
-        kept.length > 0 && (
+        // what the counts below don't say: one being written, or when I last asked
+        running ? (
           <>
-            <b className="font-mono text-ink">{count.all}</b> {plural(count.all, "answer")} ·{" "}
-            <b className="font-mono text-ink">{count.deep}</b> deep
-            {count.failed > 0 && (
-              <>
-                {" "}
-                · <b className="font-mono text-ink">{count.failed}</b> failed
-              </>
-            )}
+            <span className="dot tone-green pulse mr-2 inline-block align-middle" aria-hidden="true" />
+            Writing an answer
           </>
+        ) : (
+          latest && (
+            <>
+              Last asked <b className="font-medium text-ink">{day(latest.started)}</b>
+            </>
+          )
         )
       }
     >
       <div className="research-land">
-        <div className="research-side">
+        {/* it stays in view while the answers scroll, but not while the questions round is open: the round can make
+            the column taller than the window, and its buttons must stay in reach */}
+        <div className="research-side" data-round={questions ? "" : undefined}>
           {/* on a computer the column has a heading, level with the answers'; on a phone the page's title is enough */}
           <h2 className="font-cond m-0 hidden text-section lg:block">New question</h2>
           {/* the question waits while its first questions are answered below, and while another answer is written */}
@@ -294,15 +338,9 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
                 value={level}
                 onChange={setLevel}
               />
-              <button
-                type="button"
-                className="pill tone-purple"
-                aria-pressed={askMe}
-                title={ASK_ME}
-                onClick={() => setAskMe(!askMe)}
-              >
-                <span className="dot" aria-hidden="true" /> Ask me first
-              </button>
+              <Toggle on={askMe} set={setAskMe} hint={ASK_ME}>
+                Ask me first
+              </Toggle>
             </div>
             {error && <p className="m-0 text-detail text-red">{sentence((error as Error).message)}</p>}
           </section>
@@ -333,15 +371,13 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
                 ))}
                 <span className="text-small text-muted">Enter sends · an empty answer is left out</span>
                 <div className="pills-inline flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    className="pill tone-purple"
-                    aria-pressed={keep}
-                    title="Each answer given is added to About me, so it asks less next time"
-                    onClick={() => setKeep(!keep)}
+                  <Toggle
+                    on={keep}
+                    set={setKeep}
+                    hint="Each answer given is added to About me, so it asks less next time"
                   >
-                    <span className="dot" aria-hidden="true" /> Keep in About me
-                  </button>
+                    Keep in About me
+                  </Toggle>
                   <button
                     type="button"
                     className="btn ml-auto"
@@ -365,15 +401,18 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
             </Card>
           )}
 
-          <div className="research-about">
+          {/* About me under the question on a computer; on a phone it is rendered at the foot instead, so the eye, Tab
+              and a screen reader all meet it last */}
+          <div className="hidden lg:block">
             <AboutMe context={context.data} />
           </div>
         </div>
 
         <section className="research-answers" aria-label="The answers">
+          {/* the count beside the heading until the filter's pills carry it */}
           {kept.length > 0 && (
             <h2 className="font-cond m-0 text-section">
-              Answers <span className="font-mono text-small text-muted">{kept.length}</span>
+              Answers {!filtering && <span className="font-mono text-small text-muted">{kept.length}</span>}
             </h2>
           )}
           {filtering && (
@@ -430,32 +469,35 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
             <p className="m-0 text-detail text-red">The delete didn't land: {(forget.error as Error).message}</p>
           )}
 
-          {(list.isLoading || running || shown.length > 0) && (
-            <div className="research-grid" aria-busy={list.isLoading}>
+          {(list.isLoading || writing || shown.length > 0) && (
+            <div ref={grid} className="research-grid" aria-busy={list.isLoading}>
               {/* the first load: the shape of the cards to come */}
               {list.isLoading && ["a", "b", "c", "d"].map((k) => <div key={k} className="card skeleton min-h-36" />)}
               {/* the one being written, first: where it stands, and a bar that moves while it works */}
-              {running && (
+              {writing && (
                 <Card
                   tone="green"
-                  title={<span className="line-clamp-2">{running.question}</span>}
-                  onOpen={() => onOpen(running.id)}
+                  title={<span className="line-clamp-2">{writing.question}</span>}
+                  onOpen={() => onOpen(writing.id)}
                   meta={
                     <>
-                      <span className={levelChip(running.level)}>{running.level}</span>
+                      <span className={levelChip(writing.level)}>{writing.level}</span>
                       <span className="chip chip-caps tone-green">
                         <span className="dot pulse" aria-hidden="true" />
                         Writing
                       </span>
-                      <span className="ml-auto font-mono text-small text-muted">{day(running.started)}</span>
+                      {/* no ✕ while it is written: the date keeps the ✕'s room, so it lines up with the others' */}
+                      <span className="research-date-end ml-auto font-mono text-small text-muted">
+                        {day(writing.started)}
+                      </span>
                     </>
                   }
                 >
-                  <p className="m-0 line-clamp-2">{running.step || "Starting"}…</p>
+                  <p className="m-0 line-clamp-2">{writing.step || "Starting"}…</p>
                   <div className="loading-bar mt-3" aria-hidden="true" />
                 </Card>
               )}
-              {shown.map((r) => {
+              {shown.map((r, i) => {
                 const name = r.title || r.question;
                 const time = took(r.started, r.finished);
                 return (
@@ -473,14 +515,20 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
                     onOpen={() => onOpen(r.id)}
                     removeLabel={`Delete “${name}”`}
                     onRemove={async () => {
-                      if (await sure(deleteAnswer(name, r.state === "done"))) forget.mutate(r.id);
+                      if (await sure(deleteAnswer(name, r.state === "done")))
+                        forget.mutate(r.id, { onSuccess: () => refocus(i + (writing ? 1 : 0)) });
                     }}
                   >
                     <p className="m-0 line-clamp-2">{r.state === "failed" ? sentence(r.error) : r.short}</p>
-                    {time && (
+                    {time.length > 0 && (
                       <p className="m-0 mt-2 text-small">
-                        {r.state === "failed" ? "Stopped after" : "Written in"}{" "}
-                        <b className="font-mono text-ink">{time}</b>
+                        {r.state === "failed" ? "Stopped after" : "Written in"}
+                        {time.map(([n, unit]) => (
+                          <span key={unit}>
+                            {" "}
+                            <b className="font-mono text-ink">{n}</b> {unit}
+                          </span>
+                        ))}
                       </p>
                     )}
                   </Card>
@@ -522,6 +570,9 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
             />
           )}
         </section>
+        <div className="lg:hidden">
+          <AboutMe context={context.data} />
+        </div>
       </div>
     </Page>
   );
@@ -534,6 +585,13 @@ function ReportView({ id, back, onBack }: { id: string; back: { to: string; labe
   const [opened, setOpened] = useState<Set<string>>(new Set());
   // Words and Not settled start open beside the report on a computer, folded under it on a phone
   const [beside] = useState(() => matchMedia("(min-width: 64rem)").matches);
+  // Listen reads the words too: when it reaches them, their fold opens, so the line it lights can be seen
+  const wordsFold = useRef<HTMLDetailsElement>(null);
+  const wordsAt = useRef<[number, number]>([0, 0]);
+  useEffect(() => {
+    const [from, to] = wordsAt.current;
+    if (reader.at >= from && reader.at < to && wordsFold.current) wordsFold.current.open = true;
+  }, [reader.at]);
   const one = useQuery({
     queryKey: ["research", id],
     queryFn: async () => {
@@ -572,7 +630,9 @@ function ReportView({ id, back, onBack }: { id: string; back: { to: string; labe
         </span>
       )}
       {rep && <span className="font-mono">{rep.model}</span>}
-      <span>{when(r.started)}</span>
+      <span>
+        <b className="font-medium text-ink">{when(r.started)}</b>
+      </span>
     </span>
   );
   if (!rep)
@@ -604,6 +664,7 @@ function ReportView({ id, back, onBack }: { id: string; back: { to: string; labe
   const lede = heard(rep.short, say);
   const body = rep.blocks.map((b, i) => block(b, say, `b${i}`));
   const wordsHead = rep.words.length ? heard("Words", say) : null;
+  const wordsFrom = spoken.length;
   const words = rep.words
     .filter((w) => w.w)
     .map((w) => {
@@ -614,6 +675,7 @@ function ReportView({ id, back, onBack }: { id: string; back: { to: string; labe
         </p>
       );
     });
+  wordsAt.current = [wordsFrom, spoken.length];
   const used = rep.refs.filter((x) => (rep.sources.length ? rep.sources : rep.read).includes(x.n));
   const cites = new Map<number, Cite>(rep.refs.map((x) => [x.n, { title: x.title, url: x.url }]));
   const host = (u: string) => {
@@ -671,7 +733,7 @@ function ReportView({ id, back, onBack }: { id: string; back: { to: string; labe
           </div>
           <aside className="research-aside">
             {words.length > 0 && (
-              <details className="research-fold" open={beside}>
+              <details ref={wordsFold} className="research-fold" open={beside}>
                 <summary className="disclosure">
                   {wordsHead} <span className="font-mono text-small text-muted">{words.length}</span>
                 </summary>

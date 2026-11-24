@@ -3541,18 +3541,18 @@ body:has(.paper-view) {
   }
 }
 /* Research's landing: on a computer the question in a 400 px column on the left, sticky while the answers scroll
-   when the screen is tall enough to hold it, About me under it; the answers take the rest of the width. On a phone one
-   column (the side lets go of its box), About me moved to the foot, after the answers */
+   when the screen is tall enough to hold it (not while the questions round is open: the round can outgrow the
+   window), About me under it; the answers take the rest of the width. On a phone one column, About me at the foot
+   (research.tsx renders it there) */
 .research-land {
   display: grid;
   gap: var(--page-gap);
   align-items: start;
 }
 .research-side {
-  display: contents;
-}
-.research-about {
-  order: 1;
+  display: grid;
+  align-content: start;
+  gap: 12px;
 }
 .research-answers {
   display: grid;
@@ -3563,21 +3563,13 @@ body:has(.paper-view) {
   .research-land {
     grid-template-columns: 400px minmax(0, 1fr);
   }
-  .research-side {
-    display: grid;
-    align-content: start;
-    gap: 12px;
-  }
-  .research-about {
-    order: 0;
-  }
   /* the box is a place to write in its column: five lines from the start */
   .research-ask .field-tall .field-input {
     min-height: calc(5lh + 6px);
   }
 }
 @media (min-width: 64rem) and (min-height: 45rem) {
-  .research-side {
+  .research-side:not([data-round]) {
     position: sticky;
     top: var(--page-gap);
   }
@@ -3600,6 +3592,25 @@ body:has(.paper-view) {
 }
 .research-how .seg-hint {
   grid-area: 2 / 1 / 3 / -1;
+}
+/* a toggle pill (Ask me first, Keep in About me): on, its dot filled and its words in ink on the picked ground; off,
+   the dot hollow and the words muted, so the state reads at a glance even alone beside a switch */
+.research-toggle:not([aria-pressed="true"]) {
+  color: var(--muted);
+}
+.research-toggle:not([aria-pressed="true"]) > .dot {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--tone, var(--muted));
+}
+/* the writing card's date, where the others' sits: it keeps the room of the ✕ it doesn't have (.card-remove's
+   width, less its negative margin, plus the meta row's gap) */
+.research-date-end {
+  margin-right: 28px;
+}
+@media (pointer: coarse) {
+  .research-date-end {
+    margin-right: 32px;
+  }
 }
 /* the answers' filter: the search box with its Reset, then the pills; one row when the column has the room */
 .research-filter {
