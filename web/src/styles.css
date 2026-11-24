@@ -2507,6 +2507,11 @@ body:has(.paper-view) {
 .cite:hover {
   text-decoration: underline;
 }
+/* Writing: a try's text is a document only to read (a try is written again, never edited), so the switch, holding
+   Read alone, stays out of sight and Download keeps its place on the right */
+.try-text .doc-modes:has(> :only-child) {
+  display: none;
+}
 /* work in progress: a thin bar that sweeps while a list refills, a shimmer where a card is coming, a small spinner on
    the button that was pressed */
 .loading-bar {

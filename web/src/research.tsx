@@ -7,10 +7,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Ask as AskBox } from "./ask.tsx";
-import { enterSends } from "./keys.ts";
 import { block, type Cite, Cites, heard, type Say } from "./learn/blocks.tsx";
 import { type Spoken, useReader } from "./learn/voice.ts";
+import { Card } from "./ui/card.tsx";
 import { useConfirm } from "./ui/confirm.tsx";
+import { cx } from "./ui/cx.ts";
+import { EmptyState } from "./ui/empty.tsx";
+import { Field } from "./ui/field.tsx";
+import { Page } from "./ui/page.tsx";
 
 type Level = "quick" | "deep";
 type Row = {
@@ -42,6 +46,8 @@ const LEVELS: [Level, string, string][] = [
   ["quick", "Quick", "one search, three pages, about a minute"],
   ["deep", "Deep", "several searches, six pages, a few minutes"],
 ];
+const QUESTION_MAX = 1000; // the server's limit on a question
+const BACK = { to: "/research", label: "Research" };
 const when = (iso: string) =>
   new Date(iso).toLocaleString(undefined, {
     weekday: "short",
@@ -50,6 +56,8 @@ const when = (iso: string) =>
     hour: "numeric",
     minute: "2-digit",
   });
+// the server's reasons start in lower case, as they read in its log; on the page they start a sentence
+const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 async function send(url: string, method: string, body?: unknown) {
   const res = await fetch(url, {
@@ -140,168 +148,145 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
   const go = () => (askMe ? first.mutate() : ask.mutate(false));
   const rows = list.data?.research ?? [];
   const running = rows.find((r) => r.state === "running");
+  const kept = rows.filter((r) => r.state !== "running");
+  const error = ask.error ?? first.error;
   return (
-    <main className="grid gap-4">
-      <header className="grid gap-1">
-        <h2 className="font-cond m-0 text-[34px] font-bold uppercase leading-none tracking-tight">Research</h2>
-        <p className="m-0 text-[15px]" style={{ color: "var(--muted)" }}>
-          Ask anything. The computer's model searches the web and writes the answer plainly, like a lesson you can
-          listen to.
-        </p>
-      </header>
-      <section className="card grid gap-3">
-        <textarea
-          className="btn min-h-[96px] text-[15px] leading-relaxed"
+    <Page
+      title="Research"
+      line="Ask anything. The computer's model searches the web and writes the answer plainly, like a lesson you can listen to."
+    >
+      <Card>
+        {/* the question waits while its first questions are answered below, and while another answer is written */}
+        <Field
+          label="Your question"
           placeholder="Anything: which laptop to buy, how a visa works, why my code fails…"
           value={question}
-          maxLength={1000}
-          onChange={(e) => setQuestion(e.target.value)}
-          enterKeyHint="send"
-          onKeyDown={enterSends(() => question.trim() && go())}
+          onChange={(v) => setQuestion(v.slice(0, QUESTION_MAX))}
+          onSend={go}
+          sendLabel="Research"
+          busy={first.isPending || ask.isPending || Boolean(running)}
+          disabled={Boolean(questions)}
+          hint={
+            running
+              ? "Researching… the next question can go once this answer is written"
+              : first.isPending
+                ? "Thinking of a few questions first…"
+                : undefined
+          }
+          tall
         />
-        <div className="flex flex-wrap items-center gap-2">
+        <fieldset className="seg" aria-label="How deep">
           {LEVELS.map(([k, label, hint]) => (
-            <button key={k} type="button" className="pill" aria-pressed={level === k} onClick={() => setLevel(k)}>
-              {label} <span style={{ color: "var(--muted)", fontWeight: 400 }}>· {hint}</span>
+            <button key={k} type="button" aria-pressed={level === k} onClick={() => setLevel(k)}>
+              {label}
+              <small>{hint}</small>
             </button>
           ))}
-          <button
-            type="button"
-            className="pill"
-            aria-pressed={askMe}
-            onClick={() => setAskMe(!askMe)}
-            title="The model asks you up to three questions first, when the answer depends on you"
-          >
-            Ask me first
+        </fieldset>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <button type="button" className="btn" aria-pressed={askMe} onClick={() => setAskMe(!askMe)}>
+            {askMe ? "✓ " : ""}Ask me first
           </button>
-          <button
-            type="button"
-            className="btn btn-primary ml-auto inline-flex items-center gap-2"
-            disabled={!question.trim() || ask.isPending || first.isPending || Boolean(running) || Boolean(questions)}
-            onClick={go}
-          >
-            {(first.isPending || ask.isPending) && <span className="spin" />}
-            {running ? "Researching…" : first.isPending ? "Thinking of questions…" : "Research"}
-          </button>
+          <span className="min-w-0 flex-1 text-small text-muted">
+            Up to three questions first, when the answer depends on you
+          </span>
         </div>
-        {(ask.isError || first.isError) && (
-          <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-            {((ask.error ?? first.error) as Error).message}
-          </p>
-        )}
-      </section>
+        {error && <p className="m-0 text-detail text-red">{sentence((error as Error).message)}</p>}
+      </Card>
 
       {questions && (
-        <section
-          className="card grid gap-3"
-          style={{ borderColor: "color-mix(in srgb, var(--purple) 45%, var(--line))" }}
-        >
-          <span className="eyebrow" style={{ color: "var(--purple)" }}>
-            A few questions first
-          </span>
-          {questions.map((q, i) => (
-            <label key={q} className="grid gap-1">
-              <span className="text-[15px]" style={{ color: "var(--strong)" }}>
-                {q}
-              </span>
-              <input
-                className="btn"
-                value={answers[i] ?? ""}
-                placeholder="Your answer, or leave it empty"
-                onChange={(e) => setAnswers((a) => a.map((x, j) => (j === i ? e.target.value : x)))}
-              />
-            </label>
-          ))}
-          <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className="pill" aria-pressed={keep} onClick={() => setKeep(!keep)}>
-              Keep my answers in About me
-            </button>
-            <button type="button" className="btn ml-auto" disabled={ask.isPending} onClick={() => ask.mutate(false)}>
-              Skip the questions
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary inline-flex items-center gap-2"
-              disabled={ask.isPending}
-              onClick={() => ask.mutate(true)}
-            >
-              {ask.isPending && <span className="spin" />}
-              Research now
-            </button>
-          </div>
-        </section>
+        <Card tone="purple">
+          {/* Enter in any answer researches now, the way a form sends */}
+          <form
+            className="grid gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!ask.isPending) ask.mutate(true);
+            }}
+          >
+            <span className="eyebrow tone-purple">A few questions first</span>
+            {questions.map((q, i) => (
+              <label key={q} className="grid gap-1.5">
+                <span className="text-body text-strong">{q}</span>
+                <input
+                  className="btn w-full"
+                  value={answers[i] ?? ""}
+                  placeholder="Your answer, or leave it empty"
+                  enterKeyHint="send"
+                  onChange={(e) => setAnswers((a) => a.map((x, j) => (j === i ? e.target.value : x)))}
+                />
+              </label>
+            ))}
+            <span className="text-small text-muted">Enter researches now · an empty answer is left out</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" className="btn" aria-pressed={keep} onClick={() => setKeep(!keep)}>
+                {keep ? "✓ " : ""}Keep my answers in About me
+              </button>
+              <button type="button" className="btn ml-auto" disabled={ask.isPending} onClick={() => ask.mutate(false)}>
+                Skip the questions
+              </button>
+              <button type="submit" className="btn btn-primary inline-flex items-center gap-2" disabled={ask.isPending}>
+                {ask.isPending && <span className="spin" />}
+                Research now
+              </button>
+            </div>
+          </form>
+        </Card>
       )}
 
       <AboutMe context={context.data} />
 
       {running && (
-        <section className="card flex items-center gap-3">
-          <span className="dot tone-green pulse" />
-          <div className="min-w-0">
-            <p className="m-0 truncate font-semibold" style={{ color: "var(--strong)" }}>
-              {running.question}
-            </p>
-            <p className="m-0 text-[13px]" style={{ color: "var(--muted)" }}>
-              {running.step || "Starting"}…
-            </p>
+        <Card>
+          <span className="flex items-center gap-3">
+            <span className="dot tone-green pulse" />
+            <span className="grid min-w-0">
+              <b className="truncate text-strong">{running.question}</b>
+              <span className="text-small text-muted">{running.step || "Starting"}…</span>
+            </span>
+          </span>
+        </Card>
+      )}
+
+      {list.isError && <p className="m-0 text-detail text-red">{(list.error as Error).message}</p>}
+      {/* a refused delete says so: the box named what would go, so silence would read as done */}
+      {forget.isError && (
+        <p className="m-0 text-detail text-red">The delete didn't land: {(forget.error as Error).message}</p>
+      )}
+      {kept.length > 0 && (
+        <section className="grid gap-3">
+          <h2 className="eyebrow m-0">Kept</h2>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {kept.map((r) => (
+              <Card
+                key={r.id}
+                title={r.title || r.question}
+                busy={forget.isPending && forget.variables === r.id}
+                meta={
+                  <>
+                    <span className={`chip chip-caps ${r.level === "deep" ? "tone-purple" : "tone-accent"}`}>
+                      {r.level}
+                    </span>
+                    {r.state === "failed" && <span className="chip chip-caps tone-red">Failed</span>}
+                    <span className="ml-auto text-small text-muted">{when(r.started)}</span>
+                  </>
+                }
+                onOpen={() => onOpen(r.id)}
+                removeLabel={`Delete “${r.title || r.question}”`}
+                onRemove={async () => {
+                  if (await sure(deleteAnswer(r.title || r.question, r.state === "done"))) forget.mutate(r.id);
+                }}
+              >
+                <span className="line-clamp-2">{r.state === "failed" ? sentence(r.error) : r.short}</span>
+              </Card>
+            ))}
           </div>
         </section>
       )}
-
-      {rows.filter((r) => r.state !== "running").length > 0 && <span className="eyebrow">Kept</span>}
-      {/* a refused delete says so: the box named what would go, so silence would read as done */}
-      {forget.isError && (
-        <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-          The delete didn't land: {(forget.error as Error).message}
-        </p>
-      )}
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {rows
-          .filter((r) => r.state !== "running")
-          .map((r) => (
-            <div
-              key={r.id}
-              className="card card-link relative grid content-start gap-1.5"
-              style={forget.isPending && forget.variables === r.id ? { opacity: 0.5 } : undefined}
-            >
-              <div className="flex items-center gap-2">
-                <span className={`chip chip-caps ${r.level === "deep" ? "tone-purple" : "tone-accent"}`}>
-                  {r.level}
-                </span>
-                {r.state === "failed" && <span className="chip chip-caps tone-red">failed</span>}
-                <span className="eyebrow ml-auto">{when(r.started)}</span>
-                <button
-                  type="button"
-                  className="card-remove"
-                  aria-label={`Delete "${r.title || r.question}"`}
-                  title="Delete"
-                  onClick={async () => {
-                    if (await sure(deleteAnswer(r.title || r.question, r.state === "done"))) forget.mutate(r.id);
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-              <button
-                type="button"
-                className="card-open font-cond text-left text-[19px] font-bold leading-tight"
-                style={{ color: "var(--strong)" }}
-                onClick={() => onOpen(r.id)}
-              >
-                {r.title || r.question}
-              </button>
-              <span className="line-clamp-2 text-[14px]" style={{ color: "var(--muted)" }}>
-                {r.state === "failed" ? r.error : r.short}
-              </span>
-            </div>
-          ))}
-      </section>
       {list.data && rows.length === 0 && (
-        <p className="m-0 text-sm" style={{ color: "var(--muted)" }}>
-          Nothing asked yet.
-        </p>
+        <EmptyState title="Nothing asked yet." line="Ask a question above: the answer is kept here, like a lesson." />
       )}
-    </main>
+    </Page>
   );
 }
 
@@ -328,25 +313,27 @@ function ReportView({ id, onBack }: { id: string; onBack: () => void }) {
     },
   });
   const r = one.data;
-  const back = (
-    <button type="button" className="btn btn-quiet justify-self-start" onClick={onBack}>
-      ← All research
-    </button>
-  );
-  if (!r) return <main className="grid gap-3">{back}</main>;
+  if (!r)
+    return one.isError ? (
+      <Page back={BACK} title="This answer didn't load." line={(one.error as Error).message} />
+    ) : (
+      <Page back={BACK} title="Opening the answer…" />
+    );
+  const eyebrow = `${r.level === "deep" ? "Deep" : "Quick"} · ${when(r.started)}`;
   if (!r.report)
     return (
-      <main className="grid gap-3">
-        {back}
-        <section className="card grid gap-2">
-          <p className="m-0 font-semibold" style={{ color: "var(--strong)" }}>
-            {r.question}
-          </p>
-          <p className="m-0 text-sm" style={{ color: r.state === "failed" ? "var(--red)" : "var(--muted)" }}>
-            {r.state === "running" ? `${r.step || "Starting"}…` : r.error}
-          </p>
-        </section>
-      </main>
+      <Page back={BACK} eyebrow={eyebrow} title={r.question}>
+        <Card>
+          {r.state === "running" ? (
+            <span className="flex items-center gap-3">
+              <span className="dot tone-green pulse" />
+              <span className="text-muted">{r.step || "Starting"}…</span>
+            </span>
+          ) : (
+            <span className="text-red">{sentence(r.error)}</span>
+          )}
+        </Card>
+      </Page>
     );
   const rep = r.report;
   // every heard line registers here in reading order; Listen plays this list and lights its index
@@ -368,8 +355,8 @@ function ReportView({ id, onBack }: { id: string; onBack: () => void }) {
     .map((w) => {
       const i = say.add(`${w.w}: ${w.m}`);
       return (
-        <p key={w.w} className={`m-0 ${reader.at === i ? "reading" : ""}`}>
-          <b style={{ color: "var(--strong)" }}>{w.w}</b> <span style={{ color: "var(--muted)" }}>— {w.m}</span>
+        <p key={w.w} className={cx("m-0", reader.at === i && "reading")}>
+          <b className="text-strong">{w.w}</b> <span className="text-muted">— {w.m}</span>
         </p>
       );
     });
@@ -384,32 +371,13 @@ function ReportView({ id, onBack }: { id: string; onBack: () => void }) {
   };
   return (
     <Cites.Provider value={cites}>
-      <main className="mx-auto grid w-full max-w-6xl gap-5">
-        {back}
-        <article className="grid gap-5">
-          <div className="grid gap-2">
-            <span className="eyebrow">
-              Research · {r.level === "deep" ? "Deep" : "Quick"} · {when(r.started)}
-            </span>
-            <h1
-              className="font-cond m-0 text-[30px] font-bold leading-tight md:text-[36px]"
-              style={{ color: "var(--strong)" }}
-            >
-              {title}
-            </h1>
-            <p className="m-0 text-[17px] leading-relaxed" style={{ color: "var(--text)" }}>
-              {lede}
-            </p>
-            <p className="m-0 text-[13px]" style={{ color: "var(--muted)" }}>
-              You asked: {r.question}
-            </p>
-            {r.answers && (
-              <p className="m-0 whitespace-pre-line text-[13px]" style={{ color: "var(--muted)" }}>
-                You told it: {r.answers}
-              </p>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
+      <Page
+        back={BACK}
+        sticky
+        eyebrow={eyebrow}
+        title={title}
+        actions={
+          <>
             <button
               type="button"
               className="btn btn-primary"
@@ -421,79 +389,80 @@ function ReportView({ id, onBack }: { id: string; onBack: () => void }) {
               type="button"
               className="btn"
               aria-pressed={reader.speed < 1}
-              style={reader.speed < 1 ? { borderColor: "var(--accent)", color: "var(--accent)" } : undefined}
               onClick={() => reader.setSpeed((s) => (s < 1 ? 1 : 0.8))}
             >
               Slow
             </button>
+          </>
+        }
+      >
+        <div className="grid gap-2">
+          <p className="m-0 text-read text-ink">{lede}</p>
+          <p className="m-0 text-small text-muted">You asked: {r.question}</p>
+          {r.answers && <p className="m-0 whitespace-pre-line text-small text-muted">You told it: {r.answers}</p>}
+        </div>
+        {/* the report and, beside it on a computer, its words, what it wasn't sure of and its sources */}
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+          <div className="grid text-read">
+            <Card>{body}</Card>
           </div>
-          {/* the report and, beside it on a computer, its words, what it wasn't sure of and its sources */}
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
-            <section className="card grid gap-3 !p-5 text-[16.5px] leading-relaxed md:!p-6">{body}</section>
-            <aside className="grid gap-4 lg:sticky lg:top-6">
-              {words.length > 0 && (
-                <section className="card grid gap-1.5 !p-4">
-                  <span className="eyebrow" style={{ color: "var(--accent)" }}>
-                    {wordsHead}
-                  </span>
-                  {words}
-                </section>
-              )}
-              {rep.unsure.length > 0 && (
-                <section className="callout grid gap-1">
-                  <span className="eyebrow" style={{ color: "var(--accent)" }}>
-                    Not settled
-                  </span>
-                  {rep.unsure.map((u) => (
-                    <p key={u} className="m-0">
-                      {u}
-                    </p>
-                  ))}
-                </section>
-              )}
-              {used.length > 0 && (
-                <section className="card grid gap-1.5 !p-4">
-                  <h3 className="font-cond m-0 mb-1 text-[17px] font-bold" style={{ color: "var(--strong)" }}>
-                    Sources
-                  </h3>
+          <aside className="grid gap-4 lg:sticky lg:top-16">
+            {words.length > 0 && (
+              <Card>
+                <span className="eyebrow tone-accent">{wordsHead}</span>
+                {words}
+              </Card>
+            )}
+            {rep.unsure.length > 0 && (
+              <section className="callout grid gap-1">
+                <span className="eyebrow tone-accent">Not settled</span>
+                {rep.unsure.map((u) => (
+                  <p key={u} className="m-0">
+                    {u}
+                  </p>
+                ))}
+              </section>
+            )}
+            {used.length > 0 && (
+              <Card>
+                <h2 className="font-cond m-0 text-head font-bold">Sources</h2>
+                <div className="grid gap-1.5">
                   {used.map((s) => (
                     <a
                       key={s.n}
                       href={s.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex min-w-0 items-baseline gap-2 rounded-xl px-3 py-2 text-[14px] hover:underline"
-                      style={{ color: "var(--accent)", background: "var(--surface-2)" }}
+                      className="flex min-h-11 min-w-0 items-center gap-2 rounded-xl bg-surface-2 px-3 py-2 text-detail text-accent hover:underline"
                     >
                       <span className="cite !ml-0 shrink-0">{host(s.url)}</span>
-                      <span className="truncate" style={{ color: "var(--text)" }}>
-                        {s.title || s.url}
-                      </span>
+                      <span className="truncate text-ink">{s.title || s.url}</span>
                     </a>
                   ))}
-                </section>
-              )}
-            </aside>
-          </div>
-          <p className="m-0 text-[12.5px]" style={{ color: "var(--muted)" }}>
-            Written by {rep.model} from {rep.read.length} pages it read.{" "}
-            <button
-              type="button"
-              className="underline"
-              style={{ color: "var(--red)" }}
-              onClick={async () => {
-                if (await sure(deleteAnswer(rep.title, rep.refs.length > 0))) drop.mutate();
-              }}
-            >
-              Delete
-            </button>
-          </p>
-          {drop.isError && (
-            <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-              The delete didn't land: {(drop.error as Error).message}
-            </p>
-          )}
-        </article>
+                </div>
+              </Card>
+            )}
+          </aside>
+        </div>
+        {/* the report's foot: who wrote it from what, and its Delete, a button like every other */}
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-small text-muted">
+            Written by {rep.model} from {rep.read.length} pages it read.
+          </span>
+          <button
+            type="button"
+            className="btn btn-danger ml-auto"
+            disabled={drop.isPending}
+            onClick={async () => {
+              if (await sure(deleteAnswer(rep.title, rep.refs.length > 0))) drop.mutate();
+            }}
+          >
+            Delete
+          </button>
+        </div>
+        {drop.isError && (
+          <p className="m-0 text-detail text-red">The delete didn't land: {(drop.error as Error).message}</p>
+        )}
         {/* Ask, the page wide under the report: about the report and its sources */}
         <AskBox
           app="research"
@@ -502,7 +471,7 @@ function ReportView({ id, onBack }: { id: string; onBack: () => void }) {
           placeholder="Ask about the report or its sources"
           starters={["What is the main point, in two lines?", "Which sources disagree?", "What should I read next?"]}
         />
-      </main>
+      </Page>
     </Cites.Provider>
   );
 }
@@ -522,23 +491,23 @@ function AboutMe({ context }: { context: Context | undefined }) {
   });
   const files = context?.files.length ?? 0;
   return (
-    <section className="card flex flex-wrap items-center gap-3 !py-3">
-      <span className="min-w-0 flex-1 text-[14px]" style={{ color: "var(--text)" }}>
-        <b style={{ color: "var(--strong)" }}>About me</b>
-        <span style={{ color: "var(--muted)" }}>
-          {" "}
-          · read before every answer, never put into a web search
-          {files ? ` · ${files} context file${files === 1 ? "" : "s"}` : ""}
+    <Card>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="min-w-0 flex-1 text-detail">
+          <b className="text-strong">About me</b>
+          <span className="text-muted">
+            {" "}
+            · read before every answer, never put into a web search
+            {files ? ` · ${files} context file${files === 1 ? "" : "s"}` : ""}
+          </span>
         </span>
-      </span>
-      <button type="button" className="btn" disabled={open.isPending} onClick={() => open.mutate()}>
-        {open.isPending ? "Opening…" : "Edit in Notes →"}
-      </button>
-      {open.isError && (
-        <span className="basis-full text-[13px]" style={{ color: "var(--red)" }}>
-          {(open.error as Error).message}
-        </span>
-      )}
-    </section>
+        <button type="button" className="btn" disabled={open.isPending} onClick={() => open.mutate()}>
+          {open.isPending ? "Opening…" : "Edit in Notes →"}
+        </button>
+        {open.isError && (
+          <span className="basis-full text-small text-red">{sentence((open.error as Error).message)}</span>
+        )}
+      </div>
+    </Card>
   );
 }
