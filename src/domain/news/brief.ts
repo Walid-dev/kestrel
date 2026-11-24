@@ -266,6 +266,7 @@ async function writeBrief(db: DatabaseSync, settings: Settings, id: string, deps
       deps.readPage ?? ((url) => fetchPage(settings.models, url, 3000)),
       now,
       step,
+      newsOf(settings).interests,
     );
     composed.calls.forEach((c, i) => {
       recordCall(db, `${i === 0 ? "news-pick" : "news-write"}:v${NEWS_VERSION}`, c);

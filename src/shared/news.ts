@@ -13,6 +13,16 @@ export const SECTIONS: { key: Section; label: string; short: string }[] = [
 ];
 export const SECTION_KEYS = SECTIONS.map((s) => s.key) as [Section, ...Section[]];
 
+// what the brief follows, in my words: broad on purpose (one passing debate is an example, never the beat). Settings
+// may replace the list (news.interests); the pick reads it as what to cover when the day has it
+export const NEWS_INTERESTS = [
+  "new AI models and what they can do",
+  "AI research that changes what is possible",
+  "building software with AI: tools, agents, coding",
+  "the AI industry: the companies, their money, chips and data centres, rules",
+  "the wider tech day",
+];
+
 // the steps a run goes through, in order: the page draws them as a stepper while it writes
 export const PHASES = [
   "Reading the sources",

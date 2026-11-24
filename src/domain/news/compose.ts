@@ -245,6 +245,7 @@ export async function composeBrief(
   readPage: (url: string) => Promise<string>,
   now: Date,
   onStep: (phase: number, text: string) => void = () => {},
+  interests?: string[],
 ): Promise<Composed> {
   const calls: ModelAnswer<unknown>[] = [];
   // the model each step runs on is the one the client may call: the Models page can pick any the door offers
@@ -258,6 +259,7 @@ export async function composeBrief(
       prompt: pickPrompt(
         items.map((i) => promptItem(i, now)),
         before.headlines,
+        interests,
       ),
       maxTokens: 1500,
       thinking: false,

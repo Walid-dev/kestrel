@@ -4,6 +4,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
+import { NEWS_INTERESTS } from "../shared/news.ts";
 import { dataDir, isDeployed } from "./paths.ts";
 
 // this computer's model door and its two models (docs/decisions.md, 2026-11-21); settings.json overrides any of it.
@@ -37,6 +38,12 @@ export const NewsSettings = z.object({
     .default("06:30"),
   collectEveryMinutes: z.number().int().min(30).max(1440).default(120),
   latestHour: z.number().int().min(1).max(24).default(12),
+  // what the brief follows; a few plain lines, replaced whole when set
+  interests: z
+    .array(z.string().trim().min(2).max(120))
+    .min(1)
+    .max(12)
+    .default([...NEWS_INTERESTS]),
 });
 export type NewsSettings = z.infer<typeof NewsSettings>;
 
