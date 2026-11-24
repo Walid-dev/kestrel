@@ -100,7 +100,8 @@ export function Review({
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="button"
-                    className={result.savedAt ? "btn btn-quiet" : "btn btn-primary"}
+                    // one Save per document: plain, as a list's per-item action is (no filled button per item)
+                    className={result.savedAt ? "btn btn-quiet" : "btn"}
                     disabled={saving || Boolean(result.savedAt) || result.placed.length === 0}
                     onClick={() => onSave(d.id)}
                   >
@@ -112,7 +113,7 @@ export function Review({
                 </div>
               )}
               {result.leftOut.map((lost) => (
-                <p key={lost.change.find} className="m-0 rounded-xl bg-warn-soft px-3 py-2 text-detail">
+                <p key={lost.change.find} className="m-0 rounded-lg bg-warn-soft px-3 py-2 text-detail">
                   Left out: {lost.reason} · “{lost.change.find.slice(0, 80)}”
                 </p>
               ))}
@@ -130,7 +131,7 @@ export function Review({
           </section>
         )}
         {saveWhy && (
-          <p role="alert" className="m-0 rounded-xl bg-warn-soft px-3 py-2 text-detail">
+          <p role="alert" className="m-0 rounded-lg bg-warn-soft px-3 py-2 text-detail">
             {sentence(saveWhy)}
           </p>
         )}

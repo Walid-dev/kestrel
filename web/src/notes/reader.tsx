@@ -4,8 +4,9 @@
 // source; a tap on a paragraph notes the paragraph; a button takes a note on the whole document; the sheet is a
 // native dialog.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
+import { docKind, parse, plain } from "../../../src/shared/markdown.ts";
 import type { DocumentFull, Draft, PlacedNote } from "../../../src/shared/notes.ts";
 import { Ask } from "../ask.tsx";
 import { useConfirm } from "../ui/confirm.tsx";
@@ -20,6 +21,13 @@ import { type Pace, Speed, sentence, Writing } from "./parts.tsx";
 import { Review } from "./review.tsx";
 
 export const LAST_DOC = "kestrel-notes-last";
+
+// the document's own title: its first heading when it starts with an h1 (Read then leaves that line out, since the
+// page's title says it), else nothing and the file's name is the title
+function ownTitle(d: { name: string; text: string }): string {
+  const first = parse(d.text, docKind(d.name))[0];
+  return first?.k === "heading" && first.level === 1 ? plain(first.runs).trim() : "";
+}
 
 // a PDF's text: the upload keeps the PDF's name (src/domain/notes/pdf.ts), and only a PDF upload may
 const isPdfText = (d: { name: string; source: string }) => d.source === "upload" && /\.pdf$/i.test(d.name);
@@ -287,6 +295,8 @@ export function Reader() {
     },
   });
 
+  // parsed once per text, not on every render (a pick, a note)
+  const titled = useMemo(() => (doc.data ? ownTitle(doc.data) : ""), [doc.data]);
   const back = { to: "/notes?list=1", label: "Notes" };
   if (doc.isError)
     return (
@@ -321,10 +331,39 @@ export function Reader() {
   // side by side takes the whole width: my notes go under it
   const side = mode === "side";
   // the edit's controls come once there is something for them to do: open notes to turn into an edit, a draft on
-  // its way or ready, a save to undo. Until then the document starts right under its title (on a phone, the first
-  // screen is the document, not a row of buttons that can't be used yet)
+  // its way or ready, a save to undo. Until then the document's head holds only Read/Edit and Download
   const asking = openNotes > 0 && (!current || current.status === "failed");
   const tools = reading && (asking || current !== null || d.previous);
+  // the edit's controls, in the document's own head between Read/Edit and Download: the model's pace beside the
+  // button that asks, or the draft's state, and Undo
+  const toolsRow = (
+    <>
+      {asking && (
+        <>
+          <Speed value={speed} onChange={setSpeed} />
+          <button type="button" className="btn btn-primary" disabled={ask.isPending} onClick={() => ask.mutate()}>
+            Turn {openNotes === 1 ? "the note" : `${openNotes} notes`} into an edit
+          </button>
+        </>
+      )}
+      {current?.status === "making" && <Writing model={current.model} />}
+      {current?.status === "ready" && (
+        <button type="button" className="btn btn-primary" onClick={() => setReview(true)}>
+          Review the changes
+        </button>
+      )}
+      {current?.status === "failed" && (
+        <button type="button" className="btn btn-danger" onClick={() => discard.mutate(current.id)}>
+          Clear the failed ask
+        </button>
+      )}
+      {d.previous && (
+        <button type="button" className="btn btn-quiet" onClick={() => undo.mutate()}>
+          Undo the last save
+        </button>
+      )}
+    </>
+  );
   const deleteNote = async (n: PlacedNote) => {
     const yes = await sure({
       title: "Delete this note?",
@@ -342,17 +381,22 @@ export function Reader() {
     <main
       className={cx(
         "page note-reader",
+        titled && "note-titled",
         !side && "lg:grid-cols-[minmax(0,1fr)_340px] lg:grid-rows-[auto_auto_1fr] lg:items-start",
       )}
     >
       <PageHead
         back={back}
         eyebrow={pdf ? "An uploaded PDF" : d.source === "upload" ? "Uploaded to kestrel" : "A file on this computer"}
-        title={d.name}
+        // the document's own h1 when it starts with one; then its file shows under it, by path or, for an upload,
+        // by name
+        title={titled || d.name}
         line={
           <>
             {/* where the file is, whole and in its own case (two files can share a name), over the line */}
-            {d.path && <span className="font-mono mb-1 block break-all text-small">{d.path}</span>}
+            {(d.path || titled) && (
+              <span className="font-mono mb-1 block break-all text-small">{d.path ?? d.name}</span>
+            )}
             {pdf ? (
               <>
                 <span className="lg:hidden">The PDF stays as it is: you edit its text here.</span>
@@ -390,37 +434,9 @@ export function Reader() {
           )
         }
       />
-      <div className="note-main grid min-w-0 gap-4">
-        {tools && (
-          <div className="note-tools flex flex-wrap items-center gap-2">
-            {asking && (
-              <>
-                <button type="button" className="btn btn-primary" disabled={ask.isPending} onClick={() => ask.mutate()}>
-                  Turn my {openNotes === 1 ? "note" : `${openNotes} notes`} into an edit
-                </button>
-                <Speed value={speed} onChange={setSpeed} />
-              </>
-            )}
-            {current?.status === "making" && <Writing model={current.model} />}
-            {current?.status === "ready" && (
-              <button type="button" className="btn btn-primary" onClick={() => setReview(true)}>
-                Review the changes
-              </button>
-            )}
-            {current?.status === "failed" && (
-              <button type="button" className="btn btn-danger" onClick={() => discard.mutate(current.id)}>
-                Clear the failed ask
-              </button>
-            )}
-            {d.previous && (
-              <button type="button" className="btn btn-quiet" onClick={() => undo.mutate()}>
-                Undo the last save
-              </button>
-            )}
-          </div>
-        )}
+      <div className="note-main grid min-w-0 gap-3">
         {reading && (askWhy || current?.status === "failed") && (
-          <p role="alert" className="m-0 rounded-xl border border-line bg-warn-soft px-4 py-3 text-detail">
+          <p role="alert" className="m-0 rounded-lg border border-line bg-warn-soft px-3 py-2 text-detail">
             {sentence(askWhy || current?.error || "")}
           </p>
         )}
@@ -440,6 +456,7 @@ export function Reader() {
           onSave={saveText}
           printHref={`/notes/${encodeURIComponent(id)}/print`}
           onMode={setMode}
+          tools={tools && <div className="note-tools">{toolsRow}</div>}
         />
       </div>
       <div className={cx("grid gap-4", !side && "lg:sticky lg:top-6 lg:col-start-2 lg:row-span-3 lg:row-start-1")}>
@@ -450,16 +467,17 @@ export function Reader() {
           onDelete={deleteNote}
         />
         {(versions.data?.versions.length ?? 0) > 0 && (
-          <details className="card card-stack">
+          // a fold-out in the column, not a card of its own: closed, it is one quiet row under the notes
+          <details className="note-versions">
             <summary className="disclosure">Earlier versions · {versions.data?.versions.length}</summary>
             <p className="m-0 text-small text-muted">
               The text as it was before each save, here in kestrel. Restore brings one back.
             </p>
-            <ul className="m-0 grid list-none gap-1.5 p-0">
+            <ul className="m-0 grid list-none gap-2 p-0">
               {versions.data?.versions.map((v) => (
-                <li key={v.id} className="flex items-center gap-2 rounded-xl bg-surface-2 py-2 pr-2 pl-3">
+                <li key={v.id} className="inner flex items-center gap-3">
                   <span className="min-w-0 flex-1">
-                    <span className="block text-detail font-semibold text-strong">
+                    <span className="font-mono block text-small text-strong tabular-nums">
                       {new Date(v.savedAt).toLocaleString(undefined, {
                         month: "short",
                         day: "numeric",
@@ -471,7 +489,7 @@ export function Reader() {
                   </span>
                   <button
                     type="button"
-                    className="btn shrink-0"
+                    className="btn btn-sm shrink-0"
                     disabled={restore.isPending}
                     onClick={async () => {
                       const yes = await sure({
@@ -508,7 +526,10 @@ export function Reader() {
             setPick(null);
           }}
         >
-          ✎ Note on {pick.words ? "these words" : "this paragraph"}
+          <span className="note-pick-mark" aria-hidden="true">
+            ✎
+          </span>{" "}
+          Note on {pick.words ? "these words" : "this paragraph"}
         </button>
       )}
       {/* Ask, about this document, the whole page wide under it: it proposes notes as cards, which join mine on a tap */}
