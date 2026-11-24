@@ -5,6 +5,19 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-24 · Every page in the new look.**
+  Four groups took the spec's page entries, each built, reviewed and fixed. Searches: the title is the hunt switcher
+  (its dialog ends with + New hunt); the filters fold on touch and sit one row per part under a mouse (the first
+  listing moved from 1134 px down a phone to about 400); a card's Apply is a plain button, so the grid shows no filled
+  one; the listing sheet keeps one filled Apply. Applications: the after-sending counts in the line under the title,
+  Notify this phone at the page's foot. Learn and the quiz: content-width Segs with hint lines, a question page's h1
+  is the question itself, one primary per screen (a lesson's Listen; the grades plain). Notes: Doc takes the page's
+  own tools into its head (`tools`), so the reader's buttons fit two rows on a phone; the floating Note button is a
+  soft accent, not filled. Research's About me is one row. Home, Live, Chat, Cost, Tasks and Models: Lists in place of
+  stacks of small cards, Cost's period a Seg, Models' picker a Dialog of Pills, Tasks' who chip on its own line on a
+  narrow phone (a tap on the words always edits the words). Known couplings to recheck if Doc or Seg change: Notes'
+  `.doc-tools` and Research's `.seg-field` use `display: contents` on narrow screens.
+
 - **2026-11-24 · A smaller, calmer look; no bar on top.**
   The fonts read too big and some buttons huge. A measuring pass over every page at a phone's and a computer's size
   fed two proposals (compact; calm) and a judge, who took the compact one as the base. Type: nine steps, UI text 13,

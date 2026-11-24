@@ -120,7 +120,8 @@ reading width is 720.
 - `Doc` (`web/src/ui/doc.tsx`) — every document: Read, Edit and (1024 px and wider) Side by side, with a Download
   menu (the text, Save as PDF, Copy). Its Markdown is `src/shared/markdown.ts`, drawn by `web/src/ui/markdown.tsx` in
   `.md`. A note's mark is `.doc-mark` (`--pink-soft`, a `--pink` line under). The editor `.doc-src` is mono, 16 px on
-  touch.
+  touch. `tools` puts a page's own buttons in the document's head while reading. A control that floats over a document
+  (Notes' Note button) is a soft accent, never filled.
 - `Page` and `PageHead` (`web/src/ui/page.tsx`) — every page's head: `title`, `eyebrow`, `line`, `actions`, `back`
   (`{ to, label }`), `sticky`, `width` (`wide`, or `reading`: 720 at most), `titleAs`. A top page's title is the title
   step; a child page (one with `back`) gets a back row (30 / 44) and its title a step down. Under a mouse at 48rem or
