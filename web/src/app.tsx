@@ -59,6 +59,10 @@ function useBusy() {
   });
   useEvents((p) => {
     if (p.kind === "live" || p.kind === "apply") queryClient.invalidateQueries({ queryKey: ["live"] });
+    // a news brief that starts or ends (the morning's own, Make it now on another device) shows at once, on Home's
+    // card as on the page
+    if (p.kind === "live")
+      for (const key of ["news", "news-days", "news-sources"]) queryClient.invalidateQueries({ queryKey: [key] });
   });
   const d = live.data;
   return {

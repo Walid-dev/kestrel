@@ -160,7 +160,9 @@ export const SOURCES: Source[] = z.array(Source).parse([
       list: "",
       title: "paper.title|title",
       url: "https://huggingface.co/papers/{paper.id}",
-      date: "publishedAt|paper.publishedAt",
+      // when it joined the daily list, not the paper's own date (often days before, outside the window); none given,
+      // the paper takes the time it was first seen
+      date: "paper.submittedOnDailyAt|submittedOnDailyAt",
       summary: "paper.summary|summary",
       score: "paper.upvotes",
     },
@@ -233,7 +235,7 @@ export const SOURCES: Source[] = z.array(Source).parse([
   {
     id: "understanding-ai",
     name: "Understanding AI",
-    short: "Understanding AI",
+    short: "T. B. Lee", // the view's author, as a view is labelled
     url: "https://www.understandingai.org/feed",
     topic: "views",
     cap: 2,
@@ -247,6 +249,8 @@ const Override = z.object({
   add: z.array(Source).default([]),
 });
 
+let said = ""; // the last fault logged: the same one isn't logged on every read
+
 export function loadSources(dir: string = dataDir()): Source[] {
   const file = join(dir, "news", "sources.json");
   if (!existsSync(file)) return SOURCES;
@@ -257,7 +261,9 @@ export function loadSources(dir: string = dataDir()): Source[] {
   } catch (e) {
     const why =
       e instanceof z.ZodError ? e.issues.map((i) => `${i.path.join(".")} ${i.message}`).join("; ") : "not JSON";
-    console.error(`news/sources.json is wrong, the built-in sources are used: ${why.slice(0, 200)}`);
+    if (why !== said)
+      console.error(`the news sources override is wrong, the built-in sources are used: ${why.slice(0, 200)}`);
+    said = why;
     return SOURCES;
   }
 }

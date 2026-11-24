@@ -18,7 +18,6 @@ import {
   PHASES,
   SECTIONS,
 } from "../../../src/shared/news.ts";
-import { useEvents } from "../events.ts";
 import { type Spoken, useReader } from "../learn/voice.ts";
 import { cx } from "../ui/cx.ts";
 import { EmptyState } from "../ui/empty.tsx";
@@ -32,6 +31,7 @@ import {
   localDay,
   plural,
   points,
+  runOf,
   SECTION_TONE,
   sentence,
   shortModel,
@@ -45,15 +45,6 @@ export function News() {
   const day = params.get("day") ?? "";
   // today's own day is the page itself; an earlier one is a child page with its way back
   return /^\d{4}-\d{2}-\d{2}$/.test(day) && day !== localDay() ? <Day day={day} /> : <Today />;
-}
-
-// a run that starts or ends anywhere (the morning's own, Make it now on another device) shows here at once
-function useFresh() {
-  const queryClient = useQueryClient();
-  useEvents((p) => {
-    if (p.kind !== "live") return;
-    for (const key of ["news", "news-days", "news-sources"]) queryClient.invalidateQueries({ queryKey: [key] });
-  });
 }
 
 // Listen: every line read aloud registers here in reading order, while the page draws it; the line being read is lit
@@ -89,7 +80,6 @@ function useSay() {
 }
 
 function Today() {
-  useFresh();
   const queryClient = useQueryClient();
   const news = useNews();
   const { say, actions } = useSay();
@@ -110,12 +100,18 @@ function Today() {
       />
     );
   const shown = d.brief;
-  const running = d.run?.state === "running" ? d.run : null;
-  const failed = d.run?.state === "failed" ? d.run : null;
+  const state = runOf(d);
+  const running = state?.state === "running" ? state.run : null;
+  const failed = state?.state === "failed" ? state : null;
   const body = shown?.brief ? brief(shown.brief, say) : null;
   const busy = Boolean(running) || make.isPending;
-  const makeIt = (primary: boolean) => (
-    <button type="button" className={cx("btn", primary && "btn-primary")} disabled={busy} onClick={() => make.mutate()}>
+  const makeIt = (look: "primary" | "plain" | "small") => (
+    <button
+      type="button"
+      className={cx("btn", look === "primary" && "btn-primary", look === "small" && "btn-sm btn-quiet")}
+      disabled={busy}
+      onClick={() => make.mutate()}
+    >
       {busy ? "Writing…" : "Make it now"}
     </button>
   );
@@ -130,14 +126,15 @@ function Today() {
         <div className="news-main">
           {running && <Steps run={running} />}
           {failed && (
-            <p className="news-failed" role="status">
+            <div className="news-failed" role="status">
               <span className="dot tone-orange news-failed-mark" aria-hidden="true" />
-              <span>
-                {failed.day === localDay() ? "Today's brief failed" : `The brief of ${dayName(failed.day)} failed`}:{" "}
-                {/[.!?]$/.test(failed.error) ? failed.error : `${failed.error}.`}
-                {shown ? " The last one is below." : ""}
-              </span>
-            </p>
+              <p className="m-0">
+                {failed.title}: {/[.!?]$/.test(failed.run.error) ? failed.run.error : `${failed.run.error}.`}
+                {shown ? (failed.again ? " This morning's is below." : " The last one is below.") : ""}
+              </p>
+              {/* its fix beside it: the foot's button is a whole brief away on a phone */}
+              {shown && makeIt("small")}
+            </div>
           )}
           {body}
           {!shown && !running && (
@@ -148,7 +145,7 @@ function Today() {
                   ? `The first one is written at ${d.time}, or now.`
                   : "The morning news is off in the settings; one can still be written now."
               }
-              action={makeIt(true)}
+              action={makeIt("primary")}
               detail={d.enabled ? undefined : '"news": { "enabled": true }'}
             />
           )}
@@ -164,7 +161,7 @@ function Today() {
       {/* the rare action last, at the page's foot */}
       {shown && (
         <div className="news-foot">
-          {makeIt(false)}
+          {makeIt("plain")}
           <span className="text-small text-muted">
             Reads the sources again and writes a new brief: a few minutes on the computer's model
           </span>
@@ -177,7 +174,6 @@ function Today() {
 
 // an earlier day's brief: the same page as a child of today's, nothing to make
 function Day({ day }: { day: string }) {
-  useFresh();
   const news = useNews(day);
   const { say, actions } = useSay();
   const back = { to: "/news", label: "News" };
@@ -327,7 +323,7 @@ function Story({ n, story, headline, text }: { n: number; story: NewsStory; head
       </div>
       <div className="news-story-head">
         <h3 className="news-story-title font-cond text-head">{headline}</h3>
-        {story.figure && (
+        {story.figure && !story.unsure && (
           <span
             className={cx("money", story.trend === "up" && "tone-great", story.trend === "down" && "tone-poor")}
             title={story.trend === "none" ? "The number that matters" : `The number that matters: ${story.trend}`}
@@ -365,7 +361,7 @@ function Facts({ run }: { run: NewsRun }) {
     ? Math.max(1, Math.round((Date.parse(run.finished) - Date.parse(run.started)) / 60_000))
     : null;
   return (
-    <span className="news-facts">
+    <span className="research-line">
       <span className={`chip chip-caps ${n ? "tone-green" : "tone-muted"}`}>
         {n ? `${n} ${plural(n, "story", "stories")}` : "Quiet"}
       </span>
@@ -375,6 +371,18 @@ function Facts({ run }: { run: NewsRun }) {
       {m && (
         <span>
           <b className="font-mono text-ink">{m.read}</b> of {m.sources} sources
+        </span>
+      )}
+      {/* the sources that were down for this brief, named: their reasons in the title */}
+      {m && m.failed.length > 0 && (
+        <span className="text-orange" title={m.failed.map((f) => `${f.name}: ${f.why}`).join("; ")}>
+          down:{" "}
+          {m.failed.length > 3
+            ? `${m.failed
+                .slice(0, 2)
+                .map((f) => f.name)
+                .join(", ")} and ${m.failed.length - 2} more`
+            : m.failed.map((f) => f.name).join(", ")}
         </span>
       )}
       {m && m.items > 0 && (
@@ -406,7 +414,7 @@ function Running({ run }: { run: NewsRun }) {
   }, []);
   const s = Math.max(0, Math.floor((Date.now() - Date.parse(run.started)) / 1000));
   return (
-    <span className="news-facts">
+    <span className="research-line">
       <span className="chip chip-caps tone-green">
         <span className="dot pulse" aria-hidden="true" />
         Writing
@@ -432,7 +440,7 @@ function Steps({ run }: { run: NewsRun }) {
               <span className="news-step-mark" aria-hidden="true">
                 {state === "done" ? "✓" : state === "now" ? <span className="dot tone-green pulse" /> : "○"}
               </span>
-              {state !== "next" && said ? said.split(" · ")[0] : name}
+              {state !== "next" && said ? said : name}
             </li>
           );
         })}
@@ -504,7 +512,7 @@ function SourcesFold() {
       <summary className="disclosure">
         Sources{" "}
         <span className="font-mono text-small text-muted">
-          {read.length ? `${up} of ${list.length} up` : list.length}
+          {read.length ? `${up} of ${list.length} up now` : list.length}
         </span>
       </summary>
       <div className="card news-sources">

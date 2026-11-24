@@ -23,6 +23,7 @@ export type WindowItem = {
   score: number | null;
   thread: string | null;
   threadBy: string; // the short name of the source whose thread it is
+  also?: string[]; // the same headline's links from other outlets, told with it and never told again
 };
 // a story the pick chose: its number (the order of importance), its section and its items, the main one first
 export type Picked = { n: number; section: Section; ids: number[] };
@@ -113,11 +114,14 @@ export function readStories(
   });
 }
 
-// the model's words with every link and web address taken out: a link on the page comes from an item, never from them
+// the model's words with every link and web address taken out: a link on the page comes from an item, never from them.
+// An address with a scheme, a www. or a path goes (openai.com/blog/x), the sentence's own stop kept; a bare name
+// (Claude.ai) stays, as plain text it links nowhere
+const ADDRESS = /<?\b(?:[a-z][a-z0-9+.-]*:\/\/|www\.|(?:[a-z0-9-]+\.)+[a-z]{2,}\/)[^\s<>"']*[^\s<>"'.,;:!?)]>?/gi;
 export const clean = (s: string): string =>
   s
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/<?\b(?:https?:\/\/|www\.)[^\s<>"']+>?/gi, "")
+    .replace(ADDRESS, "")
     .replace(/\(\s*\)/g, "")
     .replace(/\s+([.,;:!?])/g, "$1")
     .replace(/\s{2,}/g, " ")
@@ -130,17 +134,34 @@ const cutAt = (s: string, n: number) => {
 };
 
 // the numbers that carry a claim: one with a decimal, a currency, a percent or a size, or of two digits or more (a
-// lone digit is too common to check). Thousands' commas go, so 1,886 and 1886 are one number
-const NUMBER = /([$€£¥]\s?)?(\d+(?:[.,]\d+)*)(\s?(?:%|percent\b|bn\b|billion\b|tn\b|trillion\b|m\b|million\b|k\b))?/gi;
-export function numbersIn(text: string, all = false): string[] {
-  const out: string[] = [];
+// lone digit is too common to check). Thousands' commas go, so 1,886 and 1886 are one number. Each keeps its unit
+// (%, thousand, million, billion, trillion) and its currency: $40bn is not $40tn, nor 40%
+const NUMBER =
+  /([$€£¥]\s?)?(\d+(?:[.,]\d+)*)(\s?(?:%|per\s?cent\b|percent\b|bn\b|billion\b|tn\b|trillion\b|mn?\b|million\b|k\b|thousand\b))?/gi;
+export type Num = { n: string; unit: string; cur: string };
+const UNIT: [RegExp, string][] = [
+  [/^(%|per\s?cent)$/, "%"],
+  [/^(k|thousand)$/, "k"],
+  [/^(mn?|million)$/, "m"],
+  [/^(bn|billion)$/, "bn"],
+  [/^(tn|trillion)$/, "tn"],
+];
+export function numbersIn(text: string, all = false): Num[] {
+  const out: Num[] = [];
   for (const m of text.matchAll(NUMBER)) {
     const n = m[2].replace(/,(?=\d{3}(?!\d))/g, "");
-    if (all || m[1] || m[3] || /[.,]/.test(n) || n.replace(/^0+/, "").length >= 2) out.push(n);
+    const word = (m[3] ?? "").trim().toLowerCase();
+    const unit = UNIT.find(([re]) => re.test(word))?.[1] ?? "";
+    if (all || m[1] || unit || /[.,]/.test(n) || n.replace(/^0+/, "").length >= 2)
+      out.push({ n, unit, cur: (m[1] ?? "").trim() });
   }
   return out;
 }
-const grounded = (text: string, source: Set<string>, all = false) => numbersIn(text, all).every((n) => source.has(n));
+// a number is grounded when its sources hold the same value with the same unit (a bare one, any unit), and the same
+// currency when both name one
+const holds = (source: Num[], x: Num) =>
+  source.some((s) => s.n === x.n && (!x.unit || s.unit === x.unit) && (!x.cur || !s.cur || s.cur === x.cur));
+const grounded = (text: string, source: Num[], all = false) => numbersIn(text, all).every((x) => holds(source, x));
 
 const linkOf = (i: WindowItem): NewsLink => {
   const host = hostOf(i.url);
@@ -180,34 +201,33 @@ export function assemble(
     const text = clean(w.text);
     if (!headline || !text || !links.length) return;
     const page = pages[p.n - 1];
-    // what the model was shown of this story: its items (their points too), their dates, the article read
-    const shown = own.flatMap((i) => [i.title, i.summary, i.at, i.score == null ? "" : String(i.score)]);
-    const source = new Set(numbersIn([...shown, page?.title ?? "", page?.text ?? ""].join(" "), true));
-    let figure = clean(w.figure).slice(0, 24);
-    const figureOk = !figure || grounded(figure, source, true);
-    if (!figureOk) figure = "";
+    // what the model was shown of this story: its items (their points too) and the article read; never their dates,
+    // which the prompt doesn't show, so a 24 or an 11 from a timestamp grounds nothing
+    const shown = own.flatMap((i) => [i.title, i.summary, i.score == null ? "" : String(i.score)]);
+    const source = numbersIn([...shown, page?.title ?? "", page?.text ?? ""].join(" "), true);
+    const figure = clean(w.figure).slice(0, 24);
+    // a story with any number its sources don't hold says so, and loses its pill: the pill is the claim made loudest
+    const unsure = !grounded(figure, source, true) || !grounded(`${headline} ${text}`, source);
     done.set(p.n, {
       section: p.section,
       headline,
       text,
-      figure,
-      trend: figure ? w.trend : "none",
+      figure: unsure ? "" : figure,
+      trend: figure && !unsure ? w.trend : "none",
       links: links.map(linkOf),
-      unsure: !figureOk || !grounded(`${headline} ${text}`, source),
+      unsure,
     });
-    used.push(...own.map((i) => i.url));
+    used.push(...own.flatMap((i) => [i.url, ...(i.also ?? [])]));
   });
   const stories = [...done.entries()].sort((a, b) => a[0] - b[0]).map(([, s]) => s);
   // the opening sums the day up: a sentence with a number no picked story's sources hold is left out
-  const day = new Set(
-    numbersIn(
-      [
-        ...picked.flatMap((p) => p.ids.map((id) => byId.get(id))).flatMap((i) => (i ? [i.title, i.summary, i.at] : [])),
-        ...picked.flatMap((p) => p.ids.map((id) => String(byId.get(id)?.score ?? ""))),
-        ...pages.flatMap((p) => (p ? [p.title, p.text] : [])),
-      ].join(" "),
-      true,
-    ),
+  const day = numbersIn(
+    [
+      ...picked.flatMap((p) => p.ids.map((id) => byId.get(id))).flatMap((i) => (i ? [i.title, i.summary] : [])),
+      ...picked.flatMap((p) => p.ids.map((id) => String(byId.get(id)?.score ?? ""))),
+      ...pages.flatMap((p) => (p ? [p.title, p.text] : [])),
+    ].join(" "),
+    true,
   );
   const opening = written.opening
     .map(clean)
@@ -282,6 +302,9 @@ export async function composeBrief(
   if (!write.ok) return { ok: false, why: WHY[write.why], calls };
   const { brief, used } = assemble(items, picked, write.value, pages);
   if (!brief.stories.length) return { ok: false, why: "the model's brief had no story it could link", calls };
+  // the pick's rule again: a full day told in one or two stories is a broken write, and the last good brief stays
+  if (brief.stories.length < 3 && items.length >= 12)
+    return { ok: false, why: `the model's brief kept only ${brief.stories.length} of a full day's stories`, calls };
   return {
     ok: true,
     brief,

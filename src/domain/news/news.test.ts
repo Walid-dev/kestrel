@@ -7,6 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import type { FeedItem } from "../../ai/news/feeds.ts";
 import { pickPrompt, SYSTEM, writePrompt } from "../../ai/news/prompt.ts";
+import { BriefAnswer } from "../../ai/news/shape.ts";
 import { type StandInPlan, startStandIn } from "../../ai/stand-in.ts";
 import { migrate } from "../../db/migrate.ts";
 import { finished } from "../../platform/activity.ts";
@@ -16,13 +17,14 @@ import {
   briefDue,
   itemsWindow,
   type NewsDeps,
+  newsDays,
   newsSettled,
   newsState,
   newsTick,
   startNews,
   sweepNews,
 } from "./brief.ts";
-import { promptItem, readStories, type WindowItem } from "./compose.ts";
+import { assemble, clean, promptItem, readStories, type WindowItem } from "./compose.ts";
 import { gather, type Reader } from "./gather.ts";
 import { Source } from "./sources.ts";
 
@@ -80,6 +82,17 @@ async function model(pick: unknown, write: unknown | StandInPlan) {
   return { ...door, asked };
 }
 const noPages = async () => "";
+const items0 = (): WindowItem => ({
+  id: 0,
+  url: "",
+  title: "",
+  summary: "",
+  at: NOW.toISOString(),
+  sources: [WIRE],
+  score: null,
+  thread: null,
+  threadBy: "",
+});
 
 const WIRE = source("wire");
 const LAB = source("lab", { topic: "models", firstParty: true });
@@ -221,6 +234,88 @@ test("a told item never comes back; an old one neither; each source keeps its ca
   assert.equal(kept.n, 6);
 });
 
+test("one headline from two outlets, told once, comes back under neither link", async () => {
+  const db = withYesterday();
+  const a = source("a");
+  const b = source("b");
+  const title = "Kettle maker buys a made-up spout company";
+  await gather(
+    db,
+    [a, b],
+    NOW,
+    reader({ a: [item("https://a.example.com/x", title, 1)], b: [item("https://b.example.com/y", title, 2)] }),
+  );
+  const before = itemsWindow(db, [a, b], NOW).items;
+  assert.deepEqual(
+    before.map((i) => [i.url, i.also]),
+    [["https://a.example.com/x", ["https://b.example.com/y"]]],
+  );
+  const picked = [{ n: 1, section: "money" as const, ids: [1] }];
+  const written = BriefAnswer.parse({ stories: [{ story: 1, headline: "A buy", text: "It bought one.", items: [1] }] });
+  for (const url of assemble(before, picked, written, [null]).used)
+    db.prepare("INSERT INTO news_used (url, brief) VALUES (?, 'y')").run(url);
+  assert.deepEqual(itemsWindow(db, [a, b], new Date(NOW.getTime() + 3_600_000)).items, []);
+});
+
+test("the number check: a value in the wrong unit, a date's digits, and a pill on a story with any doubt", () => {
+  const at = "2026-11-24T05:00:00.000Z";
+  const items: WindowItem[] = [
+    {
+      id: 1,
+      url: "https://wire.example.net/teapot",
+      title: "Teapot raises $40bn",
+      summary: "Shares rose 6% on the news.",
+      at,
+      sources: [WIRE],
+      score: null,
+      thread: null,
+      threadBy: "",
+    },
+    { ...items0(), id: 2, url: "https://wire.example.net/spout", title: "Spout grows sales 30% to €12m", at },
+  ];
+  const picked = [
+    { n: 1, section: "money" as const, ids: [1] },
+    { n: 2, section: "money" as const, ids: [2] },
+  ];
+  const written = BriefAnswer.parse({
+    opening: ["Teapot raised $40 trillion.", "Spout grew sales 30%."],
+    stories: [
+      {
+        story: 1,
+        headline: "Teapot raises a made-up fortune",
+        text: "Teapot raised $40 trillion. Shares jumped 6% and 24% of staff left on day 11.",
+        figure: "$40tn",
+        trend: "up",
+        items: [1],
+      },
+      { story: 2, headline: "Spout grows", text: "Sales grew 30% to €12m.", figure: "€12m", trend: "up", items: [2] },
+    ],
+  });
+  const { brief } = assemble(items, picked, written, [null, null]);
+  assert.deepEqual(
+    brief.stories.map((s) => [s.figure, s.trend, s.unsure]),
+    [
+      ["", "none", true],
+      ["€12m", "up", false],
+    ],
+  );
+  assert.deepEqual(brief.opening, ["Spout grew sales 30%."]);
+  // a story with a doubt anywhere loses its pill, even one its sources hold
+  const doubt = BriefAnswer.parse({
+    stories: [{ story: 2, headline: "Spout grows", text: "Sales grew 45%.", figure: "30%", trend: "up", items: [2] }],
+  });
+  assert.deepEqual(
+    assemble(items, picked, doubt, [null, null]).brief.stories.map((s) => [s.figure, s.unsure]),
+    [["", true]],
+  );
+});
+
+test("the model's words lose every address, and keep their sentence's stop", () => {
+  assert.equal(clean("See https://evil.example/x."), "See.");
+  assert.equal(clean("Read more at openai.com/blog/x or at ftp://x.example/y."), "Read more at or at.");
+  assert.equal(clean("Claude.ai and Node.js stay, as names."), "Claude.ai and Node.js stay, as names.");
+});
+
 test("due once a morning from its time, caught up when the computer wakes, never chased before it or past noon", () => {
   const db = memory();
   const n = NewsSettings.parse({});
@@ -237,6 +332,13 @@ test("due once a morning from its time, caught up when the computer wakes, never
   assert.equal(briefDue(db, n, at(25, 13, 10)), false);
   assert.equal(briefDue(db, n, at(26, 3)), false);
   assert.equal(briefDue(db, n, at(26, 6, 30)), true);
+  // a morning cut short (a restart, the door not up yet) is tried once more, 15 minutes on; then it waits for me
+  const failed = db.prepare("INSERT INTO news_briefs (id, day, state, started) VALUES (?, '2026-11-26', 'failed', ?)");
+  failed.run("f1", at(26, 6, 31).toISOString());
+  assert.equal(briefDue(db, n, at(26, 6, 40)), false);
+  assert.equal(briefDue(db, n, at(26, 6, 46)), true);
+  failed.run("f2", at(26, 6, 46).toISOString());
+  assert.equal(briefDue(db, n, at(26, 9)), false);
 });
 
 test("a good answer: links only from each story's own items, a web address cut, a number its sources lack flagged", async () => {
@@ -441,6 +543,70 @@ test("a source down is skipped and named; with every source down and nothing gat
   assert.equal(newsState(empty, settings).run?.error, "no source answered: is the network up?");
 });
 
+test("Make it now writes today's brief again from all of today's items; an empty one never shadows a full one", async () => {
+  const db = withYesterday();
+  const door = await model(PICK, WRITE);
+  const settings = settingsFor(door.url);
+  const run = (at: Date, read = reader(DAY)) =>
+    startNews(db, settings, { sources: [WIRE, LAB, FORUM, TECH], read, readPage: noPages, clock: () => at }).done;
+  try {
+    await run(NOW);
+    const later = new Date(NOW.getTime() + 2 * 3_600_000);
+    await run(later);
+    const state = newsState(db, settings);
+    assert.equal(state.brief?.started, later.toISOString());
+    assert.equal(state.brief?.brief?.stories.length, 4);
+    // the rewrite was told yesterday's headlines, never this morning's
+    assert.match(door.asked.at(-2) ?? "", /Yesterday's headlines:\n- Teapot shares hit a made-up high/);
+    assert.deepEqual(
+      newsDays(db).map((d) => [d.day, d.stories]),
+      [
+        ["2026-11-24", 4],
+        ["2026-11-23", 1],
+      ],
+    );
+  } finally {
+    await door.close();
+  }
+  // today's items gone from the window (a source dropped since): nothing to tell, and today's brief stays
+  const shown = newsState(db, settings).brief?.id;
+  await startNews(db, settings, {
+    sources: [source("other")],
+    read: reader({ other: [] }),
+    clock: () => new Date(NOW.getTime() + 3 * 3_600_000),
+  }).done;
+  const after = newsState(db, settings);
+  assert.equal(after.brief?.id, shown);
+  assert.equal(after.run?.error, "nothing new to tell: today's brief stays");
+});
+
+test("a full day written in one story fails, and the last brief stays", async () => {
+  const db = withYesterday();
+  const bulk = source("bulk", { cap: 12 });
+  const many = Array.from({ length: 12 }, (_, i) =>
+    item(`https://bulk.example.com/${i}`, `Made-up story number ${i} of the day`, 1 + i / 10),
+  );
+  const door = await model(
+    { stories: [1, 2, 3].map((id) => ({ section: "money", items: [id] })) },
+    { opening: ["One thing."], stories: [{ story: 1, headline: "One thing", text: "It happened.", items: [1] }] },
+  );
+  const settings = settingsFor(door.url);
+  try {
+    await startNews(db, settings, {
+      sources: [bulk],
+      read: reader({ bulk: many }),
+      readPage: noPages,
+      clock: () => NOW,
+    }).done;
+  } finally {
+    await door.close();
+  }
+  const state = newsState(db, settings);
+  assert.equal(state.brief?.id, "y");
+  assert.equal(state.run?.error, "the model's brief kept only 1 of a full day's stories");
+  assert.equal((db.prepare("SELECT COUNT(*) AS n FROM news_used").get() as { n: number }).n, 0);
+});
+
 test("one brief at a time; a restart marks the one it cut short failed", async () => {
   const db = memory();
   let release = () => {};
@@ -471,6 +637,8 @@ test("the tick: the brief when due, the feeds every two hours between, a Live li
   assert.equal(newsTick(db, settings, at(6, 0), deps(at(6, 0))), "collect");
   await newsSettled();
   assert.equal(newsTick(db, settings, at(6, 10), deps(at(6, 10))), null);
+  // an application at work has the model: the brief waits (nothing else is due at 06:30)
+  assert.equal(newsTick(db, settings, at(6, 30), deps(at(6, 30)), true), null);
   assert.equal(newsTick(db, settings, at(6, 30), deps(at(6, 30))), "brief");
   await newsSettled();
   assert.equal(newsTick(db, settings, at(8, 0), deps(at(8, 0))), null);

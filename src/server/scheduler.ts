@@ -18,8 +18,9 @@ export type SchedulerDirs = {
   backupsDir: string;
   mirrorFile?: string;
   afterRun?: (spec: Spec, run: Run) => Promise<void>; // a hunt that is On pings my phone (server/alerts.ts)
-  // the morning news (domain/news/brief.ts): starts what is due in the background and says what it started
-  news?: (now: Date) => string | null;
+  // the morning news (domain/news/brief.ts): starts what is due in the background and says what it started; told
+  // whether an application is at work, when the brief waits
+  news?: (now: Date, applying: boolean) => string | null;
 };
 
 // a copy that failed (a full disk, a folder it can't write) tries again an hour later, not every minute: each try
@@ -41,18 +42,20 @@ export async function tick(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Pr
 
 async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promise<string[]> {
   const did: string[] = [];
+  // an application at work has the agent's browser and the model: the searches and the news brief wait for a later
+  // tick (two hours at most, should its end never be reported)
+  const applying = Boolean(
+    db
+      .prepare("SELECT 1 FROM applications WHERE state = 'applying' AND updated > ? LIMIT 1")
+      .get(new Date(now.getTime() - 2 * 3600_000).toISOString()),
+  );
   // first, since it only starts its work: the brief (or a read of the feeds) never waits behind a long search
   try {
-    const news = dirs.news?.(now);
+    const news = dirs.news?.(now, applying);
     if (news) did.push(`news:${news}`);
   } catch (e) {
     console.error(`the news couldn't start: ${plainWords((e as Error).message)}`);
   }
-  // an application at work has the agent's browser and the model: the searches wait for the next tick (two hours at
-  // most, should its end never be reported)
-  const applying = db
-    .prepare("SELECT 1 FROM applications WHERE state = 'applying' AND updated > ? LIMIT 1")
-    .get(new Date(now.getTime() - 2 * 3600_000).toISOString());
   const specs = loadSpecs(dirs.specsDir).specs;
   for (const spec of specs) {
     if (!spec.enabled || !spec.auto || applying) continue; // off, only when I ask, or an application at work

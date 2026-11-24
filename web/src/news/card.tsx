@@ -1,9 +1,11 @@
 // The news on Home: one small card under the figures, the whole card one link to the page. Its head says when the
-// brief was written and how many stories it holds; under it the day's three biggest headlines, each on one line with
-// its source at the end. While a brief is written, or when today's failed, one line says so above the last brief's
-// headlines; before any brief, one quiet line says when the first comes.
+// brief was written and how many stories it holds; then the day's three biggest headlines, each with its source. On
+// a phone the headlines are lines under the head; on a computer the head and the three headlines are one row of
+// columns, as the figures above are, so the card is no taller than they. While a brief is written, or when today's
+// failed, the head says so in place of the time (the card never grows); a new brief that failed after this morning's
+// is the page's to say. Before any brief, one quiet line says when the first comes.
 import { Link } from "react-router";
-import { localDay, plural, sentence, useNews, writtenAt } from "./data.ts";
+import { plural, runOf, sentence, useNews, writtenAt } from "./data.ts";
 
 // a newspaper, drawn by hand on the icons' grid (the dock's News)
 export const NEWS_ICON = (
@@ -30,61 +32,68 @@ export function NewsCard() {
   if (!d) return null;
   const shown = d.brief;
   const stories = shown?.brief?.stories ?? [];
-  const running = d.run?.state === "running" ? d.run : null;
-  const failed = d.run?.state === "failed" && d.run.day === localDay() ? d.run : null;
+  const run = runOf(d);
+  const note = run && !(run.state === "failed" && run.again) ? run : null;
   return (
     <Link to="/news" className="card card-link news-card">
       <span className="news-card-head">
         <span className="eyebrow">News</span>
-        {shown && <span className="news-card-when">{writtenAt(shown)}</span>}
-        {stories.length > 0 && (
-          <span className="news-card-count">
-            {stories.length} {plural(stories.length, "story", "stories")}
-          </span>
-        )}
-        <svg
-          className="news-card-chevron"
-          viewBox="0 0 24 24"
-          width="14"
-          height="14"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m9.5 5.5 6.5 6.5-6.5 6.5" />
-        </svg>
+        <span className="news-card-sub">
+          {note ? (
+            <span
+              className={`news-card-state ${note.state === "failed" ? "text-orange" : "text-muted"}`}
+              title={note.state === "failed" ? `${note.title}: ${note.run.error}` : `${note.title}: ${note.run.step}`}
+            >
+              <span
+                className={`dot ${note.state === "failed" ? "tone-orange" : "tone-green pulse"}`}
+                aria-hidden="true"
+              />
+              <span className="news-card-truncate">{note.state === "failed" ? note.title : "Writing…"}</span>
+            </span>
+          ) : (
+            shown && <span className="news-card-when">{writtenAt(shown)}</span>
+          )}
+          {stories.length > 0 && (
+            <span className="news-card-count">
+              {stories.length} {plural(stories.length, "story", "stories")}
+            </span>
+          )}
+        </span>
       </span>
-      {running && (
-        <span className="news-card-state text-muted">
-          <span className="dot tone-green pulse" aria-hidden="true" />
-          <span className="news-card-truncate">Writing this morning's news · {running.step}</span>
-        </span>
-      )}
-      {failed && (
-        <span className="news-card-state text-orange">
-          <span className="dot tone-orange" aria-hidden="true" />
-          <span className="news-card-truncate">Today's failed: {failed.error}</span>
-        </span>
-      )}
-      {stories.slice(0, 3).map((s) => (
-        <span key={s.headline} className="news-card-line">
+      {stories.slice(0, 3).map((s, i) => (
+        <span
+          key={s.headline}
+          className={i === 2 ? "news-card-line news-card-third" : "news-card-line"}
+          title={s.headline}
+        >
           <span className="news-card-headline">{s.headline}</span>
           <span className="news-card-src">{s.links[0]?.source}</span>
         </span>
       ))}
       {shown && !stories.length && (
-        <span className="news-card-state text-muted">{sentence(shown.brief?.quiet || "a quiet morning")}</span>
+        <span className="news-card-note text-muted">{sentence(shown.brief?.quiet || "a quiet morning")}</span>
       )}
-      {!shown && !running && (
-        <span className="news-card-state text-muted">
+      {!shown && !note && (
+        <span className="news-card-note text-muted">
           {d.enabled
             ? `The first brief comes at ${d.time}, or open it to write one now.`
             : "Off in settings: open it to write one now."}
         </span>
       )}
+      <svg
+        className="news-card-chevron"
+        viewBox="0 0 24 24"
+        width="14"
+        height="14"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="m9.5 5.5 6.5 6.5-6.5 6.5" />
+      </svg>
     </Link>
   );
 }

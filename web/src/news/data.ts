@@ -1,6 +1,6 @@
 // The news as Home's card and the page read it: one query per day (today's shared by both), and the formats they
 // share. Today's brief asks again every 2 seconds while one is written, else every 5 minutes; the live stream (the
-// page's useEvents) asks at once when a run starts or ends.
+// app's own ear, app.tsx) asks at once when a run starts or ends, on Home's card as on the page.
 import { useQuery } from "@tanstack/react-query";
 import type { NewsRun, NewsState, Section } from "../../../src/shared/news.ts";
 import type { Tone } from "../ui/pills.tsx";
@@ -58,3 +58,25 @@ export const shortModel = (m: string) => {
 export const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many);
 // the server's reasons start in lower case, as they read in its log; on the page they start a sentence
 export const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+// the run beside the brief shown, as both say it: one being written, or one that failed. A failure after today's own
+// brief is a new brief that failed, and this morning's still stands; one before any brief of today is today's
+export function runOf(d: NewsState) {
+  const today = d.brief?.day === localDay() ? d.brief : null;
+  const run = d.run;
+  if (!run) return null;
+  if (run.state === "running")
+    return { state: "running" as const, run, title: today ? "Writing a new brief" : "Writing this morning's news" };
+  if (run.state !== "failed") return null;
+  const again = Boolean(today && run.started > today.started);
+  return {
+    state: "failed" as const,
+    run,
+    again,
+    title: again
+      ? "The new brief failed"
+      : run.day === localDay()
+        ? "Today's brief failed"
+        : `The brief of ${dayName(run.day)} failed`,
+  };
+}

@@ -115,7 +115,7 @@ startScheduler(db, {
   backupsDir: join(dataDir(), "backups"),
   mirrorFile: join(dataDir(), "mirror-v1.json"),
   afterRun: (spec, run) => alertRun(db, settings, spec, run),
-  news: (now) => newsTick(db, settings, now),
+  news: (now, applying) => newsTick(db, settings, now, {}, applying),
 });
 
 // every request through the identity check: enforced when deployed, open on made-up data (identity.ts says why).

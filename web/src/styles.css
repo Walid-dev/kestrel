@@ -4357,83 +4357,139 @@ body:has(.paper-view) {
 .list-row:has(.writing-busy) {
   opacity: 0.55;
 }
-/* News on Home (web/src/news/card.tsx): one small card under the figures, the whole card one link to the page. Its
-   head (the eyebrow, when the brief was written, its count, a chevron), then the day's three biggest headlines, one
-   line each, the source at the end in mono; on a phone the headline gives way first and the source keeps 8 letters */
+/* News on Home (web/src/news/card.tsx): one small card under the figures, the whole card one link to the page. On a
+   phone: the head (the eyebrow, when, the count) with the chevron beside it, then the three headlines one line each,
+   the source after it in mono, the headline giving way first. From 48rem, as the figures above: one row of columns,
+   the head first, each headline over its source, so the card is no taller than they */
 .news-card {
   display: grid;
-  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 8px;
   min-width: 0;
   color: inherit;
   text-decoration: none;
 }
-.news-card-head,
-.news-card-line,
+.news-card-head {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.news-card-sub,
 .news-card-state {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
+.news-card-sub {
+  flex: 1;
+}
+.news-card-state {
+  gap: 6px;
+  font-size: var(--text-small);
+  line-height: var(--text-small--line-height);
+}
 .news-card-when,
 .news-card-count {
+  flex: none;
   font: var(--text-small) / var(--text-small--line-height) var(--mono);
   color: var(--muted);
 }
-.news-card-chevron {
-  flex: none;
-  margin-left: auto;
-  color: var(--muted);
-}
-.news-card-count + .news-card-chevron {
-  margin-left: 0;
-}
 .news-card-count {
   margin-left: auto;
 }
+.news-card-chevron {
+  grid-column: 2;
+  grid-row: 1;
+  color: var(--muted);
+}
+.news-card-line,
+.news-card-note {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
 .news-card-line {
+  display: flex;
   align-items: baseline;
   gap: 12px;
 }
 .news-card-headline,
+.news-card-src,
 .news-card-truncate {
-  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* a headline is as long as its words, its source right after it, never across a wide screen */
 .news-card-headline {
   flex: 0 1 auto;
-}
-.news-card-headline {
   font: 500 var(--text-detail) / var(--text-detail--line-height) var(--sans);
   color: var(--text);
 }
+/* the source keeps its name: the longest short name is 12 letters */
 .news-card-src {
   flex: none;
-  max-width: 16ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 13ch;
   font: var(--text-small) / var(--text-small--line-height) var(--mono);
   color: var(--muted);
 }
-@media (max-width: 30rem) {
-  .news-card-src {
-    max-width: 8ch;
-  }
-}
-.news-card-state {
+.news-card-note {
   font-size: var(--text-small);
   line-height: var(--text-small--line-height);
 }
-/* News, the page (web/src/news/page.tsx): the brief and, from 64rem, a rail of 300 beside it (the earlier days, the
-   sources; never sticky, so an open sources table can always be read to its end); on a phone the rail's parts follow
-   the stories. Each section's stories
-   take as many columns of 380 or more as the width holds (one on a phone and a narrow computer), so a wide screen is
-   used as Searches uses it; the opening keeps a reading line */
+@media (min-width: 48rem) {
+  .news-card {
+    grid-template-columns: max-content repeat(3, minmax(0, 1fr)) auto;
+    column-gap: 24px;
+  }
+  .news-card-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    max-width: 13rem;
+  }
+  .news-card-sub {
+    flex: none;
+    max-width: 100%;
+  }
+  .news-card-count {
+    margin-left: 0;
+  }
+  .news-card-sub > * + .news-card-count::before {
+    content: "· ";
+  }
+  .news-card-chevron {
+    grid-column: -2;
+  }
+  .news-card-line {
+    grid-column: auto;
+    grid-row: 1;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+  }
+  .news-card-note {
+    grid-column: 2 / -2;
+    grid-row: 1;
+  }
+}
+/* a phone turned or a narrow window: two headlines, wide enough to read */
+@media (min-width: 48rem) and (max-width: 63.99rem) {
+  .news-card {
+    grid-template-columns: max-content repeat(2, minmax(0, 1fr)) auto;
+  }
+  .news-card-third {
+    display: none;
+  }
+}
+/* News, the page (web/src/news/page.tsx): the brief in one reading column (52rem at most: a brief is read top to
+   bottom, and a section of one or three stories left holes in a grid) and, from 64rem, a rail of 280 to 340 beside it
+   (the earlier days, the sources; never sticky, so an open sources table can always be read to its end); on a phone
+   the rail's parts follow the stories. The head's line is a report's (.research-line) */
 .news-layout {
   display: grid;
   gap: var(--page-gap);
@@ -4441,7 +4497,7 @@ body:has(.paper-view) {
 }
 @media (min-width: 64rem) {
   .news-layout {
-    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-columns: minmax(0, 52rem) minmax(280px, 340px);
     column-gap: 32px;
   }
 }
@@ -4465,30 +4521,10 @@ body:has(.paper-view) {
 }
 .news-stories {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
   gap: 12px;
 }
 .news-fold > .card {
   margin-top: 4px;
-}
-/* the head's line, as a report's: the state chip, then the facts with their values bold, a dot between two facts; a
-   fact that wraps starts its line, its dot clipped on the left */
-.news-facts {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 14px;
-  overflow: hidden;
-}
-.news-facts > span:not(.chip) {
-  position: relative;
-}
-.news-facts > span:not(.chip) + span:not(.chip)::before {
-  content: "·";
-  position: absolute;
-  left: -7px;
-  transform: translateX(-50%);
-  color: var(--muted);
 }
 /* while a brief is written: its five steps (done, now, next) over a bar that sweeps, on the card that works now */
 .news-running {
@@ -4526,11 +4562,12 @@ body:has(.paper-view) {
 .news-step[data-state="done"] > .news-step-mark {
   color: var(--green);
 }
-/* the brief that failed: one orange line over the last good one */
+/* the brief that failed: one orange line over the last good one, Make it now (small, quiet) at its end */
 .news-failed {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
-  gap: 8px;
+  gap: 4px 8px;
   margin: 0;
   font-size: var(--text-detail);
   line-height: var(--text-detail--line-height);
@@ -4538,6 +4575,13 @@ body:has(.paper-view) {
 }
 .news-failed-mark {
   margin-top: 7px;
+}
+.news-failed > p {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+.news-failed > .btn {
+  margin-top: -2px;
 }
 /* the opening, read slowly, with no box */
 .news-opening {
@@ -4552,8 +4596,7 @@ body:has(.paper-view) {
   margin: 0;
 }
 /* a story, the Searches card's anatomy: the section's chip and the source on top, the headline with its number as a
-   pill, the story, then its links and Look deeper, its parts 8 apart; two cards side by side end level, their links
-   on one line */
+   pill, the story, then its links and Look deeper, its parts 8 apart */
 .news-story {
   display: flex;
   flex-direction: column;

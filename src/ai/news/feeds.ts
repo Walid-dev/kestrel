@@ -43,7 +43,8 @@ export type FeedRead =
   | { ok: false; why: string };
 
 // how a read reaches the network; tests pass made-up ones (a Reach stand-in, a fetch that answers from fixtures)
-export type FeedNet = { reach?: Reach; fetch?: typeof fetch };
+// timeoutMs: the whole read's limit, the address check and its name lookup included (15 s; tests pass a short one)
+export type FeedNet = { reach?: Reach; fetch?: typeof fetch; timeoutMs?: number };
 
 const AGENT = "personal-feed-reader/1.0";
 const ACCEPT =
@@ -72,12 +73,14 @@ export async function readFeed(
   const conditional = !spec.url.includes("{");
   let url = expandUrl(spec.url, now);
   let res: Response | null = null;
+  // one limit for the whole read: a name lookup that hangs, a server that never ends its body
+  const deadline = AbortSignal.timeout(net.timeoutMs ?? TIMEOUT_MS);
   try {
     for (let hop = 0; hop < 3; hop++) {
-      const checked = await publicUrl(url, net.reach);
+      const checked = await inTime(publicUrl(url, net.reach), deadline);
       res = await get(checked, {
         redirect: "manual",
-        signal: AbortSignal.timeout(TIMEOUT_MS),
+        signal: deadline,
         headers: {
           "user-agent": AGENT,
           accept: ACCEPT,
@@ -121,6 +124,16 @@ export async function readFeed(
   } catch (e) {
     return { ok: false, why: reason(e) };
   }
+}
+
+// a promise that gives up when the deadline passes (the lookup inside publicUrl has no limit of its own)
+function inTime<T>(p: Promise<T>, deadline: AbortSignal): Promise<T> {
+  if (deadline.aborted) return Promise.reject(deadline.reason);
+  return new Promise<T>((ok, no) => {
+    const stop = () => no(deadline.reason);
+    deadline.addEventListener("abort", stop, { once: true });
+    p.then(ok, no).finally(() => deadline.removeEventListener("abort", stop));
+  });
 }
 
 // a failure in a few plain words for the sources table: never a stack, never a path

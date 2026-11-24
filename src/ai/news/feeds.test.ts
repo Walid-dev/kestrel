@@ -217,6 +217,35 @@ test("plain reasons for a failure; a 304 keeps the validators and brings nothing
   assert.equal(w.asked.at(-1)?.headers["if-none-match"], '"v1"');
 });
 
+test("a read that hangs gives up at its limit: a body that never ends, a name lookup that never answers", async () => {
+  // a body stream that only closes when the read is called off
+  const hang = (async (_input: string | URL | Request, init?: RequestInit) => {
+    const signal = init?.signal as AbortSignal;
+    const body = new ReadableStream<Uint8Array>({
+      start(c) {
+        c.enqueue(new TextEncoder().encode("<rss><channel><item><title>Half"));
+        signal.addEventListener("abort", () => c.error(signal.reason));
+      },
+    });
+    return new Response(body, { status: 200 });
+  }) as typeof fetch;
+  const started = Date.now();
+  const a = await readFeed(spec("https://slow.example.com/feed"), NONE, NOW, {
+    reach: reach(),
+    fetch: hang,
+    timeoutMs: 50,
+  });
+  assert.deepEqual(a, { ok: false, why: "timed out" });
+  const stuck: Reach = { resolve: () => new Promise(() => {}), head: reach().head };
+  const b = await readFeed(spec("https://stuck.example.com/feed"), NONE, NOW, {
+    reach: stuck,
+    fetch: hang,
+    timeoutMs: 50,
+  });
+  assert.deepEqual(b, { ok: false, why: "timed out" });
+  assert.ok(Date.now() - started < 2000);
+});
+
 test("an address carries only a time 36 hours back and yesterday's date; links are one form; dates of every kind", () => {
   assert.equal(
     expandUrl("https://x.example.com/?since={since}&date={yesterday}", NOW),

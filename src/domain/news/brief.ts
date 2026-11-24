@@ -59,17 +59,20 @@ const titleKey = (t: string) =>
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 
-// what a brief chooses from: the items of the last 36 hours that no brief has told, each source's newest up to its cap
-// (or its best-scored, for a source that scores), one headline told twice made one item, the newest 90 at most,
-// numbered for the prompts
+// what a brief chooses from: the items of the last 36 hours that no brief of an earlier day has told, each source's
+// newest up to its cap (or its best-scored, for a source that scores), one headline told twice made one item, the
+// newest 90 at most, numbered for the prompts. Today's own briefs don't count: Make it now writes today's brief
+// again, from all of it, and the new one replaces the morning's in full
 export function itemsWindow(db: DatabaseSync, sources: Source[], now: Date): { items: WindowItem[]; twice: number } {
   const since = new Date(now.getTime() - WINDOW_HOURS * 3_600_000).toISOString();
   const rows = db
     .prepare(
       `SELECT url, sources, title, summary, at, score, thread, thread_by FROM news_items
-       WHERE at >= ? AND at <= ? AND url NOT IN (SELECT url FROM news_used) ORDER BY at DESC`,
+       WHERE at >= ? AND at <= ? AND url NOT IN (
+         SELECT u.url FROM news_used u LEFT JOIN news_briefs b ON b.id = u.brief WHERE b.day IS NULL OR b.day <> ?
+       ) ORDER BY at DESC`,
     )
-    .all(since, now.toISOString()) as ItemRow[];
+    .all(since, now.toISOString(), localDay(now)) as ItemRow[];
   const byId = new Map(sources.filter((s) => s.enabled).map((s) => [s.id, s]));
   const groups = new Map<string, { row: ItemRow; carried: Source[] }[]>();
   for (const row of rows) {
@@ -94,6 +97,7 @@ export function itemsWindow(db: DatabaseSync, sources: Source[], now: Date): { i
     const twin = key.length >= 16 ? byTitle.get(key) : undefined;
     if (twin) {
       for (const s of carried) if (!twin.sources.includes(s)) twin.sources.push(s);
+      twin.also = [...(twin.also ?? []), row.url];
       twin.score = Math.max(twin.score ?? 0, row.score ?? 0) || null;
       if (!twin.thread && row.thread) {
         twin.thread = row.thread;
@@ -139,17 +143,30 @@ export function readLine(got: Gathered): string {
   return `${got.read} of ${got.sources} read${named.length ? ` · down: ${named.join(", ")}` : ""}`;
 }
 
-// the newest brief that told something, for the next one not to repeat it
-function lastTold(db: DatabaseSync): NewsBrief | null {
+// the newest brief of an earlier day that told something, for the next one not to repeat it (today's own is the one
+// a new brief replaces)
+function lastTold(db: DatabaseSync, day: string): NewsBrief | null {
   const rows = db
-    .prepare("SELECT brief FROM news_briefs WHERE state = 'done' AND brief IS NOT NULL ORDER BY started DESC LIMIT 5")
-    .all() as { brief: string }[];
+    .prepare(
+      "SELECT brief FROM news_briefs WHERE state = 'done' AND brief IS NOT NULL AND day < ? ORDER BY started DESC LIMIT 5",
+    )
+    .all(day) as { brief: string }[];
   for (const r of rows) {
     const b = JSON.parse(r.brief) as NewsBrief;
     if (b.stories.length) return b;
   }
   return null;
 }
+
+// a brief with stories was written today already
+const toldToday = (db: DatabaseSync, day: string): boolean =>
+  Boolean(
+    db
+      .prepare(
+        "SELECT 1 FROM news_briefs WHERE state = 'done' AND day = ? AND json_array_length(brief, '$.stories') > 0 LIMIT 1",
+      )
+      .get(day),
+  );
 
 // Make it now, and the morning's own: refused while one is written. The row is made before the work starts, so the
 // page and Live show it at once; done resolves when the brief is written or has failed
@@ -232,13 +249,15 @@ async function writeBrief(db: DatabaseSync, settings: Settings, id: string, deps
     // nothing new: from what the feeds held before, if the network is down now; else a quiet morning, said so
     if (!items.length) {
       if (!got.read) return finish("failed", null, "no source answered: is the network up?");
+      // an empty brief never shadows a full one of the same day
+      if (toldToday(db, localDay(now))) return finish("failed", null, "nothing new to tell: today's brief stays");
       return finish("done", { opening: [], stories: [], quiet: "A quiet morning: nothing new since the last brief." });
     }
     step(1, `${plural(items.length, "new item")}, ${twice} told twice`);
     const pick = modelFor(db, settings, "news-pick");
     const write = modelFor(db, settings, "news-write");
     meta.model = write;
-    const last = lastTold(db);
+    const last = lastTold(db, localDay(now));
     const composed = await composeBrief(
       settings.models,
       { pick, write },
@@ -263,28 +282,41 @@ async function writeBrief(db: DatabaseSync, settings: Settings, id: string, deps
   }
 }
 
+const RETRY_MS = 15 * 60_000;
+
 // is this morning's brief due? From the set time until the latest hour (noon), once a day, catching up when the
 // computer wakes after the time, as the searches do (isDue). Before the time, yesterday's is never chased; after the
-// latest hour a missed morning waits for the next one
+// latest hour a missed morning waits for the next one. A morning that failed (a restart cut it short, the model's
+// door wasn't up yet after a wake) is tried once more, 15 minutes later; a second failure waits for Make it now
 export function briefDue(db: DatabaseSync, news: NewsSettings, now: Date): boolean {
   const [h, m] = news.time.split(":").map(Number);
-  if (now < new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m)) return false;
+  const slot = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
+  if (now < slot) return false;
   if (now.getHours() >= Math.max(news.latestHour, h + 1)) return false;
-  const last = (db.prepare("SELECT MAX(started) AS at FROM news_briefs").get() as { at: string | null }).at;
-  return isDue({ times: [news.time], everyMinutes: 0 }, last, now);
+  const done = db.prepare("SELECT MAX(started) AS at FROM news_briefs WHERE state = 'done'").get() as {
+    at: string | null;
+  };
+  if (!isDue({ times: [news.time], everyMinutes: 0 }, done.at, now)) return false;
+  const tries = db
+    .prepare("SELECT COUNT(*) AS n, MAX(started) AS at FROM news_briefs WHERE state <> 'done' AND started >= ?")
+    .get(slot.toISOString()) as { n: number; at: string | null };
+  if (tries.n >= 2) return false;
+  return !tries.at || now.getTime() - Date.parse(tries.at) >= RETRY_MS;
 }
 
 // the scheduler's minute: the brief when due, else a read of the feeds every two hours. Both run in the background,
-// so the searches never wait on them; what started is said back for the tick's list
+// so the searches never wait on them; what started is said back for the tick's list. While an application is at
+// work (it has the model), the brief waits for a later tick before the latest hour; the feeds are still read
 export function newsTick(
   db: DatabaseSync,
   settings: Settings,
   now: Date,
   deps: NewsDeps = {},
+  applying = false,
 ): "brief" | "collect" | null {
   const news = newsOf(settings);
   if (!news.enabled || busy || collecting) return null;
-  if (briefDue(db, news, now)) {
+  if (!applying && briefDue(db, news, now)) {
     startNews(db, settings, deps);
     return "brief";
   }
