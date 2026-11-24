@@ -1,5 +1,6 @@
 // Notes' documents: the ones already here, the files my folders offer, and Upload. Notes itself opens on the last
-// document I worked on; this list is its switcher, and the start when nothing is open yet.
+// document I worked on; this list is its switcher, and the start when nothing is open yet. A row is its name, where
+// it comes from and when it came; Select shows the ticks (for a set reviewed together) and each row's Forget.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -8,11 +9,10 @@ import { useConfirm } from "../ui/confirm.tsx";
 import { EmptyState } from "../ui/empty.tsx";
 import { List, Row } from "../ui/list.tsx";
 import { Page } from "../ui/page.tsx";
-import { sentence } from "./parts.tsx";
+import { sentence, shortPath } from "./parts.tsx";
 import { LAST_DOC } from "./reader.tsx";
 
-// when a document came in, short: "Nov 24"
-// the day it came in, with the year when it isn't this one
+// the day a document came in, short ("Nov 24"), with the year when it isn't this one
 const added = (iso: string) => {
   const d = new Date(iso);
   const year = d.getFullYear() === new Date().getFullYear() ? undefined : "numeric";
@@ -30,6 +30,8 @@ export function NotesList() {
   const queryClient = useQueryClient();
   const [why, setWhy] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
+  // Select: the rows' ticks and Forget show; otherwise a row is one tap that opens it
+  const [selecting, setSelecting] = useState(false);
   const file = useRef<HTMLInputElement>(null);
   const docs = useQuery({
     queryKey: ["docs"],
@@ -89,6 +91,14 @@ export function NotesList() {
   const documents = docs.data?.documents ?? [];
   const opened = new Set(documents.map((d) => d.path).filter(Boolean));
   const offered = (files.data?.files ?? []).filter((f) => !opened.has(f.path));
+  // two names alike (two folders' plan.md): those rows show their whole path, so they can be told apart
+  const names = [...documents.map((d) => d.name), ...offered.map((f) => f.name)];
+  const clash = (name: string) => names.indexOf(name) !== names.lastIndexOf(name);
+  const where = (path: string, name: string) => (
+    <span className={clash(name) ? "font-mono min-w-0 break-all" : "font-mono min-w-0 truncate"} title={path}>
+      {clash(name) ? path : shortPath(path).replace(/\/[^/]*$/, "")}
+    </span>
+  );
   // filled only as the empty page's one next step; beside a list of documents it is a plain button
   const upload = (filled: boolean) => (
     <button type="button" className={filled ? "btn btn-primary" : "btn"} onClick={() => file.current?.click()}>
@@ -99,13 +109,29 @@ export function NotesList() {
   return (
     <Page
       title="Notes"
-      line={
-        documents.length > 1
-          ? "Open a document to read it and leave notes. Tick two or more to review them together."
-          : "Open a document to read it and leave notes on its words."
+      line="Read a document and leave notes on its words."
+      // with nothing here yet, Upload is the empty state's own button; Select once there are two to pick
+      actions={
+        documents.length > 0 && (
+          <>
+            {documents.length > 1 && (
+              <button
+                type="button"
+                className="btn"
+                aria-pressed={selecting}
+                title="Tick documents to review them together, or forget one"
+                onClick={() => {
+                  setSelecting((v) => !v);
+                  setPicked([]);
+                }}
+              >
+                {selecting ? "Done" : "Select"}
+              </button>
+            )}
+            {upload(false)}
+          </>
+        )
       }
-      // with nothing here yet, Upload is the empty state's own button
-      actions={documents.length > 0 && upload(false)}
     >
       <input
         ref={file}
@@ -144,8 +170,8 @@ export function NotesList() {
       ) : (
         documents.length > 0 && (
           <section className="grid gap-3" aria-label="My documents">
-            {/* one list: each document's name opens it; its line says where it is and when it came; its end holds
-                the tick for a set and the ✕ (out of sight under a mouse until the row is hovered) */}
+            {/* one list: each document's name opens it; its line says where it comes from (a chip) and its folder;
+                its end says when it came, or, while selecting, holds the tick for a set and the ✕ */}
             <List cols>
               {documents.map((d) => (
                 <Row
@@ -153,40 +179,43 @@ export function NotesList() {
                   to={`/notes/${d.id}`}
                   title={d.name}
                   line={
-                    <>
-                      {d.path ? <span className="font-mono break-all">{d.path}</span> : "Uploaded to kestrel"}
-                      {" · "}
-                      {added(d.addedAt)}
-                    </>
+                    <span className="notes-line">
+                      <span className="chip chip-caps tone-muted">{d.path ? "file" : "upload"}</span>
+                      {d.path && where(d.path, d.name)}
+                    </span>
                   }
                   end={
-                    <>
-                      <label className="notes-pick">
-                        <input
-                          type="checkbox"
-                          aria-label={`Pick ${d.name} for a set`}
-                          checked={picked.includes(d.id)}
-                          onChange={(e) =>
-                            setPicked((p) => (e.target.checked ? [...p, d.id] : p.filter((x) => x !== d.id)))
-                          }
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        className="card-remove"
-                        aria-label={`Forget ${d.name}`}
-                        title={`Forget ${d.name}`}
-                        disabled={forget.isPending && forget.variables?.id === d.id}
-                        onClick={() => forget.mutate(d)}
-                      >
-                        ✕
-                      </button>
-                    </>
+                    !selecting ? (
+                      <span className="font-mono text-small text-muted tabular-nums">{added(d.addedAt)}</span>
+                    ) : (
+                      <>
+                        <label className="notes-pick">
+                          <input
+                            type="checkbox"
+                            aria-label={`Pick ${d.name} for a set`}
+                            checked={picked.includes(d.id)}
+                            onChange={(e) =>
+                              setPicked((p) => (e.target.checked ? [...p, d.id] : p.filter((x) => x !== d.id)))
+                            }
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          className="card-remove"
+                          aria-label={`Forget ${d.name}`}
+                          title={`Forget ${d.name}`}
+                          disabled={forget.isPending && forget.variables?.id === d.id}
+                          onClick={() => forget.mutate(d)}
+                        >
+                          ✕
+                        </button>
+                      </>
+                    )
                   }
                 />
               ))}
             </List>
-            {picked.length >= 2 && (
+            {selecting && picked.length >= 2 && (
               <Link to={`/notes/set?ids=${picked.join(",")}`} className="btn btn-primary justify-self-start">
                 Review {picked.length} together →
               </Link>
@@ -204,13 +233,7 @@ export function NotesList() {
               <Row
                 key={f.path}
                 title={f.name}
-                line={
-                  open.isPending && open.variables?.payload.path === f.path ? (
-                    "Opening…"
-                  ) : (
-                    <span className="font-mono break-all">{f.path}</span>
-                  )
-                }
+                line={open.isPending && open.variables?.payload.path === f.path ? "Opening…" : where(f.path, f.name)}
                 onOpen={() => {
                   if (!open.isPending) open.mutate({ kind: "open", payload: { path: f.path } });
                 }}

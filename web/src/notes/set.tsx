@@ -1,5 +1,5 @@
-// Several documents reviewed together: notes on each, one ask, one overview that covers them all — and each
-// document's changes save on their own (the review's Save buttons, one per document).
+// Several documents reviewed together: notes on each, one Apply, one overview that covers them all — and each
+// document's changes save on their own (the review's Save buttons, one per document, each with its Keep or Drop).
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
@@ -7,7 +7,8 @@ import type { DocumentMeta, Draft, PlacedNote } from "../../../src/shared/notes.
 import { EmptyState } from "../ui/empty.tsx";
 import { List, Row } from "../ui/list.tsx";
 import { Page } from "../ui/page.tsx";
-import { type Pace, Speed, sentence, Writing } from "./parts.tsx";
+import { Apply } from "./apply.tsx";
+import type { Pace } from "./parts.tsx";
 import { Review } from "./review.tsx";
 
 export function NotesSet() {
@@ -30,14 +31,12 @@ export function NotesSet() {
   const notes = useQuery({
     queryKey: ["set-notes", ids.join(",")],
     queryFn: async () => {
-      const counts: Record<string, number> = {};
+      const all: Record<string, PlacedNote[]> = {};
       for (const id of ids) {
         const res = await fetch(`/api/notes/documents/${id}/notes`);
-        counts[id] = res.ok
-          ? ((await res.json()) as { notes: PlacedNote[] }).notes.filter((n) => n.state === "open").length
-          : 0;
+        all[id] = res.ok ? ((await res.json()) as { notes: PlacedNote[] }).notes : [];
       }
-      return counts;
+      return all;
     },
   });
   const draft = useQuery({
@@ -52,6 +51,7 @@ export function NotesSet() {
   });
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["draft", ids[0] ?? ""] });
+    queryClient.invalidateQueries({ queryKey: ["set-notes", ids.join(",")] });
     for (const id of ids) {
       queryClient.invalidateQueries({ queryKey: ["doc", id] });
       queryClient.invalidateQueries({ queryKey: ["notes", id] });
@@ -59,6 +59,9 @@ export function NotesSet() {
   };
   const ask = useMutation({
     mutationFn: async () => {
+      // Try again: the failed draft goes first, so only the new one stays
+      const failed = draft.data?.draft;
+      if (failed?.status === "failed") await fetch(`/api/notes/drafts/${failed.id}/discard`, { method: "POST" });
       const res = await fetch("/api/notes/ask", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -71,11 +74,11 @@ export function NotesSet() {
     onSettled: refresh,
   });
   const saveDoc = useMutation({
-    mutationFn: async (documentId: string) => {
+    mutationFn: async (input: { documentId: string; keep: number[] }) => {
       const res = await fetch(`/api/notes/drafts/${draft.data?.draft?.id}/save`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ document: documentId }),
+        body: JSON.stringify({ document: input.documentId, keep: input.keep }),
       });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
     },
@@ -89,6 +92,7 @@ export function NotesSet() {
     },
     onSettled: () => {
       setReview(false);
+      setWhy("");
       refresh();
     },
   });
@@ -102,6 +106,9 @@ export function NotesSet() {
     wasMaking.current = current?.status === "making";
   }, [current?.status]);
   const setDraft = current && ids.every((id) => current.documents.some((d) => d.id === id)) ? current : null;
+  const openNotes = Object.values(notes.data ?? {})
+    .flat()
+    .filter((n) => n.state === "open").length;
   const back = { to: "/notes?list=1", label: "Notes" };
   if (docs.data && picked.length === 0)
     return (
@@ -121,11 +128,11 @@ export function NotesSet() {
     <Page
       title="Review together"
       back={back}
-      line="One ask covers every document here; each one's changes save on their own."
+      line="One Apply covers every document here; each one's changes save on their own."
     >
       <List cols label="The documents">
         {picked.map((d) => {
-          const open = notes.data?.[d.id];
+          const open = notes.data?.[d.id]?.filter((n) => n.state === "open").length;
           return (
             <Row
               key={d.id}
@@ -140,38 +147,31 @@ export function NotesSet() {
           );
         })}
       </List>
-      <div className="flex flex-wrap items-center gap-2">
-        {(!setDraft || setDraft.status === "failed") && (
-          <>
-            <Speed value={speed} onChange={setSpeed} />
-            <button type="button" className="btn btn-primary" disabled={ask.isPending} onClick={() => ask.mutate()}>
-              Ask for changes on {ids.length} documents
-            </button>
-          </>
-        )}
-        {setDraft?.status === "making" && <Writing model={setDraft.model} />}
-        {setDraft?.status === "ready" && (
-          <button type="button" className="btn btn-primary" onClick={() => setReview(true)}>
-            Review the changes
-          </button>
-        )}
-        {setDraft?.status === "failed" && (
-          <button type="button" className="btn btn-danger" onClick={() => discard.mutate(setDraft.id)}>
-            Clear the failed ask
-          </button>
-        )}
+      <div className="grid justify-items-start gap-2">
+        <Apply
+          open={openNotes}
+          draft={setDraft}
+          speed={speed}
+          onSpeed={setSpeed}
+          onApply={() => ask.mutate()}
+          applying={ask.isPending}
+          askWhy={why}
+          onStop={() => setDraft && discard.mutate(setDraft.id)}
+          onReview={() => setReview(true)}
+          onDismiss={() => (setDraft?.status === "failed" ? discard.mutate(setDraft.id) : setWhy(""))}
+        />
       </div>
-      {(why || setDraft?.status === "failed") && (
-        <p role="alert" className="m-0 rounded-lg border border-line bg-warn-soft px-3 py-2 text-detail">
-          {sentence(why || setDraft?.error || "")}
-        </p>
-      )}
       {review && setDraft?.status === "ready" && (
         <Review
           draft={setDraft}
           targets={Object.fromEntries(picked.map((d) => [d.id, d.path ?? "the upload, kept in kestrel"]))}
           texts={Object.fromEntries(Object.entries(setDraft.perDocument).map(([k, v]) => [k, v.oldText]))}
-          onSave={(documentId) => saveDoc.mutate(documentId)}
+          noteText={Object.fromEntries(
+            Object.values(notes.data ?? {})
+              .flat()
+              .map((n) => [n.id, n.text]),
+          )}
+          onSave={(documentId, keep) => saveDoc.mutate({ documentId, keep })}
           saving={saveDoc.isPending}
           saveWhy={saveWhy}
           onDiscard={() => discard.mutate(setDraft.id)}
