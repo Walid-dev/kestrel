@@ -1,6 +1,7 @@
 // Drafts: Apply (the reader's button) starts one; the model answers in the set shape; the code places each change in the
 // original text; the draft waits in the database until I save or discard it. One draft is made at a time (the model
 // queue is serial anyway), and a set too long for the model is refused before any call, with what to do instead.
+// While the model works, the draft says how far it is (progress, below), so the screen can show more than a Stop.
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { changesPrompt, PROMPT_VERSION } from "../../ai/changes/prompt.ts";
@@ -25,7 +26,23 @@ export type DraftView = {
   unanswered: { note: string; reason: string }[];
   perDocument: Record<string, Placed & { oldText: string; newText: string; savedAt?: string }>;
   error: string;
+  // how many open notes the ask took
+  notes: number;
+  // while making: the step the work is at, the changes the model has written so far, and how long this model
+  // usually takes for it (null until it has done it twice)
+  step: Step | null;
+  written: number;
+  usualMs: number | null;
 };
+
+// the model reads (the document, the notes, its own thinking), then writes its answer, then the code places the
+// changes in the text (a moment)
+export type Step = "reading" | "writing" | "placing";
+
+// a draft being made, held in memory while its call runs: a draft still 'making' with no entry here outlived the call
+// that made it (kestrel restarted half-way), and is set failed, so no screen waits on it for ever
+const progress = new Map<string, { step: Step; written: number }>();
+const LOST = "kestrel restarted before the changes came back";
 
 type Request = { documents: { id: string; name: string; sha256: string }[]; notes: string[] };
 
@@ -43,12 +60,42 @@ function viewOf(r: Record<string, unknown>): DraftView {
     unanswered: answer?.unanswered ?? [],
     perDocument: placed,
     error: String(r.error ?? ""),
+    notes: request.notes.length,
+    step: null,
+    written: 0,
+    usualMs: null,
   };
+}
+
+// a draft as it is now: one being made gets its progress, or is set failed when nothing makes it any more
+function now(db: DatabaseSync, v: DraftView): DraftView {
+  if (v.status !== "making") return v;
+  const p = progress.get(v.id);
+  if (!p) {
+    db.prepare("UPDATE drafts SET status = 'failed', error = ? WHERE id = ? AND status = 'making'").run(LOST, v.id);
+    return { ...v, status: "failed", error: LOST };
+  }
+  return { ...v, step: p.step, written: p.written, usualMs: usualMs(db, v.model) };
+}
+
+// what this model usually takes to turn notes into changes: the middle of its last nine good answers, from the record
+// of calls (src/domain/calls.ts); null with fewer than two
+export function usualMs(db: DatabaseSync, model: string): number | null {
+  const ms = (
+    db
+      .prepare(
+        "SELECT ms FROM model_calls WHERE purpose LIKE 'changes:%' AND model = ? AND outcome = 'ok' ORDER BY at DESC LIMIT 9",
+      )
+      .all(model) as { ms: number }[]
+  )
+    .map((r) => r.ms)
+    .sort((a, b) => a - b);
+  return ms.length < 2 ? null : ms[Math.floor(ms.length / 2)];
 }
 
 export function getDraft(db: DatabaseSync, id: string): DraftView | null {
   const r = db.prepare("SELECT * FROM drafts WHERE id = ?").get(id) as Record<string, unknown> | undefined;
-  return r ? viewOf(r) : null;
+  return r ? now(db, viewOf(r)) : null;
 }
 
 // the latest draft that still involves this document
@@ -56,7 +103,7 @@ export function draftFor(db: DatabaseSync, documentId: string): DraftView | null
   const rows = db.prepare("SELECT * FROM drafts ORDER BY created_at DESC LIMIT 20").all() as Record<string, unknown>[];
   for (const r of rows) {
     const request = JSON.parse(String(r.request)) as Request;
-    if (request.documents.some((d) => d.id === documentId)) return viewOf(r);
+    if (request.documents.some((d) => d.id === documentId)) return now(db, viewOf(r));
   }
   return null;
 }
@@ -70,8 +117,12 @@ export function startDraft(
   settings: Settings,
   input: { documentIds: string[]; speed: "careful" | "fast" },
 ): { id: string; done: Promise<void> } {
-  const making = db.prepare("SELECT id FROM drafts WHERE status = 'making'").get();
-  if (making) throw new Refused("a draft is already being made: wait for it, or discard it first");
+  // a draft left 'making' by a restart (no call behind it) is set failed here, so it never blocks an ask elsewhere
+  const making = db.prepare("SELECT id FROM drafts WHERE status = 'making'").all() as { id: string }[];
+  const lose = db.prepare("UPDATE drafts SET status = 'failed', error = ? WHERE id = ? AND status = 'making'");
+  for (const m of making) if (!progress.has(m.id)) lose.run(LOST, m.id);
+  if (making.some((m) => progress.has(m.id)))
+    throw new Refused("a draft is already being made: wait for it, or discard it first");
   const documents: DocumentFull[] = [];
   for (const id of input.documentIds) {
     const doc = getDocument(db, id);
@@ -119,6 +170,8 @@ export function startDraft(
     model,
     JSON.stringify(request),
   );
+  const here = { step: "reading" as Step, written: 0 };
+  progress.set(id, here);
   const done = (async () => {
     const live = begin(
       "model",
@@ -126,7 +179,20 @@ export function startDraft(
       "/notes",
     );
     live.step(`${model} reads ${notes.length} note${notes.length === 1 ? "" : "s"}`);
-    const got = await callModel(effective, { model, system, prompt, thinking: true, maxTokens: 8000 }, Answer);
+    // the answer's first words end the reading; its changes are counted as they come (twice a second at most: the
+    // answer grows a token at a time)
+    let counted = 0;
+    const onText = (soFar: string) => {
+      if (here.step === "reading" && soFar.trim()) {
+        here.step = "writing";
+        live.step(`${model} writes the changes`);
+      }
+      if (Date.now() - counted < 500) return;
+      counted = Date.now();
+      here.written = soFar.match(/"find"\s*:/g)?.length ?? 0;
+    };
+    const got = await callModel(effective, { model, system, prompt, thinking: true, maxTokens: 8000, onText }, Answer);
+    here.step = "placing";
     live.end(got.ok ? "done" : "failed", got.ok ? "" : got.why);
     recordCall(db, `changes:v${PROMPT_VERSION}`, got);
     if (!got.ok) {
@@ -182,6 +248,6 @@ export function startDraft(
       JSON.stringify(perDocument),
       id,
     );
-  })();
+  })().finally(() => progress.delete(id));
   return { id, done };
 }

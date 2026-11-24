@@ -3939,43 +3939,140 @@ body:has(.paper-view) {
     padding: 56px 64px 96px;
   }
 }
+/* On paper: set like a well-made document. The page has no margin of its own, so the browser has no room for its
+   header and footer (the date, the title, the page's address with this computer's name: Chrome, Edge and Android's
+   Chrome print none); the margins are the paper's padding instead, repeated on every page (box-decoration-break).
+   Close type: 10.5 pt on 1.35, tight spacing, a heading kept with what follows it. */
 @media print {
   @page {
-    margin: 16mm 18mm;
+    margin: 0;
+  }
+  .paper-view {
+    min-height: 0;
   }
   .paper-bar {
     display: none;
   }
   .paper {
     max-width: none;
-    padding: 0;
-    font-size: 11pt;
-    line-height: 1.5;
+    padding: 15mm 17mm;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    font-size: 10.5pt;
+    line-height: 1.35;
   }
-  .paper .md-h1 {
-    font-size: 20pt;
+  /* Safari and the iPhone (WebKit, the one engine that knows the -apple-system-body font) may not repeat a block's
+     padding on each page, so there the margins stay the page's own; its header and footer are off unless asked for
+     in its print dialog */
+  @supports (font: -apple-system-body) {
+    @page {
+      margin: 15mm 17mm;
+    }
+    .paper {
+      padding: 0;
+    }
   }
-  .paper .md-h2 {
-    font-size: 15pt;
-  }
-  .paper .md-h3 {
-    font-size: 12.5pt;
+  .paper .md :where(p, ul, ol, blockquote, pre, .md-table, hr) {
+    margin-bottom: 6pt;
   }
   .paper .md-h {
-    margin-top: 18pt;
+    margin: 12pt 0 4pt;
     break-after: avoid;
+  }
+  .paper .md-h1 {
+    font-size: 18pt;
+    line-height: 1.2;
+  }
+  .paper .md-h2 {
+    font-size: 13pt;
+    line-height: 1.25;
+  }
+  .paper .md-h3 {
+    font-size: 11pt;
+    line-height: 1.3;
+  }
+  .paper .md-list {
+    padding-left: 1.2em;
+  }
+  .paper ol.md-list {
+    padding-left: 1.7em;
+  }
+  .paper .md-list > li + li,
+  .paper .md-list .md-list {
+    margin-top: 2pt;
+  }
+  .paper .md-list .md-list {
+    margin-bottom: 0;
+  }
+  .paper .md-list > li::marker {
+    color: var(--strong);
   }
   .paper :where(.md-pre, .md-table, .md-quote, li) {
     break-inside: avoid;
   }
   .paper .md-pre {
+    padding: 5pt 7pt;
+    font-size: 8.5pt;
+    line-height: 1.35;
     white-space: pre-wrap;
+  }
+  .paper .md-code {
+    font-size: 9pt;
+  }
+  .paper ol.md-list > li::marker {
+    font-size: 9.5pt;
+  }
+  .paper .md-list > li > p {
+    margin-bottom: 3pt;
   }
   .paper .md-table {
     overflow: visible;
   }
+  /* a table fits the page's width: its cells wrap rather than run past the margin */
+  .paper .md-table table {
+    width: 100%;
+    font-size: 9.5pt;
+    line-height: 1.3;
+  }
+  .paper .md-table :where(th, td) {
+    max-width: none;
+    padding: 3pt 6pt;
+  }
   .paper .md-link {
     color: inherit;
+    text-decoration: none;
+  }
+  /* a CV (print.tsx's startsLikeCv): the name large, the lines under it (a role, a contact line) small, headings in
+     capitals over a thin rule, a role's line (one short line over its list, marked .paper-role) in bold with its dates */
+  .paper-cv .md > .md-p:first-child {
+    margin-bottom: 4pt;
+    font-size: 9.5pt;
+    line-height: 1.4;
+    color: var(--muted);
+  }
+  .paper-cv .md > .md-p:first-child::first-line {
+    font-size: 20pt;
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--strong);
+  }
+  .paper-cv .md-h3 {
+    margin: 11pt 0 5pt;
+    padding-bottom: 2pt;
+    border-bottom: 0.75pt solid var(--strong);
+    font: 600 9.5pt / 1.3 var(--sans);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--strong);
+  }
+  .paper-cv .md > .paper-role {
+    margin: 7pt 0 2pt;
+    font-weight: 600;
+    color: var(--strong);
+    break-after: avoid;
+  }
+  .paper-cv .md-h3 + .paper-role {
+    margin-top: 0;
   }
 }
 /* the Note button by the picked words: where they are is known only at run time (--x, --y, set by the reader). It
@@ -4195,6 +4292,74 @@ body:has(.paper-view) {
 }
 .note-bar .note-apply-pair {
   gap: 8px;
+}
+/* the model at work (apply.tsx's Working). In the column: what it does and the time so far, the model and what it
+   usually takes, the steps (done ✓ in green, the one under way a pulsing dot, the next muted), then the hint and a
+   quiet Stop. In the phone's bar: the step on one line, the model and the time under it, Stop beside them */
+.note-work-col {
+  display: grid;
+  gap: 4px;
+}
+.note-work-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.note-work-steps {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 2px;
+  padding: 0;
+  list-style: none;
+}
+.note-work-steps > li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: start;
+  gap: 6px;
+  font: 400 var(--text-detail) / var(--text-detail--line-height) var(--sans);
+  color: var(--muted);
+}
+.note-work-steps > li[data-state="now"] {
+  font-weight: 500;
+  color: var(--strong);
+}
+.note-work-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 1lh;
+}
+.note-work-steps > li[data-state="done"] .note-work-mark {
+  color: var(--green);
+}
+.note-work-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-top: 2px;
+}
+.note-work-now {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: var(--strong);
+}
+.note-work-meta {
+  display: block;
+  padding-left: 15px;
+  font: 400 var(--text-small) / var(--text-small--line-height) var(--sans);
+  color: var(--muted);
+}
+/* a phone on its side: one row, the time after the step */
+@media (max-width: 63.99rem) and (max-height: 500px) {
+  .note-bar .note-work-meta {
+    display: inline;
+    padding-left: 4px;
+  }
 }
 /* the review: each change the model placed as a block (the note it answers, Keep or Drop, its own short diff), on
    the card's ground over the wide box's page ground */

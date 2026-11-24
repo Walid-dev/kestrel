@@ -7,7 +7,8 @@
 // anything else stays text. kestrel keeps every document as LF text; a CRLF line still reads right (its \r sits
 // outside the line's words).
 
-// how a document reads: Markdown; a PDF's or a plain text's lines, each kept; or code, as written
+// how a document reads: Markdown; a PDF's or a plain text's lines (a line that only goes on with the sentence above
+// joins it); or code, as written
 export type DocKind = "markdown" | "lines" | "code";
 
 const MARKDOWN = new Set(["md", "markdown", "mdown", "mkd", "mdx"]);
@@ -537,11 +538,15 @@ function table(src: string, lines: Ln[], i: number, out: Block[]): number {
   return j;
 }
 
-// ---- a PDF's or a plain text's lines: each kept, a bullet at a line's start a list item ----
+// ---- a PDF's or a plain text's lines: a bullet at a line's start a list item, a sentence's pieces joined ----
+// A PDF's text keeps the printed line breaks, so a sentence that wrapped on the page comes in pieces: a line that only
+// goes on with the sentence above it joins that paragraph or list item (continues, below); every other line keeps its
+// own line.
 
-// first-level bullets, and second-level ones that sit under a first-level item when one is just above (\uf0b7 and
-// \uf0a7 are the bullets of Word's Symbol and Wingdings fonts, as a PDF's text may carry them)
-const LINE_BULLET = /^[ \t]*(?:([•◦▪‣●○■–\uf0b7\uf0a7])[ \t]*(?=\S)|([-*])[ \t]+(?=\S))/;
+// first-level bullets, and second-level ones that sit under a first-level item when one is just above (\uf0b7,
+// \uf0a7, \uf076, \uf0d8 and \uf0fc are the bullets of Word's Symbol and Wingdings fonts, as a PDF's text may carry
+// them)
+const LINE_BULLET = /^[ \t]*(?:([•◦▪‣●○■–·►▸➢➤✓✔\uf0b7\uf0a7\uf076\uf0d8\uf0fc])[ \t]*(?=\S)|([-*])[ \t]+(?=\S))/;
 const SECOND = new Set(["◦", "○", "–"]);
 
 // a section's title in a PDF's text, as a CV prints it: a short line in capitals ("EXPERIENCE", "SKILLS & TOOLS"),
@@ -559,6 +564,31 @@ function capsTitle(line: string): boolean {
   );
 }
 
+// the small words a wrapped line may end on mid-sentence ("…and wrote the" / "Field handbook…")
+const JOINER = /(?:^|\s)(?:and|or|of|the|a|an|to|with|for|in|on|at|by|from|as|that|which|into|via|across|including)$/;
+// a line that starts with an address of its own: a web address ("example.org/me", "https://…") or an email
+const OWN_ADDRESS = /^(?:[a-z0-9-]+(?:\.[a-z0-9-]+)+\/|https?:|www\.|[^\s@]+@[^\s@]+\.\w)/i;
+
+// a role's line: a date range ("2016 to 2020", "Jan 2020 – Present") or fields split by " | "
+const ROLE =
+  /(?:19|20)\d\d\s*(?:[-–—]|to)\s*(?:(?:\p{L}{3,9}\.?\s*)?(?:19|20)\d\d|present|now|today|current)\b|\s\|\s/iu;
+
+// does this line only go on with the sentence of the line above? Yes when it starts with a word in lower case ("iOS"
+// and "eBay" start a line of their own), or when the line above left a bracket open or ends on a comma, a hyphen or a
+// small word (and, of, the…). A line above that merely runs long proves nothing: a CV's bullets often end with no full
+// stop. Never for a heading, a bullet, an address, a role's line or a line under a heading: a name, a role and a
+// contact line keep their own lines.
+function continues(above: string, line: string): boolean {
+  if (!above || !line || LINE_BULLET.test(line) || capsTitle(line) || capsTitle(above) || OWN_ADDRESS.test(line))
+    return false;
+  if (ROLE.test(line)) return false;
+  const open = (above.match(/\(/g)?.length ?? 0) > (above.match(/\)/g)?.length ?? 0);
+  return /^\p{Ll}+(?![\p{L}\d])/u.test(line) || open || /(?:[,&+]|\p{L}-)$/u.test(above) || JOINER.test(above);
+}
+
+// a line's words, and whether they go on from the line before (on) rather than start a line of their own
+type Seg = Ln & { on?: boolean };
+
 function lineBlocks(src: string, lines: Ln[]): Block[] {
   const out: Block[] = [];
   const slugs: Slugs = new Map();
@@ -568,6 +598,7 @@ function lineBlocks(src: string, lines: Ln[]): Block[] {
     while (e > l.s && isSpace(src[e - 1])) e--;
     return { s: indent(src, l).at, e };
   };
+  const goesOn = (above: Ln, l: Ln) => continues(src.slice(above.s, above.e), src.slice(l.s, l.e));
   let i = 0;
   while (i < lines.length) {
     if (blank(src, lines[i])) {
@@ -583,23 +614,28 @@ function lineBlocks(src: string, lines: Ln[]): Block[] {
         if (!b) break;
         const w = words(lines[i]);
         const at = lines[i].s + b[0].length;
+        // the item's sentence may go on in the lines under it
+        const segs: Seg[] = [{ s: at, e: w.e }];
+        while (i + 1 < lines.length && !blank(src, lines[i + 1]) && goesOn(segs[segs.length - 1], words(lines[i + 1])))
+          segs.push({ ...words(lines[++i]), on: true });
+        const end = segs[segs.length - 1].e;
         const item: Item = {
           from: w.s,
-          to: w.e,
+          to: end,
           check: null,
-          blocks: [{ k: "para", from: at, to: w.e, runs: lineRuns(src, [{ s: at, e: w.e }]) }],
+          blocks: [{ k: "para", from: at, to: end, runs: lineRuns(src, segs) }],
         };
         const ch = b[1] ?? b[2];
         if (SECOND.has(ch) && lastTop && !lastTop.second) {
           const kids = lastTop.item.blocks;
           let sub = kids.at(-1);
           if (sub?.k !== "list") {
-            sub = { k: "list", from: w.s, to: w.e, ordered: false, start: 1, tight: true, items: [] };
+            sub = { k: "list", from: w.s, to: end, ordered: false, start: 1, tight: true, items: [] };
             kids.push(sub);
           }
           sub.items.push(item);
-          sub.to = w.e;
-          lastTop.item.to = w.e;
+          sub.to = end;
+          lastTop.item.to = end;
         } else {
           items.push(item);
           lastTop = { item, second: SECOND.has(ch) };
@@ -615,19 +651,26 @@ function lineBlocks(src: string, lines: Ln[]): Block[] {
       i++;
       continue;
     }
-    const segs: Ln[] = [];
-    for (; i < lines.length && !blank(src, lines[i]) && !bulletOf(lines[i]) && !title(lines[i]); i++)
-      segs.push(words(lines[i]));
+    const segs: Seg[] = [];
+    for (; i < lines.length && !blank(src, lines[i]) && !bulletOf(lines[i]) && !title(lines[i]); i++) {
+      const w = words(lines[i]);
+      const above = segs[segs.length - 1];
+      segs.push(above && goesOn(above, w) ? { ...w, on: true } : w);
+    }
     out.push({ k: "para", from: segs[0].s, to: segs[segs.length - 1].e, runs: lineRuns(src, segs) });
   }
   return out;
 }
 
-// one line after another, a break between them; only bare addresses become links (a PDF's text has no other marks)
-function lineRuns(src: string, segs: Ln[]): Run[] {
+// one line after another, a break between them, or for a line that goes on from the one above, the line's end read as
+// a space (nothing after a hyphen: "mid-" and "size" read "mid-size"); only bare addresses become links (a PDF's text
+// has no other marks)
+function lineRuns(src: string, segs: Seg[]): Run[] {
   const out: Run[] = [];
   segs.forEach((g, n) => {
-    if (n > 0) out.push({ k: "br", at: segs[n - 1].e });
+    const above = segs[n - 1];
+    if (above && !g.on) out.push({ k: "br", at: above.e });
+    else if (above && !/\p{L}-$/u.test(src.slice(above.s, above.e))) push(out, leaf("text", src, above.e, g.s));
     let lit = g.s;
     for (let i = g.s; i < g.e; i++) {
       if (i > g.s && !/[\s(]/.test(src[i - 1])) continue;

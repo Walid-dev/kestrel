@@ -1,5 +1,6 @@
-// The reader: the document rendered the way VS Code previews Markdown (a PDF's text keeps its lines), through the one
-// part every document shares (ui/doc.tsx): Read, Edit, and Side by side on a computer, with Download and Save as PDF.
+// The reader: the document rendered the way VS Code previews Markdown (a PDF's text keeps its lines, but a line that
+// only goes on with the sentence above joins it), through the one part every document shares (ui/doc.tsx): Read,
+// Edit, and Side by side on a computer, with Download and Save as PDF.
 // My notes show as marks on the rendered words and as a list beside. Selecting words notes exactly those words of the
 // source; a tap on a paragraph notes the paragraph; a button takes a note on the whole document; the sheet is a
 // native dialog. Apply (apply.tsx) sits where the notes are: at the head of their column on a computer, in a bar at
@@ -68,8 +69,6 @@ export function Reader() {
   const [review, setReview] = useState(false);
   // what the review dropped, by draft: closing the box by accident keeps my picks (a new draft has a new id)
   const [dropped, setDropped] = useState<Record<string, Record<string, number[]>>>({});
-  // how many notes the running Apply took, to name them while the model works
-  const [asked, setAsked] = useState<number>();
   const [askWhy, setAskWhy] = useState("");
   // the last save of the model's changes, said at Apply's place until I close it or leave a new note
   const [applied, setApplied] = useState<AppliedSave | null>(null);
@@ -377,14 +376,10 @@ export function Reader() {
   const applyProps = {
     open: openNotes,
     draft: current,
-    asked,
     editing: !reading,
     speed,
     onSpeed: setSpeed,
-    onApply: () => {
-      setAsked(openNotes);
-      ask.mutate();
-    },
+    onApply: () => ask.mutate(),
     applying: ask.isPending,
     askWhy,
     onStop: async () => {

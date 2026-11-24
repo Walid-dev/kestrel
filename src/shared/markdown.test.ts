@@ -3,7 +3,7 @@
 // raw HTML stays text, and only http(s):, mailto: and relative links open. A PDF's text keeps its lines and its bullets.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { type Block, bare, docKind, leaves, parse, plain, type Run, safeHref } from "./markdown.ts";
+import { type Block, bare, docKind, type Item, leaves, parse, plain, type Run, safeHref } from "./markdown.ts";
 
 // a compact picture of what was parsed: blocks by kind, runs by kind, words in quotes
 const show = (rs: Run[]): string =>
@@ -275,6 +275,93 @@ test("a PDF's text keeps its lines, and a line starting with •, ◦, ▪ or �
     plain((parse("C++ *and* __init__", "lines")[0] as Extract<Block, { k: "para" }>).runs),
     "C++ *and* __init__",
   );
+});
+
+test("a PDF's line that only goes on with the sentence above joins it; a name, a role, a contact line keep theirs", () => {
+  const mail = ["sam", "example.org"].join("@"); // built here: the guard refuses an address written whole
+  const cv = [
+    "Sam Placeholder",
+    "Senior Orchard Engineer · Porto",
+    `${mail} · example.org/sam`,
+    "SUMMARY",
+    "Engineer with ten years of building irrigation for mid-",
+    "size growers, mostly on hillside plots where water is scarce and the season is short, and I lead the",
+    "Field team. I write the tools they use.",
+    "EXPERIENCE",
+    "Lead Engineer, Example Growers — 2021 to now",
+    "• Designed the drip network for 120 hectares across three valleys, cutting water use by 35% while keeping yields",
+    "steady through two dry summers.",
+    "• Built the planner (Weather, Ripeness,",
+    "Truck slots) and trained twelve leads.",
+    "• Kept 60 hectares running",
+    "Orchard Engineer, Another Farm — 2017 to 2021",
+  ].join("\n");
+  const bs = parse(cv, "lines");
+  holds(cv, bs);
+  const text = (b: Block | Item) =>
+    plain(("blocks" in b ? (b.blocks[0] as Extract<Block, { k: "para" }>) : (b as Extract<Block, { k: "para" }>)).runs);
+  // the head keeps its three lines (two breaks), the summary reads as one paragraph, "mid-" and "size" as "mid-size"
+  assert.equal(
+    shape([bs[0]])[0],
+    `p "Sam Placeholder" ⏎ "Senior Orchard Engineer · Porto" ⏎ "${mail} · example.org/sam"`,
+  );
+  assert.equal(
+    text(bs[2]).replace(/\s+/g, " "),
+    "Engineer with ten years of building irrigation for mid-size growers, mostly on hillside plots where water is scarce and the season is short, and I lead the Field team. I write the tools they use.",
+  );
+  // each bullet's sentence comes back whole; a short item and the next role line stay apart
+  const list = bs[5] as Extract<Block, { k: "list" }>;
+  assert.deepEqual(
+    list.items.map((it) => text(it).replace(/\s+/g, " ")),
+    [
+      "Designed the drip network for 120 hectares across three valleys, cutting water use by 35% while keeping yields steady through two dry summers.",
+      "Built the planner (Weather, Ripeness, Truck slots) and trained twelve leads.",
+      "Kept 60 hectares running",
+    ],
+  );
+  assert.equal(shape([bs[6]])[0], 'p "Orchard Engineer, Another Farm — 2017 to 2021"');
+  // a joined line's end is read as a space, never drawn as a break
+  assert.ok(!JSON.stringify(list.items[0].blocks).includes('"br"'));
+});
+
+test("a long line with no full stop never swallows the next: a role line, the languages, iOS keep their lines", () => {
+  const cv = [
+    "Ada Example",
+    "Data Engineer",
+    "EXPERIENCE",
+    "Senior Data Engineer, Some Corp — 2020 to now",
+    "• Cut the warehouse bill by a third by moving cold tables to cheaper storage and pruning old partitions",
+    "Data Engineer, Other Corp — 2016 to 2020",
+    "• Moved the reports to a shared toolkit,",
+    "Lead | Remote | Jan 2015 – Present",
+    "• Built the reading app for",
+    "iOS and Android",
+    "• Kept the app at 4.8 stars",
+    "iOS builds shipped every week",
+    "SKILLS",
+    "Python, SQL, Airflow, dbt, Spark, Kafka, Terraform, Docker, Kubernetes, Looker, Snowflake, BigQuery",
+    "French (native), English (fluent), Spanish (working)",
+  ].join("\n");
+  const bs = parse(cv, "lines");
+  holds(cv, bs);
+  // each block as one line: a list's items split by " / ", a kept line break drawn as ⏎, a joined line's end a space
+  const flat = (rs: Run[]): string =>
+    rs.map((r) => ("kids" in r ? flat(r.kids) : r.k === "br" ? " ⏎ " : r.text.replace(/\s+/g, " "))).join("");
+  const text = (b: Block): string =>
+    b.k === "list" ? `ul ${b.items.map((it) => text(it.blocks[0])).join(" / ")}` : "runs" in b ? flat(b.runs) : b.k;
+  assert.deepEqual(bs.map(text), [
+    "Ada Example ⏎ Data Engineer",
+    "EXPERIENCE",
+    "Senior Data Engineer, Some Corp — 2020 to now",
+    "ul Cut the warehouse bill by a third by moving cold tables to cheaper storage and pruning old partitions",
+    "Data Engineer, Other Corp — 2016 to 2020",
+    "ul Moved the reports to a shared toolkit,",
+    "Lead | Remote | Jan 2015 – Present",
+    "ul Built the reading app for iOS and Android / Kept the app at 4.8 stars",
+    "iOS builds shipped every week",
+    "SKILLS",
+    "Python, SQL, Airflow, dbt, Spark, Kafka, Terraform, Docker, Kubernetes, Looker, Snowflake, BigQuery ⏎ French (native), English (fluent), Spanish (working)",
+  ]);
 });
 
 test("how a document reads follows its name: Markdown, a PDF's or a text's lines, or code", () => {

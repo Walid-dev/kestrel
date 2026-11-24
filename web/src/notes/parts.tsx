@@ -65,15 +65,3 @@ export const paceOf = (model: string): Pace =>
 
 // "the note", "3 notes"
 export const notesWord = (n: number) => (n === 1 ? "the note" : `${n} notes`);
-
-// the model at work on the notes, named by its pace
-export function Writing({ model, notes }: { model: string; notes?: number }) {
-  return (
-    <span className="flex min-w-0 items-center gap-2 text-detail text-muted" role="status">
-      <span className="dot tone-accent pulse shrink-0" />
-      <span className="min-w-0">
-        The {paceOf(model)} model is applying {notes === undefined ? "your notes" : notesWord(notes)}…
-      </span>
-    </span>
-  );
-}

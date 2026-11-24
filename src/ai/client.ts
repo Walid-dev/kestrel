@@ -19,6 +19,7 @@ export type Call = {
   maxTokens?: number;
   thinking?: boolean; // oMLX's enable_thinking: the fast model follows shapes poorly without it
   timeoutMs?: number; // tests set it; otherwise the limit grows with the request
+  onText?: (soFar: string) => void; // hears the answer grow, for a screen that shows the work's progress
 };
 
 // a conversation: what the model is (with the page it helps on), then the turns so far, mine last
@@ -132,14 +133,18 @@ export async function callModel<T>(settings: ModelSettings, call: Call, shape: z
     ms: Date.now() - started,
     model: call.model,
   });
-  const got = await stream(settings, {
-    model: call.model,
-    system: call.system,
-    messages: [{ role: "user", content: call.prompt }],
-    maxTokens: call.maxTokens,
-    thinking: call.thinking,
-    timeoutMs: call.timeoutMs,
-  });
+  const got = await stream(
+    settings,
+    {
+      model: call.model,
+      system: call.system,
+      messages: [{ role: "user", content: call.prompt }],
+      maxTokens: call.maxTokens,
+      thinking: call.thinking,
+      timeoutMs: call.timeoutMs,
+    },
+    call.onText,
+  );
   if (!got.ok) return fail(got.why, got.detail);
   const { finish, tokensIn, tokensOut } = got;
   const text = visible(got.text);

@@ -40,4 +40,10 @@ export type Draft = {
   unanswered: { note: string; reason: string }[];
   perDocument: Record<string, DraftDocumentResult>;
   error: string;
+  // how many notes the ask took; while making, the step it is at (the model reads, writes, then the code places the
+  // changes), the changes written so far, and what this model usually takes in ms (null until known)
+  notes: number;
+  step: "reading" | "writing" | "placing" | null;
+  written: number;
+  usualMs: number | null;
 };

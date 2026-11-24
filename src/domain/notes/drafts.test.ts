@@ -8,9 +8,10 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { startStandIn } from "../../ai/stand-in.ts";
 import { migrate } from "../../db/migrate.ts";
+import { finished } from "../../platform/activity.ts";
 import type { Settings } from "../../platform/config.ts";
 import { addUpload } from "./documents.ts";
-import { discardDraft, draftFor, getDraft, startDraft } from "./drafts.ts";
+import { discardDraft, draftFor, getDraft, startDraft, usualMs } from "./drafts.ts";
 import { addNote } from "./notes.ts";
 
 function setup() {
@@ -53,6 +54,57 @@ test("a draft is made, placed, and still there until discarded", async () => {
   assert.equal(draftFor(db, doc.id)?.id, made.id); // leaving and reopening the app finds it again
   discardDraft(db, made.id);
   assert.equal(getDraft(db, made.id), null);
+});
+
+test("a draft being made says how far it is; one left 'making' by a restart fails instead of waiting for ever", async () => {
+  const db = setup();
+  const doc = addUpload(db, "a.md", "Alpha beta gamma.");
+  addNote(db, doc.id, { text: "shorter", quote: "" });
+  addNote(db, doc.id, { text: "plainer", quote: "beta" });
+  const answer = JSON.stringify({ overview: "a.md: nothing.", changes: [], unanswered: [] });
+  const s = await startStandIn(() => ({ content: answer, delayMs: 200 }));
+  const first = startDraft(db, settings(s.url), { documentIds: [doc.id], speed: "fast" });
+  const making = getDraft(db, first.id);
+  assert.deepEqual([making?.notes, making?.step, making?.written, making?.usualMs], [2, "reading", 0, null]);
+  await first.done;
+  assert.equal(getDraft(db, first.id)?.step, null); // ready: nothing in progress
+  // Live heard both steps: the reading, then the writing once the answer's first words came
+  assert.deepEqual(
+    finished()[0]?.steps.map((st) => st.text),
+    ["fast-model reads 2 notes", "fast-model writes the changes"],
+  );
+  // what the model usually takes is known from its second good answer on
+  discardDraft(db, first.id);
+  await startDraft(db, settings(s.url), { documentIds: [doc.id], speed: "fast" }).done;
+  await s.close();
+  assert.ok((usualMs(db, "fast-model") ?? 0) >= 200);
+  assert.equal(usualMs(db, "careful-model"), null);
+  // a draft row still 'making' that no running call holds: kestrel restarted while the model worked
+  db.prepare(
+    "INSERT INTO drafts (id, created_at, status, model, request) VALUES ('lost', '2026-01-01T00:00:00Z', 'making', 'fast-model', ?)",
+  ).run(JSON.stringify({ documents: [{ id: doc.id, name: "a.md", sha256: "x" }], notes: [] }));
+  const lost = getDraft(db, "lost");
+  assert.equal(lost?.status, "failed");
+  assert.match(lost?.error ?? "", /restarted/);
+  assert.equal(getDraft(db, "lost")?.status, "failed"); // and it stays so
+});
+
+test("a draft left 'making' by a restart on one document never blocks an ask on another", async () => {
+  const db = setup();
+  const a = addUpload(db, "a.md", "Alpha beta gamma.");
+  const b = addUpload(db, "b.md", "Delta epsilon.");
+  addNote(db, b.id, { text: "shorter", quote: "" });
+  // nothing reads a.md's draft before the ask on b.md: the ask itself sets it failed
+  db.prepare(
+    "INSERT INTO drafts (id, created_at, status, model, request) VALUES ('lost', '2026-01-01T00:00:00Z', 'making', 'fast-model', ?)",
+  ).run(JSON.stringify({ documents: [{ id: a.id, name: "a.md", sha256: "x" }], notes: [] }));
+  const answer = JSON.stringify({ overview: "b.md: nothing.", changes: [], unanswered: [] });
+  const s = await startStandIn(() => ({ content: answer }));
+  const made = startDraft(db, settings(s.url), { documentIds: [b.id], speed: "fast" });
+  await made.done;
+  await s.close();
+  assert.equal(getDraft(db, made.id)?.status, "ready");
+  assert.match(getDraft(db, "lost")?.error ?? "", /restarted/);
 });
 
 test("one draft at a time, and a too-long set is refused before any call", async () => {
