@@ -171,7 +171,7 @@ const took = (ms: number) => {
 };
 // what a model usually takes, rounded as one says it: "about 40s", "about 3 min"
 const about = (ms: number) =>
-  ms < 60_000 ? `about ${Math.round(ms / 10_000) * 10 || 10}s` : `about ${Math.round(ms / 60_000)} min`;
+  ms < 55_000 ? `about ${Math.round(ms / 10_000) * 10 || 10}s` : `about ${Math.max(1, Math.round(ms / 60_000))} min`;
 
 // the clock, once a second while the work runs
 function useNow(): number {
@@ -191,12 +191,19 @@ function Working({ draft, bar, onStop }: { draft: Draft; bar: boolean; onStop: (
   const now = useNow();
   const pace = paceOf(draft.model);
   const so = took(now - Date.parse(draft.createdAt));
-  const usual = draft.usualMs === null ? "" : `usually ${about(draft.usualMs)}`;
+  // one way to say it on the phone and the computer; the careful model takes minutes until its own times are known
+  const usual = draft.usualMs !== null ? `usually ${about(draft.usualMs)}` : pace === "careful" ? "a few minutes" : "";
   const writing = draft.step === "writing" || draft.step === "placing";
   const written = draft.written > 0 ? ` · ${draft.written} so far` : "";
   // what the model reads: one document, or a set's
   const what = `${draft.documents.length > 1 ? `the ${draft.documents.length} documents` : "the document"} and ${notesWord(draft.notes)}`;
   const doing = writing ? `Writing the changes${written}` : `Reading ${what}`;
+  // what a screen reader hears: the step, once when it changes (never the clock, which ticks every second)
+  const said = (
+    <span className="sr-only" role="status">
+      {writing ? "Writing the changes" : `Reading ${what}`}
+    </span>
+  );
   const stop = (
     <div className="note-apply-acts">
       <button type="button" className="btn btn-sm btn-quiet" onClick={onStop}>
@@ -206,7 +213,8 @@ function Working({ draft, bar, onStop }: { draft: Draft; bar: boolean; onStop: (
   );
   if (bar)
     return (
-      <div className="note-apply-box note-work tone-accent" role="status">
+      <div className="note-apply-box note-work tone-accent">
+        {said}
         <p className="note-apply-say">
           <span className="note-work-now">
             <span className="dot pulse" aria-hidden="true" />
@@ -226,7 +234,8 @@ function Working({ draft, bar, onStop }: { draft: Draft; bar: boolean; onStop: (
     { text: "You check each one, then Save", state: "next" },
   ];
   return (
-    <div className="note-apply-box note-work-col tone-accent" role="status">
+    <div className="note-apply-box note-work-col tone-accent">
+      {said}
       <div className="note-work-head">
         <p className="m-0 text-detail font-medium text-strong">Applying {notesWord(draft.notes)}</p>
         <span className="font-mono text-small text-ink tabular-nums" title="The time so far">
@@ -234,7 +243,7 @@ function Working({ draft, bar, onStop }: { draft: Draft; bar: boolean; onStop: (
         </span>
       </div>
       <p className="m-0 text-small text-muted">
-        The {pace} model{usual ? ` · ${usual}` : pace === "careful" ? " · a few minutes" : ""}
+        The {pace} model{usual && ` · ${usual}`}
       </p>
       <ol className="note-work-steps">
         {steps.map((st) => (

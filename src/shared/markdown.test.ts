@@ -290,7 +290,7 @@ test("a PDF's line that only goes on with the sentence above joins it; a name, a
     "EXPERIENCE",
     "Lead Engineer, Example Growers — 2021 to now",
     "• Designed the drip network for 120 hectares across three valleys, cutting water use by 35% while keeping yields",
-    "Steady through two dry summers.",
+    "steady through two dry summers.",
     "• Built the planner (Weather, Ripeness,",
     "Truck slots) and trained twelve leads.",
     "• Kept 60 hectares running",
@@ -314,7 +314,7 @@ test("a PDF's line that only goes on with the sentence above joins it; a name, a
   assert.deepEqual(
     list.items.map((it) => text(it).replace(/\s+/g, " ")),
     [
-      "Designed the drip network for 120 hectares across three valleys, cutting water use by 35% while keeping yields Steady through two dry summers.",
+      "Designed the drip network for 120 hectares across three valleys, cutting water use by 35% while keeping yields steady through two dry summers.",
       "Built the planner (Weather, Ripeness, Truck slots) and trained twelve leads.",
       "Kept 60 hectares running",
     ],
@@ -322,6 +322,46 @@ test("a PDF's line that only goes on with the sentence above joins it; a name, a
   assert.equal(shape([bs[6]])[0], 'p "Orchard Engineer, Another Farm — 2017 to 2021"');
   // a joined line's end is read as a space, never drawn as a break
   assert.ok(!JSON.stringify(list.items[0].blocks).includes('"br"'));
+});
+
+test("a long line with no full stop never swallows the next: a role line, the languages, iOS keep their lines", () => {
+  const cv = [
+    "Ada Example",
+    "Data Engineer",
+    "EXPERIENCE",
+    "Senior Data Engineer, Some Corp — 2020 to now",
+    "• Cut the warehouse bill by a third by moving cold tables to cheaper storage and pruning old partitions",
+    "Data Engineer, Other Corp — 2016 to 2020",
+    "• Moved the reports to a shared toolkit,",
+    "Lead | Remote | Jan 2015 – Present",
+    "• Built the reading app for",
+    "iOS and Android",
+    "• Kept the app at 4.8 stars",
+    "iOS builds shipped every week",
+    "SKILLS",
+    "Python, SQL, Airflow, dbt, Spark, Kafka, Terraform, Docker, Kubernetes, Looker, Snowflake, BigQuery",
+    "French (native), English (fluent), Spanish (working)",
+  ].join("\n");
+  const bs = parse(cv, "lines");
+  holds(cv, bs);
+  // each block as one line: a list's items split by " / ", a kept line break drawn as ⏎, a joined line's end a space
+  const flat = (rs: Run[]): string =>
+    rs.map((r) => ("kids" in r ? flat(r.kids) : r.k === "br" ? " ⏎ " : r.text.replace(/\s+/g, " "))).join("");
+  const text = (b: Block): string =>
+    b.k === "list" ? `ul ${b.items.map((it) => text(it.blocks[0])).join(" / ")}` : "runs" in b ? flat(b.runs) : b.k;
+  assert.deepEqual(bs.map(text), [
+    "Ada Example ⏎ Data Engineer",
+    "EXPERIENCE",
+    "Senior Data Engineer, Some Corp — 2020 to now",
+    "ul Cut the warehouse bill by a third by moving cold tables to cheaper storage and pruning old partitions",
+    "Data Engineer, Other Corp — 2016 to 2020",
+    "ul Moved the reports to a shared toolkit,",
+    "Lead | Remote | Jan 2015 – Present",
+    "ul Built the reading app for iOS and Android / Kept the app at 4.8 stars",
+    "iOS builds shipped every week",
+    "SKILLS",
+    "Python, SQL, Airflow, dbt, Spark, Kafka, Terraform, Docker, Kubernetes, Looker, Snowflake, BigQuery ⏎ French (native), English (fluent), Spanish (working)",
+  ]);
 });
 
 test("how a document reads follows its name: Markdown, a PDF's or a text's lines, or code", () => {

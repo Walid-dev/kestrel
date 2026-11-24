@@ -1,5 +1,6 @@
-// The reader: the document rendered the way VS Code previews Markdown (a PDF's text keeps its lines), through the one
-// part every document shares (ui/doc.tsx): Read, Edit, and Side by side on a computer, with Download and Save as PDF.
+// The reader: the document rendered the way VS Code previews Markdown (a PDF's text keeps its lines, but a line that
+// only goes on with the sentence above joins it), through the one part every document shares (ui/doc.tsx): Read,
+// Edit, and Side by side on a computer, with Download and Save as PDF.
 // My notes show as marks on the rendered words and as a list beside. Selecting words notes exactly those words of the
 // source; a tap on a paragraph notes the paragraph; a button takes a note on the whole document; the sheet is a
 // native dialog. Apply (apply.tsx) sits where the notes are: at the head of their column on a computer, in a bar at

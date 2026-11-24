@@ -89,6 +89,24 @@ test("a draft being made says how far it is; one left 'making' by a restart fail
   assert.equal(getDraft(db, "lost")?.status, "failed"); // and it stays so
 });
 
+test("a draft left 'making' by a restart on one document never blocks an ask on another", async () => {
+  const db = setup();
+  const a = addUpload(db, "a.md", "Alpha beta gamma.");
+  const b = addUpload(db, "b.md", "Delta epsilon.");
+  addNote(db, b.id, { text: "shorter", quote: "" });
+  // nothing reads a.md's draft before the ask on b.md: the ask itself sets it failed
+  db.prepare(
+    "INSERT INTO drafts (id, created_at, status, model, request) VALUES ('lost', '2026-01-01T00:00:00Z', 'making', 'fast-model', ?)",
+  ).run(JSON.stringify({ documents: [{ id: a.id, name: "a.md", sha256: "x" }], notes: [] }));
+  const answer = JSON.stringify({ overview: "b.md: nothing.", changes: [], unanswered: [] });
+  const s = await startStandIn(() => ({ content: answer }));
+  const made = startDraft(db, settings(s.url), { documentIds: [b.id], speed: "fast" });
+  await made.done;
+  await s.close();
+  assert.equal(getDraft(db, made.id)?.status, "ready");
+  assert.match(getDraft(db, "lost")?.error ?? "", /restarted/);
+});
+
 test("one draft at a time, and a too-long set is refused before any call", async () => {
   const db = setup();
   const doc = addUpload(db, "a.md", "Alpha beta gamma.");

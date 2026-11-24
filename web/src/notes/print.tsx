@@ -7,9 +7,9 @@
 // by itself. On paper it is set like a well-made document (styles.css, "Save as PDF"): no browser header or footer
 // (the date, the title, the page's address), close type, and a CV's look for a document that starts like one.
 import { useQuery } from "@tanstack/react-query";
-import { type ReactNode, useEffect, useMemo, useRef } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { Link, useParams } from "react-router";
-import { type DocKind, docKind, parse } from "../../../src/shared/markdown.ts";
+import { type DocKind, docKind, parse, wordsRange } from "../../../src/shared/markdown.ts";
 import type { DocumentFull } from "../../../src/shared/notes.ts";
 import { Markdown } from "../ui/markdown.tsx";
 
@@ -41,14 +41,20 @@ const HOW: Record<Device, ReactNode> = {
 
 // a document that starts like a CV: a PDF's (or a text's) lines whose first line is short and ends no sentence (a
 // name), with section headings further on. On paper the name is large, the lines under it small (a role, a contact
-// line), the headings take a rule, and a line over a list (a role and its dates) is bold.
-function startsLikeCv(text: string, kind: DocKind): boolean {
-  if (kind !== "lines") return false;
+// line), the headings take a rule, and a role's line is bold: a single short line just over a list (a role and its
+// dates), never a summary or a longer lead-in. Null for any other document; else where each role's line starts.
+function cvRoles(text: string, kind: DocKind): Set<number> | null {
+  if (kind !== "lines") return null;
   const blocks = parse(text, kind);
   const name = text.trimStart().split("\n", 1)[0].trim();
-  return (
-    blocks[0]?.k === "para" && name.length <= 40 && !/[.!?:;,]$/.test(name) && blocks.some((b) => b.k === "heading")
-  );
+  if (blocks[0]?.k !== "para" || name.length > 40 || /[.!?:;,]$/.test(name) || !blocks.some((b) => b.k === "heading"))
+    return null;
+  const roles = new Set<number>();
+  blocks.forEach((b, i) => {
+    const r = b.k === "para" && blocks[i + 1]?.k === "list" ? wordsRange(b.runs) : null;
+    if (r && r[1] - r[0] <= 90 && !text.slice(r[0], r[1]).includes("\n")) roles.add(r[0]);
+  });
+  return roles;
 }
 
 export function NotesPrint() {
@@ -88,7 +94,14 @@ export function NotesPrint() {
     };
   }, [doc.data]);
 
-  const cv = useMemo(() => (doc.data ? startsLikeCv(doc.data.text, docKind(doc.data.name)) : false), [doc.data]);
+  const cv = useMemo(() => (doc.data ? cvRoles(doc.data.text, docKind(doc.data.name)) : null), [doc.data]);
+  // a role's line takes its class here: the shared Markdown part draws every paragraph alike, each with where its
+  // words start (data-from)
+  const paper = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    for (const p of paper.current?.querySelectorAll<HTMLElement>(".md > .md-p") ?? [])
+      p.classList.toggle("paper-role", cv?.has(Number(p.dataset.from)) ?? false);
+  }, [cv]);
   if (doc.isError)
     return (
       <div className="paper-view">
@@ -108,7 +121,7 @@ export function NotesPrint() {
           {on === "iphone" ? "Print" : "Save as PDF"}
         </button>
       </div>
-      <article className={cv ? "paper paper-cv" : "paper"}>
+      <article ref={paper} className={cv ? "paper paper-cv" : "paper"}>
         <Markdown text={doc.data.text} kind={docKind(doc.data.name)} />
       </article>
     </div>

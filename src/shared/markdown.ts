@@ -7,7 +7,8 @@
 // anything else stays text. kestrel keeps every document as LF text; a CRLF line still reads right (its \r sits
 // outside the line's words).
 
-// how a document reads: Markdown; a PDF's or a plain text's lines, each kept; or code, as written
+// how a document reads: Markdown; a PDF's or a plain text's lines (a line that only goes on with the sentence above
+// joins it); or code, as written
 export type DocKind = "markdown" | "lines" | "code";
 
 const MARKDOWN = new Set(["md", "markdown", "mdown", "mkd", "mdx"]);
@@ -537,7 +538,7 @@ function table(src: string, lines: Ln[], i: number, out: Block[]): number {
   return j;
 }
 
-// ---- a PDF's or a plain text's lines: each kept, a bullet at a line's start a list item ----
+// ---- a PDF's or a plain text's lines: a bullet at a line's start a list item, a sentence's pieces joined ----
 // A PDF's text keeps the printed line breaks, so a sentence that wrapped on the page comes in pieces: a line that only
 // goes on with the sentence above it joins that paragraph or list item (continues, below); every other line keeps its
 // own line.
@@ -568,21 +569,21 @@ const JOINER = /(?:^|\s)(?:and|or|of|the|a|an|to|with|for|in|on|at|by|from|as|th
 // a line that starts with an address of its own: a web address ("example.org/me", "https://…") or an email
 const OWN_ADDRESS = /^(?:[a-z0-9-]+(?:\.[a-z0-9-]+)+\/|https?:|www\.|[^\s@]+@[^\s@]+\.\w)/i;
 
-// does this line only go on with the sentence of the line above? Yes when it starts in lower case, when the line
-// above left a bracket open or ends on a comma, a hyphen or a small word (and, of, the…), or when the line above
-// was full (near the text's longest line, measure) without ending its sentence. Never for a heading, a bullet, an
-// address or a line under a heading: a name, a role and a contact line keep their own lines.
-function continues(above: string, line: string, measure: number): boolean {
+// a role's line: a date range ("2016 to 2020", "Jan 2020 – Present") or fields split by " | "
+const ROLE =
+  /(?:19|20)\d\d\s*(?:[-–—]|to)\s*(?:(?:\p{L}{3,9}\.?\s*)?(?:19|20)\d\d|present|now|today|current)\b|\s\|\s/iu;
+
+// does this line only go on with the sentence of the line above? Yes when it starts with a word in lower case ("iOS"
+// and "eBay" start a line of their own), or when the line above left a bracket open or ends on a comma, a hyphen or a
+// small word (and, of, the…). A line above that merely runs long proves nothing: a CV's bullets often end with no full
+// stop. Never for a heading, a bullet, an address, a role's line or a line under a heading: a name, a role and a
+// contact line keep their own lines.
+function continues(above: string, line: string): boolean {
   if (!above || !line || LINE_BULLET.test(line) || capsTitle(line) || capsTitle(above) || OWN_ADDRESS.test(line))
     return false;
+  if (ROLE.test(line)) return false;
   const open = (above.match(/\(/g)?.length ?? 0) > (above.match(/\)/g)?.length ?? 0);
-  return (
-    /^\p{Ll}/u.test(line) ||
-    open ||
-    /(?:[,&+]|\p{L}-)$/u.test(above) ||
-    JOINER.test(above) ||
-    (measure >= 50 && above.length >= measure * 0.85 && !/[.!?:;]$/.test(above))
-  );
+  return /^\p{Ll}+(?![\p{L}\d])/u.test(line) || open || /(?:[,&+]|\p{L}-)$/u.test(above) || JOINER.test(above);
 }
 
 // a line's words, and whether they go on from the line before (on) rather than start a line of their own
@@ -597,10 +598,7 @@ function lineBlocks(src: string, lines: Ln[]): Block[] {
     while (e > l.s && isSpace(src[e - 1])) e--;
     return { s: indent(src, l).at, e };
   };
-  // how long a full line runs in this text: its longest line, leaving out the very long ones (sentences an upload
-  // already joined, a pasted paragraph)
-  const measure = lines.reduce((m, l) => (l.e - l.s <= 140 ? Math.max(m, l.e - l.s) : m), 0);
-  const goesOn = (above: Ln, l: Ln) => continues(src.slice(above.s, above.e), src.slice(l.s, l.e), measure);
+  const goesOn = (above: Ln, l: Ln) => continues(src.slice(above.s, above.e), src.slice(l.s, l.e));
   let i = 0;
   while (i < lines.length) {
     if (blank(src, lines[i])) {

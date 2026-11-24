@@ -3838,6 +3838,17 @@ body:has(.paper-view) {
     font-size: 10.5pt;
     line-height: 1.35;
   }
+  /* Safari and the iPhone (WebKit, the one engine that knows the -apple-system-body font) may not repeat a block's
+     padding on each page, so there the margins stay the page's own; its header and footer are off unless asked for
+     in its print dialog */
+  @supports (font: -apple-system-body) {
+    @page {
+      margin: 15mm 17mm;
+    }
+    .paper {
+      padding: 0;
+    }
+  }
   .paper .md :where(p, ul, ol, blockquote, pre, .md-table, hr) {
     margin-bottom: 6pt;
   }
@@ -3909,7 +3920,7 @@ body:has(.paper-view) {
     text-decoration: none;
   }
   /* a CV (print.tsx's startsLikeCv): the name large, the lines under it (a role, a contact line) small, headings in
-     capitals over a thin rule, a role's line (the one over its list) in bold with its dates */
+     capitals over a thin rule, a role's line (one short line over its list, marked .paper-role) in bold with its dates */
   .paper-cv .md > .md-p:first-child {
     margin-bottom: 4pt;
     font-size: 9.5pt;
@@ -3931,13 +3942,13 @@ body:has(.paper-view) {
     text-transform: uppercase;
     color: var(--strong);
   }
-  .paper-cv .md > .md-p:has(+ .md-list) {
+  .paper-cv .md > .paper-role {
     margin: 7pt 0 2pt;
     font-weight: 600;
     color: var(--strong);
     break-after: avoid;
   }
-  .paper-cv .md-h3 + .md-p:has(+ .md-list) {
+  .paper-cv .md-h3 + .paper-role {
     margin-top: 0;
   }
 }

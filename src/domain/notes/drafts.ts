@@ -117,8 +117,12 @@ export function startDraft(
   settings: Settings,
   input: { documentIds: string[]; speed: "careful" | "fast" },
 ): { id: string; done: Promise<void> } {
-  const making = db.prepare("SELECT id FROM drafts WHERE status = 'making'").get();
-  if (making) throw new Refused("a draft is already being made: wait for it, or discard it first");
+  // a draft left 'making' by a restart (no call behind it) is set failed here, so it never blocks an ask elsewhere
+  const making = db.prepare("SELECT id FROM drafts WHERE status = 'making'").all() as { id: string }[];
+  const lose = db.prepare("UPDATE drafts SET status = 'failed', error = ? WHERE id = ? AND status = 'making'");
+  for (const m of making) if (!progress.has(m.id)) lose.run(LOST, m.id);
+  if (making.some((m) => progress.has(m.id)))
+    throw new Refused("a draft is already being made: wait for it, or discard it first");
   const documents: DocumentFull[] = [];
   for (const id of input.documentIds) {
     const doc = getDocument(db, id);
