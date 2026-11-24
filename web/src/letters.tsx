@@ -8,8 +8,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Ask } from "./ask.tsx";
-import { enterSends } from "./keys.ts";
+import { Card } from "./ui/card.tsx";
 import { useConfirm } from "./ui/confirm.tsx";
+import { Doc } from "./ui/doc.tsx";
+import { EmptyState } from "./ui/empty.tsx";
+import { Field } from "./ui/field.tsx";
+import { Page } from "./ui/page.tsx";
 
 type Job = { id: string; title: string; org: string; state: string; at: string };
 type Kind = "letter" | "answer" | "text";
@@ -26,10 +30,16 @@ type TryRow = {
   // the PDF's file name, when the try made one
   pdf?: string | null;
 };
-const KINDS: [Kind, string, string][] = [
-  ["letter", "Cover letter", ""],
-  ["answer", "An answer", "Paste the form's question, like: Why do you want to work here?"],
-  ["text", "Any text", "Say what to write, like: a three-line note to the recruiter about my start date"],
+// each kind: its name on the choice, the box's name, and what to type in it
+const KINDS: [Kind, string, string, string][] = [
+  ["letter", "Cover letter", "", ""],
+  ["answer", "An answer", "The form's question", "Paste the form's question, like: Why do you want to work here?"],
+  [
+    "text",
+    "Any text",
+    "What to write",
+    "Say what to write, like: a three-line note to the recruiter about my start date",
+  ],
 ];
 const KIND_NAME: Record<Kind, string> = { letter: "Letter", answer: "Answer", text: "Text" };
 type Try = TryRow & {
@@ -71,6 +81,9 @@ const STATE_TONE: Record<string, string> = {
 };
 const when = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+// the server's reasons start in lower case, as they read in its log; on the page they start a sentence
+const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const ASK_MAX = 4000; // the server's limit on a question or a brief
 
 async function send(url: string, method: string, body: unknown) {
   const res = await fetch(url, { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -107,7 +120,7 @@ export function Writing() {
     refetchInterval: (query) => (query.state.data?.some((t) => t.state === "running") ? 2000 : false),
   });
   const shown = pickedTry ?? tries.data?.[0]?.id ?? null;
-  // a try goes with the ✕ on its row; the one on show gives way to the newest left
+  // a try goes with the ✕ on its card; the one on show gives way to the newest left
   const sure = useConfirm();
   const forget = useMutation({
     mutationFn: async (id: string) => {
@@ -141,67 +154,61 @@ export function Writing() {
 
   const list = (jobs.data ?? []).filter((j) => `${j.title} ${j.org}`.toLowerCase().includes(q.trim().toLowerCase()));
   const running = tries.data?.some((t) => t.state === "running");
+  const ready = Boolean(job && files.data?.ready);
   const t = one.data;
+  const box = KINDS.find(([k]) => k === kind);
 
   return (
-    <main className="grid gap-4">
-      <header className="grid gap-2">
-        <h2 className="font-cond m-0 text-[40px] font-bold uppercase leading-none tracking-tight">Writing</h2>
-        <p className="m-0 max-w-3xl text-[16px] leading-relaxed" style={{ color: "var(--muted)" }}>
-          A cover letter, the answer to a form's question, or any text for a job, written exactly the way an application
-          writes it and checked the same. Change your voice or stories below, write again, compare.
-        </p>
-      </header>
+    <Page
+      title="Writing"
+      line="A cover letter, the answer to a form's question, or any text for a job, written exactly the way an application writes it and checked the same. Change your voice or stories below, write again, compare."
+    >
       {files.data && !files.data.ready && (
-        <p className="m-0 rounded-xl px-4 py-3 text-sm" style={{ background: "var(--warn-soft)" }}>
-          The lab can't write yet: {files.data.why}.
-        </p>
+        <EmptyState
+          title="Writing can't start yet."
+          line="It writes from the applications' folder (your voice, your stories, your profile) and follows the apply skill's letter step. Set both in kestrel's settings."
+          detail={files.data.why}
+        />
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(300px,380px)_1fr]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(300px,380px)_minmax(0,1fr)]">
         {/* the job, and its tries */}
-        <section className="grid content-start gap-3">
-          <div className="card grid gap-3 !p-4">
-            <h3 className="font-cond m-0 text-[19px] font-bold" style={{ color: "var(--strong)" }}>
-              The job
-            </h3>
-            <input
-              type="search"
-              className="btn"
-              placeholder="Search your applications"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-            <div className="grid max-h-[360px] gap-1.5 overflow-y-auto">
-              {list.map((j) => (
-                <button
-                  key={j.id}
-                  type="button"
-                  className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left"
-                  style={{
-                    background: job === j.id ? "var(--accent-soft)" : "var(--surface-2)",
-                    boxShadow: job === j.id ? "0 0 0 1px var(--accent)" : undefined,
-                  }}
-                  onClick={() => {
-                    setJob(j.id);
-                    setParams({});
-                  }}
-                >
-                  <span className={`dot ${STATE_TONE[j.state] ?? "tone-muted"}`} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-semibold" style={{ color: "var(--strong)" }}>
-                      {j.title}
+        <section className="grid content-start gap-5">
+          <Card>
+            <h2 className="font-cond m-0 text-head font-bold">The job</h2>
+            <Field label="Search your applications" value={q} onChange={setQ} />
+            {jobs.data && list.length === 0 ? (
+              <p className="m-0 text-detail text-muted">
+                {q.trim()
+                  ? "No application has those words."
+                  : "No jobs yet: one shows here once you apply for it, or mark it Interested."}
+              </p>
+            ) : (
+              // at most half the screen, so a phone turned sideways still scrolls the page around it
+              <div className="grid max-h-[min(440px,50vh)] gap-2 overflow-y-auto">
+                {list.map((j) => (
+                  <button
+                    key={j.id}
+                    type="button"
+                    className="tile"
+                    aria-pressed={job === j.id}
+                    onClick={() => {
+                      setJob(j.id);
+                      setParams({});
+                    }}
+                  >
+                    <b className="truncate">{j.title}</b>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className={`dot ${STATE_TONE[j.state] ?? "tone-muted"}`} />
+                      <span className="truncate">
+                        {j.org} · {j.state.replace("-", " ")}
+                      </span>
                     </span>
-                    <span className="block truncate text-[12.5px]" style={{ color: "var(--muted)" }}>
-                      {j.org} · {j.state.replace("-", " ")}
-                    </span>
-                  </span>
-                </button>
-              ))}
-            </div>
-            <h3 className="font-cond m-0 mt-1 text-[19px] font-bold" style={{ color: "var(--strong)" }}>
-              What to write
-            </h3>
+                  </button>
+                ))}
+              </div>
+            )}
+            <h2 className="font-cond m-0 text-head font-bold">What to write</h2>
             <fieldset className="seg" aria-label="What to write">
               {KINDS.map(([k, label]) => (
                 <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)}>
@@ -209,218 +216,123 @@ export function Writing() {
                 </button>
               ))}
             </fieldset>
-            {kind !== "letter" && (
-              <textarea
-                className="btn min-h-[80px] !rounded-xl !px-3.5 !py-2.5 text-[15px] leading-relaxed"
-                placeholder={KINDS.find(([k]) => k === kind)?.[2]}
+            {kind === "letter" || !box ? (
+              <button
+                type="button"
+                className="btn btn-primary btn-big inline-flex w-full items-center justify-center gap-2"
+                disabled={!ready || write.isPending || running}
+                onClick={() => write.mutate()}
+              >
+                {(running || write.isPending) && <span className="spin" />}
+                {running ? "Writing…" : "Write it"}
+              </button>
+            ) : (
+              <Field
+                label={box[2]}
+                placeholder={box[3]}
                 value={ask}
-                maxLength={4000}
-                onChange={(e) => setAsk(e.target.value)}
-                enterKeyHint="send"
-                onKeyDown={enterSends(
-                  () => job && files.data?.ready && !write.isPending && !running && ask.trim() && write.mutate(),
-                )}
+                onChange={(v) => setAsk(v.slice(0, ASK_MAX))}
+                // the words can be typed before a job is picked; only the send waits for it
+                onSend={() => ready && write.mutate()}
+                sendLabel="Write it"
+                busy={write.isPending || running}
+                hint={
+                  running
+                    ? "Writing…"
+                    : !job
+                      ? "Pick a job above, then Enter writes it"
+                      : "Enter writes it · Shift+Enter for a new line"
+                }
+                tall
               />
             )}
-            <button
-              type="button"
-              className="btn btn-primary btn-big inline-flex w-full items-center justify-center gap-2"
-              disabled={!job || !files.data?.ready || write.isPending || running || (kind !== "letter" && !ask.trim())}
-              onClick={() => write.mutate()}
-            >
-              {(running || write.isPending) && <span className="spin" />}
-              {running ? "Writing…" : "Write it"}
-            </button>
-            {write.isError && (
-              <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-                {(write.error as Error).message}
-              </p>
-            )}
-          </div>
+            {write.isError && <p className="m-0 text-detail text-red">{sentence((write.error as Error).message)}</p>}
+          </Card>
           {job && (tries.data?.length ?? 0) > 0 && (
-            <div className="card grid gap-1.5 !p-4">
-              <h3 className="font-cond m-0 mb-1 text-[19px] font-bold" style={{ color: "var(--strong)" }}>
-                Tries
-              </h3>
+            <section className="grid gap-3">
+              <h2 className="font-cond m-0 text-head font-bold">Tries</h2>
               {tries.data?.map((x) => (
-                <div
+                <Card
                   key={x.id}
-                  className="relative flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[14.5px]"
-                  style={{
-                    background: shown === x.id ? "var(--accent-soft)" : "var(--surface-2)",
-                    boxShadow: shown === x.id ? "0 0 0 1px var(--accent)" : undefined,
-                    opacity: forget.isPending && forget.variables === x.id ? 0.5 : undefined,
-                  }}
+                  // a letter is named by its job, an answer or a text by what was asked
+                  title={<span className="line-clamp-2">{x.ask || x.title}</span>}
+                  tone={shown === x.id ? "accent" : undefined}
+                  busy={forget.isPending && forget.variables === x.id}
+                  meta={
+                    <>
+                      <span className="chip chip-caps tone-purple">{KIND_NAME[x.kind] ?? "Letter"}</span>
+                      {x.state === "failed" && <span className="chip chip-caps tone-red">Failed</span>}
+                      {x.state === "running" && (
+                        <span className="chip chip-caps tone-yellow">
+                          <span className="dot pulse" /> Writing
+                        </span>
+                      )}
+                      <span className="ml-auto text-small text-muted">{when(x.started)}</span>
+                    </>
+                  }
+                  onOpen={() => setParams({ try: x.id })}
+                  removeLabel="Delete this try"
+                  onRemove={
+                    x.state === "running"
+                      ? undefined
+                      : async () => {
+                          const yes = await sure({
+                            title: "Delete this try?",
+                            // name only what goes: a failed try wrote nothing, and only a letter can have a PDF
+                            body: x.pdf
+                              ? "Its text and its PDF are deleted too."
+                              : x.state === "done"
+                                ? "Its text is deleted too."
+                                : undefined,
+                            yes: "Delete",
+                            danger: true,
+                          });
+                          if (yes) forget.mutate(x.id);
+                        }
+                  }
                 >
-                  <span
-                    className={`dot ${x.state === "done" ? "tone-green" : x.state === "failed" ? "tone-red" : "tone-yellow pulse"}`}
-                  />
-                  <span className="chip tone-purple shrink-0">{KIND_NAME[x.kind] ?? "Letter"}</span>
-                  <button
-                    type="button"
-                    className="card-open min-w-0 flex-1 truncate text-left"
-                    style={{ color: "var(--text)", font: "inherit" }}
-                    onClick={() => setParams({ try: x.id })}
-                  >
-                    {x.ask || when(x.started)}
-                  </button>
-                  <span className="shrink-0 text-[12.5px]" style={{ color: "var(--muted)" }}>
-                    {x.state === "running" ? x.step : x.state === "done" ? when(x.started) : x.state}
-                  </span>
-                  {x.state !== "running" && (
-                    <button
-                      type="button"
-                      className="card-remove"
-                      aria-label="Delete this try"
-                      title="Delete"
-                      onClick={async () => {
-                        const yes = await sure({
-                          title: "Delete this try?",
-                          // name only what goes: a failed try wrote nothing, and only a letter can have a PDF
-                          body: x.pdf
-                            ? "Its text and its PDF are deleted too."
-                            : x.state === "done"
-                              ? "Its text is deleted too."
-                              : undefined,
-                          yes: "Delete",
-                          danger: true,
-                        });
-                        if (yes) forget.mutate(x.id);
-                      }}
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
+                  {x.state === "running" ? `${x.step || "Starting"}…` : undefined}
+                </Card>
               ))}
               {/* a refused delete (a try still being written) says so: the box named what would go */}
               {forget.isError && (
-                <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-                  The delete didn't land: {(forget.error as Error).message}
-                </p>
+                <p className="m-0 text-detail text-red">The delete didn't land: {(forget.error as Error).message}</p>
               )}
-            </div>
+            </section>
           )}
         </section>
 
         {/* the try: the letter, what the check said, the PDF */}
-        <section className="grid content-start gap-3">
-          {!t && (
-            <p className="m-0 text-sm" style={{ color: "var(--muted)" }}>
-              Pick a job, choose what to write, and write it.
-            </p>
-          )}
+        <section className="grid content-start gap-4">
+          {!shown &&
+            (!job ? (
+              <EmptyState
+                title="Pick a job to write for."
+                line="Then choose what to write, and write it. The text, what the check said and the PDF show here."
+              />
+            ) : (
+              tries.data && (
+                <EmptyState title="Nothing written for this job yet." line="Choose what to write, then Write it." />
+              )
+            ))}
           {t && t.state === "running" && (
-            <div className="card flex items-center gap-3">
-              <span className="dot tone-green pulse" />
-              <span>
-                <b style={{ color: "var(--strong)" }}>{t.title}</b>
-                <span style={{ color: "var(--muted)" }}> · {t.step || "Starting"}…</span>
+            <Card>
+              <span className="flex items-center gap-3">
+                <span className="dot tone-green pulse" />
+                <span>
+                  <b className="text-strong">{t.title}</b>
+                  <span className="text-muted"> · {t.step || "Starting"}…</span>
+                </span>
               </span>
-            </div>
+            </Card>
           )}
           {t && t.state === "failed" && (
-            <p className="m-0 rounded-xl px-4 py-3 text-sm" style={{ background: "var(--warn-soft)" }}>
-              {t.error}
-            </p>
+            // the try itself, its chips and date, is the open card in the list: here only why it failed
+            <Card title="Why it failed">
+              <span className="text-ink">{sentence(t.error)}</span>
+            </Card>
           )}
-          {t && t.state === "done" && (
-            <>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-cond text-[20px] font-bold" style={{ color: "var(--strong)" }}>
-                  {t.title}
-                </span>
-                <span className="eyebrow ml-auto">
-                  {when(t.started)} · {t.notes.model}
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {t.notes.checked === false ? (
-                  <span className="chip tone-muted">Not checked: set apply.check</span>
-                ) : t.notes.findings ? (
-                  <span className="chip tone-orange">The check still names something</span>
-                ) : (
-                  <span className="chip tone-green">The check names nothing</span>
-                )}
-                {(t.notes.fixed?.length ?? 0) > 0 && (
-                  <span className="chip tone-accent">
-                    Fixed {t.notes.fixed?.length} time{t.notes.fixed?.length === 1 ? "" : "s"}
-                  </span>
-                )}
-                {t.notes.stepFound === false && (
-                  <span className="chip tone-red">The skill's letter step wasn't found</span>
-                )}
-              </div>
-              {t.notes.review && <ReviewBox r={t.notes.review} />}
-              {(t.notes.needs?.length ?? 0) > 0 && (
-                <div className="read-box tone-accent grid gap-1">
-                  <span className="eyebrow" style={{ color: "var(--accent)" }}>
-                    What it answered
-                  </span>
-                  {t.notes.needs?.map((n, i) => (
-                    <p key={n} className="m-0 text-[14px]">
-                      <b style={{ color: "var(--strong)" }}>{n}</b>
-                      {t.notes.stories?.[i] && <span style={{ color: "var(--muted)" }}> · {t.notes.stories[i]}</span>}
-                    </p>
-                  ))}
-                </div>
-              )}
-              {t.kind !== "letter" && t.ask && (
-                <p className="m-0 text-[14px]" style={{ color: "var(--muted)" }}>
-                  {t.kind === "answer" ? "The question: " : "Asked for: "}
-                  <span style={{ color: "var(--text)" }}>{t.ask}</span>
-                </p>
-              )}
-              <div className={`grid gap-3 ${t.kind === "letter" ? "xl:grid-cols-2" : ""}`}>
-                <article
-                  className="card whitespace-pre-wrap text-[15px] leading-relaxed"
-                  style={{ color: "var(--strong)" }}
-                >
-                  {t.text}
-                </article>
-                {t.kind !== "letter" ? null : t.notes.pdf ? (
-                  <div className="grid gap-1.5">
-                    <iframe
-                      title="The PDF"
-                      src={`/api/letters/${t.id}/pdf`}
-                      className="w-full rounded-2xl border"
-                      style={{ height: "70vh", borderColor: "var(--line)", background: "#fff" }}
-                    />
-                    <a
-                      href={`/api/letters/${t.id}/pdf`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-quiet justify-self-start"
-                    >
-                      Open the PDF ↗
-                    </a>
-                  </div>
-                ) : (
-                  <p className="m-0 rounded-xl px-4 py-3 text-sm" style={{ background: "var(--warn-soft)" }}>
-                    No PDF: {t.notes.pdfNote || "the PDF tool made none"}
-                  </p>
-                )}
-              </div>
-              {t.notes.pdf && t.notes.pdfNote && (
-                <p className="m-0 text-sm" style={{ color: "var(--warn)" }}>
-                  The PDF tool said: {t.notes.pdfNote}
-                </p>
-              )}
-              {(t.notes.findings || (t.notes.fixed?.length ?? 0) > 0) && (
-                <details className="card">
-                  <summary className="cursor-pointer text-[14px] font-semibold">What the check said</summary>
-                  <pre className="mt-2 whitespace-pre-wrap text-[13px]" style={{ color: "var(--muted)" }}>
-                    {[
-                      ...(t.notes.fixed ?? []).map((f, i) => `Before fix ${i + 1}:\n${f}`),
-                      t.notes.findings ? `Still:\n${t.notes.findings}` : "",
-                    ]
-                      .filter(Boolean)
-                      .join("\n\n")}
-                  </pre>
-                </details>
-              )}
-            </>
-          )}
+          {t && t.state === "done" && <TryView t={t} />}
           {files.data?.ready && <YourFiles />}
         </section>
       </div>
@@ -438,21 +350,114 @@ export function Writing() {
           ]}
         />
       )}
-    </main>
+    </Page>
   );
 }
 
-// my voice and my stories, the files every application reads: reworked in Notes (select words, note what should
-// change, turn the notes into an edit I review), every save kept as a version I can bring back
+// a try that wrote: what the check and the review said, what it answered, the text, and a letter's PDF beside it
+function TryView({ t }: { t: Try }) {
+  const fixed = t.notes.fixed?.length ?? 0;
+  return (
+    <>
+      <div className="grid gap-2">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 className="font-cond m-0 text-head font-bold">{t.title}</h2>
+          <span className="ml-auto text-small text-muted">
+            {when(t.started)}
+            {t.notes.model ? ` · ${t.notes.model}` : ""}
+          </span>
+        </div>
+        {/* the check's state, in the chips' one voice */}
+        <div className="flex flex-wrap gap-1.5">
+          {t.notes.checked === false ? (
+            <span className="chip chip-caps tone-muted">Not checked</span>
+          ) : t.notes.findings ? (
+            <span className="chip chip-caps tone-orange">The check names something</span>
+          ) : (
+            <span className="chip chip-caps tone-green">Check passed</span>
+          )}
+          {fixed > 0 && (
+            <span className="chip chip-caps tone-accent">
+              Fixed {fixed} time{fixed === 1 ? "" : "s"}
+            </span>
+          )}
+          {t.notes.stepFound === false && (
+            <span className="chip chip-caps tone-red">The skill's letter step wasn't found</span>
+          )}
+        </div>
+        {t.notes.checked === false && (
+          <p className="m-0 text-small text-muted">The applications' check isn't set up in kestrel's settings.</p>
+        )}
+      </div>
+      {t.notes.review && <ReviewBox r={t.notes.review} />}
+      {(t.notes.needs?.length ?? 0) > 0 && (
+        <div className="read-box tone-accent grid gap-1">
+          <span className="eyebrow tone-accent">What it answered</span>
+          {t.notes.needs?.map((n, i) => (
+            <p key={n} className="m-0 text-detail">
+              <b className="text-strong">{n}</b>
+              {t.notes.stories?.[i] && <span className="text-muted"> · {t.notes.stories[i]}</span>}
+            </p>
+          ))}
+        </div>
+      )}
+      {t.kind !== "letter" && t.ask && (
+        <p className="m-0 text-detail text-muted">
+          {t.kind === "answer" ? "The question: " : "Asked for: "}
+          <span className="text-ink">{t.ask}</span>
+        </p>
+      )}
+      <div className={`grid gap-3 ${t.kind === "letter" ? "xl:grid-cols-2" : ""}`}>
+        {/* the text as a document: read, copied or downloaded; it is written again, never edited here */}
+        <div className="try-text min-w-0">
+          <Doc id={`writing:${t.id}`} name={`${t.title} ${KIND_NAME[t.kind].toLowerCase()}.txt`} text={t.text} rev="" />
+        </div>
+        {t.kind !== "letter" ? null : t.notes.pdf ? (
+          // its link in a bar on top, the height of the Doc's bar beside it, so the letter and the PDF start level
+          <div className="grid content-start gap-3">
+            <a
+              href={`/api/letters/${t.id}/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-head btn-quiet justify-self-end"
+            >
+              Open the PDF ↗
+            </a>
+            {/* the PDF as an employer gets it: a white page in both themes */}
+            <iframe
+              title="The PDF"
+              src={`/api/letters/${t.id}/pdf`}
+              className="h-[70vh] w-full rounded-2xl border border-line bg-white"
+            />
+          </div>
+        ) : (
+          <EmptyState title="No PDF this time." line={sentence(t.notes.pdfNote || "the PDF tool made none")} />
+        )}
+      </div>
+      {t.notes.pdf && t.notes.pdfNote && (
+        <p className="m-0 text-detail text-warn">The PDF tool said: {t.notes.pdfNote}</p>
+      )}
+      {(t.notes.findings || fixed > 0) && (
+        <details className="card">
+          <summary className="cursor-pointer text-detail font-semibold">What the check said</summary>
+          <pre className="mt-2 mb-0 whitespace-pre-wrap font-mono text-small text-muted">
+            {[
+              ...(t.notes.fixed ?? []).map((f, i) => `Before fix ${i + 1}:\n${f}`),
+              t.notes.findings ? `Still:\n${t.notes.findings}` : "",
+            ]
+              .filter(Boolean)
+              .join("\n\n")}
+          </pre>
+        </details>
+      )}
+    </>
+  );
+}
+
 // the review under a try: the match first (red when it names the wrong company or job), then what a reader would make
 // better and whether its version was kept (it is, only when the applications' check passes it), then the first draft
 function ReviewBox({ r }: { r: Review }) {
-  if ("failed" in r)
-    return (
-      <p className="m-0 text-[13.5px]" style={{ color: "var(--muted)" }}>
-        The review didn't run: {r.failed}
-      </p>
-    );
+  if ("failed" in r) return <p className="m-0 text-small text-muted">The review didn't run: {r.failed}</p>;
   const off = !r.match.company || !r.match.job;
   const head = r.adopted
     ? `The review made it better: ${r.issues.length} change${r.issues.length === 1 ? "" : "s"}`
@@ -462,52 +467,45 @@ function ReviewBox({ r }: { r: Review }) {
         ? "The review's version failed the check: the first is kept"
         : "The review found things to make better";
   return (
-    <section className="card grid gap-3 !p-4">
+    <Card>
       <div className="flex flex-wrap items-center gap-2">
         <span className={`chip chip-caps ${r.adopted || r.verdict === "ready" ? "tone-green" : "tone-orange"}`}>
           Review
         </span>
-        <b className="text-[15px]" style={{ color: "var(--strong)" }}>
-          {head}
-        </b>
+        <b className="text-body text-strong">{head}</b>
       </div>
       {(off || r.match.note) && (
-        <p
-          className="m-0 rounded-xl px-3 py-2 text-[14px]"
-          style={{ background: off ? "var(--pink-soft)" : "var(--surface-2)", color: "var(--text)" }}
-        >
-          <b style={{ color: off ? "var(--red)" : "var(--green)" }}>{off ? "Check the match: " : "The match: "}</b>
+        <p className={`m-0 rounded-xl px-3 py-2 text-detail text-ink ${off ? "bg-pink-soft" : "bg-surface-2"}`}>
+          <b className={off ? "text-red" : "text-green"}>{off ? "Check the match: " : "The match: "}</b>
           {r.match.note || (off ? "it may name another company or job" : "")}
         </p>
       )}
       {r.issues.length > 0 && (
-        <ol className="m-0 grid list-none gap-2 p-0">
+        <ol className="m-0 grid list-none gap-3 p-0">
           {r.issues.map((x) => (
-            <li key={`${x.quote}|${x.why}`} className="grid gap-0.5 text-[14px] leading-snug">
-              {x.quote && <i style={{ color: "var(--muted)" }}>"{x.quote}"</i>}
-              <span style={{ color: "var(--text)" }}>{x.why}</span>
-              {x.fix && <span style={{ color: "var(--green)" }}>→ {x.fix}</span>}
+            <li key={`${x.quote}|${x.why}`} className="grid gap-0.5 text-detail">
+              {x.quote && <i className="text-muted">"{x.quote}"</i>}
+              <span className="text-ink">{x.why}</span>
+              {x.fix && <span className="text-green">→ {x.fix}</span>}
             </li>
           ))}
         </ol>
       )}
       {r.held && (
-        <p className="m-0 text-[13px]" style={{ color: "var(--warn)" }}>
-          The check said of the review's version: {r.held.slice(0, 300)}
-        </p>
+        <p className="m-0 text-small text-warn">The check said of the review's version: {r.held.slice(0, 300)}</p>
       )}
       {r.before && (
         <details>
-          <summary className="cursor-pointer text-[13.5px] font-semibold">The first draft</summary>
-          <p className="m-0 mt-2 whitespace-pre-wrap text-[14px] leading-relaxed" style={{ color: "var(--muted)" }}>
-            {r.before}
-          </p>
+          <summary className="cursor-pointer text-detail font-semibold">The first draft</summary>
+          <p className="m-0 mt-2 whitespace-pre-wrap text-detail text-muted">{r.before}</p>
         </details>
       )}
-    </section>
+    </Card>
   );
 }
 
+// my voice and my stories, the files every application reads: reworked in Notes (select words, note what should
+// change, turn the notes into an edit I review), every save kept as a version I can bring back
 function YourFiles() {
   const navigate = useNavigate();
   const open = useMutation({
@@ -520,11 +518,9 @@ function YourFiles() {
     onSuccess: (id) => navigate(`/notes/${id}`),
   });
   return (
-    <section className="card grid gap-3 !p-4">
-      <h3 className="font-cond m-0 text-[19px] font-bold" style={{ color: "var(--strong)" }}>
-        Your voice and stories
-      </h3>
-      <p className="m-0 text-[14.5px] leading-relaxed" style={{ color: "var(--text)" }}>
+    <Card>
+      <h2 className="font-cond m-0 text-head font-bold">Your voice and stories</h2>
+      <p className="m-0 text-detail text-ink">
         Every application writes from these two files. Rework them in Notes: select words, say what should change, and
         turn your notes into an edit you check before it is saved. Every save keeps the previous version.
       </p>
@@ -547,11 +543,7 @@ function YourFiles() {
           </button>
         ))}
       </div>
-      {open.isError && (
-        <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-          {(open.error as Error).message}
-        </p>
-      )}
-    </section>
+      {open.isError && <p className="m-0 text-detail text-red">{sentence((open.error as Error).message)}</p>}
+    </Card>
   );
 }
