@@ -1,13 +1,16 @@
 // Home: the launcher, and the page that carries the name: the date over it and the pink wolf with kestrel as its
-// title (there is no bar above the pages). What needs me and this morning's brief first, then the apps as one list of
-// rows (two columns on a computer), each opening its app, then Cost and Models, the two pages about the models.
+// title (there is no bar above the pages). What needs me first, then this morning's brief as a row of figures, each
+// opening its page, then the apps as one list of rows (two columns on a computer), each in a few words and opening
+// its app, then Cost and Models, the two pages about the models.
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { Link } from "react-router";
 import { useChatLink } from "./chats.tsx";
 import { LiveStrip } from "./live-strip.tsx";
 import { Mark } from "./mark.tsx";
 import { List, Row } from "./ui/list.tsx";
 import { Page } from "./ui/page.tsx";
+import type { Tone } from "./ui/pills.tsx";
 
 export const STROKE = {
   fill: "none",
@@ -99,44 +102,44 @@ const APP_COLOR: Record<string, string> = {
 const APPS: { name: string; what: string; to: string }[] = [
   {
     name: "Searches",
-    what: "Job and deal hunts that run on their own, each listing whole, deep checks on a tap.",
+    what: "Job and deal hunts",
     to: "/searches",
   },
   {
     name: "Chat",
-    what: "The agent's chats, live as they work: write to one, answer its questions, stop it.",
+    what: "The agent's chats, live",
     to: "/chats",
   },
-  { name: "Learn", what: "One lesson per page, read aloud, with practice and Ask.", to: "/learn" },
+  { name: "Learn", what: "Lessons, read aloud", to: "/learn" },
   {
     name: "Notes",
-    what: "A document, my notes on its words, and the changes the computer's model proposes.",
+    what: "Documents and my notes on them",
     to: "/notes",
   },
-  { name: "Tasks", what: "One line each; an agent closes one with a note of what was done.", to: "/tasks" },
+  { name: "Tasks", what: "My list, and the agents'", to: "/tasks" },
   {
     name: "Research",
-    what: "Ask anything: the computer's model searches the web, quick or deep, and writes it plain, like a lesson.",
+    what: "Questions answered from the web",
     to: "/research",
   },
   {
     name: "Quiz",
-    what: "Questions from my lessons; the model marks my answer, explains it and answers my questions. My place is kept.",
+    what: "Questions from my lessons",
     to: "/quiz",
   },
   {
     name: "Applications",
-    what: "One page by state; what needs me waits here and nothing gets lost.",
+    what: "Every application, by state",
     to: "/applications",
   },
   {
     name: "Writing",
-    what: "A cover letter, a form's answer or any text for a job, written the way an application writes it.",
+    what: "Cover letters and answers",
     to: "/writing",
   },
   {
     name: "Interview prep",
-    what: "Answers to say for a job or a project, and the helper that finds them while you're asked.",
+    what: "Answers to say, and the helper",
     to: "/interview",
   },
 ];
@@ -167,6 +170,58 @@ const TOOLS: { name: string; what: string; to: string; icon: ReactNode }[] = [
   },
 ];
 
+// the morning brief as figures, each the count its page shows when tapped. Great matches and Priority are the job
+// hunt's own pills, read from the counts Searches reads (its first job hunt, as Searches opens on, and its "Not applied
+// yet" switch as this browser keeps it). The other two come from the server's brief, in sentences
+// (src/domain/brief.ts), one count each, and only the counts above zero: each figure reads its count from the sentence
+// its words match, and a figure with no sentence is 0. What needs me and the queue are left out here: the live row
+// above says them. A sentence no figure or the live row names stays a sentence under the figures, so a new one is
+// never lost
+type Counts = { stages: Record<string, number>; match: Record<string, number> };
+const FIGURES: {
+  label: string;
+  words: RegExp;
+  to: string;
+  tone: Tone;
+  hint: string;
+  hunt?: (c: Counts) => number;
+}[] = [
+  {
+    label: "Great matches",
+    words: /great match/i,
+    to: "/searches?stage=review&match=great",
+    tone: "great",
+    hint: "Great matches still to review in the job hunt",
+    hunt: (c) => c.match.great ?? 0,
+  },
+  {
+    label: "Priority",
+    words: /priority/i,
+    to: "/searches?stage=priority",
+    tone: "yellow",
+    hint: "The job hunt's Priority list: starred listings, and great matches not passed on",
+    hunt: (c) => c.stages.priority ?? 0,
+  },
+  {
+    label: "To review",
+    words: /up for review/i,
+    to: "/learn/practice",
+    tone: "cyan",
+    hint: "Lessons due for review today",
+  },
+  { label: "Tasks open", words: /tasks? stays? open/i, to: "/tasks", tone: "accent", hint: "Tasks not done yet" },
+];
+const LIVE_ROW = /on me\b|queued|nothing waits/i;
+const countIn = (line: string) => Number(line.match(/\d+/)?.[0] ?? 0);
+// Searches' "Not applied yet" switch, on unless this browser turned it off (search/searches.tsx keeps it under this key)
+const notApplied = () => {
+  try {
+    return localStorage.getItem("kestrel-search-todo") !== "off";
+  } catch {
+    return true;
+  }
+};
+
 // today, as the eyebrow says it, in the order every other date in the app takes (the browser's own): MON, NOV 23
 const today = () => new Date().toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 
@@ -182,6 +237,29 @@ export function Home() {
     refetchInterval: 5 * 60_000,
   });
   const lines = brief.data?.lines ?? [];
+  // the job hunt Searches opens on, and its counts as the Searches page asks for them (the same query keys, so either
+  // page's answer serves the other)
+  const hunts = useQuery({
+    queryKey: ["searches"],
+    queryFn: async () => {
+      const res = await fetch("/api/search");
+      if (!res.ok) throw new Error(`${res.status}`);
+      return (await res.json()) as { hunts: { key: string; kind: string }[] };
+    },
+  });
+  const hunt = hunts.data?.hunts.find((h) => h.kind === "jobs");
+  const counted = new URLSearchParams({ kind: "jobs", hunt: hunt?.key ?? "" });
+  if (notApplied()) counted.set("todo", "1");
+  counted.set("stage", "review");
+  const counts = useQuery({
+    queryKey: ["search-counts", counted.toString()],
+    queryFn: async () => {
+      const res = await fetch(`/api/search/counts?${counted}`);
+      if (!res.ok) throw new Error(`${res.status}`);
+      return (await res.json()) as Counts;
+    },
+    enabled: Boolean(hunt),
+  });
   return (
     <Page
       eyebrow={today()}
@@ -194,16 +272,37 @@ export function Home() {
       line="One app, one computer, my own models."
     >
       <LiveStrip />
-      {lines.length > 0 && (
-        <section className="grid gap-2" aria-label="This morning">
-          <span className="eyebrow">This morning</span>
-          <div className="text-body">
-            {lines.map((line) => (
-              <p key={line} className="m-0">
-                {line}
+      {brief.data && (
+        <section className="card home-figs" aria-label="This morning">
+          {FIGURES.map((f) => {
+            // a hunt figure is 0 when there is no job hunt, and waits for its counts (a dash) rather than show a wrong 0
+            const n = f.hunt
+              ? hunt
+                ? counts.data && f.hunt(counts.data)
+                : hunts.data && 0
+              : countIn(lines.find((l) => f.words.test(l)) ?? "");
+            return (
+              <Link
+                key={f.label}
+                to={f.hunt && hunt ? `${f.to}&hunt=jobs:${encodeURIComponent(hunt.key)}` : f.to}
+                className="home-fig"
+                title={f.hint}
+              >
+                <span className="eyebrow">{f.label}</span>
+                <span className="flex items-center gap-2">
+                  <span className={`dot tone-${f.tone}`} aria-hidden="true" />
+                  <b className={`font-mono text-lead tabular-nums ${n ? "text-strong" : "text-muted"}`}>{n ?? "–"}</b>
+                </span>
+              </Link>
+            );
+          })}
+          {lines
+            .filter((l) => !FIGURES.some((f) => f.words.test(l)) && !LIVE_ROW.test(l))
+            .map((l) => (
+              <p key={l} className="home-figs-more m-0 text-small text-muted">
+                {l}
               </p>
             ))}
-          </div>
         </section>
       )}
       <List cols label="The apps">

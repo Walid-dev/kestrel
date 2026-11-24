@@ -1,9 +1,9 @@
-// Stop and Pause for the agent's chats, on Live's cards and on the Chat page: Stop on an application asks which one I
-// mean (only this one, so the next queued application starts; or this one and the queue, so nothing new starts until
-// Play); Pause and Play hold the queue. Both go through kestrel to the old setup's server, which runs the applications.
+// Stop and Pause for the agent's chats: Stop on Live's cards and on the Chat page, Pause in Live's head. Stop on an
+// application asks which one I mean (only this one, so the next queued application starts; or this one and the queue,
+// so nothing new starts until Play); Pause and Play hold the queue. Both go through kestrel to the old setup's server,
+// which runs the applications.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Card } from "./ui/card.tsx";
 
 async function post(path: string, body: unknown): Promise<void> {
   const res = await fetch(path, {
@@ -70,33 +70,26 @@ export function StopChat({ chat, applying }: { chat: string; applying: boolean }
   );
 }
 
-// the queue in a line: how many wait, and Pause or Play (shown while some wait, or while it's paused)
-export function QueueLine({ queued, paused }: { queued: number; paused: boolean | null | undefined }) {
+// the queue's Pause, or Play while it is held, in Live's head beside the view switch: shown while some wait, or while
+// it is held. How many wait and whether it is held are in the head's line; the button says what a tap does, the
+// filled Play being the screen's one main action while nothing new can start
+export function QueuePause({ queued, paused }: { queued: number; paused: boolean | null | undefined }) {
   const pause = useLivePost("/api/live/pause");
   if (paused === null || paused === undefined || (!paused && queued === 0)) return null;
-  const words = queued === 0 ? "The queue is empty" : `${queued} application${queued === 1 ? "" : "s"} queued`;
   return (
-    <Card>
-      {/* the dot stays beside the words when they wrap, and the button drops under them on a phone */}
-      <div className="flex flex-wrap items-center gap-3">
-        <p className="m-0 flex min-w-0 flex-1 basis-56 items-baseline gap-2.5 text-detail text-strong">
-          <span className={`dot ${paused ? "tone-yellow" : "tone-green"}`} />
-          <span>
-            {words}
-            {paused ? " · paused: nothing new starts" : " · each starts once nothing else works"}
-          </span>
-        </p>
-        {pause.isError && <span className="text-small text-red">{(pause.error as Error).message}</span>}
-        <button
-          type="button"
-          className={`btn ml-auto ${paused ? "btn-primary" : ""}`}
-          disabled={pause.isPending}
-          onClick={() => pause.mutate({ paused: !paused })}
-        >
-          {paused ? "Play" : "Pause the queue"}
-        </button>
-      </div>
-    </Card>
+    <>
+      {pause.isError && <span className="text-small text-red">{(pause.error as Error).message}</span>}
+      <button
+        type="button"
+        className={`btn ${paused ? "btn-primary" : ""}`}
+        disabled={pause.isPending}
+        title={paused ? "Nothing new starts until Play" : "Each queued application starts once nothing else works"}
+        onClick={() => pause.mutate({ paused: !paused })}
+      >
+        {pause.isPending && <span className="spin" />}
+        {paused ? "Play the queue" : "Pause the queue"}
+      </button>
+    </>
   );
 }
 

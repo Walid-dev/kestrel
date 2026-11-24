@@ -1,7 +1,10 @@
 // Tasks: my to-do list, for me and for the agents to pick later, the old Hub's way. A box to write the task and whom
-// it is for (any agent, Claude Code, dsh, me); Enter adds and the newest comes first. The tasks are one list of rows: a
-// tap on a task's words edits them in place (Enter or leaving saves, Escape puts them back); when and its note under
-// them; whom it is for at the row's end (a tap changes it); a round box ticks it off. Done tasks fold below. Agents read the same list through the kestrel command and close one with a note.
+// it is for (any agent, Claude Code, dsh, me: a choice for the new task, not a filter); Enter adds and the newest comes
+// first. The tasks are one list of rows: a tap on a task's words edits them in place (Enter or leaving saves, Escape
+// puts them back); its note under them, then one meta line, whom it is for (a tap changes it) and when, at every
+// width; a round box ticks it off. On a computer the list keeps the wide column and the done tasks and Ask take a
+// rail beside it; on a phone they follow under it. Agents read the same list through the kestrel command and close one
+// with a note (the box's hint says so).
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -34,6 +37,8 @@ const WHO: [string, string, Tone][] = [
   ["me", "me", "green"],
 ];
 const whoOf = (w: string): [string, string, Tone] => WHO.find(([k]) => k === (w || "any")) ?? [w, w, "muted"];
+// when, as the meta line says it (Nov 23) and as its hover says it whole (Mon, Nov 23, 9:01 PM)
+const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 const when = (iso: string) =>
   new Date(iso).toLocaleString(undefined, {
     weekday: "short",
@@ -89,70 +94,86 @@ export function Tasks() {
   const failed = [tasks, add, act].find((x) => x.isError);
 
   return (
-    <Page width="reading" title="Tasks" line={`${open.length} open${done.length ? ` · ${done.length} done` : ""}`}>
-      {/* the new task: its words, whom it is for; Enter adds */}
-      <div className="grid gap-3">
-        <Field
-          label="New task"
-          placeholder="What needs doing?"
-          value={text}
-          onChange={setText}
-          onSend={() => add.mutate()}
-          busy={add.isPending}
-          sendLabel="Add"
-          hint="Enter adds · Shift+Enter for a new line"
-        />
-        <Pills
-          label="For"
-          showLabel
-          options={WHO.map(([value, label, tone]) => ({ value, label, tone }))}
-          value={who}
-          onChange={setWho}
-        />
-      </div>
+    <Page
+      width="wide"
+      title="Tasks"
+      line={
+        <span>
+          <b className="text-ink">{open.length}</b> open
+          {done.length > 0 && (
+            <>
+              {" · "}
+              <b className="text-ink">{done.length}</b> done
+            </>
+          )}
+        </span>
+      }
+    >
+      <div className="tasks-layout">
+        <div className="grid gap-6">
+          {/* the new task: its words, whom it is for; Enter adds. The pills choose, they don't filter: no counts */}
+          <div className="grid gap-3">
+            <Field
+              label="New task"
+              placeholder="What needs doing?"
+              value={text}
+              onChange={setText}
+              onSend={() => add.mutate()}
+              busy={add.isPending}
+              sendLabel="Add"
+              hint="Enter adds · tap a task to edit it · agents take one only when I ask, and close it with a note"
+            />
+            <Pills
+              label="For"
+              showLabel
+              options={WHO.map(([value, label, tone]) => ({ value, label, tone }))}
+              value={who}
+              onChange={setWho}
+            />
+          </div>
 
-      {failed && <p className="m-0 text-detail text-red">{(failed.error as Error).message}</p>}
+          {failed && <p className="m-0 text-detail text-red">{(failed.error as Error).message}</p>}
 
-      {tasks.data && open.length === 0 && <EmptyState title="Nothing open." line="Write the next thing above." />}
-      {open.length > 0 && (
-        <List label="Open tasks">
-          {open.map((t) => (
-            <Row key={t.id} t={t} act={act.mutate} busy={act.isPending && act.variables?.id === t.id} />
-          ))}
-        </List>
-      )}
-
-      {done.length > 0 && (
-        <details>
-          <summary className="disclosure">Done · {done.length}</summary>
-          <div className="mt-2">
-            <List label="Done tasks">
-              {done.map((t) => (
+          {tasks.data && open.length === 0 && <EmptyState title="Nothing open." line="Write the next thing above." />}
+          {open.length > 0 && (
+            <List label="Open tasks">
+              {open.map((t) => (
                 <Row key={t.id} t={t} act={act.mutate} busy={act.isPending && act.variables?.id === t.id} />
               ))}
             </List>
-          </div>
-        </details>
-      )}
-      <Ask
-        app="tasks"
-        refId="tasks"
-        title="Ask about my tasks"
-        placeholder="Add, change or close tasks in words"
-        starters={["What should I do first?", "Group what is open by theme", "Which ones look done already?"]}
-        onChange={refresh}
-      />
-      <p className="m-0 text-small text-muted">
-        Tap a task to edit it. Agents read this list through the kestrel command, pick a task only when you ask, and
-        close it with a short note of what was done.
-      </p>
+          )}
+        </div>
+
+        <div className="grid gap-6">
+          {done.length > 0 && (
+            <details>
+              <summary className="disclosure">Done · {done.length}</summary>
+              <div className="mt-2">
+                <List label="Done tasks">
+                  {done.map((t) => (
+                    <Row key={t.id} t={t} act={act.mutate} busy={act.isPending && act.variables?.id === t.id} />
+                  ))}
+                </List>
+              </div>
+            </details>
+          )}
+          <Ask
+            app="tasks"
+            refId="tasks"
+            title="Ask about my tasks"
+            placeholder="Add, change or close tasks in words"
+            starters={["What should I do first?", "Group what is open by theme", "Which ones look done already?"]}
+            onChange={refresh}
+          />
+        </div>
+      </div>
     </Page>
   );
 }
 
 type Act = (a: { id: string; how: "check" | "reopen" | "delete" | "edit"; change?: Partial<Task> }) => void;
 
-// one task: the round box, its words (a tap edits them), whom it is for (a tap changes it), when, its note, delete
+// one task: the round box, its words (a tap edits them), its note, whom it is for (a tap changes it) and when, delete
 function Row({ t, act, busy }: { t: Task; act: Act; busy: boolean }) {
   const [draft, setDraft] = useState<string | null>(null); // the words being edited, or null
   const sure = useConfirm();
@@ -167,9 +188,9 @@ function Row({ t, act, busy }: { t: Task; act: Act; busy: boolean }) {
     act({ id: t.id, how: "edit", change: { who: WHO[(i + 1) % WHO.length][0] } });
   };
   return (
-    // a row of the list: the round box, the words (the row's target: a tap anywhere on it edits them), when and the
-    // note under them; whom it is for and the ✕ at its end, each a target of its own above the row's. On a narrow
-    // phone whom it is for moves under the words, beside when, so the words keep the width (styles.css, .task-row)
+    // a row of the list: the round box, the words (the row's target: a tap anywhere on it edits them, three lines at
+    // most until then), the note under them, then the meta line: whom it is for, a target of its own above the row's,
+    // and when; the ✕ at its end (styles.css, .task-row)
     <li className={cx("list-row task-row", busy && "busy")}>
       {/* the round box keeps its small look inside a round icon button, whose area takes the tap */}
       <button
@@ -203,7 +224,7 @@ function Row({ t, act, busy }: { t: Task; act: Act; busy: boolean }) {
           className={cx("list-open task-text", t.done && "task-text-done")}
           onClick={() => setDraft(t.text)}
         >
-          {t.text}
+          <span className="line-clamp-3">{t.text}</span>
         </button>
       ) : (
         <textarea
@@ -221,20 +242,22 @@ function Row({ t, act, busy }: { t: Task; act: Act; busy: boolean }) {
           }}
         />
       )}
-      <span className="list-line task-when">
-        {when(t.edited ?? t.added)}
-        {t.edited ? " · edited" : ""}
-      </span>
       {t.note && <span className="list-line task-note">{t.note}</span>}
-      <button
-        type="button"
-        className={cx("chip chip-caps task-who", `tone-${t.done ? "muted" : tone}`)}
-        title="Tap to change whom it is for"
-        aria-label={`For ${label}: tap to change`}
-        onClick={nextWho}
-      >
-        {label}
-      </button>
+      <span className="list-line task-meta">
+        <button
+          type="button"
+          className={cx("chip chip-caps task-who", `tone-${t.done ? "muted" : tone}`)}
+          title="Tap to change whom it is for"
+          aria-label={`For ${label}: tap to change`}
+          onClick={nextWho}
+        >
+          {label}
+        </button>
+        <span className="font-mono tabular-nums" title={when(t.edited ?? t.added)}>
+          {day(t.edited ?? t.added)}
+        </span>
+        {t.edited && <span>· edited</span>}
+      </span>
       <button
         type="button"
         aria-label="Delete"
