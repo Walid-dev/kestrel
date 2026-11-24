@@ -1314,9 +1314,10 @@ h3 {
 }
 /* a head with an aside (Home's): the eyebrow and the title on the left, a short statement on the right past a thin
    rule, as tall as they are, its first line level with the eyebrow and its last with the title. The two blocks sit
-   side by side at every width; the statement keeps two lines because it is given as two */
+   side by side at every width. Each of its two lines stays one line, so it keeps two; when room runs short the
+   title's column gives way, not the statement's */
 .page-head-aside {
-  grid-template-columns: max-content minmax(0, max-content);
+  grid-template-columns: minmax(0, max-content) max-content;
   column-gap: 16px;
 }
 .page-head-aside > .eyebrow,
@@ -1335,6 +1336,9 @@ h3 {
   border-left: 1px solid var(--line);
   font: var(--text-small) / var(--text-small--line-height) var(--sans);
   color: var(--muted);
+}
+.page-aside > span {
+  white-space: nowrap;
 }
 /* the page's own buttons: on touch, or in a narrow window, one wrapping row 12 under the line; under a mouse with the
    room, on the title's row, at its right, centred on it, the line going under both */
@@ -4759,10 +4763,12 @@ body:has(.paper-view) {
   font: 500 var(--text-detail) / var(--text-detail--line-height) var(--sans);
   color: var(--text);
 }
-/* the section's dot leads the headline, inside it, so the line still ends in … as one */
+/* the section's dot leads the headline, inside it, so the line still ends in … as one; small, as a pill's */
 .news-card-headline > .dot {
   display: inline-block;
-  margin-right: 8px;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
   vertical-align: 0.1em;
 }
 /* the source keeps its name: the longest short name is 12 letters */
@@ -4807,9 +4813,9 @@ body:has(.paper-view) {
     align-items: stretch;
     gap: 2px;
   }
-  /* the source under its headline's words, past the dot (7 + 8) */
+  /* the source under its headline's words, past the dot (6 + 6) */
   .news-card-line > .news-card-src {
-    margin-left: 15px;
+    margin-left: 12px;
   }
   .news-card-note {
     grid-column: 2 / -2;

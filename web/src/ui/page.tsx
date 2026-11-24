@@ -15,8 +15,9 @@ export type HeadProps = {
   eyebrow?: ReactNode;
   // one line under the title: what the page is for, or where things stand
   line?: ReactNode;
-  // a short statement beside the head instead, as two lines (Home's "One app, one computer, / local models."): set
-  // past a thin rule, its first line level with the eyebrow and its last with the title, at every width
+  // a short statement beside the head, as two short lines (Home's "One app, one computer, / local models."): set
+  // past a thin rule, its first line level with the eyebrow and its last with the title, at every width. It needs an
+  // eyebrow and takes the place of the line; each part stays one line, so keep both a few words
   aside?: [ReactNode, ReactNode];
   // the page's own buttons
   actions?: ReactNode;

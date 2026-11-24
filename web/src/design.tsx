@@ -450,7 +450,7 @@ export function Design() {
 
         <Part
           title="Page and PageHead"
-          when="Every page starts with its own head: there is no bar above it. A top page: its title, its buttons beside it under a mouse (in a row under the line on touch). A head may carry an aside: two short lines past a thin rule, level with the eyebrow and the title. A child page: the back row (the parent's name, its tools on the right), then a title a step down. Two widths, both from the left edge: wide for lists, reading (720) for text."
+          when="Every page starts with its own head: there is no bar above it. A top page: its title, its buttons beside it under a mouse (in a row under the line on touch). A head may carry an aside: two short lines past a thin rule, level with the eyebrow and the title, in place of the line (it needs the eyebrow). A child page: the back row (the parent's name, its tools on the right), then a title a step down. Two widths, both from the left edge: wide for lists, reading (720) for text."
         >
           <Frame label="A top page">
             <PageHead
@@ -470,7 +470,7 @@ export function Design() {
               titleAs="div"
               eyebrow="Mon 23 Nov"
               title="Home"
-              aside={["Two short lines beside the head,", "level with its own two."]}
+              aside={["Two short lines,", "level with its own."]}
             />
           </Frame>
           <Frame label="A child page">
