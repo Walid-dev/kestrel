@@ -5,6 +5,7 @@ import { type DiffRow, diffRows } from "../../../src/shared/diff.ts";
 import type { Draft } from "../../../src/shared/notes.ts";
 import { useConfirm } from "../ui/confirm.tsx";
 import { Dialog } from "../ui/dialog.tsx";
+import { sentence } from "./parts.tsx";
 
 const ROW: Record<DiffRow["kind"], { mark: string; look: string }> = {
   same: { mark: " ", look: "" },
@@ -84,6 +85,8 @@ export function Review({
                 {d.name} · {result.placed.length} placed
                 {result.leftOut.length ? ` · ${result.leftOut.length} left out` : ""}
               </h3>
+              {/* a wide box is the page's own ground (.dialog-wide), so the changes take the card's: a panel that
+                  stands apart from the box around it */}
               <div className="overflow-x-auto rounded-xl border border-line bg-surface py-2 text-small">
                 {diffRows(old, result.newText).map((row, i) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: display-only rows that never reorder
@@ -128,7 +131,7 @@ export function Review({
         )}
         {saveWhy && (
           <p role="alert" className="m-0 rounded-xl bg-warn-soft px-3 py-2 text-detail">
-            {saveWhy.charAt(0).toUpperCase() + saveWhy.slice(1)}
+            {sentence(saveWhy)}
           </p>
         )}
         {one && (

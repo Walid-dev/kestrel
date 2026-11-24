@@ -7,14 +7,14 @@ import type { DocumentMeta, Draft, PlacedNote } from "../../../src/shared/notes.
 import { Card } from "../ui/card.tsx";
 import { EmptyState } from "../ui/empty.tsx";
 import { Page } from "../ui/page.tsx";
-import { Speed, sentence, Writing } from "./reader.tsx";
+import { type Pace, Speed, sentence, Writing } from "./parts.tsx";
 import { Review } from "./review.tsx";
 
 export function NotesSet() {
   const [params] = useSearchParams();
   const ids = (params.get("ids") ?? "").split(",").filter(Boolean);
   const queryClient = useQueryClient();
-  const [speed, setSpeed] = useState<"careful" | "fast">("careful");
+  const [speed, setSpeed] = useState<Pace>("careful");
   const [review, setReview] = useState(false);
   const [why, setWhy] = useState("");
   const [saveWhy, setSaveWhy] = useState("");

@@ -2500,6 +2500,14 @@ body:has(.paper-view) {
   padding: 6px 12px;
   font-size: 13.5px;
 }
+/* the reader on a short screen (a phone on its side): its title one step down, so a long file name keeps to one line
+   and the document starts on the first screen */
+@media (max-height: 500px) {
+  .note-reader .page-title {
+    font-size: var(--text-lead);
+    line-height: var(--text-lead--line-height);
+  }
+}
 /* a research answer's source, inline: the site's name, a small link that opens the page */
 .cite {
   display: inline-block;
@@ -2670,8 +2678,9 @@ dialog:focus-visible {
     }
   }
 }
-/* a text box shows the focus by its border, never a ring around it; buttons and links keep the ring for the keyboard */
-input:focus-visible,
+/* a text box shows the focus by its border, never a ring around it; buttons, links and tick boxes keep the ring for
+   the keyboard */
+input:not([type="checkbox"], [type="radio"]):focus-visible,
 textarea:focus-visible,
 select:focus-visible {
   outline: none;

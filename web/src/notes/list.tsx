@@ -8,7 +8,8 @@ import { Card } from "../ui/card.tsx";
 import { useConfirm } from "../ui/confirm.tsx";
 import { EmptyState } from "../ui/empty.tsx";
 import { Page } from "../ui/page.tsx";
-import { LAST_DOC, sentence } from "./reader.tsx";
+import { sentence } from "./parts.tsx";
+import { LAST_DOC } from "./reader.tsx";
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -147,7 +148,7 @@ export function NotesList() {
                       onChange={(e) =>
                         setPicked((p) => (e.target.checked ? [...p, d.id] : p.filter((x) => x !== d.id)))
                       }
-                      className="size-[18px] cursor-pointer accent-accent"
+                      className="size-4.5 cursor-pointer accent-accent"
                     />
                   </label>
                   <div className="min-w-0 flex-1 [&>*]:h-full">
@@ -183,9 +184,10 @@ export function NotesList() {
           <h2 id="notes-folders" className="eyebrow m-0">
             From your folders
           </h2>
-          <ul className="card m-0 grid list-none gap-1 !p-2">
+          <ul className="card m-0 grid list-none gap-1">
             {offered.map((f) => (
-              <li key={f.path}>
+              // each row reaches halfway into the card's own room, so its hover ground spans the card
+              <li key={f.path} className="-mx-2">
                 <button
                   type="button"
                   className="grid min-h-11 w-full cursor-pointer gap-0.5 rounded-lg px-2 py-2 text-left hover:bg-surface-2"

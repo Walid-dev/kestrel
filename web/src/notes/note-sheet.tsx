@@ -1,10 +1,11 @@
 // The note sheet, in the app's one box (ui/dialog.tsx): Esc, Back, a tap outside and ✕ close it. The words being
 // typed live on the device until Save or Discard, so closing it, or the app, mid-note loses nothing.
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { bare } from "../../../src/shared/markdown.ts";
 import type { PlacedNote } from "../../../src/shared/notes.ts";
 import { enterSends } from "../keys.ts";
 import { Dialog } from "../ui/dialog.tsx";
+import { sentence } from "./parts.tsx";
 
 export type SheetTarget =
   | { kind: "new"; quote: string; start: number; shown?: string } // on selected words (shown: as I saw them)
@@ -38,6 +39,12 @@ export function NoteSheet({
       return null;
     }
   });
+  // kept words or a note being changed: the cursor waits at their end, so what I type next follows them. The Dialog
+  // (a child, so its effect runs first) has just given the box the focus; this moves the cursor inside it.
+  useEffect(() => {
+    const t = box.current;
+    if (t) t.setSelectionRange(t.value.length, t.value.length);
+  }, []);
   const clear = () => {
     try {
       localStorage.removeItem(key);
@@ -136,7 +143,7 @@ export function NoteSheet({
         </div>
         {why && (
           <p role="alert" className="rounded-xl bg-warn-soft px-3 py-2 text-detail">
-            {why.charAt(0).toUpperCase() + why.slice(1).replace(/\.$/, "")}. Your words are kept here.
+            {sentence(why.replace(/\.$/, ""))}. Your words are kept here.
           </p>
         )}
       </div>

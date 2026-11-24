@@ -1,5 +1,6 @@
 // The document's notes: each with its words (or "the whole document"), a tap to open, and the card's ✕ to delete it
 // right here. Detached and done notes say so.
+import type { Ref } from "react";
 import { bare } from "../../../src/shared/markdown.ts";
 import type { PlacedNote } from "../../../src/shared/notes.ts";
 import { Card } from "../ui/card.tsx";
@@ -13,16 +14,19 @@ const quoted = (n: PlacedNote) => {
 
 export function NotesList({
   notes,
+  headRef,
   onOpen,
   onDelete,
 }: {
   notes: PlacedNote[];
+  // where the focus lands when a deleted note's card takes its ✕ with it
+  headRef?: Ref<HTMLHeadingElement>;
   onOpen: (n: PlacedNote) => void;
   onDelete: (n: PlacedNote) => void;
 }) {
   return (
     <section className="grid gap-3" aria-labelledby="notes-mine">
-      <h2 id="notes-mine" className="font-cond m-0 text-head font-bold">
+      <h2 id="notes-mine" ref={headRef} tabIndex={-1} className="font-cond m-0 text-head font-bold">
         Your notes{notes.length > 0 && <span className="font-mono ml-2 text-small text-muted">{notes.length}</span>}
       </h2>
       {/* none yet: the column says how a note starts, so it never stands empty */}
