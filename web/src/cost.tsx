@@ -85,8 +85,10 @@ function Days({ daily }: { daily: Report["daily"] }) {
     watch.observe(el);
     return () => watch.disconnect();
   }, []);
-  // a phone's frame gets a shorter drawing, so the page grows no taller for the labels' real size
-  const H = Math.round(Math.min(170, Math.max(96, W * 0.24)));
+  // the whole drawing is about a quarter as tall as it is wide, as main's scaled picture was, so the labels' real size
+  // makes no page taller: 18 above the bars for the top day's figure, 18 under the baseline for the dates
+  const BAND = 18;
+  const H = Math.round(Math.min(192, Math.max(72, W * 0.24))) - BAND;
   const top = Math.max(1, ...daily.map((d) => d.tokens));
   const slot = W / daily.length;
   const bar = Math.max(4, slot - 2);
@@ -96,14 +98,14 @@ function Days({ daily }: { daily: Report["daily"] }) {
   return (
     <div ref={frame} className="relative">
       <svg
-        viewBox={`0 0 ${W} ${H + 22}`}
+        viewBox={`0 0 ${W} ${H + BAND}`}
         className="block h-auto w-full"
         role="img"
         aria-label="Tokens a day, the last 30 days"
       >
         <line x1="0" x2={W} y1={H} y2={H} className="stroke-line" />
         {daily.map((d, i) => {
-          const h = d.tokens > 0 ? Math.max(2, (d.tokens / top) * (H - 22)) : 0;
+          const h = d.tokens > 0 ? Math.max(2, (d.tokens / top) * (H - BAND)) : 0;
           const x = i * slot + (slot - bar) / 2;
           return (
             <g key={d.day} onPointerEnter={() => setHover(i)} onPointerLeave={() => setHover(null)}>
@@ -123,7 +125,7 @@ function Days({ daily }: { daily: Report["daily"] }) {
               {(i % 7 === 0 && i < daily.length - 4) || i === daily.length - 1 ? (
                 <text
                   x={i === 0 ? 0 : i === daily.length - 1 ? W : x + bar / 2}
-                  y={H + 16}
+                  y={H + 14}
                   textAnchor={i === 0 ? "start" : i === daily.length - 1 ? "end" : "middle"}
                   className="fill-muted font-mono text-label"
                 >
@@ -294,10 +296,10 @@ function Counted({
           {t.electricity && (
             <p className="m-0 border-t border-line pt-3 text-body">
               Electricity on this computer:{" "}
-              <b className="text-strong">
+              <span className="font-mono font-medium text-strong tabular-nums">
                 {t.electricity.currency === "CAD" ? "CA$" : `${t.electricity.currency} `}
                 {t.electricity.cost.toFixed(2)}
-              </b>
+              </span>
               <span className="text-muted">
                 {" "}
                 · {t.electricity.kwh.toFixed(2)} kWh at {r.prices?.electricity.watts} W
@@ -347,7 +349,9 @@ function Counted({
                 {m.cloud.map((c) => (
                   <span key={c.id}>
                     {r.prices?.cloud.find((x) => x.id === c.id)?.name.split(",")[0]}:{" "}
-                    <b className="text-ink">{usd(c.usd)}</b>
+                    <span className={c.usd == null ? "" : "font-mono font-medium text-ink tabular-nums"}>
+                      {usd(c.usd)}
+                    </span>
                   </span>
                 ))}
               </div>

@@ -50,7 +50,9 @@ const purposeOf = (purpose: string) => {
 
 export function Models() {
   const queryClient = useQueryClient();
+  // the job in the picker stays set after it closes, so the dialog keeps its words while it fades out
   const [picking, setPicking] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
   const state = useQuery({
     queryKey: ["models"],
     queryFn: async () => {
@@ -126,7 +128,10 @@ export function Models() {
                   className="pill models-pick"
                   aria-label={`${named(u.use)}: ${u.model}. Change the model`}
                   title="Change the model"
-                  onClick={() => setPicking(u.use)}
+                  onClick={() => {
+                    setPicking(u.use);
+                    setOpen(true);
+                  }}
                 >
                   {u.model}
                 </button>
@@ -136,8 +141,8 @@ export function Models() {
         </List>
       </div>
       <Dialog
-        open={pick !== undefined}
-        onClose={() => setPicking(null)}
+        open={open && pick !== undefined}
+        onClose={() => setOpen(false)}
         eyebrow="The model for"
         title={pick ? named(pick.use) : ""}
         busy={set.isPending}
@@ -152,12 +157,13 @@ export function Models() {
             <Pills
               label={`The model for ${named(pick.use)}`}
               options={(door.length ? (door.includes(pick.model) ? door : [pick.model, ...door]) : [pick.model]).map(
-                (m) => ({ value: m, label: m }),
+                // the names in mono, as on the rows behind
+                (m) => ({ value: m, label: <span className="font-mono text-small">{m}</span> }),
               )}
               value={pick.model}
               onChange={(m) => {
                 if (m !== pick.model && !set.isPending) set.mutate({ use: pick.use, model: m });
-                setPicking(null);
+                setOpen(false);
               }}
             />
             <span className="font-mono text-small text-muted wrap-anywhere">Fallback: {pick.fallback}</span>

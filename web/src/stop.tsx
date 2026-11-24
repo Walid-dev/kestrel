@@ -47,24 +47,22 @@ export function StopChat({ chat, applying }: { chat: string; applying: boolean }
     );
   return (
     <fieldset className="stop-ask" aria-label="Stop which?">
-      <button type="button" className="stop-choice" disabled={stop.isPending} onClick={() => stop.mutate({ chat })}>
-        <b>Only this one</b>
-        <span>The next queued application starts after it.</span>
-      </button>
-      <button
-        type="button"
-        className="stop-choice"
-        disabled={stop.isPending}
-        onClick={() => stop.mutate({ chat, all: true })}
-      >
-        <b>This one and the queue</b>
-        <span>Nothing new starts until you press Play.</span>
-      </button>
-      <button
-        type="button"
-        className="btn btn-sm btn-quiet col-span-full justify-self-start"
-        onClick={() => setAsking(false)}
-      >
+      <div className="stop-choices">
+        <button type="button" className="stop-choice" disabled={stop.isPending} onClick={() => stop.mutate({ chat })}>
+          <b>Only this one</b>
+          <span>The next queued application starts after it.</span>
+        </button>
+        <button
+          type="button"
+          className="stop-choice"
+          disabled={stop.isPending}
+          onClick={() => stop.mutate({ chat, all: true })}
+        >
+          <b>This one and the queue</b>
+          <span>Nothing new starts until you press Play.</span>
+        </button>
+      </div>
+      <button type="button" className="btn btn-sm btn-quiet justify-self-start" onClick={() => setAsking(false)}>
         Keep it running
       </button>
       {error}

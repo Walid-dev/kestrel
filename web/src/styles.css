@@ -420,6 +420,11 @@ h3 {
   border: 0;
   display: grid;
   gap: 8px;
+}
+/* the two choices side by side when there's room for both, Keep it running on its own line under them */
+.stop-choices {
+  display: grid;
+  gap: 8px;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 .stop-choice {
@@ -1830,29 +1835,39 @@ pre.code .f {
   margin-top: 2px;
   color: var(--green);
 }
+/* the controls at the end line up with the words' first line, as the box does, however many lines the words take */
 .task-who {
   grid-area: who;
+  align-self: start;
+  margin-top: calc((var(--text-body--line-height) - 20px) / 2);
 }
-.task-x {
+.task-row .task-x {
   grid-area: x;
+  align-self: start;
+  margin-top: calc((var(--text-body--line-height) - 24px) / 2);
 }
+@media (pointer: coarse) {
+  .task-row .task-x {
+    margin-top: calc((var(--text-body--line-height) - 28px) / 2);
+  }
+}
+/* on a narrow phone whom it is for is the row's last line, beside when, under the note: its tap area then only
+   grows into the row's foot, never over the words or the note */
 @media (max-width: 30rem) {
   .task-row {
     grid-template-columns: auto auto minmax(0, 1fr) auto;
     grid-template-areas:
       "tick text text x"
-      "tick who when x"
-      "tick note note x";
+      "tick note note x"
+      "tick who when x";
     column-gap: 8px;
   }
   .task-row :is(.task-who, .task-when) {
+    align-self: center;
     margin-top: 6px;
   }
   .task-row .task-tick {
     margin-inline-end: 4px;
-  }
-  .task-row .task-x {
-    align-self: start;
   }
 }
 /* ticked, the box itself says so: the button keeps no pressed edge around it */
@@ -1915,8 +1930,9 @@ pre.code .f {
     inset: calc(50% - var(--h-hit) / 2) 0;
   }
 }
-/* on a narrow phone the chip sits under the words: its area keeps 8 under them (a tap on the words' last line edits
-   them) and takes the rest below, the row's foot growing to hold it, so it never reaches the next row */
+/* on a narrow phone the chip is the row's last line: its area keeps 8 above it (a tap on the words' or the note's
+   last line edits the words) and takes the rest below, the row's foot growing to hold it, so it never reaches the
+   next row */
 @media (pointer: coarse) and (max-width: 30rem) {
   .task-row {
     padding-bottom: 16px;
