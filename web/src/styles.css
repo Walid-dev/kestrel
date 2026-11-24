@@ -3436,6 +3436,16 @@ pre.code .f {
     margin-top: 4px;
   }
 }
+/* Ask bare, inside a card of the page's (a news story): no head, so Start over sits beside the line to ask */
+.ask-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ask-line > .ask-compose {
+  flex: 1;
+  min-width: 0;
+}
 .md-link {
   color: var(--accent);
   text-decoration: underline;
@@ -4884,7 +4894,7 @@ body:has(.paper-view) {
   margin: 0;
 }
 /* a story, the Searches card's anatomy: the section's chip and the source on top, the headline with its number as a
-   pill, the story, then its links and Look deeper, its parts 8 apart */
+   pill, the story, then its links, Ask and Look deeper, and Ask's conversation while it is open, its parts 8 apart */
 .news-story {
   display: flex;
   flex-direction: column;
@@ -4976,8 +4986,30 @@ body:has(.paper-view) {
     inset: calc(50% - var(--h-hit) / 2) 0;
   }
 }
-.news-deeper {
+/* a story's own actions, at the foot's end (on a line of their own when the links take the row): Ask, its spark in
+   Ask's purple and, closed, how many questions it took; then Look deeper. Open, Ask keeps the sunk ground */
+.news-story-acts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-left: auto;
+}
+.news-ask-spark {
+  display: inline-grid;
+  color: var(--purple);
+}
+.news-ask-count {
+  color: var(--muted);
+  font-weight: 400;
+}
+.btn.news-ask-btn[aria-expanded="true"] {
+  background: var(--surface-2);
+  color: var(--strong);
+}
+/* the story's conversation, under its foot in the same card: a hairline from the story, no box of its own */
+.news-ask {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
 }
 /* the sources' health: aligned mono columns, the state at the row's end, a down source's reason under its name */
 .news-table {
@@ -5016,12 +5048,46 @@ body:has(.paper-view) {
 .news-table-why {
   display: block;
 }
-/* the page's foot: Make it now and what it does */
+/* the page's foot: Make it now and what it does; a day's own, Delete this day */
 .news-foot {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
+}
+/* All days (web/src/news/days.tsx): the find at the top, as wide as a search box reads well; the months one column on
+   a phone, two side by side from 64rem (as Live's days), each its heading and its list; a match's line its section's
+   chip, then its day */
+.news-find {
+  max-width: 36rem;
+}
+.news-months {
+  display: grid;
+  gap: var(--page-gap);
+  align-items: start;
+}
+@media (min-width: 64rem) {
+  .news-months {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 32px;
+  }
+}
+.news-month,
+.news-found {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-width: 0;
+}
+.news-found {
+  max-width: 52rem;
+}
+.news-found-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  margin-top: 2px;
 }
 /* work in progress: a thin bar that sweeps while a list refills, a shimmer where a card is coming, a small spinner on
    the button that was pressed */

@@ -17,7 +17,6 @@ import {
   briefDue,
   itemsWindow,
   type NewsDeps,
-  newsDays,
   newsSettled,
   newsState,
   newsTick,
@@ -25,6 +24,7 @@ import {
   sweepNews,
 } from "./brief.ts";
 import { assemble, clean, promptItem, readStories, type WindowItem } from "./compose.ts";
+import { newsDays } from "./days.ts";
 import { gather, type Reader } from "./gather.ts";
 import { Source } from "./sources.ts";
 

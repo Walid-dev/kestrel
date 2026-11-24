@@ -30,6 +30,7 @@ const load = {
   quiz: () => import("./quiz.tsx"),
   writing: () => import("./letters.tsx"),
   news: () => import("./news/page.tsx"),
+  newsDays: () => import("./news/days.tsx"),
 };
 
 // the tabs on the phone's bottom bar that live in a file of their own (Home and Chat are in the first file)
@@ -57,6 +58,7 @@ export const Quiz = lazy(() => load.quiz().then((m) => ({ default: m.Quiz })));
 export const QuizRun = lazy(() => load.quiz().then((m) => ({ default: m.QuizRun })));
 export const Writing = lazy(() => load.writing().then((m) => ({ default: m.Writing })));
 export const News = lazy(() => load.news().then((m) => ({ default: m.News })));
+export const NewsDays = lazy(() => load.newsDays().then((m) => ({ default: m.NewsDays })));
 
 // After the first screen is up and the browser is idle: the tabs, then every other page. A file already loaded costs
 // nothing (the browser keeps one copy of each module), and a file whose name hasn't changed comes from the cache. A

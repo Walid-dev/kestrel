@@ -3,7 +3,7 @@
 // the feeds again, takes what is new since yesterday morning and not told before, and composes the brief
 // (compose.ts). A source down is skipped and named; a model that fails leaves yesterday's brief on the page with the
 // reason. Between briefs the feeds are read every two hours, quietly (several hold only a few hours). Every brief is
-// kept, about 10 KB a day.
+// kept, about 10 KB a day, until I delete its day (days.ts).
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { NEWS_VERSION } from "../../ai/news/prompt.ts";
@@ -13,7 +13,6 @@ import { type NewsSettings, newsOf, type Settings } from "../../platform/config.
 import { plainWords } from "../../platform/plain.ts";
 import {
   type NewsBrief,
-  type NewsDay,
   type NewsMeta,
   type NewsRun,
   type NewsSourceHealth,
@@ -24,6 +23,7 @@ import { recordCall } from "../calls.ts";
 import { modelFor } from "../models.ts";
 import { Refused } from "../notes/documents.ts";
 import { isDue } from "../search/specs.ts";
+import { askedOn } from "./ask.ts";
 import { composeBrief, type WindowItem } from "./compose.ts";
 import { type Gathered, gather, lastRead, networkReader, type Reader } from "./gather.ts";
 import { loadSources, type Source } from "./sources.ts";
@@ -285,6 +285,10 @@ async function writeBrief(db: DatabaseSync, settings: Settings, id: string, deps
 
 const RETRY_MS = 15 * 60_000;
 
+// the hour the morning's brief is no longer written: the latest hour, or the hour after the set time if later
+export const briefUntil = (news: NewsSettings): number =>
+  Math.max(news.latestHour, Number(news.time.split(":")[0]) + 1);
+
 // is this morning's brief due? From the set time until the latest hour (noon), once a day, catching up when the
 // computer wakes after the time, as the searches do (isDue). Before the time, yesterday's is never chased; after the
 // latest hour a missed morning waits for the next one. A morning that failed (a restart cut it short, the model's
@@ -293,7 +297,7 @@ export function briefDue(db: DatabaseSync, news: NewsSettings, now: Date): boole
   const [h, m] = news.time.split(":").map(Number);
   const slot = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
   if (now < slot) return false;
-  if (now.getHours() >= Math.max(news.latestHour, h + 1)) return false;
+  if (now.getHours() >= briefUntil(news)) return false;
   const done = db.prepare("SELECT MAX(started) AS at FROM news_briefs WHERE state = 'done'").get() as {
     at: string | null;
   };
@@ -362,7 +366,8 @@ const runOf = (r: Record<string, unknown>): NewsRun => ({
 });
 
 // the brief to show (the newest written, of a day or of all), and the newest run when it is newer: one being
-// written, or one that failed, while the last good brief stays readable
+// written, or one that failed, while the last good brief stays readable; with how many questions each of its
+// stories was asked, and which Ask is answering now
 export function newsState(db: DatabaseSync, settings: Settings, day?: string): NewsState {
   const brief = (
     day
@@ -375,27 +380,14 @@ export function newsState(db: DatabaseSync, settings: Settings, day?: string): N
         | Record<string, unknown>
         | undefined);
   const news = newsOf(settings);
+  const shown = brief ? runOf(brief) : null;
   return {
     enabled: news.enabled,
     time: news.time,
-    brief: brief ? runOf(brief) : null,
+    brief: shown,
     run: newest && newest.state !== "done" ? runOf(newest) : null,
+    ...(shown ? askedOn(db, shown.id, shown.brief?.stories.length ?? 0) : { asked: [], answering: [] }),
   };
-}
-
-// each day's newest brief, newest day first, with its count and its first headline
-export function newsDays(db: DatabaseSync, limit = 60): NewsDay[] {
-  return (
-    db
-      .prepare(
-        `SELECT b.id, b.day, json_array_length(b.brief, '$.stories') AS stories,
-                json_extract(b.brief, '$.stories[0].headline') AS lead, json_extract(b.brief, '$.quiet') AS quiet
-         FROM news_briefs b
-         WHERE b.state = 'done' AND b.started = (SELECT MAX(started) FROM news_briefs WHERE day = b.day AND state = 'done')
-         ORDER BY b.day DESC LIMIT ?`,
-      )
-      .all(limit) as { id: string; day: string; stories: number | null; lead: string | null; quiet: string | null }[]
-  ).map((r) => ({ id: r.id, day: r.day, stories: r.stories ?? 0, lead: r.lead ?? r.quiet ?? "" }));
 }
 
 // each source with how its reads go, and what it brought in the window
