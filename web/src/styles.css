@@ -2060,6 +2060,200 @@ pre.code .f {
     flex-basis: 100%;
   }
 }
+/* Cost: the period's figures as one strip of cells split by hairlines (the line shows through a 1 px gap): two
+   columns on a phone, the cloud's cell a row of its own; five side by side from 48rem, the figures with longer lines
+   given more room */
+.cost-figures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--line);
+}
+.cost-figure {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--surface);
+}
+.cost-figure-wide {
+  grid-column: 1 / -1;
+}
+@media (pointer: coarse) {
+  .cost-figure {
+    padding: 12px 16px;
+  }
+}
+@media (min-width: 48rem) {
+  .cost-figures {
+    grid-template-columns:
+      minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 0.75fr)
+      minmax(0, 0.75fr);
+  }
+  .cost-figure-wide {
+    grid-column: auto;
+  }
+}
+/* the chart's frame: its height is set here, and the drawing fills it */
+.cost-chart {
+  height: 220px;
+}
+@media (pointer: coarse) {
+  .cost-chart {
+    height: 160px;
+  }
+}
+/* each model, and the prices: the names on the left, the numbers in mono, right-aligned in their columns, rows 40
+   tall on a hairline */
+.cost-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.cost-table :where(th, td) {
+  padding: 0 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+.cost-table :where(th:first-child, td:first-child) {
+  padding-left: 0;
+  text-align: left;
+  white-space: normal;
+}
+.cost-table :where(th:last-child, td:last-child) {
+  padding-right: 0;
+}
+/* a head may take two lines under 64rem (a reference's long name), its last line on the rows' edge */
+.cost-table :where(thead th) {
+  padding-bottom: 8px;
+  vertical-align: bottom;
+  white-space: normal;
+  text-wrap: balance;
+}
+/* on a wide screen the number columns take 8rem each, so they spread over the width instead of crowding the right
+   edge; narrower, they are as wide as their numbers and the model's name keeps room for a few words */
+@media (min-width: 64rem) {
+  .cost-table :where(thead th:not(:first-child)) {
+    width: 8rem;
+    white-space: nowrap;
+  }
+}
+.cost-models :where(td:first-child) {
+  min-width: 10rem;
+}
+.cost-table :where(td) {
+  height: 40px;
+  border-top: 1px solid var(--line);
+  font: 400 var(--text-detail) / var(--text-detail--line-height) var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.cost-table :where(td:first-child) {
+  font-family: var(--sans);
+}
+.cost-table :where(tfoot td) {
+  font-weight: 500;
+  color: var(--strong);
+}
+.cost-table :where(tfoot td:first-child) {
+  font-weight: 600;
+}
+.cost-model {
+  font: 500 var(--text-detail) / var(--text-detail--line-height) var(--mono);
+  color: var(--strong);
+  overflow-wrap: anywhere;
+}
+.cost-total {
+  font: 600 var(--text-detail) / var(--text-detail--line-height) var(--sans);
+  color: var(--strong);
+}
+.cost-share {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.cost-meter {
+  width: 56px;
+}
+/* a model on a phone: a block of lines, hairlines between. The table under 48rem, the rows from it, stay out of sight */
+.cost-rows {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (max-width: 47.99rem) {
+  .cost-models {
+    display: none;
+  }
+}
+@media (min-width: 48rem) {
+  .cost-rows {
+    display: none;
+  }
+}
+.cost-row {
+  display: grid;
+  gap: 4px;
+  padding-block: 12px;
+}
+.cost-row:first-child {
+  padding-top: 0;
+}
+.cost-row + .cost-row {
+  border-top: 1px solid var(--line);
+}
+.cost-row > .cost-meter {
+  width: 100%;
+  margin-top: 4px;
+}
+/* the prices: a reference's name over its rows, each row's source and date in a quiet line under the model */
+.cost-caption {
+  caption-side: top;
+  padding-bottom: 8px;
+  text-align: right;
+  font: 400 var(--text-small) / var(--text-small--line-height) var(--sans);
+  color: var(--muted);
+}
+.cost-prices :where(td) {
+  height: auto;
+  padding-block: 8px;
+  vertical-align: top;
+}
+/* on a phone the prices' columns are as wide as their numbers, 12 apart, so a model's name keeps its line */
+@media (max-width: 47.99rem) {
+  .cost-prices :where(th, td) {
+    padding-inline: 12px 0;
+  }
+  .cost-prices :where(th:first-child, td:first-child) {
+    padding-left: 0;
+  }
+  .cost-prices :where(thead th) {
+    width: auto;
+  }
+}
+.cost-table .cost-group {
+  padding: 12px 0 4px;
+  font: 600 var(--text-detail) / var(--text-detail--line-height) var(--sans);
+  color: var(--strong);
+}
+.cost-sub {
+  display: block;
+  font: 400 var(--text-small) / var(--text-small--line-height) var(--sans);
+  color: var(--muted);
+}
+.cost-source {
+  position: relative;
+  white-space: nowrap;
+}
+@media (pointer: coarse) {
+  .cost-source::after {
+    content: "";
+    position: absolute;
+    inset: calc(50% - var(--h-hit) / 2) -4px;
+  }
+}
 /* ── The shell (web/src/app.tsx): the frame every page sits in ── */
 /* One column on the phone, wider on a computer. No bar on top: each page starts at its own title, 40 from the top
    under a mouse and 16 under the phone's status bar on touch. Its sides keep clear of the notch when the phone is
