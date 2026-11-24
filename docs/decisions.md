@@ -5,6 +5,16 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-23 · Every page on the shared parts (v0.9 step 3).**
+  Searches, Writing, Research, Home, Live, Chat, Applications, the quiz, Tasks, Models, Cost and Ask's box moved onto
+  Page, Card, EmptyState, Field, Pills, Dialog and the token classes, each to zero one-off inline values, each checked
+  beside the earlier build at a phone's width, sideways and a computer's, in dark and light, then reviewed. The
+  listing sheet became the wide Dialog (its own scroll lock went). Applications' state picker is Pills with counts;
+  Stop on an application keeps its two-choice question, since Confirm has one yes. Show all is an action pill, not a
+  stand-in value. Cost keeps its figures when a refresh fails; Models names each recorded call by its use. The UI
+  audit's page findings were fixed with the move (one title size and case, labelled choices, the pay pill's contrast
+  in light, tap targets). Notes follows in its own merge.
+
 - **2026-11-23 · The tokens as classes, the page parts, the phone's floor, and a ratchet on one-offs (v0.9 step 2).**
   `@theme inline` names the role variables as classes read at run time (`text-muted`, `bg-surface`…), so one switch
   still flips dark and light; 28 font sizes in use fold into 8 named steps. Page/PageHead (one title size and case, a

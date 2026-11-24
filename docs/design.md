@@ -60,6 +60,13 @@ The role variables stay on `:root` (dark by default, light with the system) and 
 - `Field` (`web/src/ui/field.tsx`) — a box where Enter sends (Shift+Enter makes a line), its round send button inside,
   a hint under it, 16 px; a long word or a pasted link breaks inside it. Without `onSend` it is a search box.
 - `cx()` (`web/src/ui/cx.ts`) joins class names.
+- An action pill: a Pills option with `onPress` (Show all) is a plain button among the choices, in the accent, never
+  part of the value. A toggle beside a group (Not applied yet, Star) sits in `.pills-inline`, so it wraps in line.
+- Patterns the pages share: a live list card is Card with a title, its meta a kind chip and the time; a page's view
+  switch (Live's Now and Activity, Applications' period) is `.seg`; a page with more than three head buttons puts
+  them in a wrapping row under the head; a read-only document is Doc without `onSave`; a page whose item is gone says
+  so in plain words and doesn't retry. Pay and price pills are `.money` in the money scale's tone (dark ink on a tint
+  in light, for contrast); the listing sheet is the wide Dialog, its head and actions kept in view on tall screens.
 - Chips speak in the mono caps voice (`chip chip-caps`), one colour per meaning: needs me pink; review today cyan;
   learning, Ask and deep work purple; done and at work green; new muted.
 - `/design` shows every shared part in its states; a new part is reviewed there before a page uses it.
