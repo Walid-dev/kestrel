@@ -5,8 +5,8 @@
 // contents, parts folded), and its settings at the foot (its parent, the move to the other area), so nothing has to
 // be decided for good.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type CSSProperties, type ReactNode, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { type CSSProperties, type ReactNode, useEffect, useId, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { Card } from "../ui/card.tsx";
 import { EmptyState } from "../ui/empty.tsx";
 import { Field } from "../ui/field.tsx";
@@ -63,39 +63,38 @@ function StateChip({ state }: { state: string }) {
   return <span className={`chip chip-caps tone-${s.tone}`}>{s.label}</span>;
 }
 
-// the figures: each state in its one colour (the same as its chip and its part of the bar), the number in mono under
-// its name, the bar under them; the page's one filled button on their right (on touch, under the bar)
-const FIGS: { st: keyof Counts; label: string; tone: Tone }[] = [
-  { st: "due", label: "To review", tone: "cyan" },
-  { st: "new", label: "New", tone: "muted" },
-  { st: "learning", label: "Learning", tone: "purple" },
-  { st: "known", label: "Known", tone: "green" },
-];
+// the figures: each state in its one colour and its one name (the same as its chip, its heading and its part of the
+// bar), the number in mono under its name, the bar under them; the page's one filled button on their right, or under
+// the bar when the row is too narrow
+const FIGS = ["due", "new", "learning", "known"] as const;
 function Figures({ counts, action }: { counts: Counts; action?: ReactNode }) {
   const total = counts.due + counts.new + counts.learning + counts.known || 1;
   return (
     // a review waiting today is what matters now: the card takes its edge
     <Card tone={counts.due > 0 ? "cyan" : undefined}>
       <div className="learn-sum">
-        <dl className="learn-figs">
-          {FIGS.map((f) => (
-            <div key={f.st} className="grid gap-1">
-              <dt className="eyebrow flex items-center gap-1.5">
-                <span className={`dot tone-${f.tone}`} aria-hidden="true" />
-                {f.label}
-              </dt>
-              <dd
-                className={`font-mono m-0 text-lead font-medium tabular-nums ${counts[f.st] ? "text-strong" : "text-muted"}`}
-              >
-                {counts[f.st]}
-              </dd>
-            </div>
-          ))}
-        </dl>
-        <div className="meter" aria-hidden="true">
-          <span className="tone-green" style={share(counts.known, total)} />
-          <span className="tone-purple" style={share(counts.learning, total)} />
-          <span className="tone-cyan" style={share(counts.due, total)} />
+        {/* the numbers and their bar in one column, so a wrapped action never comes between them */}
+        <div className="learn-sum-main">
+          <dl className="learn-figs">
+            {FIGS.map((st) => (
+              <div key={st} className="grid gap-1">
+                <dt className="eyebrow flex items-center gap-1.5">
+                  <span className={`dot tone-${STATE[st].tone}`} aria-hidden="true" />
+                  {STATE[st].label}
+                </dt>
+                <dd
+                  className={`font-mono m-0 text-lead font-medium tabular-nums ${counts[st] ? "text-strong" : "text-muted"}`}
+                >
+                  {counts[st]}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <div className="meter" aria-hidden="true">
+            <span className="tone-green" style={share(counts.known, total)} />
+            <span className="tone-purple" style={share(counts.learning, total)} />
+            <span className="tone-cyan" style={share(counts.due, total)} />
+          </div>
         </div>
         {action && <div className="learn-figs-action">{action}</div>}
       </div>
@@ -103,7 +102,8 @@ function Figures({ counts, action }: { counts: Counts; action?: ReactNode }) {
   );
 }
 
-// lessons as one list of rows across the page: the title, one muted line under it (its pack, its short line), and,
+// lessons as one list of rows across the page: the title, a muted line under it (its pack, its short line, up to two
+// lines, so a phone still shows the short line whole), and,
 // where the list mixes states (a search), the state's chip at the end; two columns on a computer
 function Lessons({
   rows,
@@ -125,7 +125,7 @@ function Lessons({
             key={l.id}
             to={lessonPath(l.id)}
             title={l.title}
-            line={line ? <span className="line-clamp-1">{line}</span> : undefined}
+            line={line ? <span className="line-clamp-2">{line}</span> : undefined}
             end={chips ? <StateChip state={l.state} /> : undefined}
           />
         );
@@ -176,7 +176,7 @@ function PackRow({ r, mark, guide }: { r: Row; mark: string; guide: boolean }) {
           <span className="min-w-0">{r.title}</span>
         </span>
       }
-      line={!guide && r.short ? <span className="line-clamp-1 pl-11">{r.short}</span> : undefined}
+      line={!guide && r.short ? <span className="line-clamp-2 pl-11">{r.short}</span> : undefined}
       end={
         r.state === "new" ? undefined : guide && done(r) ? (
           <span className="text-green" role="img" aria-label="Done">
@@ -190,8 +190,8 @@ function PackRow({ r, mark, guide }: { r: Row; mark: string; guide: boolean }) {
   );
 }
 
-// a guide opens as its contents: each part folded under its number and name, with how many of its topics are done;
-// the part that holds the next topic opens
+// a guide opens as its contents, read down in one column as a table of contents is: each part folded under its
+// number and name, with how many of its topics are done; the part that holds the next topic opens
 function GuideContents({ rows, next }: { rows: Row[]; next?: Row }) {
   const parts: { name: string; rows: Row[] }[] = [];
   for (const r of rows) {
@@ -215,7 +215,7 @@ function GuideContents({ rows, next }: { rows: Row[]; next?: Row }) {
               </span>
             </summary>
             <div className="pt-2">
-              <List label={p.name} cols={p.rows.length > 1}>
+              <List label={p.name}>
                 {p.rows.map((r) => (
                   <PackRow key={r.id} r={r} guide mark={r.eyebrow.match(/Topic (\S+)/)?.[1] ?? "·"} />
                 ))}
@@ -223,7 +223,7 @@ function GuideContents({ rows, next }: { rows: Row[]; next?: Row }) {
             </div>
           </details>
         ) : (
-          <List key={`loose-${p.rows[0].id}`} cols={p.rows.length > 1}>
+          <List key={`loose-${p.rows[0].id}`}>
             {p.rows.map((r) => (
               <PackRow
                 key={r.id}
@@ -242,6 +242,29 @@ function GuideContents({ rows, next }: { rows: Row[]; next?: Row }) {
 // each parent's own colour, so the packs read at a glance: the personal packs green, AI purple, the platform blue
 const GROUP_TONE: Record<string, Tone> = { Personal: "green", AI: "purple", Platform: "accent" };
 const groupTone = (g: string): Tone => GROUP_TONE[g] ?? (g ? "cyan" : "muted");
+
+// pills that open a page (a parent, a pack): links in the pill's look, so none is read out as a choice left unpicked
+function NavPills({
+  label,
+  items,
+}: {
+  label: string;
+  items: { to: string; label: string; tone?: Tone; count?: number }[];
+}) {
+  return (
+    <ul className="pills-row m-0 p-0" aria-label={label}>
+      {items.map((it) => (
+        <li key={it.to} className="min-w-0">
+          <Link to={it.to} className={`pill ${it.tone ? `tone-${it.tone}` : ""}`}>
+            {it.tone && <span className="dot" aria-hidden="true" />}
+            <span className="pill-name">{it.label}</span>
+            {it.count !== undefined && <b>{it.count}</b>}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 const FOLD = "kestrel-learn-packs";
 // the packs show under a mouse and start folded on touch (as Searches' filters do), until I fold or open them
@@ -262,6 +285,9 @@ export function LearnPacks({ area = "learn" }: { area?: Area }) {
   const pick = params.get("pack") ?? "";
   const pickGroup = params.get("group") ?? "";
   const [q, setQ] = useState("");
+  // a new parent for the pack, written in its box: Enter saves it, and the box empties and keeps the focus
+  const [newGroup, setNewGroup] = useState("");
+  const newGroupHint = useId();
   const [showPacks, setShowPacks] = useState(packsOpenAtFirst);
   const foldPacks = (v: boolean) => {
     setShowPacks(v);
@@ -336,7 +362,6 @@ export function LearnPacks({ area = "learn" }: { area?: Area }) {
     const set = new Set(ids.map((p) => p.id));
     return lessons.filter((l) => set.has(l.pack) && l.state === "due").length;
   };
-  const choose = (v: string) => setParams(v.startsWith("group:") ? { group: v.slice(6) } : { pack: v.slice(5) });
   const other: Area = area === "learn" ? "interview" : "learn";
   const home = AREA_NAME[area];
   const back = { to: AREA_PATH[area], label: home };
@@ -377,6 +402,7 @@ export function LearnPacks({ area = "learn" }: { area?: Area }) {
       );
     const ordered = [...rows].sort((a, b) => a.position - b.position);
     const isGuide = rows.some((r) => r.part);
+    // a guide's figures count its topics, as its head line does (the Glossary and the References are no topics)
     const topics = ordered.filter((r) => r.part);
     // what Continue opens: a guide's first topic not read yet; another pack's first lesson to review, else its
     // first new one
@@ -407,7 +433,7 @@ export function LearnPacks({ area = "learn" }: { area?: Area }) {
       >
         {errors}
         <Figures
-          counts={countOf(rows)}
+          counts={countOf(isGuide ? topics : rows)}
           action={
             next && (
               <>
@@ -431,49 +457,63 @@ export function LearnPacks({ area = "learn" }: { area?: Area }) {
           </List>
         )}
         {/* the pack's settings, rare, at the page's foot behind a fold: its parent (a pick, or a new one written in the
-            box, saved on Enter or on leaving it), and the move to the other area, after which the page goes back */}
+            box, saved on Enter), and the move to the other area, after which the page goes back */}
         <details>
           <summary className="disclosure">Pack settings</summary>
           <div className="learn-rows mt-2">
-            <span className="eyebrow">Under</span>
-            <div className="learn-under">
-              <Pills
-                label="The pack's parent"
-                options={[
-                  ...[...new Set([...known, groupNow].filter(Boolean))].map((g) => ({
-                    value: g,
-                    label: g,
-                    tone: groupTone(g),
-                  })),
-                  { value: "", label: "None" },
-                ]}
-                value={groupNow}
-                onChange={(g) => g !== groupNow && regroup.mutate({ id: chosen.id, group: g })}
-              />
-              <input
-                className="input w-44 max-w-full"
-                aria-label="A new parent"
-                placeholder="A new parent"
-                maxLength={40}
-                key={`${chosen.id}-${chosen.group}`}
-                onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-                onBlur={(e) => {
-                  const g = e.target.value.trim();
-                  if (g && g !== chosen.group) regroup.mutate({ id: chosen.id, group: g });
-                }}
-              />
+            <div className="learn-group">
+              <span className="eyebrow">Under</span>
+              <div className="learn-under">
+                <Pills
+                  label="The pack's parent"
+                  options={[
+                    ...[...new Set([...known, groupNow].filter(Boolean))].map((g) => ({
+                      value: g,
+                      label: g,
+                      tone: groupTone(g),
+                    })),
+                    { value: "", label: "None" },
+                  ]}
+                  value={groupNow}
+                  onChange={(g) => g !== groupNow && regroup.mutate({ id: chosen.id, group: g })}
+                />
+                <span className="grid gap-1">
+                  <input
+                    className="input w-44 max-w-full"
+                    aria-label="A new parent"
+                    aria-describedby={newGroupHint}
+                    placeholder="A new parent"
+                    maxLength={40}
+                    enterKeyHint="done"
+                    value={newGroup}
+                    onChange={(e) => setNewGroup(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter") return;
+                      e.preventDefault();
+                      const g = newGroup.trim();
+                      if (g && g !== groupNow) regroup.mutate({ id: chosen.id, group: g });
+                      setNewGroup("");
+                    }}
+                  />
+                  <span id={newGroupHint} className="text-small text-muted">
+                    Enter saves
+                  </span>
+                </span>
+              </div>
             </div>
-            <span className="eyebrow">Area</span>
-            <div>
-              <button
-                type="button"
-                className="btn"
-                disabled={move.isPending}
-                title={`The pack and its lessons move to ${AREA_NAME[other]}; the same button there moves them back`}
-                onClick={() => move.mutate({ id: chosen.id, to: other })}
-              >
-                Move to {AREA_NAME[other]}
-              </button>
+            <div className="learn-group">
+              <span className="eyebrow">Area</span>
+              <div>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={move.isPending}
+                  title={`The pack and its lessons move to ${AREA_NAME[other]}; the same button there moves them back`}
+                  onClick={() => move.mutate({ id: chosen.id, to: other })}
+                >
+                  Move to {AREA_NAME[other]}
+                </button>
+              </div>
             </div>
           </div>
         </details>
@@ -509,7 +549,6 @@ export function LearnPacks({ area = "learn" }: { area?: Area }) {
                   <ListRow
                     key={p.id}
                     to={`${AREA_PATH[area]}?pack=${encodeURIComponent(p.id)}`}
-                    icon={<span className={`dot tone-${groupTone(p.group)}`} />}
                     title={titled(p.name)}
                     line={
                       <>
@@ -556,12 +595,18 @@ export function LearnPacks({ area = "learn" }: { area?: Area }) {
               className="btn"
               title="Hold while the question is asked; the nearest prepared answer shows large"
             >
-              The helper
+              Answer helper
             </Link>
           )}
         </>
       }
     >
+      {/* a touch screen shows no title: what the helper does, in one quiet line, where it is used most */}
+      {area === "interview" && (
+        <p className="m-0 hidden text-small text-muted pointer-coarse:block">
+          Answer helper: hold while the question is asked; the nearest prepared answer shows large.
+        </p>
+      )}
       {errors}
       {loading}
       {o && packs.length > 0 && (
@@ -594,27 +639,29 @@ export function LearnPacks({ area = "learn" }: { area?: Area }) {
             {showPacks && (
               <div className="learn-rows">
                 {parents.map(([g, list]) => (
-                  <div key={g || "none"} className="contents">
+                  <div key={g || "none"} className="learn-group">
                     {g ? (
-                      <Pills
+                      <NavPills
                         label={`All of ${g}`}
-                        options={[{ value: `group:${g}`, label: g, count: dueIn(list) || undefined }]}
-                        value={null}
-                        onChange={choose}
+                        items={[
+                          {
+                            to: `${AREA_PATH[area]}?group=${encodeURIComponent(g)}`,
+                            label: g,
+                            count: dueIn(list) || undefined,
+                          },
+                        ]}
                       />
                     ) : (
                       <span className="eyebrow">Not grouped</span>
                     )}
-                    <Pills
+                    <NavPills
                       label={g ? `The packs under ${g}` : "The packs not grouped"}
-                      options={list.map((p) => ({
-                        value: `pack:${p.id}`,
+                      items={list.map((p) => ({
+                        to: `${AREA_PATH[area]}?pack=${encodeURIComponent(p.id)}`,
                         label: titled(p.name),
                         tone: groupTone(g),
                         count: dueIn([p]) || undefined,
                       }))}
-                      value={null}
-                      onChange={choose}
                     />
                   </div>
                 ))}
@@ -680,9 +727,22 @@ export function LearnPacks({ area = "learn" }: { area?: Area }) {
   );
 }
 
-// the old pack page's address opens the front page with that pack picked
+// the old pack page's address opens the pack's page in its area: Interview prep when the pack is there, else Learn
 export function LearnPack() {
-  const id = decodeURIComponent(location.pathname.split("/").pop() ?? "");
-  location.replace(`/learn?pack=${encodeURIComponent(id)}`);
+  const { id = "" } = useParams();
+  const navigate = useNavigate();
+  useEffect(() => {
+    let left = false;
+    fetch("/api/learn/packs?area=interview")
+      .then((res) => (res.ok ? (res.json() as Promise<{ packs: { id: string }[] }>) : { packs: [] }))
+      .catch(() => ({ packs: [] }))
+      .then(({ packs }) => {
+        const area: Area = packs.some((p) => p.id === id) ? "interview" : "learn";
+        if (!left) navigate(`${AREA_PATH[area]}?pack=${encodeURIComponent(id)}`, { replace: true });
+      });
+    return () => {
+      left = true;
+    };
+  }, [id, navigate]);
   return null;
 }
