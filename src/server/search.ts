@@ -1,6 +1,6 @@
 // The Searches routes: the hunts (job specs, deal hunts across sites and models) with their runs and problems, a
 // hunt's counts for its toolbar, the listings with combining filters and a deal's usual price, one listing with its
-// deep check, status, star and note, Run now, and Deep check.
+// deep check, status, star and note, Run now (a job hunt the old setup runs: its own Search now), and Deep check.
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { zValidator } from "@hono/zod-validator";
@@ -43,6 +43,7 @@ import { record } from "../platform/activity.ts";
 import type { Settings } from "../platform/config.ts";
 import { dataDir } from "../platform/paths.ts";
 import { alertRun } from "./alerts.ts";
+import { toOldSetup } from "./live.ts";
 
 const STATUSES = [
   "new",
@@ -56,6 +57,16 @@ const STATUSES = [
   "fake",
   "closed",
 ] as const;
+
+// the old setup's answer to its own Search now: 202 when it started, 409 when it won't now (the hunt is paused there, a
+// search runs already, or it waits until `at`: its own rule, an hour after a search that read an account of mine).
+// Read leniently: a missing sentence is empty, a time that isn't one is none
+const NotNow = z.object({
+  code: z.enum(["paused", "busy", "waiting"]),
+  error: z.string().catch(""),
+  at: z.iso.datetime().nullable().optional().catch(null),
+});
+const Said = z.object({ error: z.string().min(1) });
 
 const filtersOf = (q: Record<string, string>): ListingFilters => ({
   kind: q.kind === "deals" ? "deals" : q.kind === "jobs" ? "jobs" : undefined,
@@ -86,6 +97,14 @@ function dealOf(r: ListingRow, usual: Map<string, Usual>) {
 
 export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
   const specsDir = () => join(dataDir(), "searches");
+  // a hunt's searches here that are on: its Search now runs them
+  const onSearches = (specs: Spec[], kind: "jobs" | "deals", key: string, searches: string[]) =>
+    specs.filter((s) => s.enabled && s.kind === kind && (searches.includes(s.id) || (s.hunt || s.id) === key));
+  // a job hunt the old setup runs (none of its searches here is on): its Search now asks the old setup's own, under the
+  // old hunt's id, which the import keeps as its listings' search (import-v1.ts) and so is the hunt's key. Only with
+  // the old setup's address set (settings.oldLive); its door searches jobs only
+  const oldHunt = (h: { kind: "jobs" | "deals"; key: string; searches: string[] }, on: Spec[]): string | null =>
+    settings.oldLive && h.kind === "jobs" && on.length === 0 && h.searches.includes(h.key) ? h.key : null;
   app.get("/api/search", (c) => {
     const { specs, problems } = loadSpecs(specsDir());
     const byId = new Map(specs.map((s) => [s.id, s]));
@@ -99,6 +118,7 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
       specs: { id: string; name: string; enabled: boolean; everyMinutes: number; auto: boolean }[];
       lastRun: ReturnType<typeof lastRun>;
       mirrored: boolean;
+      oldSearchNow: boolean; // Search now asks the old setup's own (oldHunt, above)
       running: number;
       mode: HuntMode | null; // null: a hunt the old setup runs (no kestrel search of its own)
       next: string | null;
@@ -133,6 +153,7 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
         specs: own.map(brief),
         lastRun: runs.sort((a, b) => b.started.localeCompare(a.started))[0] ?? null,
         mirrored: own.length === 0,
+        oldSearchNow: oldHunt(h, onSearches(specs, h.kind, h.key, h.searches)) !== null,
         running: busy(own.map((s) => s.id)),
         ...state(own, h.searches),
       };
@@ -150,6 +171,7 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
           specs: [brief(s)],
           lastRun: lastRun(db, s.id),
           mirrored: false,
+          oldSearchNow: false,
           running: busy([s.id]),
           ...state([s], [s.id]),
         });
@@ -283,16 +305,31 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
     return c.json({ ok: true, id: spec.id, rescored });
   });
   // Search now for a whole hunt: each of its searches that is on joins the one line, in the background; the hunts list
-  // counts them down
+  // counts them down. A job hunt the old setup runs is searched there, by its own Search now, with its own wait and
+  // limits: started, or why not now ({old, at, why}); its new jobs come with the next mirror
   app.post(
     "/api/search/hunts/run",
-    zValidator("json", z.object({ kind: z.enum(["jobs", "deals"]), key: z.string().min(1) })),
-    (c) => {
+    zValidator("json", z.object({ kind: z.enum(["jobs", "deals"]), key: z.string().min(1).max(200) })),
+    async (c) => {
       const { kind, key } = c.req.valid("json");
       const hunt = listHunts(db).find((h) => h.kind === kind && h.key === key);
-      const on = loadSpecs(specsDir()).specs.filter(
-        (s) => s.enabled && s.kind === kind && ((hunt?.searches.includes(s.id) ?? false) || (s.hunt || s.id) === key),
-      );
+      const on = onSearches(loadSpecs(specsDir()).specs, kind, key, hunt?.searches ?? []);
+      const old = hunt ? oldHunt(hunt, on) : null;
+      if (old) {
+        const got = await toOldSetup(settings.oldLive ?? "", "/api/jobs/search-now", { hunt: old });
+        if (got.code === 202) return c.json({ old: "started" }, 202);
+        const notNow = NotNow.safeParse(got.body);
+        if (got.code === 409 && notNow.success) {
+          const { code, at, error } = notNow.data;
+          // why it waits, in its own words: the bracket that ends its sentence ("an hour apart, as it reads …")
+          const why = code === "waiting" ? (/\(([^()]{1,160})\)\W*$/.exec(error)?.[1] ?? "") : "";
+          return c.json({ old: code, at: at ?? null, why }, 409);
+        }
+        // anything else failed: a server that didn't answer says so (toOldSetup's 502), the door in its own words
+        const said = Said.safeParse(got.body);
+        const words = said.success ? said.data.error.slice(0, 300) : `it answered ${got.code}`;
+        return c.json({ error: got.code === 502 ? words : `the old setup's Search now failed: ${words}` }, 502);
+      }
       if (!on.length) return c.json({ error: "this hunt has no kestrel search that is on" }, 400);
       // a failed run lands its own row; a run of a hunt that is On pings my phone for a great deal
       for (const s of on)

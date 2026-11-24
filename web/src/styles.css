@@ -795,6 +795,17 @@ h3 {
   gap: 4px 12px;
   font: 400 var(--text-detail) / var(--text-detail--line-height) var(--sans);
 }
+/* the old setup's answer to Search now, first among the facts: its dot level with the first line when the words wrap
+   (a phone), the wrapped words under the words, never under the dot */
+.search-answer {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.search-answer > .dot {
+  margin-top: calc((var(--text-detail--line-height) - 7px) / 2);
+}
 .search-flag,
 .search-more {
   position: relative;

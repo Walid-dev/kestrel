@@ -26,7 +26,9 @@ I stop each part when its new home has carried it for two quiet weeks.
 
 The mirror (`mirror-v1.json`) brings the old setup's finds about five minutes after each of its rounds, and everything
 at least once a day; it keeps kestrel's listings — jobs and deals — matched to the old database, which
-stays the authority for statuses until each cutover. The mirror's last word shows on the Searches page.
+stays the authority for statuses until each cutover. The mirror's last word shows on the Searches page. Search now on
+a job hunt the old setup runs starts the old setup's own (`settings.oldLive` names its server); the mirror after it
+brings the finds.
 
 ## What waits for me
 

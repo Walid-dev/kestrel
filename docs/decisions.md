@@ -5,6 +5,17 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-24 · Search now on a job hunt the old setup runs starts the old setup's own.**
+  A job hunt with no search of its own here that is on (one mirrored from the old setup) shows Search now. kestrel
+  posts `{"hunt": <the old hunt's id>}` to the old server's `POST /api/jobs/search-now`, at the origin of
+  `settings.oldLive`, through `toOldSetup` (JSON, no Origin header). The old hunt's id is the hunt's key: the import
+  keeps it as its listings' search. The old setup's rules hold: one search at a time, a paused hunt refused, and its
+  wait after a search (an hour when it read an account of mine). Its answers lead the hunt's line: started (green,
+  until a mirror lands after it with the new jobs), busy, waiting until a time, paused (yellow); any other answer,
+  and a server that doesn't answer, is an error. With no `oldLive` nothing changes, and a hunt with a search of its
+  own here still runs it. Why: the old setup's Search now was only on its own page. Rejected: a second address for
+  the door in `mirror-v1.json` (settings already name the old server); reading the old setup's lock or runs to know
+  when its search ends (ties kestrel to its files).
 - **2026-11-24 · All shows every card; the old setup's finds arrive after each of its rounds.**
   All is every listing of a hunt, jobs and deals, the set-aside ones included, and comes first among the stages. Not
   applied yet narrows only the review views (To review, Priority, Possible, Left out) and shows only there. A card

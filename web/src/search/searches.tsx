@@ -27,6 +27,7 @@ type Hunt = {
   specs: { id: string; name: string; enabled: boolean; everyMinutes: number; auto: boolean }[];
   lastRun: Run;
   mirrored: boolean;
+  oldSearchNow: boolean; // a job hunt the old setup runs: Search now asks the old setup's own
   running: number; // its searches queued or running now
   mode: "on" | "quiet" | "paused" | null; // null: the old setup runs it
   next: string | null;
@@ -38,16 +39,26 @@ type Hunt = {
     best: { id: string; title: string; org: string } | null;
   } | null;
 };
+// the old setup's answer to Search now (server/search.ts): it started, or why not now — for the hunt it was asked
+// for, and when (its new jobs come with the mirror after it)
+type OldAnswer = {
+  hunt: string;
+  asked: number;
+  old: "started" | "busy" | "waiting" | "paused";
+  at: string | null;
+  why: string;
+};
 const MODES = {
   on: ["On", "Searches on its own and pings your phone for a great find"],
   quiet: ["Quiet", "Searches on its own, without pings"],
   paused: ["Paused", "Searches only when you press Search now"],
 } as const;
 
-// a time as the old hunt page said it: today 9:00 AM, tomorrow 10:00 AM, or its weekday
+// a time of day (9:00 AM), and a time as the old hunt page said it: today 9:00 AM, tomorrow 10:00 AM, or its weekday
+const clock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 function when(iso: string): string {
   const d = new Date(iso);
-  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const time = clock(iso);
   const days = Math.round(
     (new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() -
       new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime()) /
@@ -68,10 +79,45 @@ function when(iso: string): string {
 const flagOf = (problem: string) => (/\b429\b|throttl/i.test(problem) ? "Throttled" : "Problem");
 const sentence = (s: string) => `${s.charAt(0).toUpperCase()}${s.slice(1)}${/[.!?]$/.test(s) ? "" : "."}`;
 
+// each answer of the old setup's in words: what comes before its value, the value (bold), what comes after
+const OLD_WORDS: Record<OldAnswer["old"], (a: OldAnswer) => [string, string, string]> = {
+  started: () => ["", "Searching in the old setup", ": its new jobs show here a few minutes after it ends"],
+  busy: () => ["The old setup is ", "searching already", ": try again in a few minutes"],
+  waiting: (a) => [`It can search again ${a.at ? "at " : ""}`, a.at ? clock(a.at) : "later", a.why && `: ${a.why}`],
+  paused: () => ["", "Paused", " in the old setup: turn it on there, then search"],
+};
+
+// the old setup's answer to Search now, first on its hunt's line: started in green, as Searching now; why not now in
+// the waiting yellow. Searching there ends once a mirror lands after it: its new jobs are in
+function OldSaid({ a, mirror }: { a: OldAnswer; mirror?: Run }) {
+  if (a.old === "started" && mirror && Date.parse(mirror.started) > a.asked) return null;
+  const [before, value, after] = OLD_WORDS[a.old](a);
+  return (
+    <span className="search-answer">
+      <span className={cx("dot", a.old === "started" ? "tone-green pulse" : "tone-yellow")} aria-hidden="true" />
+      <span>
+        {before}
+        <b className={a.old === "started" ? "text-green" : "text-ink"}>{value}</b>
+        {after}
+      </span>
+    </span>
+  );
+}
+
 // the line under the title: a few facts, values bold (what searches now, the last search and what it found, the next
 // one), each warning as a small orange chip, and About, which opens the hunt's own words. A chip or About opens one
 // short block under the facts: the warnings in full, what the hunt looks for, the best of the last search
-function StatusLine({ hunt, mirror, about }: { hunt: Hunt; mirror?: Run; about: string }) {
+function StatusLine({
+  hunt,
+  mirror,
+  about,
+  answer,
+}: {
+  hunt: Hunt;
+  mirror?: Run;
+  about: string;
+  answer?: OldAnswer | null;
+}) {
   const [more, setMore] = useState(false);
   const l = hunt.last;
   const noun = (n: number) => (hunt.kind === "jobs" ? (n === 1 ? "job" : "jobs") : n === 1 ? "ad" : "ads");
@@ -87,6 +133,7 @@ function StatusLine({ hunt, mirror, about }: { hunt: Hunt; mirror?: Run; about: 
   const best = l?.best && `${l.best.title}${l.best.org ? ` at ${l.best.org}` : ""}`;
   const open = (
     <span className="search-facts">
+      {answer && <OldSaid a={answer} mirror={mirror} />}
       {hunt.running > 0 && (
         <span className="inline-flex items-center gap-2 text-green">
           <span className="dot tone-green pulse" aria-hidden="true" />
@@ -103,7 +150,7 @@ function StatusLine({ hunt, mirror, about }: { hunt: Hunt; mirror?: Run; about: 
           )}
         </span>
       ) : hunt.mirrored ? (
-        <span title="Brought in from the old setup a minute after each of its searches, and once a day at least">
+        <span title="Brought in from the old setup a few minutes after each of its rounds, and once a day at least">
           {mirror ? (
             <>
               Mirrored <b className="text-ink">{when(mirror.started)}</b>
@@ -476,15 +523,26 @@ export function Searches() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["searches"] }),
   });
   // Search now: every search of the hunt, one after the other, in the background (the chair's run across two sites
-  // and ten models takes a while); the button counts them down
+  // and ten models takes a while); the button counts them down. A job hunt the old setup runs is searched there: its
+  // answer, started or not now, goes on the hunt's line
   const runNow = useMutation({
-    mutationFn: async (h: Hunt) => {
+    mutationFn: async (h: Hunt): Promise<OldAnswer | null> => {
       const res = await fetch("/api/search/hunts/run", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ kind: h.kind, key: h.key }),
       });
-      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
+      const said = (await res.json().catch(() => ({}))) as Partial<OldAnswer> & { error?: string };
+      if (said.old)
+        return {
+          hunt: `${h.kind}:${h.key}`,
+          asked: Date.now(),
+          old: said.old,
+          at: said.at ?? null,
+          why: said.why ?? "",
+        };
+      if (!res.ok) throw new Error(said.error ?? `${res.status}`);
+      return null;
     },
     onSettled: () => {
       refresh();
@@ -592,6 +650,7 @@ export function Searches() {
             key={`${hunt.kind}:${hunt.key}`}
             hunt={hunt}
             mirror={hunts.data?.mirror}
+            answer={runNow.data?.hunt === `${hunt.kind}:${hunt.key}` ? runNow.data : null}
             about={
               hunt.about ||
               (kind === "deals" && groups.length > 0
@@ -641,12 +700,13 @@ export function Searches() {
                 ))}
               </fieldset>
             )}
-            {spec && (
+            {(spec || hunt.oldSearchNow) && (
               // its words stay while it searches, a spinner over them, so the row never changes width; the line
-              // under the title says Searching now and how many are left
+              // under the title says Searching now and how many are left, or what the old setup answered
               <button
                 type="button"
                 className="btn"
+                title={spec ? undefined : "The old setup searches this hunt, with its own wait and limits"}
                 disabled={runNow.isPending || hunt.running > 0}
                 aria-busy={runNow.isPending || hunt.running > 0}
                 onClick={() => runNow.mutate(hunt)}
