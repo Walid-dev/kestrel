@@ -1,5 +1,6 @@
-// The morning news as the page and the server share it: the sections in the order the brief reads them, the five
-// steps of a run, and a brief as it is kept. Nothing from Node here, and no zod: the web may import only src/shared.
+// The morning news as the pages and the server share it: the sections in the order the brief reads them, the five
+// steps of a run, a brief as it is kept, and the days kept as the history lists and finds them. Nothing from Node
+// here, and no zod: the web may import only src/shared.
 
 export type Section = "money" | "models" | "building" | "tech" | "views";
 
@@ -82,12 +83,20 @@ export type NewsRun = {
   meta: NewsMeta | null;
 };
 
-// GET /api/news: the brief to show (the newest written, of the day asked or any), and the newest run when it is newer
-// than that one (running now, or today's that failed)
-export type NewsState = { enabled: boolean; time: string; brief: NewsRun | null; run: NewsRun | null };
+// GET /api/news: the brief to show (the newest written, of the day asked or any), the newest run when it is newer
+// than that one (running now, or today's that failed), and how many questions Ask took on each of the brief's
+// stories, in their order
+export type NewsState = { enabled: boolean; time: string; brief: NewsRun | null; run: NewsRun | null; asked: number[] };
 
-// GET /api/news/days: each day's newest brief, newest day first
+// GET /api/news/days: each day's newest brief, newest day first, a page at a time (?before= the last day of the page
+// above), with how many days are kept in all and the first of them
 export type NewsDay = { day: string; id: string; stories: number; lead: string };
+export type NewsDays = { days: NewsDay[]; total: number; since: string | null };
+
+// GET /api/news/find: the stories whose headline or text hold every word, newest day first, at most 50 (more: others
+// matched too). n is the story's number on its day's page, #s<n>
+export type NewsFound = { day: string; n: number; section: Section; headline: string };
+export type NewsFind = { found: NewsFound[]; more: boolean };
 
 // GET /api/news/sources: each source and how its reads go
 export type NewsSourceHealth = {

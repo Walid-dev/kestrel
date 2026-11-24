@@ -16,6 +16,7 @@ import { recordCall } from "../calls.ts";
 import { lessonPage, lessonTools, quizTools } from "../learn/ask.ts";
 import { quizPage } from "../learn/quiz.ts";
 import { modelFor } from "../models.ts";
+import { newsHelper } from "../news/ask.ts";
 import { notesHelper } from "../notes/ask.ts";
 import { Refused } from "../notes/documents.ts";
 import { searchesHelper } from "../search/ask.ts";
@@ -51,6 +52,7 @@ const HELPERS: Record<string, Helper> = {
   research: { ...researchHelper, tools: WEB },
   writing: writingHelper,
   applications: applicationsHelper,
+  news: { ...newsHelper, tools: WEB },
 };
 export const ASK_APPS = Object.keys(HELPERS) as [string, ...string[]];
 

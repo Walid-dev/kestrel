@@ -2,15 +2,16 @@
 // industry and its money, models and research, building with AI, the wider tech day, views), each a card at the
 // Searches standard: its section's chip and its source on top, the headline with its key number as a pill, the story
 // in a few sentences, then its links as source chips (a lock where a site wants a subscription, the discussion with
-// its points) and Look deeper, which hands the headline to Research. On a computer the earlier days and the sources'
-// health sit in a rail beside the stories; on a phone they follow them. Listen reads the brief aloud; Make it now, at
-// the foot, writes a new one, its five steps in sight while it works, the last brief readable under them.
+// its points), Ask (a conversation about the story, kept per story, with the web) and Look deeper, which hands the
+// headline to Research. On a computer the earlier days and the sources' health sit in a rail beside the stories; on a
+// phone they follow them. Listen reads the brief aloud; All days opens the history (days.tsx); Make it now, at the
+// foot, writes a new one, its five steps in sight while it works, the last brief readable under them. An earlier
+// day's page can be deleted at its foot.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, type ReactNode, useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useNavigationType, useSearchParams } from "react-router";
 import {
   type NewsBrief,
-  type NewsDay,
   type NewsLink,
   type NewsRun,
   type NewsSourceHealth,
@@ -18,6 +19,7 @@ import {
   PHASES,
   SECTIONS,
 } from "../../../src/shared/news.ts";
+import { Ask, Spark } from "../ask.tsx";
 import { type Spoken, useReader } from "../learn/voice.ts";
 import { cx } from "../ui/cx.ts";
 import { EmptyState } from "../ui/empty.tsx";
@@ -35,10 +37,21 @@ import {
   SECTION_TONE,
   sentence,
   shortModel,
+  useDays,
+  useDeleteDay,
   useNews,
 } from "./data.ts";
 
 const DAYS_SHOWN = 7;
+// the first questions a story's Ask offers
+const STARTERS = ["Explain it simply", "Why does it matter?", "What's the latest on this?"];
+
+// the history, from the head of every news page: a plain button, beside Listen
+const ALL_DAYS = (
+  <Link to="/news/days" className="btn">
+    All days
+  </Link>
+);
 
 export function News() {
   const [params] = useSearchParams();
@@ -79,10 +92,27 @@ function useSay() {
   return { say, actions };
 }
 
+// where a news page opens, once per arrival and once its brief is drawn: at the story a link names (#s3: the
+// history's find, Live's line for an Ask), else at the top when a link opened it (one day's page to another keeps
+// the same page on screen, scrolled). Back keeps where the browser left the page
+function useOpenAt(ready: boolean) {
+  const { hash, key } = useLocation();
+  const how = useNavigationType();
+  const opened = useRef("");
+  useEffect(() => {
+    if (!ready || opened.current === key) return;
+    opened.current = key;
+    const story = /^#s\d+$/.test(hash) ? document.getElementById(hash.slice(1)) : null;
+    if (story) story.scrollIntoView({ block: "start" });
+    else if (how === "PUSH") window.scrollTo(0, 0);
+  }, [ready, hash, how, key]);
+}
+
 function Today() {
   const queryClient = useQueryClient();
   const news = useNews();
   const { say, actions } = useSay();
+  useOpenAt(Boolean(news.data));
   const make = useMutation({
     mutationFn: async () => {
       const res = await fetch("/api/news/run", { method: "POST" });
@@ -103,7 +133,7 @@ function Today() {
   const state = runOf(d);
   const running = state?.state === "running" ? state.run : null;
   const failed = state?.state === "failed" ? state : null;
-  const body = shown?.brief ? brief(shown.brief, say) : null;
+  const body = shown?.brief ? brief(shown, d.asked, say) : null;
   const busy = Boolean(running) || make.isPending;
   const makeIt = (look: "primary" | "plain" | "small") => (
     <button
@@ -120,7 +150,14 @@ function Today() {
       eyebrow={dayName(shown?.day ?? localDay())}
       title="News"
       line={running ? <Running run={running} /> : shown ? <Facts run={shown} /> : undefined}
-      actions={shown?.brief?.stories.length ? actions : undefined}
+      actions={
+        shown && (
+          <>
+            {shown.brief?.stories.length ? actions : null}
+            {ALL_DAYS}
+          </>
+        )
+      }
     >
       <div className="news-layout">
         <div className="news-main">
@@ -172,10 +209,14 @@ function Today() {
   );
 }
 
-// an earlier day's brief: the same page as a child of today's, nothing to make
+// an earlier day's brief: the same page as a child of today's, nothing to make; deleted at its foot, after which the
+// history opens in its place
 function Day({ day }: { day: string }) {
+  const navigate = useNavigate();
   const news = useNews(day);
   const { say, actions } = useSay();
+  const remove = useDeleteDay(() => navigate("/news/days", { replace: true }));
+  useOpenAt(Boolean(news.data));
   const back = { to: "/news", label: "News" };
   const run = news.data?.brief;
   if (!run?.brief)
@@ -184,15 +225,21 @@ function Day({ day }: { day: string }) {
         back={back}
         title={dayName(day)}
         line={news.isError ? sentence((news.error as Error).message) : "Opening…"}
+        actions={news.isError ? ALL_DAYS : undefined}
       />
     );
-  const body = brief(run.brief, say);
+  const body = brief(run, news.data?.asked ?? [], say);
   return (
     <Page
       back={back}
       title={dayName(day)}
       line={<Facts run={run} />}
-      actions={run.brief.stories.length ? actions : undefined}
+      actions={
+        <>
+          {run.brief.stories.length ? actions : null}
+          {ALL_DAYS}
+        </>
+      }
     >
       <div className="news-layout">
         <div className="news-main">{body}</div>
@@ -200,13 +247,29 @@ function Day({ day }: { day: string }) {
           <EarlierDays except={day} />
         </aside>
       </div>
+      {/* the rare action last, at the page's foot */}
+      <div className="news-foot">
+        <button
+          type="button"
+          className="btn btn-danger"
+          disabled={remove.drop.isPending}
+          onClick={() => remove.ask(day)}
+        >
+          Delete this day
+        </button>
+        {remove.drop.isError && (
+          <span className="text-small text-red">The delete didn't land: {(remove.drop.error as Error).message}</span>
+        )}
+      </div>
     </Page>
   );
 }
 
-// the brief itself: the opening, then each section that has stories, in the brief's order. A plain function, not a
-// component: every line it reads aloud registers in the page's own render, in the order it is drawn
-function brief(b: NewsBrief, say: (text: string) => ReactNode): ReactNode {
+// the brief itself: the opening, then each section that has stories, in the brief's order, each story with its Ask
+// (asked: how many questions each story took). A plain function, not a component: every line it reads aloud
+// registers in the page's own render, in the order it is drawn
+function brief(run: NewsRun, asked: number[], say: (text: string) => ReactNode): ReactNode {
+  const b = run.brief as NewsBrief;
   return (
     <>
       {b.opening.length > 0 && (
@@ -231,7 +294,15 @@ function brief(b: NewsBrief, say: (text: string) => ReactNode): ReactNode {
             </h2>
             <div className="news-stories">
               {stories.map(({ s, at }) => (
-                <Story key={s.headline} n={at + 1} story={s} headline={say(s.headline)} text={say(s.text)} />
+                <Story
+                  key={s.headline}
+                  n={at + 1}
+                  story={s}
+                  headline={say(s.headline)}
+                  text={say(s.text)}
+                  refId={`${run.id}:${at + 1}`}
+                  asked={asked[at] ?? 0}
+                />
               ))}
             </div>
           </section>
@@ -293,9 +364,28 @@ function Links({ link }: { link: NewsLink }) {
 }
 
 // one story, at the Searches standard: section chip and source on top, the headline with its figure, the story, its
-// links and Look deeper last
-function Story({ n, story, headline, text }: { n: number; story: NewsStory; headline: ReactNode; text: ReactNode }) {
+// links, then Ask and Look deeper last. Ask opens the story's conversation under its foot, in the same card (Ask's
+// bare look: no box in a box); its button says how many questions the story took while it is closed. A link to the
+// story (#s3) lights its edge in the accent
+function Story({
+  n,
+  story,
+  headline,
+  text,
+  refId,
+  asked,
+}: {
+  n: number;
+  story: NewsStory;
+  headline: ReactNode;
+  text: ReactNode;
+  refId: string; // its conversation's: "<brief id>:<n>"
+  asked: number;
+}) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [asking, setAsking] = useState(false);
+  const target = useLocation().hash === `#s${n}`;
   const deeper = useMutation({
     mutationFn: async () => {
       const res = await fetch("/api/research", {
@@ -311,8 +401,9 @@ function Story({ n, story, headline, text }: { n: number; story: NewsStory; head
   });
   const main = story.links[0];
   const tone = SECTION_TONE[story.section];
+  const panel = `s${n}-ask`;
   return (
-    <article id={`s${n}`} className="card news-story">
+    <article id={`s${n}`} className={cx("card news-story", target && "card-tone tone-accent")}>
       <div className="news-story-meta">
         <span className={`chip chip-caps tone-${tone}`}>{SECTIONS.find((s) => s.key === story.section)?.short}</span>
         {main && (
@@ -338,17 +429,48 @@ function Story({ n, story, headline, text }: { n: number; story: NewsStory; head
         {story.links.map((l) => (
           <Links key={l.url} link={l} />
         ))}
-        <button
-          type="button"
-          className="btn btn-sm btn-quiet news-deeper"
-          disabled={deeper.isPending}
-          title="Research this story on the web, quickly"
-          onClick={() => deeper.mutate()}
-        >
-          {deeper.isPending ? "Starting…" : "Look deeper →"}
-        </button>
+        <span className="news-story-acts">
+          <button
+            type="button"
+            className="btn btn-sm btn-quiet news-ask-btn"
+            aria-expanded={asking}
+            aria-controls={asking ? panel : undefined}
+            title="Ask the computer's model about this story: it can read its sources and search the web"
+            onClick={() => {
+              // closed again: the count beside Ask reads again, with what was just asked
+              if (asking) queryClient.invalidateQueries({ queryKey: ["news"] });
+              setAsking(!asking);
+            }}
+          >
+            <span className="news-ask-spark">
+              <Spark size={14} />
+            </span>
+            Ask {!asking && asked > 0 && <span className="news-ask-count">{asked} asked</span>}
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm btn-quiet"
+            disabled={deeper.isPending}
+            title="Research this story on the web, quickly"
+            onClick={() => deeper.mutate()}
+          >
+            {deeper.isPending ? "Starting…" : "Look deeper →"}
+          </button>
+        </span>
       </div>
       {deeper.isError && <p className="m-0 text-small text-red">{sentence((deeper.error as Error).message)}</p>}
+      {asking && (
+        <div id={panel} className="news-ask">
+          <Ask
+            app="news"
+            refId={refId}
+            bare
+            title={`Ask about “${story.headline}”`}
+            placeholder="Ask about this story"
+            starters={STARTERS}
+          />
+        </div>
+      )}
     </article>
   );
 }
@@ -450,14 +572,12 @@ function Steps({ run }: { run: NewsRun }) {
   );
 }
 
-// each earlier day's brief, newest first: its first headline, its day and count; seven, then all
+// each earlier day's brief, newest first: its first headline, its day and count; seven, then the way to all of them
+// (the history)
 function EarlierDays({ except }: { except?: string }) {
-  const days = useQuery({
-    queryKey: ["news-days"],
-    queryFn: () => getJson<{ days: NewsDay[] }>("/api/news/days"),
-  });
-  const [all, setAll] = useState(false);
-  const list = (days.data?.days ?? []).filter((d) => d.day !== except);
+  const days = useDays(DAYS_SHOWN + 1);
+  const list = (days.data?.days ?? []).filter((d) => d.day !== except).slice(0, DAYS_SHOWN);
+  const total = days.data?.total ?? 0;
   if (!list.length) return null;
   return (
     <section className="news-rail-part" aria-labelledby="news-days">
@@ -465,7 +585,7 @@ function EarlierDays({ except }: { except?: string }) {
         Earlier days
       </h2>
       <List>
-        {(all ? list : list.slice(0, DAYS_SHOWN)).map((d) => (
+        {list.map((d) => (
           <Row
             key={d.day}
             to={`/news?day=${d.day}`}
@@ -479,10 +599,10 @@ function EarlierDays({ except }: { except?: string }) {
           />
         ))}
       </List>
-      {list.length > DAYS_SHOWN && (
-        <button type="button" className="btn btn-sm btn-quiet justify-self-start" onClick={() => setAll(!all)}>
-          {all ? "Show fewer" : `Show all ${list.length}`}
-        </button>
+      {total - (except ? 1 : 0) > list.length && (
+        <Link to="/news/days" className="btn btn-sm btn-quiet justify-self-start">
+          All {total} days →
+        </Link>
       )}
     </section>
   );

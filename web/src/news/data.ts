@@ -1,8 +1,11 @@
-// The news as Home's card and the page read it: one query per day (today's shared by both), and the formats they
-// share. Today's brief asks again every 2 seconds while one is written, else every 5 minutes; the live stream (the
-// app's own ear, app.tsx) asks at once when a run starts or ends, on Home's card as on the page.
-import { useQuery } from "@tanstack/react-query";
-import type { NewsRun, NewsState, Section } from "../../../src/shared/news.ts";
+// The news as Home's card, the page and the history read it: one query per day (today's shared by both), the days
+// kept, the find, a day deleted, and the formats they share. Today's brief asks again every 2 seconds while one is
+// written, else every 5 minutes; the live stream (the app's own ear, app.tsx) asks at once when a run starts or ends,
+// on Home's card as on the page. Every query here starts with "news" or "news-days", the two the live stream and a
+// deleted day read again.
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { NewsDays, NewsFind, NewsRun, NewsState, Section } from "../../../src/shared/news.ts";
+import { useConfirm } from "../ui/confirm.tsx";
 import type { Tone } from "../ui/pills.tsx";
 
 export async function getJson<T>(url: string): Promise<T> {
@@ -20,6 +23,64 @@ export function useNews(day?: string) {
     refetchInterval: (q) => (day ? false : q.state.data?.run?.state === "running" ? 2000 : 5 * 60_000),
     retry: (n, e) => !/no brief was written/.test(e.message) && n < 2,
   });
+}
+
+// the days kept, newest first: the rail's first few, with how many there are in all
+export const useDays = (limit: number) =>
+  useQuery({
+    queryKey: ["news-days", limit],
+    queryFn: () => getJson<NewsDays>(`/api/news/days?limit=${limit}`),
+  });
+
+// the history: a hundred days at a time (about three months, a few KB), Show older for the next hundred, each page
+// starting before the last day of the one above
+export const PAGE_DAYS = 100;
+export const useAllDays = () =>
+  useInfiniteQuery({
+    queryKey: ["news-days", "all"],
+    queryFn: ({ pageParam }) =>
+      getJson<NewsDays>(`/api/news/days?limit=${PAGE_DAYS}${pageParam ? `&before=${pageParam}` : ""}`),
+    initialPageParam: "",
+    getNextPageParam: (last, pages) =>
+      pages.reduce((n, p) => n + p.days.length, 0) < last.total ? last.days.at(-1)?.day : undefined,
+  });
+
+// a story found again in every brief kept, from two letters; the last matches stay while the next words are asked
+export const useFind = (words: string) =>
+  useQuery({
+    queryKey: ["news-days", "find", words],
+    queryFn: () => getJson<NewsFind>(`/api/news/find?q=${encodeURIComponent(words)}`),
+    enabled: words.length >= 2,
+    placeholderData: keepPreviousData,
+  });
+
+// a day deleted, after the shared Confirm: every run of it goes, and with it the questions asked on its stories.
+// Then every news query reads again, the ones off screen too (Home's card, the history left behind), so the day is gone
+// from each before it is seen again; gone runs after it (the day's own page leaves for the history)
+export function useDeleteDay(gone?: () => void) {
+  const queryClient = useQueryClient();
+  const sure = useConfirm();
+  const drop = useMutation({
+    mutationFn: async (day: string) => {
+      const res = await fetch(`/api/news/days/${day}`, { method: "DELETE" });
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(j.error ?? `the server answered ${res.status}`);
+    },
+    onSuccess: () => gone?.(),
+    onSettled: () => {
+      for (const key of ["news", "news-days"]) queryClient.invalidateQueries({ queryKey: [key], refetchType: "all" });
+    },
+  });
+  const ask = async (day: string) => {
+    const yes = await sure({
+      title: `Delete ${dayName(day)}?`,
+      body: "Its brief goes for good, with the questions asked about its stories.",
+      yes: "Delete",
+      danger: true,
+    });
+    if (yes) drop.mutate(day);
+  };
+  return { ask, drop };
 }
 
 // each section's colour, the same on its heading's dot and its stories' chips: money as the moon's yellow, research

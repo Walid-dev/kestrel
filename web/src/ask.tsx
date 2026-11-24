@@ -33,7 +33,8 @@ async function call(url: string, method: string, body?: unknown): Promise<{ mess
   return { messages: data.messages ?? [] };
 }
 
-const Spark = ({ size = 16 }: { size?: number }) => (
+// Ask's mark, also on a button that opens it (a news story's Ask)
+export const Spark = ({ size = 16 }: { size?: number }) => (
   <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
     <path d="M12 2.5c.6 4.6 2.9 6.9 7.5 7.5-4.6.6-6.9 2.9-7.5 7.5-.6-4.6-2.9-6.9-7.5-7.5 4.6-.6 6.9-2.9 7.5-7.5Z" />
     <path d="M19 15.5c.3 2 1.2 2.9 3.2 3.2-2 .3-2.9 1.2-3.2 3.2-.3-2-1.2-2.9-3.2-3.2 2-.3 2.9-1.2 3.2-3.2Z" />
@@ -50,6 +51,7 @@ export function Ask({
   open,
   onOpen,
   defaultOpen = true,
+  bare = false,
 }: {
   app: string;
   refId: string;
@@ -61,6 +63,9 @@ export function Ask({
   open?: boolean;
   onOpen?: (open: boolean) => void;
   defaultOpen?: boolean;
+  // inside a card of the page's own (a news story, under its foot): no card and no head; the page shows it only
+  // while open, and Start over sits beside the line to ask. The title names it for a screen reader
+  bare?: boolean;
 }) {
   const kept = `kestrel-ask:${app}`;
   const [own, setOwn] = useState(() => {
@@ -71,7 +76,7 @@ export function Ask({
       return defaultOpen;
     }
   });
-  const isOpen = open ?? own;
+  const isOpen = bare || (open ?? own);
   const setOpen = (v: boolean) => {
     if (onOpen) onOpen(v);
     else setOwn(v);
@@ -117,67 +122,123 @@ export function Ask({
     if (q.trim() && !busy) send.mutate(q.trim());
   };
   const failed = [thread, send, clear, act].find((x) => x.isError);
-
-  return (
-    <section className={`card ask ${isOpen ? "" : "ask-closed"}`} aria-busy={writing}>
-      <header className="ask-head">
-        <button
-          type="button"
-          className="ask-toggle"
-          aria-expanded={isOpen}
-          title={`${isOpen ? "Close" : "Open"} · the computer's own model`}
-          onClick={() => setOpen(!isOpen)}
-        >
-          <span className="ask-spark">
-            <Spark />
-          </span>
-          <span className="ask-title">{title}</span>
-          {!isOpen && messages.length > 0 && (
-            <span className="ask-count">
-              {writing ? "answering…" : `${messages.filter((m) => m.role === "me").length} asked`}
-            </span>
-          )}
+  const startOver = isOpen && messages.length > 0 && (
+    <button
+      type="button"
+      className="btn btn-icon"
+      aria-label="Start over"
+      title="Start over"
+      disabled={writing || clear.isPending}
+      onClick={() => clear.mutate()}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        width="15"
+        height="15"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M3 12a9 9 0 1 0 3-6.7" />
+        <path d="M3 4v5h5" />
+      </svg>
+    </button>
+  );
+  const compose = (
+    <form
+      className="ask-compose"
+      onSubmit={(e) => {
+        e.preventDefault();
+        ask(text);
+      }}
+    >
+      <textarea
+        className="ask-input"
+        rows={1}
+        aria-label={placeholder}
+        placeholder={placeholder}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            ask(text);
+          }
+        }}
+      />
+      <button
+        type="submit"
+        className="ask-send"
+        aria-label={busy ? "Answering" : "Ask"}
+        title={busy ? "Answering" : "Ask"}
+        disabled={!text.trim() || busy}
+      >
+        {busy ? (
+          <span className="spin" />
+        ) : (
           <svg
-            className="ask-chevron"
             viewBox="0 0 24 24"
-            width="16"
-            height="16"
+            width="17"
+            height="17"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2.2"
+            strokeWidth="2.4"
             strokeLinecap="round"
             strokeLinejoin="round"
             aria-hidden="true"
           >
-            <path d="m6 9 6 6 6-6" />
+            <path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" />
           </svg>
-        </button>
-        {isOpen && messages.length > 0 && (
+        )}
+      </button>
+    </form>
+  );
+
+  return (
+    <section
+      className={bare ? "ask" : `card ask ${isOpen ? "" : "ask-closed"}`}
+      aria-busy={writing}
+      aria-label={bare ? title : undefined}
+    >
+      {!bare && (
+        <header className="ask-head">
           <button
             type="button"
-            className="btn btn-icon"
-            aria-label="Start over"
-            title="Start over"
-            disabled={writing || clear.isPending}
-            onClick={() => clear.mutate()}
+            className="ask-toggle"
+            aria-expanded={isOpen}
+            title={`${isOpen ? "Close" : "Open"} · the computer's own model`}
+            onClick={() => setOpen(!isOpen)}
           >
+            <span className="ask-spark">
+              <Spark />
+            </span>
+            <span className="ask-title">{title}</span>
+            {!isOpen && messages.length > 0 && (
+              <span className="ask-count">
+                {writing ? "answering…" : `${messages.filter((m) => m.role === "me").length} asked`}
+              </span>
+            )}
             <svg
+              className="ask-chevron"
               viewBox="0 0 24 24"
-              width="15"
-              height="15"
+              width="16"
+              height="16"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2"
+              strokeWidth="2.2"
               strokeLinecap="round"
               strokeLinejoin="round"
               aria-hidden="true"
             >
-              <path d="M3 12a9 9 0 1 0 3-6.7" />
-              <path d="M3 4v5h5" />
+              <path d="m6 9 6 6 6-6" />
             </svg>
           </button>
-        )}
-      </header>
+          {startOver}
+        </header>
+      )}
 
       {isOpen &&
         messages.map((m) =>
@@ -232,55 +293,16 @@ export function Ask({
         </div>
       )}
 
-      {isOpen && (
-        <form
-          className="ask-compose"
-          onSubmit={(e) => {
-            e.preventDefault();
-            ask(text);
-          }}
-        >
-          <textarea
-            className="ask-input"
-            rows={1}
-            aria-label={placeholder}
-            placeholder={placeholder}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                ask(text);
-              }
-            }}
-          />
-          <button
-            type="submit"
-            className="ask-send"
-            aria-label={busy ? "Answering" : "Ask"}
-            title={busy ? "Answering" : "Ask"}
-            disabled={!text.trim() || busy}
-          >
-            {busy ? (
-              <span className="spin" />
-            ) : (
-              <svg
-                viewBox="0 0 24 24"
-                width="17"
-                height="17"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" />
-              </svg>
-            )}
-          </button>
-        </form>
-      )}
+      {isOpen &&
+        (bare ? (
+          // no head to hold Start over: it sits beside the line to ask
+          <div className="ask-line">
+            {compose}
+            {startOver}
+          </div>
+        ) : (
+          compose
+        ))}
       {isOpen && failed && <p className="ask-failed">{(failed.error as Error).message}</p>}
     </section>
   );
