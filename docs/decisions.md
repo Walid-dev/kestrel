@@ -5,6 +5,17 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-23 · The tokens as classes, the page parts, the phone's floor, and a ratchet on one-offs (v0.9 step 2).**
+  `@theme inline` names the role variables as classes read at run time (`text-muted`, `bg-surface`…), so one switch
+  still flips dark and light; 28 font sizes in use fold into 8 named steps. Page/PageHead (one title size and case, a
+  back bar, two widths from one left edge: titles sat at 40, 64, 256 or 394 px), Card, EmptyState, Field and `cx()`
+  join `web/src/ui/`, and Learn moved onto them first. Navigation follows the pointer, not the width: phones turned
+  sideways and touch tablets had none. On touch every control is 44 px and every text box 16 px (three made iOS zoom).
+  A dialog's scroll lock pins the body, since `overflow: hidden` is ignored in a home-screen app (WebKit bug 259568).
+  `scripts/check-design.ts` counts one-off inline values per file and fails when a count rises (432 left in 22 files,
+  the next wave's work). Rejected: a component library or cva (no new package); invisible hit boxes for the 44 px floor
+  (they overlap in wrapped rows); failing on every existing one-off at once (the pages move one at a time).
+
 - **2026-11-23 · Ten server fixes from a review of the night, each with a test that failed before it.**
   An Ask answer that breaks ends as failed (it stayed "writing" until a restart, refusing every question). Nightly
   copies are named to the minute (two on one date failed for hours); a failed copy tries again an hour later, not
