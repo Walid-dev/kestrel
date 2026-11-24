@@ -2090,7 +2090,7 @@ pre.code .f {
 @media (min-width: 48rem) {
   .cost-figures {
     grid-template-columns:
-      minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 0.75fr)
+      minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 0.75fr)
       minmax(0, 0.75fr);
   }
   .cost-figure-wide {
@@ -2106,8 +2106,8 @@ pre.code .f {
     height: 160px;
   }
 }
-/* each model, and the prices: the names on the left, the numbers in mono, right-aligned in their columns, rows 40
-   tall on a hairline */
+/* each model, and the prices: the names on the left, the numbers in mono, right-aligned in their columns, rows at
+   least 40 tall on a hairline (8 above and under, so a name that wraps still has room) */
 .cost-table {
   width: 100%;
   border-collapse: collapse;
@@ -2125,7 +2125,7 @@ pre.code .f {
 .cost-table :where(th:last-child, td:last-child) {
   padding-right: 0;
 }
-/* a head may take two lines under 64rem (a reference's long name), its last line on the rows' edge */
+/* a head may take two lines on a narrower screen (a reference's long name), its last line on the rows' edge */
 .cost-table :where(thead th) {
   padding-bottom: 8px;
   vertical-align: bottom;
@@ -2133,18 +2133,26 @@ pre.code .f {
   text-wrap: balance;
 }
 /* on a wide screen the number columns take 8rem each, so they spread over the width instead of crowding the right
-   edge; narrower, they are as wide as their numbers and the model's name keeps room for a few words */
+   edge: the prices' four from 64rem, the models' six from 80rem. Narrower, they are as wide as their numbers and a
+   model's name keeps 13rem, a long name's one line */
 @media (min-width: 64rem) {
-  .cost-table :where(thead th:not(:first-child)) {
+  .cost-prices :where(thead th:not(:first-child)) {
+    width: 8rem;
+    white-space: nowrap;
+  }
+}
+@media (min-width: 80rem) {
+  .cost-models :where(thead th:not(:first-child)) {
     width: 8rem;
     white-space: nowrap;
   }
 }
 .cost-models :where(td:first-child) {
-  min-width: 10rem;
+  min-width: 13rem;
 }
 .cost-table :where(td) {
   height: 40px;
+  padding-block: 8px;
   border-top: 1px solid var(--line);
   font: 400 var(--text-detail) / var(--text-detail--line-height) var(--mono);
   font-variant-numeric: tabular-nums;
@@ -2173,11 +2181,42 @@ pre.code .f {
   align-items: center;
   gap: 10px;
 }
+/* the figure as wide as the widest ("12.3M"), so every row's bar starts at the same x */
+.cost-share-n {
+  min-width: 5ch;
+  text-align: right;
+}
 .cost-meter {
   width: 56px;
 }
-/* a model on a phone: a block of lines, hairlines between. The table under 48rem, the rows from it, stay out of sight */
+/* in the table the share bar takes a wide screen's spare width, between the names and the numbers. Under 80rem it
+   gives its room to the model's name, and under 64rem each model's electricity does too (the strip has the
+   period's), so a name keeps one line; the phone rows keep both */
+.cost-models .cost-meter {
+  width: clamp(56px, 18vw - 80px, 240px);
+}
+@media (max-width: 79.99rem) {
+  .cost-models .cost-meter {
+    display: none;
+  }
+}
+@media (max-width: 63.99rem) {
+  .cost-models .cost-power {
+    display: none;
+  }
+}
+/* a model on a phone: a head naming the pill's reference, then a block of lines each, hairlines between. The table
+   under 48rem, the rows from it, stay out of sight */
 .cost-rows {
+  display: grid;
+}
+.cost-rows-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+}
+.cost-list {
   display: grid;
   margin: 0;
   padding: 0;
@@ -2197,12 +2236,10 @@ pre.code .f {
   display: grid;
   gap: 4px;
   padding-block: 12px;
-}
-.cost-row:first-child {
-  padding-top: 0;
-}
-.cost-row + .cost-row {
   border-top: 1px solid var(--line);
+}
+.cost-row:last-child {
+  padding-bottom: 0;
 }
 .cost-row > .cost-meter {
   width: 100%;

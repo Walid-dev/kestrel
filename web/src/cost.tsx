@@ -40,6 +40,7 @@ type Report = {
   period: Figures;
   models: Model[];
   daily: { day: string; tokens: number }[];
+  hourly: { hour: number; tokens: number }[];
   prices: {
     about?: string;
     cloud: { id: string; name: string; prices: Price[] }[];
@@ -62,8 +63,9 @@ const PERIODS = [
   { value: "30", label: "30 days" },
   { value: "all", label: "All" },
 ];
-// how many of the chart's 30 days the period covers, and the words for a period with nothing in it
-const SPAN: Record<string, number> = { "1": 1, "7": 7, "30": 30, all: 30 };
+// how many of the chart's 30 days the period covers (Today draws its hours instead), and the words for a period with
+// nothing in it
+const SPAN: Record<string, number> = { "7": 7, "30": 30, all: 30 };
 const NONE: Record<string, string> = {
   "1": "No model ran today.",
   "7": "No model ran in the last 7 days.",
@@ -92,12 +94,17 @@ function money(v: number, currency = "USD") {
 const rate = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 const hours = (h: number) =>
   h > 0 && h * 60 < 0.5 ? "<1 min" : h < 1 ? `${Math.round(h * 60)} min` : `${h.toFixed(1)} h`;
+// a column's compute in one unit, picked from its largest figure (the total): minutes when that is under an hour,
+// hours with one decimal otherwise, so 44 is never read beside 1.1
+const hoursIn = (most: number) => (h: number) =>
+  most < 1 ? hours(h) : h > 0 && h < 0.05 ? "<0.1 h" : `${h.toFixed(1)} h`;
 const kwh = (v: number) => (v > 0 && v < 0.005 ? "<0.01" : v.toFixed(2));
 const tokensOf = (u: { fresh: number; reused: number; out: number }) => u.fresh + u.reused + u.out;
 // a reference's name up to its first comma ("Made-up Cloud A, the big one"): a column's head, a figure's line
 const brief = (name: string) => name.split(",")[0];
 const dayLabel = (day: string) =>
   new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+const hourLabel = (hour: number) => new Date(2000, 0, 1, hour).toLocaleTimeString(undefined, { hour: "numeric" });
 const dateLabel = (iso: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(iso)
     ? new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
@@ -132,17 +139,7 @@ export function Cost() {
       line={
         r ? (
           <>
-            {r.since ? (
-              <>
-                Since{" "}
-                <b className="text-ink">
-                  {new Date(r.since).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
-                </b>
-              </>
-            ) : (
-              "Nothing counted yet"
-            )}{" "}
-            · updated{" "}
+            <Span r={r} days={days} /> · updated{" "}
             <b className="text-ink">
               {new Date(r.at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
             </b>
@@ -179,11 +176,51 @@ export function Cost() {
       ) : (
         <>
           <Strip r={r} loading={report.isPlaceholderData} />
-          <Chart daily={r.daily} span={SPAN[days] ?? 30} />
+          {days === "1" ? (
+            <Chart
+              key="hours"
+              label="Tokens an hour"
+              span="Today"
+              bars={r.hourly.map((h) => ({ key: String(h.hour), tick: hourLabel(h.hour), tokens: h.tokens }))}
+              lit={24}
+              every={6}
+            />
+          ) : (
+            <Chart
+              key="days"
+              label="Tokens a day"
+              span="Last 30 days"
+              bars={r.daily.map((d) => ({ key: d.day, tick: dayLabel(d.day), tokens: d.tokens }))}
+              lit={SPAN[days] ?? 30}
+              every={7}
+            />
+          )}
           <Models r={r} days={days} loading={report.isPlaceholderData} />
         </>
       )}
     </Page>
+  );
+}
+
+// the days the figures cover, from the chart's own days so no date is worked out twice: one day, a range, or for All
+// the day oMLX started counting
+function Span({ r, days }: { r: Report; days: string }) {
+  const today = r.daily.at(-1)?.day;
+  const from = r.daily.at(-(SPAN[days] ?? 1))?.day;
+  if (days === "all")
+    return r.since ? (
+      <>
+        Since{" "}
+        <b className="text-ink">
+          {new Date(r.since).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+        </b>
+      </>
+    ) : (
+      "Nothing counted yet"
+    );
+  if (!today || !from) return null;
+  return (
+    <b className="text-ink">{days === "1" ? `Today, ${dayLabel(today)}` : `${dayLabel(from)} – ${dayLabel(today)}`}</b>
   );
 }
 
@@ -233,8 +270,17 @@ function Strip({ r, loading }: { r: Report; loading: boolean }) {
                 : lead.unpriced.length > 0 && ` · ${lead.unpriced.length} unpriced`}
             </span>
             {others.map((c) => (
-              <span key={c.id} className="block" title={c.name}>
+              <span
+                key={c.id}
+                className="block"
+                title={
+                  c.unpriced.length ? `${c.name}; not counted, no reference price: ${c.unpriced.join(", ")}` : c.name
+                }
+              >
                 {brief(c.name)} <b className="text-ink">{c.usd == null ? "—" : money(c.usd)}</b>
+                {c.usd != null && c.unpriced.length > 0 && (
+                  <span className="whitespace-nowrap"> · {c.unpriced.length} unpriced</span>
+                )}
               </span>
             ))}
           </>
@@ -287,61 +333,86 @@ function Figure({
   );
 }
 
-// the last 30 days, a bar each, the period's days lit and the rest faint. The day under the pointer, or the one
-// tapped (it stays, for a phone), reads out in the card's head; the top day carries its figure. The same numbers as a
-// table for a screen reader
-function Chart({ daily, span }: { daily: Report["daily"]; span: number }) {
+// one bar per day (the last 30) or per hour (today), the period's bars lit and the rest faint. The bar under the
+// pointer, or the one tapped (it stays, for a phone), reads out in the card's head; the top bar carries its figure.
+// The same numbers as a table for a screen reader
+type Bar = { key: string; tick: string; tokens: number };
+function Chart({
+  label,
+  span,
+  bars,
+  lit,
+  every,
+}: {
+  label: string;
+  span: string;
+  bars: Bar[];
+  lit: number;
+  every: number;
+}) {
   const [hover, setHover] = useState<number | null>(null);
   const [pinned, setPinned] = useState<number | null>(null);
   const shown = hover ?? pinned;
-  const day = shown === null ? undefined : daily[shown];
+  const bar = shown === null ? undefined : bars[shown];
   return (
-    <section className="card grid gap-3" aria-label="Tokens a day">
+    <section className="card grid gap-3" aria-label={label}>
       <div className="flex items-baseline gap-3">
-        <span className="eyebrow">Tokens a day</span>
+        <span className="eyebrow">{label}</span>
         <span className="ml-auto text-small text-muted tabular-nums" aria-live="polite">
-          {day ? (
+          {bar ? (
             <>
-              {dayLabel(day.day)} <b className="text-ink">{n(day.tokens)}</b>
+              {bar.tick} <b className="text-ink">{n(bar.tokens)}</b>
             </>
           ) : (
-            "Last 30 days"
+            span
           )}
         </span>
       </div>
-      <Days
-        daily={daily}
-        span={span}
+      <Bars
+        bars={bars}
+        lit={lit}
+        every={every}
+        label={`${label}, ${span.toLowerCase()}`}
         shown={shown}
         onHover={setHover}
         onPick={(i) => setPinned((p) => (p === i ? null : i))}
       />
-      <table className="sr-only">
-        <caption>Tokens a day, the last 30 days</caption>
-        <tbody>
-          {daily.map((d) => (
-            <tr key={d.day}>
-              <td>{d.day}</td>
-              <td>{n(d.tokens)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* a block, not the table itself: a table won't shrink to sr-only's 1 px and would stretch the page */}
+      <div className="sr-only">
+        <table>
+          <caption>
+            {label}, {span.toLowerCase()}
+          </caption>
+          <tbody>
+            {bars.map((d) => (
+              <tr key={d.key}>
+                <td>{d.tick}</td>
+                <td>{n(d.tokens)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }
 
-// one series, so no legend. Thin bars from the baseline, 2 px apart. The drawing is the size of its frame, one unit a
-// pixel, so its labels keep the label step's size; the frame's height comes from styles.css (.cost-chart)
-function Days({
-  daily,
-  span,
+// one series, so no legend. Rounded bars from the baseline, a little narrower than their slot. The drawing is the
+// size of its frame, one unit a pixel, so its labels keep the label step's size; the frame's height comes from
+// styles.css (.cost-chart). A tap pins a bar on click, which a swipe to scroll never fires
+function Bars({
+  bars,
+  lit,
+  every,
+  label,
   shown,
   onHover,
   onPick,
 }: {
-  daily: Report["daily"];
-  span: number;
+  bars: Bar[];
+  lit: number;
+  every: number;
+  label: string;
   shown: number | null;
   onHover: (i: number | null) => void;
   onPick: (i: number) => void;
@@ -359,29 +430,26 @@ function Days({
     return () => watch.disconnect();
   }, []);
   const { w: W, h: H } = size;
-  // 18 above the bars for the top day's figure, 18 under the baseline for the dates
+  // 18 above the bars for the top bar's figure, 18 under the baseline for the ticks
   const BAND = 18;
   const base = H - BAND;
-  const top = Math.max(1, ...daily.map((d) => d.tokens));
-  // bars a little narrower than their slot: 2 px apart on a phone, a quarter of the slot apart on a wide screen
-  const slot = W / daily.length;
+  const top = Math.max(1, ...bars.map((d) => d.tokens));
+  // 2 px apart on a phone, a quarter of the slot apart on a wide screen
+  const slot = W / bars.length;
   const bar = Math.max(4, slot - Math.max(2, Math.round(slot / 4)));
-  const peak = daily.findIndex((d) => d.tokens === top);
-  const from = daily.length - span;
+  const peak = bars.findIndex((d) => d.tokens === top);
+  const from = bars.length - lit;
+  const last = bars.length - 1;
   return (
     <div ref={frame} className="cost-chart" onPointerLeave={() => onHover(null)}>
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        className="block h-full w-full"
-        role="img"
-        aria-label="Tokens a day, the last 30 days"
-      >
+      <svg viewBox={`0 0 ${W} ${H}`} className="block h-full w-full" role="img" aria-label={label}>
         <line x1="0" x2={W} y1={base} y2={base} className="stroke-line" />
-        {daily.map((d, i) => {
+        {bars.map((d, i) => {
           const h = d.tokens > 0 ? Math.max(2, (d.tokens / top) * (base - BAND)) : 0;
           const x = i * slot + (slot - bar) / 2;
           return (
-            <g key={d.day} onPointerEnter={() => onHover(i)} onPointerDown={() => onPick(i)}>
+            // biome-ignore lint/a11y/noStaticElementInteractions: the drawing is an image; the table beside it reads the same numbers
+            <g key={d.key} onPointerEnter={() => onHover(i)} onClick={() => onPick(i)}>
               {/* the target is the whole column, wider and taller than the bar */}
               <rect x={i * slot} y={0} width={slot} height={base} fill="transparent" />
               {h > 0 && (
@@ -398,14 +466,14 @@ function Days({
                   {short(d.tokens)}
                 </text>
               )}
-              {(i % 7 === 0 && i < daily.length - 4) || i === daily.length - 1 ? (
+              {(i % every === 0 && i < last - every / 2) || i === last ? (
                 <text
-                  x={i === 0 ? 0 : i === daily.length - 1 ? W : x + bar / 2}
+                  x={i === 0 ? 0 : i === last ? W : x + bar / 2}
                   y={base + 14}
-                  textAnchor={i === 0 ? "start" : i === daily.length - 1 ? "end" : "middle"}
+                  textAnchor={i === 0 ? "start" : i === last ? "end" : "middle"}
                   className="fill-muted font-mono text-label"
                 >
-                  {dayLabel(d.day)}
+                  {d.tick}
                 </text>
               ) : null}
             </g>
@@ -416,7 +484,7 @@ function Days({
   );
 }
 
-type Cell = (usd: number | null, name: string, as?: string | null) => ReactNode;
+type Cell = (usd: number | null, name: string, as?: string | null, unpriced?: string[]) => ReactNode;
 
 // each model in the period, the most used first, and the total: one aligned table on a computer, a row each on a
 // phone. A cloud price is a money pill; a model a reference doesn't price shows a dash, never 0
@@ -426,13 +494,23 @@ function Models({ r, days, loading }: { r: Report; days: string; loading: boolea
   const total = tokensOf(r.period);
   // a share, and a total row, only mean something beside another model
   const several = r.models.length > 1;
-  const cell: Cell = (usd, name, as) =>
+  const compute = hoursIn(r.period.computeHours);
+  const cell: Cell = (usd, name, as, unpriced) =>
     usd == null ? (
       <span className="text-muted" title={`${name}: no reference price`}>
         —
       </span>
     ) : (
-      <span className="money" title={as ? `${name}, priced as ${as}` : name}>
+      <span
+        className="money"
+        title={
+          as
+            ? `${name}, priced as ${as}`
+            : unpriced?.length
+              ? `${name}; not counted, no reference price: ${unpriced.join(", ")}`
+              : name
+        }
+      >
         {money(usd)}
       </span>
     );
@@ -450,7 +528,7 @@ function Models({ r, days, loading }: { r: Report; days: string; loading: boolea
                 <th className="eyebrow">Tokens</th>
                 <th className="eyebrow">Requests</th>
                 <th className="eyebrow">Compute</th>
-                {power && <th className="eyebrow">Electricity</th>}
+                {power && <th className="eyebrow cost-power">Electricity</th>}
                 {refs.map((c) => (
                   <th key={c.id} className="eyebrow" title={c.name}>
                     {brief(c.name)}
@@ -465,12 +543,18 @@ function Models({ r, days, loading }: { r: Report; days: string; loading: boolea
                   <td>
                     <span className="cost-share">
                       {several && <Share part={tokensOf(m) / Math.max(1, total)} />}
-                      <span title={`${n(tokensOf(m))} tokens`}>{short(tokensOf(m))}</span>
+                      <span className="cost-share-n" title={`${n(tokensOf(m))} tokens`}>
+                        {short(tokensOf(m))}
+                      </span>
                     </span>
                   </td>
                   <td>{n(m.requests)}</td>
-                  <td>{hours(m.computeHours)}</td>
-                  {power && <td>{m.electricity ? money(m.electricity.cost, m.electricity.currency) : "—"}</td>}
+                  <td>{compute(m.computeHours)}</td>
+                  {power && (
+                    <td className="cost-power">
+                      {m.electricity ? money(m.electricity.cost, m.electricity.currency) : "—"}
+                    </td>
+                  )}
                   {refs.map((c, i) => (
                     <td key={c.id}>{cell(m.cloud[i]?.usd ?? null, c.name, m.cloud[i]?.as)}</td>
                   ))}
@@ -483,41 +567,54 @@ function Models({ r, days, loading }: { r: Report; days: string; loading: boolea
                   <td>Total</td>
                   <td title={`${n(total)} tokens`}>{short(total)}</td>
                   <td>{n(r.period.requests)}</td>
-                  <td>{hours(r.period.computeHours)}</td>
+                  <td>{compute(r.period.computeHours)}</td>
                   {power && (
-                    <td>
+                    <td className="cost-power">
                       {r.period.electricity ? money(r.period.electricity.cost, r.period.electricity.currency) : "—"}
                     </td>
                   )}
                   {refs.map((c) => (
-                    <td key={c.id}>{cell(c.usd, c.name)}</td>
+                    <td key={c.id}>{cell(c.usd, c.name, null, c.unpriced)}</td>
                   ))}
                 </tr>
               </tfoot>
             )}
           </table>
-          <ul className="cost-rows" aria-label="Each model in the period">
-            {r.models.map((m) => (
-              <PhoneRow
-                key={m.model}
-                title={<span className="cost-model">{m.model}</span>}
-                figures={m}
-                tokens={tokensOf(m)}
-                share={several ? tokensOf(m) / Math.max(1, total) : undefined}
-                cloud={refs.map((c, i) => ({ c, usd: m.cloud[i]?.usd ?? null, as: m.cloud[i]?.as }))}
-                cell={cell}
-              />
-            ))}
-            {several && (
-              <PhoneRow
-                title={<span className="cost-total">Total</span>}
-                figures={r.period}
-                tokens={total}
-                cloud={refs.map((c) => ({ c, usd: c.usd, as: null }))}
-                cell={cell}
-              />
+          <div className="cost-rows">
+            {refs[0] && (
+              // the pill on each row is this reference's price: named once, as a table's head would
+              <div className="cost-rows-head" aria-hidden="true">
+                <span className="eyebrow">Model</span>
+                <span className="eyebrow" title={refs[0].name}>
+                  {brief(refs[0].name)}
+                </span>
+              </div>
             )}
-          </ul>
+            <ul className="cost-list" aria-label="Each model in the period">
+              {r.models.map((m) => (
+                <PhoneRow
+                  key={m.model}
+                  title={<span className="cost-model">{m.model}</span>}
+                  figures={m}
+                  tokens={tokensOf(m)}
+                  share={several ? tokensOf(m) / Math.max(1, total) : undefined}
+                  cloud={refs.map((c, i) => ({ c, usd: m.cloud[i]?.usd ?? null, as: m.cloud[i]?.as }))}
+                  cell={cell}
+                  compute={compute}
+                />
+              ))}
+              {several && (
+                <PhoneRow
+                  title={<span className="cost-total">Total</span>}
+                  figures={r.period}
+                  tokens={total}
+                  cloud={refs.map((c) => ({ c, usd: c.usd, as: null, unpriced: c.unpriced }))}
+                  cell={cell}
+                  compute={compute}
+                />
+              )}
+            </ul>
+          </div>
         </>
       )}
       {r.prices && <Sources prices={r.prices} />}
@@ -534,24 +631,26 @@ function PhoneRow({
   share,
   cloud,
   cell,
+  compute,
 }: {
   title: ReactNode;
   figures: { requests: number; computeHours: number; electricity: Power | null };
   tokens: number;
   share?: number;
-  cloud: { c: Cloud; usd: number | null; as?: string | null }[];
+  cloud: { c: Cloud; usd: number | null; as?: string | null; unpriced?: string[] }[];
   cell: Cell;
+  compute: (h: number) => string;
 }) {
   const [lead, ...others] = cloud;
   return (
     <li className="cost-row">
       <div className="flex items-start gap-3">
         <span className="min-w-0 flex-1">{title}</span>
-        {lead && cell(lead.usd, lead.c.name, lead.as)}
+        {lead && cell(lead.usd, lead.c.name, lead.as, lead.unpriced)}
       </div>
       <span className="text-small text-muted tabular-nums">
         <b className="text-ink">{short(tokens)}</b> tokens · <b className="text-ink">{n(f.requests)}</b> req ·{" "}
-        <b className="text-ink">{hours(f.computeHours)}</b>
+        <b className="text-ink">{compute(f.computeHours)}</b>
         {f.electricity && (
           <>
             {" "}
@@ -561,10 +660,11 @@ function PhoneRow({
       </span>
       {others.length > 0 && (
         <span className="text-small text-muted tabular-nums">
-          {others.map(({ c, usd }, i) => (
-            <span key={c.id} title={c.name}>
+          {others.map(({ c, usd, unpriced }, i) => (
+            <span key={c.id} title={unpriced?.length ? `${c.name}; not counted: ${unpriced.join(", ")}` : c.name}>
               {i > 0 && " · "}
               {brief(c.name)} <b className="text-ink">{usd == null ? "—" : money(usd)}</b>
+              {usd != null && unpriced && unpriced.length > 0 && ` · ${unpriced.length} unpriced`}
             </span>
           ))}
         </span>
