@@ -2030,16 +2030,60 @@ pre.code .f {
 .live-log .list-row:not(:has(> .list-chevron)) > .list-end {
   margin-inline-end: 26px;
 }
-/* Chat on a phone: the frame runs from edge to edge and down to the tab bar, over the shell's gutters and its foot;
-   the head above it keeps the gutters, so the title starts where every page's does */
+/* Chat on a phone: the frame runs from edge to edge, from just under the status bar down to the tab bar, over the
+   shell's gutters, most of its top room and its foot (the chats page inside keeps its own gutters). No head: the tab
+   bar says Chat. The chats at work are one line over it, only while some are */
 .chat-page {
   display: grid;
-  margin: 0 calc(-1 * var(--gutter)) calc(-1 * (49px + env(safe-area-inset-bottom) + 24px));
+  margin: -16px calc(-1 * var(--gutter)) calc(-1 * (49px + env(safe-area-inset-bottom) + 24px));
+  /* the page's flat ground, as the frame's: the lines over the frame sit on it, not on the shell's glow (no seam) */
+  padding-top: 4px;
+  background: var(--bg);
 }
-.chat-page-head {
-  display: grid;
+.chat-running {
+  display: flex;
+  align-items: center;
   gap: 8px;
-  padding: 0 var(--gutter) 12px;
+  padding: 0 var(--gutter) 4px;
+}
+.chat-running-line {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  min-width: 0;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+  line-height: var(--text-small--line-height);
+}
+.chat-running-line > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.chat-running-line b {
+  font-family: var(--mono);
+  font-weight: 500;
+}
+/* the chats page didn't come up in the frame: its own window, from here */
+.chat-out {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 8px;
+  margin: 0;
+  padding: 0 var(--gutter) 4px;
+  color: var(--muted);
+  font-size: var(--text-small);
+  line-height: var(--text-small--line-height);
+}
+/* a short screen (a phone sideways, a keyboard up) gives every row to the chats; Stop is in each chat's own head */
+@media (max-height: 500px) {
+  .chat-running:not(:has(dialog[open])) {
+    display: none;
+  }
 }
 /* Tasks: the open list in the wide column; on a computer the done tasks and Ask in a rail of 360 beside it, under it on
    a phone */
