@@ -64,12 +64,16 @@ export function readSpecFile(id: string, dir = join(dataDir(), "searches")): Rec
   return JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
 }
 
+// a spec refused by its check: its message is meant for the screen (any other error is the computer's own)
+export class SpecRefused extends Error {}
+
 // write a spec, checked first: a bad one is refused with the field named, never half-written
 export function writeSpecFile(id: string, raw: unknown, dir = join(dataDir(), "searches")): Spec {
-  if (!SPEC_ID.test(id)) throw new Error("a search's id is lowercase words and dashes, like full-stack-ai-engineer");
+  if (!SPEC_ID.test(id))
+    throw new SpecRefused("a search's id is lowercase words and dashes, like full-stack-ai-engineer");
   const read = Spec.safeParse(raw);
   if (!read.success)
-    throw new Error(
+    throw new SpecRefused(
       `the search's settings miss: ${read.error.issues.map((i) => `${i.path.join(".") || "the file"} ${i.message}`).join("; ")}`,
     );
   mkdirSync(dir, { recursive: true });

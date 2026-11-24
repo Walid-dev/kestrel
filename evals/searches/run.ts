@@ -8,7 +8,7 @@ import { chatModel, type ModelSettings } from "../../src/ai/client.ts";
 import { startStandIn } from "../../src/ai/stand-in.ts";
 import { searchAskPage } from "../../src/domain/search/ask.ts";
 import type { ListingRow } from "../../src/domain/search/listings.ts";
-import { loadSettings } from "../../src/platform/config.ts";
+import { liveModels } from "../../src/platform/config.ts";
 import { type Case, score } from "./score.ts";
 
 type Made = { id: string; score: number; match: string } & Record<string, unknown>;
@@ -41,6 +41,7 @@ const ids = rows.map((r) => r.id);
 const { values } = parseArgs({
   options: {
     live: { type: "boolean", default: false },
+    url: { type: "string" },
     model: { type: "string", default: "fast" },
     runs: { type: "string", default: "1" },
     md: { type: "boolean", default: false },
@@ -58,7 +59,7 @@ async function runCase(c: Case, settings: ModelSettings, model: string, run: num
 
 const results: { name: string; model: string; run: number; pass: boolean; why: string; ms: number }[] = [];
 if (values.live) {
-  const settings = loadSettings().models;
+  const settings = liveModels(values.url); // the real door on purpose, never the made-up folder's dead one
   const models =
     values.model === "both"
       ? [settings.careful, settings.fast]

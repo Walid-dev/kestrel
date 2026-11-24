@@ -4,9 +4,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { dataDir } from "./paths.ts";
+import { dataDir, isDeployed } from "./paths.ts";
 
-// this computer's model door and its two models (docs/decisions.md, 2026-11-21); settings.json overrides any of it
+// this computer's model door and its two models (docs/decisions.md, 2026-11-21); settings.json overrides any of it.
+// Outside the deployed app the doors are dead unless settings.json names one (DEAD_DOOR, below)
 export const MODEL_DEFAULTS = {
   url: "http://127.0.0.1:8000/v1",
   careful: "Qwen3.8-27B-oQ4e-mtp",
@@ -106,6 +107,30 @@ export const Settings = z.object({
 });
 export type Settings = z.infer<typeof Settings>;
 
+// The evals' --live mode and the model probe ask the real door on purpose, with made-up text. They never take it from
+// the made-up data folder: its doors are dead on purpose, so a development run fails fast instead of asking my models
+// (scripts/dev-data/settings.json). The real door is the default above; --url or KESTREL_MODEL_URL picks another,
+// which must stay on this computer too.
+export function liveModels(given?: string): Settings["models"] {
+  const url = given?.trim() || process.env.KESTREL_MODEL_URL?.trim() || MODEL_DEFAULTS.url;
+  const parsed = Settings.shape.models.safeParse({ url });
+  if (!parsed.success)
+    throw new Error(`the live door is wrong: ${parsed.error.issues.map((i) => i.message).join("; ")}`);
+  return parsed.data;
+}
+
+// Any run but the deployed app (development, tests, a builder's screen check) gets dead model and voice doors unless
+// its settings.json names a door itself: a made-up folder seeded before the seed had them (dataDir copies the seed
+// only once) fails fast too, instead of asking my models. Port 9 answers nothing, so a call is refused at once.
+export const DEAD_DOOR = "http://127.0.0.1:9";
+function deadDoors(raw: unknown): unknown {
+  if (!isObject(raw)) return raw;
+  const door = (part: unknown, url: string) =>
+    part === undefined ? { url } : isObject(part) ? { url, ...part } : part;
+  return { ...raw, models: door(raw.models, `${DEAD_DOOR}/v1`), voice: door(raw.voice, DEAD_DOOR) };
+}
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
 export function loadSettings(dir: string = dataDir()): Settings {
   const file = join(dir, "settings.json");
   const example = JSON.stringify(
@@ -122,7 +147,7 @@ export function loadSettings(dir: string = dataDir()): Settings {
     const why = (e as NodeJS.ErrnoException).code ?? (e instanceof SyntaxError ? "not JSON" : "unreadable");
     throw new Error(`kestrel needs its settings: settings.json in its data folder (${why}). An example:\n${example}`);
   }
-  const parsed = Settings.safeParse(raw);
+  const parsed = Settings.safeParse(isDeployed() ? raw : deadDoors(raw));
   if (!parsed.success)
     throw new Error(
       `settings.json is wrong: ${parsed.error.issues.map((i) => `${i.path.join(".")} ${i.message}`).join("; ")}. An example:\n${example}`,

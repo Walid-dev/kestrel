@@ -1,6 +1,7 @@
 // The eval, end to end: each case's documents and notes become the real prompt, a model answers, the scorer judges,
 // and the placing rules must seat every change. --stand-in answers with the case's own good answer (fast, free,
-// inside the check); --live asks the real models (step 15), --runs N times each.
+// inside the check); --live asks the real models (step 15), --runs N times each, at the real door (--url or
+// KESTREL_MODEL_URL for another: liveModels in config.ts).
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { changesPrompt } from "../src/ai/changes/prompt.ts";
@@ -8,7 +9,7 @@ import { Answer } from "../src/ai/changes/shape.ts";
 import { callModel, type ModelSettings } from "../src/ai/client.ts";
 import { startStandIn } from "../src/ai/stand-in.ts";
 import { place } from "../src/domain/notes/place.ts";
-import { loadSettings } from "../src/platform/config.ts";
+import { liveModels } from "../src/platform/config.ts";
 import { type Case, score } from "./changes/score.ts";
 
 const cases = JSON.parse(readFileSync(new URL("./changes/cases.json", import.meta.url), "utf8")) as Case[];
@@ -16,6 +17,7 @@ const { values } = parseArgs({
   options: {
     "stand-in": { type: "boolean", default: false },
     live: { type: "boolean", default: false },
+    url: { type: "string" },
     model: { type: "string", default: "careful" },
     runs: { type: "string", default: "1" },
     md: { type: "boolean", default: false },
@@ -59,7 +61,7 @@ async function runCase(c: Case, settings: ModelSettings, model: string, run: num
 
 const results: RowResult[] = [];
 if (values.live) {
-  const settings = loadSettings().models;
+  const settings = liveModels(values.url); // the real door on purpose, never the made-up folder's dead one
   const models =
     values.model === "both"
       ? [settings.careful, settings.fast]
