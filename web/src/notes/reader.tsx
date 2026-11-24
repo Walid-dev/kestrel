@@ -347,34 +347,33 @@ export function Reader() {
     >
       <PageHead
         back={back}
-        eyebrow={
-          <>
-            {pdf ? "An uploaded PDF" : d.source === "upload" ? "Uploaded to kestrel" : "A file on this computer"}
-            {d.path ? ` · ${d.path.split("/").slice(-2).join("/")}` : ""}
-          </>
-        }
+        eyebrow={pdf ? "An uploaded PDF" : d.source === "upload" ? "Uploaded to kestrel" : "A file on this computer"}
         title={d.name}
         line={
-          pdf ? (
-            <>
-              <span className="lg:hidden">The PDF stays as it is: you edit its text here.</span>
-              <span className="hidden lg:inline">
-                The PDF file itself is unchanged, and kestrel keeps no copy of it. You edit its text here; Save as PDF,
-                under Download, makes a new PDF from it.
-              </span>
-            </>
-          ) : (
-            <>
-              {/* on a phone, upright or turned, the document should start high: the short line, and only until the
-                first note; the whole explanation where a computer has the room */}
-              {placed.length === 0 && <span className="lg:hidden">Select words to leave a note, or tap Edit.</span>}
-              {/* one line: the back bar above takes its tap size, and the document should start no lower than it did
+          <>
+            {/* where the file is, whole and in its own case (two files can share a name), over the line */}
+            {d.path && <span className="font-mono mb-1 block break-all text-small">{d.path}</span>}
+            {pdf ? (
+              <>
+                <span className="lg:hidden">The PDF stays as it is: you edit its text here.</span>
+                <span className="hidden lg:inline">
+                  The PDF file itself is unchanged, and kestrel keeps no copy of it. You edit its text here; Save as
+                  PDF, under Download, makes a new PDF from it.
+                </span>
+              </>
+            ) : (
+              <>
+                {/* on a phone, upright or turned, the document should start high: the short line, and only until the
+                  first note; the whole explanation where a computer has the room */}
+                {placed.length === 0 && <span className="lg:hidden">Select words to leave a note, or tap Edit.</span>}
+                {/* one line: the back bar above takes its tap size, and the document should start no lower than it did
                   (Edit, and Earlier versions in the column, say the rest) */}
-              <span className="hidden lg:inline">
-                Select words to leave a note, then turn them into an edit you check first.
-              </span>
-            </>
-          )
+                <span className="hidden lg:inline">
+                  Select words to leave a note, then turn them into an edit you check first.
+                </span>
+              </>
+            )}
+          </>
         }
         actions={
           reading && (
@@ -391,9 +390,9 @@ export function Reader() {
           )
         }
       />
-      <div className="grid min-w-0 gap-4">
+      <div className="note-main grid min-w-0 gap-4">
         {tools && (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="note-tools flex flex-wrap items-center gap-2">
             {asking && (
               <>
                 <button type="button" className="btn btn-primary" disabled={ask.isPending} onClick={() => ask.mutate()}>

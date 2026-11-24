@@ -2685,12 +2685,42 @@ body:has(.paper-view) {
   padding: 6px 12px;
   font-size: 13.5px;
 }
-/* the reader on a short screen (a phone on its side): its title one step down, so a long file name keeps to one line
-   and the document starts on the first screen */
+/* the reader on a short screen (a phone on its side): the bar, the title one step down (a long file name keeps to one
+   line) and the document's own bar, nothing else above it, so the document's first lines show on the first screen.
+   The eyebrow and the line under the title (where the file is, how to leave a note) come back with the room */
 @media (max-height: 500px) {
+  .note-reader {
+    gap: 12px;
+  }
+  .note-reader > .page-bar {
+    margin-bottom: -6px;
+  }
+  .note-reader .page-head > .eyebrow,
+  .note-reader .page-line {
+    display: none;
+  }
   .note-reader .page-title {
     font-size: var(--text-lead);
     line-height: var(--text-lead--line-height);
+  }
+}
+/* and on a phone on its side, the edit's row (Turn my notes into an edit, Review the changes, Undo) beside the title,
+   not a row of its own over the document: the document's column lets go of its parts (contents), so the row joins
+   the head's; everything else spans the page. Not on a short computer window, where the notes column is beside */
+@media (max-height: 500px) and (max-width: 63.99rem) {
+  .note-reader:has(.note-tools) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+  .note-reader:has(.note-tools) > :not(.page-head),
+  .note-reader:has(.note-tools) .note-main > :not(.note-tools) {
+    grid-column: 1 / -1;
+  }
+  .note-reader .note-main {
+    display: contents;
+  }
+  .note-reader .note-tools {
+    justify-content: flex-end;
   }
 }
 /* a research answer's source, inline: the site's name, a small link that opens the page */
