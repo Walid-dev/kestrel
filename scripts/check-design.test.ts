@@ -99,6 +99,8 @@ test("a page's class lists: btn-head, font-bold beside a heading step and a radi
     `<b className="font-bold text-body">fine: body has no weight of its own</b>`,
     `<p className="rounded-md rounded-t-lg rounded-xl rounded-full !rounded-none">fine</p>`,
     `const words = "rounded up, in font-bold text-head";`,
+    `<p className={on ? "text-lead font-bold" : "rounded-2xl"} />`,
+    `<p className={on ? "rounded-[14px] p-2" : undefined}>fine</p>`,
   ].join("\n");
   assert.deepEqual(
     scan(page).map((h) => [h.line, h.what]),
@@ -108,12 +110,14 @@ test("a page's class lists: btn-head, font-bold beside a heading step and a radi
       [3, "rounded-2xl"],
       [3, "md:rounded-sm"],
       [4, "rounded"],
+      [8, "font-bold beside text-lead"],
+      [8, "rounded-2xl"],
     ],
   );
   assert.match(scan(page)[1].fix, /carries its own weight/);
 });
 
-test("styles.css: a font size in px and a radius off the five are found; a step, a comment and design-ok are not", () => {
+test("styles.css: a font size in px, rem or em and a radius off the five are found, one-line rules too; a step, a comment and design-ok are not", () => {
   const css = [
     `.a { font: 500 var(--text-detail) / 20px var(--sans); }`,
     `.b {`,
@@ -126,7 +130,10 @@ test("styles.css: a font size in px and a radius off the five are found; a step,
     `  /* a comment that says font-size: 30px and`,
     `     border-radius: 3px is not a rule */`,
     `  font-size: max(16px, 1em); /* design-ok: the touch floor */`,
+    `  font-size: 1.1rem;`,
+    `  font: 0.85em var(--mono);`,
     `}`,
+    `.c { font-size: 15px; border-radius: 5px }`,
   ].join("\n");
   assert.deepEqual(
     scanStyles(css).map((h) => [h.line, h.what]),
@@ -135,6 +142,10 @@ test("styles.css: a font size in px and a radius off the five are found; a step,
       [4, "font size 15px"],
       [5, "radius 10px"],
       [6, "radius 4px"],
+      [12, "font size 1.1rem"],
+      [13, "font size 0.85em"],
+      [15, "font size 15px"],
+      [15, "radius 5px"],
     ],
   );
 });

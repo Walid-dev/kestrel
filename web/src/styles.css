@@ -197,7 +197,7 @@
 @media (prefers-color-scheme: light) {
   :root {
     color-scheme: light;
-    --bg: #f6f6f7;
+    --bg: #fafafa;
     --surface: #ffffff;
     --surface-2: #f0f0f1;
     --surface-hover: #f5f5f7;
@@ -996,31 +996,39 @@ h3 {
 /* the row that stays on top while the page scrolls (a lesson's Listen), under the phone's status bar: the page's
    ground, frosted, edge to edge of the screen (a shadow carries its ground past the gutters; the clip keeps it one row
    tall). At the top of the page it is clear, so no band shows over the page's glow; the ground fades in over the first
-   48 px scrolled */
+   48 px scrolled. It takes the room of one row (44), the same as any child page's back row, so the title never moves */
 .page-bar-sticky {
   --bar: color-mix(in srgb, var(--bg) 88%, transparent);
   position: sticky;
   top: env(safe-area-inset-top);
   z-index: 10;
   padding-block: 6px;
-  margin-block: -6px 0;
+  margin-top: -6px;
   background: var(--bar);
   box-shadow: 0 0 0 100vmax var(--bar);
   clip-path: inset(0 -100vmax);
   backdrop-filter: blur(12px);
 }
+.page > .page-bar-sticky {
+  margin-bottom: calc(2px - var(--page-gap));
+}
+/* clear at rest, so a page too short to scroll (its timeline then inactive) shows no band; browsers without scroll
+   timelines keep the ground always */
 @supports (animation-timeline: scroll()) {
   .page-bar-sticky {
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
     animation: bar-ground linear both;
     animation-timeline: scroll(root);
     animation-range: 0 48px;
   }
 }
 @keyframes bar-ground {
-  from {
-    background: transparent;
-    box-shadow: 0 0 0 100vmax transparent;
-    backdrop-filter: none;
+  to {
+    background: var(--bar);
+    box-shadow: 0 0 0 100vmax var(--bar);
+    backdrop-filter: blur(12px);
   }
 }
 .page-back {
@@ -1381,6 +1389,7 @@ textarea.field-input,
   padding: 0 10px;
 }
 .field-search .field-input {
+  align-self: stretch;
   padding-block: 0;
   line-height: 20px;
 }
@@ -1796,9 +1805,11 @@ pre.code .f {
     max-width: 1760px;
   }
 }
+/* under a mouse the right-hand lane (32 at least) stays free for the dock's edge and the status pip */
 @media (hover: hover) and (pointer: fine) {
   .shell {
     padding-top: 40px;
+    padding-right: max(var(--gutter), 32px);
     padding-bottom: 64px;
   }
 }
@@ -1987,25 +1998,29 @@ pre.code .f {
   opacity: 1;
 }
 /* the computer's status pip, in the bottom-right corner, only while something needs a look (asleep, waiting for me,
-   at work) and never on Live itself, which it opens. It floats, so it has the shadow; it sits under the dock's zone */
+   at work) and never on Live itself, which it opens. At rest it is the Live badge's mark (a dot, or the count of what
+   needs me) on a small round, in the right-hand lane the shell keeps free under a mouse, so it never covers a page's
+   content; under the pointer or the keyboard's focus its words open to the left. It floats, so it has the shadow; it
+   sits over the dock's zone, which keeps the rest of the edge */
 .pip {
   display: none;
 }
 @media (hover: hover) and (pointer: fine) {
   .pip {
     position: fixed;
-    right: 20px;
-    bottom: 20px;
-    z-index: 35;
+    right: 8px;
+    bottom: 16px;
+    z-index: 41;
     display: inline-flex;
   }
 }
 .pip,
 .pip-demo {
+  flex-direction: row-reverse;
   align-items: center;
-  gap: 8px;
-  height: 28px;
-  padding: 0 10px 0 8px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 2px;
   border: 1px solid var(--line-strong);
   border-radius: 999px;
   background: color-mix(in srgb, var(--surface) 90%, transparent);
@@ -2014,6 +2029,39 @@ pre.code .f {
   color: var(--strong);
   font: 500 var(--text-small) / 16px var(--mono);
   white-space: nowrap;
+}
+.pip-mark {
+  display: grid;
+  place-items: center;
+  min-width: 14px;
+  height: 14px;
+}
+.pip-count {
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--tone);
+  color: var(--bg);
+  font: 600 var(--text-label) / 14px var(--sans);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.pip-words {
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    max-width var(--t-mid) var(--ease-out),
+    padding var(--t-mid) var(--ease-out),
+    opacity var(--t-fast);
+}
+.pip-open .pip-words,
+.pip:hover .pip-words,
+.pip:focus-visible .pip-words {
+  max-width: 16em;
+  padding-inline: 6px 5px;
+  opacity: 1;
 }
 /* the pip as /design shows it, in the page's flow */
 .pip-demo {
@@ -2517,9 +2565,14 @@ pre.code .f {
   flex-wrap: wrap;
   gap: 8px;
 }
+/* on touch the starters keep 16 under the head, so the head's thumb area (10 below its row) and the first pill's (6
+   above it) never meet */
 @media (pointer: coarse) {
   .ask-starters {
     row-gap: 12px;
+  }
+  .ask-head + .ask-starters {
+    margin-top: 4px;
   }
 }
 .md-link {
@@ -2635,7 +2688,7 @@ ol.md-list {
   color: var(--muted);
 }
 ol.md-list > li::marker {
-  font: 500 0.88em var(--mono);
+  font: 500 var(--text-body) var(--mono);
 }
 .md-list > li > p {
   margin-bottom: 10px;
@@ -2678,7 +2731,7 @@ li.md-task {
   margin-bottom: 0;
 }
 .md-code {
-  font: 0.85em var(--mono);
+  font: var(--text-detail) var(--mono);
   padding: 1px 5px;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -3237,6 +3290,19 @@ dialog:focus-visible {
     content: "";
     position: absolute;
     inset: calc(50% - var(--h-hit) / 2);
+  }
+}
+/* Only the weights the fonts ship (Sans 400 to 600, Mono 400 and 500), so the browser never fakes a bold: <b> and
+   <strong> are 600, not the browser's 700; a number in Mono inside a heading, or set bold, is 500, not the heading's
+   own weight. In the base layer, so a page's own font-* class still wins */
+@layer base {
+  b,
+  strong {
+    font-weight: 600;
+  }
+  :is(h1, h2, h3, h4, h5, h6, .text-head, .text-section, .text-lead, .text-title, .card-title) .font-mono,
+  :is(b, strong).font-mono {
+    font-weight: 500;
   }
 }
 /* The text boxes' floor is a hard one: every text box writes at 16 px or more on touch, the size under which iOS zooms

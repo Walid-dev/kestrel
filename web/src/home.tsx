@@ -165,8 +165,8 @@ function ToolFace({ icon, name, what }: { icon: ReactNode; name: string; what: s
   );
 }
 
-// today, as the eyebrow says it: MON 23 NOV
-const today = () => new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+// today, as the eyebrow says it, in the order every other date in the app takes (the browser's own): MON, NOV 23
+const today = () => new Date().toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 
 export function Home() {
   const chat = useChatLink();

@@ -634,7 +634,7 @@ function Ring({ part, children }: { part: number; children: ReactNode }) {
           transform="rotate(-90 28 28)"
         />
       </svg>
-      <span className="font-mono text-small font-semibold text-strong">{children}</span>
+      <span className="font-mono text-small font-medium text-strong">{children}</span>
     </span>
   );
 }

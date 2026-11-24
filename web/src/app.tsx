@@ -116,9 +116,27 @@ export function LiveBadge({ status }: { status: Status }) {
   );
 }
 
-// the status, read out after the place's name, since the badge is only seen
+// the status, read out after the place's name, since the badge is only seen (after "Live", at work needs no "live")
 function StatusWords({ status }: { status: Status }) {
-  return status.kind === "up" ? null : <span className="sr-only">, {words(status)}</span>;
+  if (status.kind === "up") return null;
+  return <span className="sr-only">, {status.kind === "working" ? `${status.n} working` : words(status)}</span>;
+}
+
+// the pip's inside: the badge's mark (a dot, or the count of what needs me), then its words, which open to the left
+export function PipBody({ status }: { status: Status }) {
+  if (status.kind === "up") return null;
+  return (
+    <>
+      <span aria-hidden="true" className="pip-mark">
+        {status.kind === "needs" ? (
+          <span className="pip-count tone-pink">{status.n > 9 ? "9+" : status.n}</span>
+        ) : (
+          <span className={cx("dot", TONE[status.kind], status.kind === "working" && "pulse")} />
+        )}
+      </span>
+      <span className="pip-words">{words(status)}</span>
+    </>
+  );
 }
 
 // under a mouse, the status in the corner while it says something; Live itself shows it all, so not there
@@ -127,8 +145,7 @@ function Pip({ status }: { status: Status }) {
   if (status.kind === "up" || where.pathname === "/live") return null;
   return (
     <Link to="/live" className="pip" title="Open Live">
-      <span aria-hidden="true" className={cx("dot", TONE[status.kind], status.kind === "working" && "pulse")} />
-      {words(status)}
+      <PipBody status={status} />
     </Link>
   );
 }
@@ -174,8 +191,8 @@ export const LIVE_ICON = (
 );
 
 const BAR = [
-  // the wolf a little smaller than its box, so it weighs what the line icons weigh
-  { to: "/", label: "Home", icon: <Mark size={20} fill="currentColor" /> },
+  // the wolf cropped to its own shape and centred, so it weighs what the line icons beside it weigh
+  { to: "/", label: "Home", icon: <Mark size={22} fill="currentColor" tight /> },
   { to: "/searches", label: "Searches", icon: ICONS.Searches },
   { to: "/chats", label: "Chat", icon: ICONS.Chat },
   { to: "/learn", label: "Learn", icon: ICONS.Learn },
@@ -186,7 +203,7 @@ const BAR = [
 // slides it in, a click goes there, leaving lets it slide away. The wolf first, as Home; Live last, with its badge.
 // Touch screens keep the tab bar.
 const DOCK: { to: string; label: string; icon: React.ReactNode }[] = [
-  { to: "/", label: "Home", icon: <Mark size={22} fill="currentColor" /> },
+  { to: "/", label: "Home", icon: <Mark size={22} fill="currentColor" tight /> },
   { to: "/searches", label: "Searches", icon: ICONS.Searches },
   { to: "/chats", label: "Chat", icon: ICONS.Chat },
   { to: "/learn", label: "Learn", icon: ICONS.Learn },

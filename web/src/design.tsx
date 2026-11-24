@@ -5,7 +5,7 @@
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import type { Drawing as D } from "../../src/shared/blocks.ts";
-import { LIVE_ICON, LiveBadge, type Status, TONE, words } from "./app.tsx";
+import { LIVE_ICON, LiveBadge, PipBody, type Status } from "./app.tsx";
 import { Drawing } from "./drawing.tsx";
 import { ICONS } from "./home.tsx";
 import { Card } from "./ui/card.tsx";
@@ -496,7 +496,7 @@ export function Design() {
 
         <Part
           title="The shell's status"
-          when="Where the eye goes for it. On touch, Live's tab carries a badge; under a mouse, the dock's Live item does too, and a pip sits in the bottom-right corner (never on Live, which it opens). Asleep first, then needs me, then at work; when all is well, nothing. Asleep, the strip leads every page."
+          when="Where the eye goes for it. On touch, Live's tab carries a badge; under a mouse, the dock's Live item does too, and a pip sits in the bottom-right corner, in the lane the shell keeps free: its mark at rest, its words under the pointer (never on Live, which it opens). Asleep first, then needs me, then at work; when all is well, nothing. Asleep, the strip leads every page."
         >
           <div className="flex flex-wrap items-end gap-6">
             {STATES.map((s) => (
@@ -509,11 +509,15 @@ export function Design() {
               </div>
             ))}
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {STATES.map((s) => (
               <span key={s.kind} className="pip-demo">
-                <span aria-hidden="true" className={cx("dot", TONE[s.kind], s.kind === "working" && "pulse")} />
-                {words(s)}
+                <PipBody status={s} />
+              </span>
+            ))}
+            {STATES.map((s) => (
+              <span key={s.kind} className="pip-demo pip-open">
+                <PipBody status={s} />
               </span>
             ))}
           </div>
