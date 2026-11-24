@@ -16,8 +16,8 @@ import { parseArgs } from "node:util";
 type OldHunt = {
   name?: string;
   titles?: string[];
-  mustHave?: string[];
-  niceToHave?: string[];
+  mustHave?: string[] | string; // a list, or one line of text as the old hunt page saves it
+  niceToHave?: string[] | string;
   minSalary?: number;
   dealBreakers?: string[] | string;
   area?: string;
@@ -32,6 +32,17 @@ const list = (s: string) =>
     .split(/[;,]/)
     .map((x) => x.trim())
     .filter(Boolean);
+// the must-haves and nice-to-haves as skills, each list or line split on commas, semicolons and "or" (the word, never
+// inside one): spread whole, a line of text gave one "skill" per letter, and every posting names letters
+const skills = (...from: unknown[]): string[] => [
+  ...new Set(
+    from
+      .flatMap((v) => (Array.isArray(v) ? v : [v]))
+      .flatMap((x) => (typeof x === "string" ? x.split(/[;,]|\bor\b/i) : []))
+      .map((x) => x.trim())
+      .filter(Boolean),
+  ),
+];
 
 // one old deal spec (its text and path) as a kestrel search, or null when it isn't a deal run by a collector
 export function dealSpecFromV1(text: string, file: string, collectorsDir: string) {
@@ -121,7 +132,7 @@ export function convertSpecs(from: string, out: string): string[] {
             .map((x) => x.trim())
             .filter(Boolean),
         },
-        skills: [...(h.mustHave ?? []), ...(h.niceToHave ?? [])],
+        skills: skills(h.mustHave, h.niceToHave),
         level: { want: [], avoid: [] },
         ...(h.minSalary ? { pay: { floor: h.minSalary } } : {}),
         ...(h.area
