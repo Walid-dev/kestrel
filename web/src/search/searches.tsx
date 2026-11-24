@@ -1,10 +1,10 @@
-// Searches, the old hunt pages' layout: the head with the hunt's name (a button: it opens the other hunts and + New
-// hunt), its switch, Search now and its settings; one filter panel — the search box on top with the round Reset, then
+// Searches, the old hunt pages' layout: the head with the hunt's name (a button: it opens the other hunts and a new
+// one), New search, its switch, Search now and its settings; one filter panel — the search box on top with the round Reset, then
 // the stage, the match, the role or model, the source and the order as pills, each part folding on its own and the
 // whole panel too; then the cards. The page opens on To review, best first. A card swipes right for Interested and left for Not for me, has the
 // same buttons under it, starts a deep check, and opens the whole listing on a tap.
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Ask } from "../ask.tsx";
 import { cx } from "../ui/cx.ts";
@@ -64,62 +64,103 @@ function when(iso: string): string {
   return `${day} ${time}`;
 }
 
-// the line under the title: the last search, what it found and the best of it, and when it searches next
-function StatusLine({ hunt, mirror }: { hunt: Hunt; mirror?: Run }) {
+// a problem as a chip's word: what a warning is, in one word; its sentence opens on a tap
+const flagOf = (problem: string) => (/\b429\b|throttl/i.test(problem) ? "Throttled" : "Problem");
+const sentence = (s: string) => `${s.charAt(0).toUpperCase()}${s.slice(1)}${/[.!?]$/.test(s) ? "" : "."}`;
+
+// the line under the title: a few facts, values bold (what searches now, the last search and what it found, the next
+// one), each warning as a small orange chip, and About, which opens the hunt's own words. A chip or About opens one
+// short block under the facts: the warnings in full, what the hunt looks for, the best of the last search
+function StatusLine({ hunt, mirror, about }: { hunt: Hunt; mirror?: Run; about: string }) {
+  const [more, setMore] = useState(false);
   const l = hunt.last;
-  const bits: ReactNode[] = [];
-  if (l)
-    bits.push(
-      <span key="last">
-        Last search <b className="text-ink">{when(l.at)}</b>: {l.kept} new{" "}
-        {hunt.kind === "jobs" ? (l.kept === 1 ? "job" : "jobs") : l.kept === 1 ? "ad" : "ads"}
-        {l.leftOut ? ` (${l.leftOut} left out)` : ""}.
-        {l.best && ` Best: ${l.best.title}${l.best.org ? ` at ${l.best.org}` : ""}.`}
-        {l.problem && <span className="text-warn"> {l.problem}.</span>}
-      </span>,
-    );
-  else if (hunt.mirrored)
-    bits.push(
-      <span key="mirror">
-        Mirrored nightly from the old setup{mirror ? `, last ${ago(mirror.started)}` : ""}
-        {mirror?.problem && <span className="text-warn"> · {mirror.problem}</span>}
-      </span>,
-    );
-  else bits.push(<span key="none">No search yet.</span>);
-  if (hunt.running > 0)
-    bits.push(
-      <b key="now" className="text-green">
-        Searching now{hunt.running > 1 ? `, ${hunt.running} to go` : ""}
-      </b>,
-    );
-  if (hunt.mode === "paused")
-    bits.push(
-      <span key="paused">
-        <b className="text-ink">Paused</b>: it searches when you press Search now
-      </span>,
-    );
-  else if (hunt.next)
-    bits.push(
-      <span key="next">
-        Next search <b className="text-ink">{when(hunt.next)}</b>
-        {hunt.mode === "quiet" ? " (no pings)" : ""}, if your Mac is awake and plugged in
-      </span>,
-    );
+  const noun = (n: number) => (hunt.kind === "jobs" ? (n === 1 ? "job" : "jobs") : n === 1 ? "ad" : "ads");
+  const warnings: { flag: string; text: string }[] = [];
+  if (l?.problem) warnings.push({ flag: flagOf(l.problem), text: sentence(l.problem) });
+  else if (!l && hunt.mirrored && mirror?.problem)
+    warnings.push({ flag: flagOf(mirror.problem), text: sentence(mirror.problem) });
   if (l && hunt.mode && hunt.mode !== "paused" && Date.now() - Date.parse(l.at) > 26 * 3600_000)
-    bits.push(
-      <span key="stale" className="text-warn">
-        No search since {when(l.at)}. Check the Mac.
-      </span>,
-    );
+    warnings.push({
+      flag: "Late",
+      text: `No search since ${when(l.at)}: it searches only while the Mac is awake and plugged in.`,
+    });
+  const best = l?.best && `${l.best.title}${l.best.org ? ` at ${l.best.org}` : ""}`;
+  const open = (
+    <span className="search-facts">
+      {hunt.running > 0 && (
+        <span className="inline-flex items-center gap-2 text-green">
+          <span className="dot tone-green pulse" aria-hidden="true" />
+          <b>Searching now{hunt.running > 1 ? `, ${hunt.running} to go` : ""}</b>
+        </span>
+      )}
+      {l ? (
+        <span title={best ? `Best: ${best}` : undefined}>
+          Last <b className="text-ink">{when(l.at)}</b>: <b className="text-ink">{l.kept}</b> new {noun(l.kept)}
+          {l.leftOut > 0 && (
+            <>
+              , <b className="text-ink">{l.leftOut}</b> left out
+            </>
+          )}
+        </span>
+      ) : hunt.mirrored ? (
+        <span title="Mirrored nightly from the old setup">
+          Mirrored{mirror ? <b className="text-ink"> {ago(mirror.started)}</b> : " nightly"}
+        </span>
+      ) : (
+        <span>No search yet</span>
+      )}
+      {hunt.mode === "paused" ? (
+        <span title="Paused: it searches only when you press Search now">
+          Next <b className="text-ink">when I press Search now</b>
+        </span>
+      ) : (
+        hunt.next && (
+          <span title="If the Mac is awake and plugged in">
+            Next <b className="text-ink">{when(hunt.next)}</b>
+          </span>
+        )
+      )}
+      {warnings.map((w) => (
+        <button
+          key={w.flag}
+          type="button"
+          className="search-flag chip chip-caps tone-orange"
+          aria-expanded={more}
+          title={w.text}
+          onClick={() => setMore(!more)}
+        >
+          {w.flag}
+        </button>
+      ))}
+      {(about || best) && (
+        <button type="button" className="search-more" aria-expanded={more} onClick={() => setMore(!more)}>
+          About
+          <span className={cx("text-label transition-transform", more && "rotate-90")} aria-hidden="true">
+            ▶
+          </span>
+        </button>
+      )}
+    </span>
+  );
   return (
     <>
-      {bits.map((b, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: the line's parts keep their order
-        <span key={i}>
-          {i > 0 && " · "}
-          {b}
+      {open}
+      {more && (
+        <span className="search-about">
+          {warnings.map((w) => (
+            <span key={w.flag} className="flex items-start gap-2 text-ink">
+              <span className="dot tone-orange" aria-hidden="true" />
+              {w.text}
+            </span>
+          ))}
+          {about && <span className="line-clamp-4">{about}</span>}
+          {best && (
+            <span>
+              Best of the last search: <b className="text-ink">{best}</b>
+            </span>
+          )}
         </span>
-      ))}
+      )}
     </>
   );
 }
@@ -513,7 +554,7 @@ export function Searches() {
           </span>
         )
       }
-      // the title is the hunt switcher: the hunt's name, a button that opens the other hunts and + New hunt
+      // the title is the hunt switcher: the hunt's name, a button that opens the other hunts and a new one
       title={
         hunt ? (
           <button type="button" className="hunt-switch" aria-haspopup="dialog" onClick={() => setSwitching(true)}>
@@ -537,22 +578,42 @@ export function Searches() {
       }
       line={
         hunt && (
-          <>
-            {(hunt.about || (kind === "deals" && groups.length > 0)) && (
-              <span className="mb-1 block">
-                {hunt.about || `${groups.length} models: ${groups.map(([g]) => g).join(", ")}.`}
-              </span>
-            )}
-            <span className="block text-small">
-              <StatusLine hunt={hunt} mirror={hunts.data?.mirror} />
-            </span>
-          </>
+          <StatusLine
+            key={`${hunt.kind}:${hunt.key}`}
+            hunt={hunt}
+            mirror={hunts.data?.mirror}
+            about={
+              hunt.about ||
+              (kind === "deals" && groups.length > 0
+                ? `${groups.length} models: ${groups.map(([g]) => g).join(", ")}.`
+                : "")
+            }
+          />
         )
       }
-      // the hunt's controls: its switch, Search now and its settings, one row of 36 on a phone
+      // New search, then the hunt's controls: its switch, Search now and its settings, one row of 36 on a phone. On a
+      // phone that row is full, so New search goes round, top right of the head (styles.css, .hunt-add)
       actions={
         hunt && (
           <>
+            <Link
+              to={`/searches/settings?new=${kind}`}
+              className="btn hunt-add"
+              aria-label="New search"
+              title="New search: a job hunt or a deal hunt"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              <span className="hunt-add-words">New search</span>
+            </Link>
             {hunt.mode && (
               <fieldset className="seg seg-modes" aria-label="This hunt's switch">
                 {(["on", "quiet", "paused"] as const).map((m) => (
@@ -618,9 +679,14 @@ export function Searches() {
           onClose={() => setSwitching(false)}
           title="The hunts"
           actions={
-            <Link to={`/searches/settings?new=${kind}`} className="btn">
-              + New hunt
-            </Link>
+            <>
+              <Link to="/searches/settings?new=deals" className="btn">
+                + New deal search
+              </Link>
+              <Link to="/searches/settings?new=jobs" className="btn">
+                + New job search
+              </Link>
+            </>
           }
         >
           <Pills

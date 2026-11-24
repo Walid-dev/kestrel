@@ -1,6 +1,6 @@
 // Home: the launcher, and the page that carries the name: the date over it and the pink wolf with kestrel as its
-// title (there is no bar above the pages). What needs me first, then this morning's brief as a row of figures, each
-// opening its page, then the apps as one list of rows (two columns on a computer), each in a few words and opening
+// title (there is no bar above the pages). What needs me first, then this morning's brief as one small strip of
+// figures, what waits and what comes next, each opening its page, then the apps as one list of rows (two columns on a computer), each in a few words and opening
 // its app, then Cost and Models, the two pages about the models.
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -8,6 +8,7 @@ import { Link } from "react-router";
 import { useChatLink } from "./chats.tsx";
 import { LiveStrip } from "./live-strip.tsx";
 import { Mark } from "./mark.tsx";
+import { cx } from "./ui/cx.ts";
 import { List, Row } from "./ui/list.tsx";
 import { Page } from "./ui/page.tsx";
 import type { Tone } from "./ui/pills.tsx";
@@ -172,12 +173,13 @@ const TOOLS: { name: string; what: string; to: string; icon: ReactNode }[] = [
 
 // the morning brief as figures, each the count its page shows when tapped. Great matches and Priority are the job
 // hunt's own pills, read from the counts Searches reads (its first job hunt, as Searches opens on, and its "Not applied
-// yet" switch as this browser keeps it). The other two come from the server's brief, in sentences
+// yet" switch as this browser keeps it). Lessons and tasks come from the server's brief, in sentences
 // (src/domain/brief.ts), one count each, and only the counts above zero: each figure reads its count from the sentence
-// its words match, and a figure with no sentence is 0. What needs me and the queue are left out here: the live row
-// above says them. A sentence no figure or the live row names stays a sentence under the figures, so a new one is
-// never lost
+// its words match, and a figure with no sentence is 0. Then what comes next: the next search (from the hunts Searches
+// reads) and what needs me, with the queue (from the counts the live row reads). A sentence no figure or the live row
+// names stays a sentence under the figures, so a new one is never lost
 type Counts = { stages: Record<string, number>; match: Record<string, number> };
+type HuntRow = { key: string; kind: string; name: string; next: string | null; running: number; mode: string | null };
 const FIGURES: {
   label: string;
   words: RegExp;
@@ -187,7 +189,7 @@ const FIGURES: {
   hunt?: (c: Counts) => number;
 }[] = [
   {
-    label: "Great matches",
+    label: "Great jobs",
     words: /great match/i,
     to: "/searches?stage=review&match=great",
     tone: "great",
@@ -203,7 +205,7 @@ const FIGURES: {
     hunt: (c) => c.stages.priority ?? 0,
   },
   {
-    label: "To review",
+    label: "Lessons due",
     words: /up for review/i,
     to: "/learn/practice",
     tone: "cyan",
@@ -213,6 +215,48 @@ const FIGURES: {
 ];
 const LIVE_ROW = /on me\b|queued|nothing waits/i;
 const countIn = (line: string) => Number(line.match(/\d+/)?.[0] ?? 0);
+// a search's time, short enough for a figure: the time today, else the weekday and the hour
+const soon = (iso: string) => {
+  const d = new Date(iso);
+  return d.toDateString() === new Date().toDateString()
+    ? d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+    : `${d.toLocaleDateString(undefined, { weekday: "short" })} ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
+};
+
+// one figure: its label over its value in mono, a dot in its tone before it, the whole cell a link to its page
+function Fig({
+  label,
+  to,
+  hint,
+  tone,
+  value,
+  quiet = false,
+  pulse = false,
+  extra,
+}: {
+  label: string;
+  to: string;
+  hint: string;
+  tone: Tone;
+  value: ReactNode;
+  quiet?: boolean;
+  pulse?: boolean;
+  extra?: ReactNode;
+}) {
+  return (
+    <Link to={to} className="home-fig" title={hint}>
+      <span className="eyebrow">{label}</span>
+      <span className="flex min-w-0 items-center gap-2">
+        <span className={cx("dot", `tone-${tone}`, pulse && "pulse")} aria-hidden="true" />
+        <span className={cx("font-mono text-head font-medium tabular-nums", quiet ? "text-muted" : "text-strong")}>
+          {value}
+        </span>
+        {extra && <span className="truncate text-small text-muted">{extra}</span>}
+      </span>
+    </Link>
+  );
+}
+
 // Searches' "Not applied yet" switch, on unless this browser turned it off (search/searches.tsx keeps it under this key)
 const notApplied = () => {
   try {
@@ -244,9 +288,23 @@ export function Home() {
     queryFn: async () => {
       const res = await fetch("/api/search");
       if (!res.ok) throw new Error(`${res.status}`);
-      return (await res.json()) as { hunts: { key: string; kind: string }[] };
+      return (await res.json()) as { hunts: HuntRow[] };
     },
   });
+  // what comes next: a hunt searching now, else the soonest search a hunt has planned (a paused one plans none)
+  const all = hunts.data?.hunts ?? [];
+  const running = all.find((h) => h.running > 0);
+  const next = all
+    .filter((h) => h.next && h.mode !== "paused")
+    .sort((a, b) => Date.parse(a.next ?? "") - Date.parse(b.next ?? ""))[0];
+  const nextHunt = running ?? next;
+  // the applications' counts, as the live row above reads them (the same key: either one's answer serves both)
+  const apply = useQuery({
+    queryKey: ["apply-counts"],
+    queryFn: async () => ((await (await fetch("/api/apply")).json()) as { counts: Record<string, number> }).counts,
+  });
+  const needs = apply.data?.["needs-me"] ?? 0;
+  const queued = apply.data?.queued ?? 0;
   const hunt = hunts.data?.hunts.find((h) => h.kind === "jobs");
   const counted = new URLSearchParams({ kind: "jobs", hunt: hunt?.key ?? "" });
   if (notApplied()) counted.set("todo", "1");
@@ -273,7 +331,7 @@ export function Home() {
     >
       <LiveStrip />
       {brief.data && (
-        <section className="card home-figs" aria-label="This morning">
+        <section className="home-figs" aria-label="This morning">
           {FIGURES.map((f) => {
             // a hunt figure is 0 when there is no job hunt, and waits for its counts (a dash) rather than show a wrong 0
             const n = f.hunt
@@ -282,20 +340,41 @@ export function Home() {
                 : hunts.data && 0
               : countIn(lines.find((l) => f.words.test(l)) ?? "");
             return (
-              <Link
+              <Fig
                 key={f.label}
+                label={f.label}
                 to={f.hunt && hunt ? `${f.to}&hunt=jobs:${encodeURIComponent(hunt.key)}` : f.to}
-                className="home-fig"
-                title={f.hint}
-              >
-                <span className="eyebrow">{f.label}</span>
-                <span className="flex items-center gap-2">
-                  <span className={`dot tone-${f.tone}`} aria-hidden="true" />
-                  <b className={`font-mono text-lead tabular-nums ${n ? "text-strong" : "text-muted"}`}>{n ?? "–"}</b>
-                </span>
-              </Link>
+                hint={f.hint}
+                tone={f.tone}
+                value={n ?? "–"}
+                quiet={!n}
+              />
             );
           })}
+          <Fig
+            label="Next search"
+            to={nextHunt ? `/searches?hunt=${nextHunt.kind}:${encodeURIComponent(nextHunt.key)}` : "/searches"}
+            hint={
+              running
+                ? `${running.name} is searching now`
+                : next
+                  ? `${next.name}, if the Mac is awake and plugged in`
+                  : "No search planned: every hunt is paused or there is none"
+            }
+            tone={running ? "green" : "muted"}
+            pulse={Boolean(running)}
+            value={running ? "Now" : next?.next ? soon(next.next) : "–"}
+            quiet={!running && !next}
+          />
+          <Fig
+            label="Needs me"
+            to="/live"
+            hint={`Applications that wait on me${queued ? `; ${queued} queued to apply` : ""}`}
+            tone={needs ? "pink" : "muted"}
+            value={apply.data ? needs : "–"}
+            quiet={!needs}
+            extra={queued > 0 && `${queued} queued`}
+          />
           {lines
             .filter((l) => !FIGURES.some((f) => f.words.test(l)) && !LIVE_ROW.test(l))
             .map((l) => (

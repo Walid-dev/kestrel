@@ -1,8 +1,9 @@
 // Cost: what this computer's models did in the period I pick (Today, 7 days, 30 days, All), what the same use would
-// have cost in the cloud at my reference prices, and what it cost in electricity. One strip of figures answers that
-// at a glance; the tokens of each of the last 30 days sit under it, the period's days lit; then each model in one
-// aligned table, with the prices and where they were seen folded at its foot. Labels and hints, no sentences: what a
-// figure means is in its title.
+// have cost in the cloud at my reference prices, what running here saved against that, and what it cost in
+// electricity. One strip of figures answers that at a glance; the tokens of each of the last 30 days sit under it, the
+// period's days lit; then each model in one aligned table, with the prices and where they were seen folded at its
+// foot. Colour only means something: a cloud price sits on the money scale (mint cheap to coral costly), what was saved
+// is green. Labels and hints, no sentences: what a figure means is in its title.
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { type CSSProperties, type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { cx } from "./ui/cx.ts";
@@ -110,6 +111,25 @@ const dateLabel = (iso: string) =>
     ? new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
     : iso;
 
+// the money scale for a cost, as Searches colours a price: under the first step mint (cheap), then lime, amber, and
+// coral (costly) past the last. A period's cloud price is judged by its pace over a month, against about what a cloud
+// plan costs (20 a month in the middle); a price per million tokens by its column, from where cheap and frontier models
+// sit (cached input is about a tenth of fresh, output about four times)
+type Tier = "great" | "good" | "fair" | "poor";
+const tierOf = (v: number, [a, b, c]: readonly [number, number, number]): Tier =>
+  v < a ? "great" : v < b ? "good" : v < c ? "fair" : "poor";
+const MONTH = [5, 20, 60] as const;
+const PER_M = { input: [0.5, 2, 5], cachedInput: [0.1, 0.5, 1.5], output: [2, 8, 20] } as const;
+const TIER_WORD: Record<Tier, string> = { great: "cheap", good: "fair", fair: "costly", poor: "very costly" };
+// the days the period covers, for its pace: the period's days, or fewer when counting started inside it; a day at least,
+// so today's use reads as a day's and an overnight batch at 1 AM isn't multiplied by the hours since midnight. With no
+// start, All counts as 30 days
+function spanDays(r: Report, days: string): number {
+  const counted = r.since ? (Date.parse(r.at) - Date.parse(r.since)) / 86_400_000 : Number.POSITIVE_INFINITY;
+  const period = days === "all" ? (r.since ? counted : 30) : Number(days) || 30;
+  return Math.max(1, Math.min(period, counted));
+}
+
 // the server answers 503 when oMLX's table isn't there to read: a set-up step, not a failure. It also answers 503
 // when the table is there but locked for a moment; with figures on screen that is only a missed refresh
 class NotReady extends Error {}
@@ -175,7 +195,7 @@ export function Cost() {
         </div>
       ) : (
         <>
-          <Strip r={r} loading={report.isPlaceholderData} />
+          <Strip r={r} days={days} loading={report.isPlaceholderData} />
           {days === "1" ? (
             <Chart
               key="hours"
@@ -237,23 +257,36 @@ function NotSetUp({ reason }: { reason: string }) {
   );
 }
 
-// the period in five figures, one cell each: a label, the value in mono, one quiet line with the parts in bold. Two
-// columns on a phone (the cloud's cell, the answer and the one with a line per reference, takes a row of its own),
-// five side by side on a computer
-function Strip({ r, loading }: { r: Report; loading: boolean }) {
+// the period in figures, one cell each: a label, the value in mono, one quiet line with the parts in bold. Six when the
+// electricity is in US$ (what was saved a figure of its own, beside the cloud's: two columns on a phone, three from
+// 48rem, six from 64rem); else five, the cloud across a phone's two columns with what it saved a green line in it,
+// then one row of five. The cloud's value carries its place on the money scale as a dot; what was saved is green
+function Strip({ r, days, loading }: { r: Report; days: string; loading: boolean }) {
   const p = r.period;
   const [lead, ...others] = p.cloud;
   const watts = r.prices?.electricity.watts;
+  const power = p.electricity;
+  const span = spanDays(r, days);
+  const month = lead?.usd != null ? (lead.usd * 30) / span : null;
+  const tier = month != null ? tierOf(month, MONTH) : null;
+  // what running here saved: the cloud's price less the electricity, a figure of its own only when both are in US$.
+  // Without a rate it is a green line in the cloud's cell, the electricity named beside it, never converted
+  const saved = lead?.usd != null && power?.currency === "USD" ? Math.max(0, lead.usd - power.cost) : null;
   return (
-    <section aria-label="The period" aria-busy={loading} className={cx("cost-figures", loading && "busy")}>
+    <section
+      aria-label="The period"
+      aria-busy={loading}
+      className={cx("cost-figures", saved != null && "cost-figures-six", loading && "busy")}
+    >
       <Figure
         label="Cloud would cost"
-        wide
+        wide={saved == null}
         value={lead?.usd != null ? money(lead.usd) : "—"}
+        tone={tier ?? undefined}
         title={
           r.pricesError ??
           (lead
-            ? `The same use at ${lead.name}'s prices${lead.unpriced.length ? `; not counted, no reference price: ${lead.unpriced.join(", ")}` : ""}`
+            ? `The same use at ${lead.name}'s prices${tier && month != null ? `: ${TIER_WORD[tier]}, about ${money(month)} a month at this pace` : ""}${lead.unpriced.length ? `; not counted, no reference price: ${lead.unpriced.join(", ")}` : ""}`
             : "prices.json names no cloud reference")
         }
       >
@@ -269,6 +302,26 @@ function Strip({ r, loading }: { r: Report; loading: boolean }) {
                 ? ": no reference price"
                 : lead.unpriced.length > 0 && ` · ${lead.unpriced.length} unpriced`}
             </span>
+            {/* over a full 30 days the pace is the figure itself */}
+            {month != null && month > 0 && Math.abs(span - 30) > 0.01 && (
+              <span className="block">
+                <b className="text-ink">≈{money(month)}</b> a month
+              </span>
+            )}
+            {saved == null && lead.usd != null && lead.usd > 0 && (
+              <span className="block">
+                <span className="text-green">
+                  saved <b>{money(lead.usd)}</b>
+                </span>
+                {power ? (
+                  <>
+                    , less <b className="text-ink">{money(power.cost, power.currency)}</b> of power
+                  </>
+                ) : (
+                  ", no power price"
+                )}
+              </span>
+            )}
             {others.map((c) => (
               <span
                 key={c.id}
@@ -286,14 +339,24 @@ function Strip({ r, loading }: { r: Report; loading: boolean }) {
           </>
         )}
       </Figure>
+      {saved != null && (
+        <Figure
+          label="Saved"
+          value={money(saved)}
+          good={saved > 0}
+          title={`What running on this computer saved against ${lead?.name ?? "the cloud"}, less the electricity`}
+        >
+          the cloud, less the electricity
+        </Figure>
+      )}
       <Figure
         label="Electricity"
-        value={p.electricity ? money(p.electricity.cost, p.electricity.currency) : "—"}
+        value={power ? money(power.cost, power.currency) : "—"}
         title="What the computer drew while the models worked, at my price per kWh"
       >
-        {p.electricity && (
+        {power && (
           <>
-            <b className="text-ink">{kwh(p.electricity.kwh)}</b> kWh · <b className="text-ink">{watts}</b> W
+            <b className="text-ink">{kwh(power.kwh)}</b> kWh · <b className="text-ink">{watts}</b> W
           </>
         )}
       </Figure>
@@ -315,19 +378,34 @@ function Figure({
   label,
   value,
   title,
+  tone,
+  good = false,
   wide = false,
   children,
 }: {
   label: string;
   value: string;
   title?: string;
+  // the value's place on the money scale, as a dot before it
+  tone?: Tier;
+  // a saving: the value in green
+  good?: boolean;
+  // across both columns on a phone, when the strip has five figures
   wide?: boolean;
   children?: ReactNode;
 }) {
   return (
     <div className={cx("cost-figure", wide && "cost-figure-wide")} title={title}>
       <span className="eyebrow">{label}</span>
-      <span className="font-mono text-lead font-medium text-strong tabular-nums">{value}</span>
+      <span
+        className={cx(
+          "flex items-center gap-2 font-mono text-lead font-medium tabular-nums",
+          good ? "text-green" : "text-strong",
+        )}
+      >
+        {tone && <span className={`dot tone-${tone}`} aria-hidden="true" />}
+        {value}
+      </span>
       {children && <span className="text-small text-muted tabular-nums">{children}</span>}
     </div>
   );
@@ -487,7 +565,7 @@ function Bars({
 type Cell = (usd: number | null, name: string, as?: string | null, unpriced?: string[]) => ReactNode;
 
 // each model in the period, the most used first, and the total: one aligned table on a computer, a row each on a
-// phone. A cloud price is a money pill; a model a reference doesn't price shows a dash, never 0
+// phone. A cloud price is a money pill on the money scale; a model a reference doesn't price shows a dash, never 0
 function Models({ r, days, loading }: { r: Report; days: string; loading: boolean }) {
   const refs = r.period.cloud;
   const power = r.prices !== null;
@@ -495,25 +573,32 @@ function Models({ r, days, loading }: { r: Report; days: string; loading: boolea
   // a share, and a total row, only mean something beside another model
   const several = r.models.length > 1;
   const compute = hoursIn(r.period.computeHours);
-  const cell: Cell = (usd, name, as, unpriced) =>
-    usd == null ? (
-      <span className="text-muted" title={`${name}: no reference price`}>
-        —
-      </span>
-    ) : (
+  // a price's tone is its pace over a month, as the strip's: the same scale for a model, the total and the strip
+  const span = spanDays(r, days);
+  const cell: Cell = (usd, name, as, unpriced) => {
+    if (usd == null)
+      return (
+        <span className="text-muted" title={`${name}: no reference price`}>
+          —
+        </span>
+      );
+    const month = (usd * 30) / span;
+    const tier = tierOf(month, MONTH);
+    return (
       <span
-        className="money"
-        title={
+        className={`money tone-${tier}`}
+        title={`${
           as
             ? `${name}, priced as ${as}`
             : unpriced?.length
               ? `${name}; not counted, no reference price: ${unpriced.join(", ")}`
               : name
-        }
+        }: ${TIER_WORD[tier]}, about ${money(month)} a month at this pace`}
       >
         {money(usd)}
       </span>
     );
+  };
   return (
     <section aria-label="By model" aria-busy={loading} className={cx("card grid gap-3", loading && "busy")}>
       {r.models.length === 0 ? (
@@ -689,7 +774,7 @@ function Share({ part }: { part: number }) {
 }
 
 // the reference prices and the electricity, each with where and when it was seen, folded at the table's foot: a
-// reference's name over its prices, a model's prices in columns, US$ per million tokens
+// reference's name over its prices, a model's prices in columns, US$ per million tokens, each on the money scale
 function Sources({ prices }: { prices: NonNullable<Report["prices"]> }) {
   const e = prices.electricity;
   const seen = (source: string, when: string) => (
@@ -735,9 +820,16 @@ function Sources({ prices }: { prices: NonNullable<Report["prices"]> }) {
                     {seen(p.source, p.seen)}
                   </span>
                 </td>
-                <td>{rate(p.input)}</td>
-                <td>{rate(p.cachedInput)}</td>
-                <td>{rate(p.output)}</td>
+                {(["input", "cachedInput", "output"] as const).map((k) => {
+                  const tier = tierOf(p[k], PER_M[k]);
+                  return (
+                    <td key={k}>
+                      <span className={`money tone-${tier}`} title={TIER_WORD[tier]}>
+                        {rate(p[k])}
+                      </span>
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
