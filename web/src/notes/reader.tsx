@@ -2,7 +2,10 @@
 // part every document shares (ui/doc.tsx): Read, Edit, and Side by side on a computer, with Download and Save as PDF.
 // My notes show as marks on the rendered words and as a list beside. Selecting words notes exactly those words of the
 // source; a tap on a paragraph notes the paragraph; a button takes a note on the whole document; the sheet is a
-// native dialog.
+// native dialog. Apply (apply.tsx) sits where the notes are: at the head of their column on a computer, in a bar at
+// the screen's foot on a phone. On a short screen (a phone on its side) the bar would take a third of the text: while
+// notes wait, Apply sits in the document's own head there, beside Read, Edit and Download, and its other states keep
+// to one row of the bar.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
@@ -11,13 +14,14 @@ import type { DocumentFull, Draft, PlacedNote } from "../../../src/shared/notes.
 import { Ask } from "../ask.tsx";
 import { useConfirm } from "../ui/confirm.tsx";
 import { cx } from "../ui/cx.ts";
-import { Doc, type DocMode, type Saved } from "../ui/doc.tsx";
+import { Doc, type DocMode, downloadText, type Saved } from "../ui/doc.tsx";
 import { EmptyState } from "../ui/empty.tsx";
 import { blockAt, sourceAt } from "../ui/markdown.tsx";
 import { Page, PageHead } from "../ui/page.tsx";
+import { type AppliedSave, Apply } from "./apply.tsx";
 import { NoteSheet, type SheetTarget } from "./note-sheet.tsx";
 import { NotesList } from "./notes-list.tsx";
-import { type Pace, Speed, sentence, Writing } from "./parts.tsx";
+import { isPdfText, type Pace, sentence, shortPath, sourceOf } from "./parts.tsx";
 import { Review } from "./review.tsx";
 
 export const LAST_DOC = "kestrel-notes-last";
@@ -29,8 +33,20 @@ function ownTitle(d: { name: string; text: string }): string {
   return first?.k === "heading" && first.level === 1 ? plain(first.runs).trim() : "";
 }
 
-// a PDF's text: the upload keeps the PDF's name (src/domain/notes/pdf.ts), and only a PDF upload may
-const isPdfText = (d: { name: string; source: string }) => d.source === "upload" && /\.pdf$/i.test(d.name);
+// where the Note button goes: under the words, or over them when under would put it behind the Apply bar or the tab
+// bar (or off the screen); h is the button with its touch area
+const NOTE_H = 44;
+function noteY(top: number, bottom: number): number {
+  let floor = window.innerHeight;
+  for (const el of document.querySelectorAll(".note-bar, .tabbar")) {
+    const r = el.getBoundingClientRect();
+    if (r.height > 0 && r.top < floor) floor = r.top;
+  }
+  if (bottom + 8 + NOTE_H <= floor - 8) return bottom + 8;
+  if (top - 8 - NOTE_H >= 8) return top - 8 - NOTE_H;
+  // a paragraph taller than the screen: the button at the foot of what shows
+  return floor - 8 - NOTE_H;
+}
 
 export function Reader() {
   const sure = useConfirm();
@@ -50,7 +66,13 @@ export function Reader() {
     words: boolean;
   } | null>(null);
   const [review, setReview] = useState(false);
+  // what the review dropped, by draft: closing the box by accident keeps my picks (a new draft has a new id)
+  const [dropped, setDropped] = useState<Record<string, Record<string, number[]>>>({});
+  // how many notes the running Apply took, to name them while the model works
+  const [asked, setAsked] = useState<number>();
   const [askWhy, setAskWhy] = useState("");
+  // the last save of the model's changes, said at Apply's place until I close it or leave a new note
+  const [applied, setApplied] = useState<AppliedSave | null>(null);
   // the last document opened is where Notes opens next time, on this device
   useEffect(() => {
     try {
@@ -97,6 +119,8 @@ export function Reader() {
       });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
     },
+    // a new note starts the next round: the last save's line has said its piece
+    onSuccess: () => setApplied(null),
     onSettled: changed,
   });
   const remove = useMutation({
@@ -127,6 +151,8 @@ export function Reader() {
   });
   const ask = useMutation({
     mutationFn: async () => {
+      // Try again: the failed draft goes first, so only the new one stays
+      if (current?.status === "failed") await fetch(`/api/notes/drafts/${current.id}/discard`, { method: "POST" });
       const res = await fetch("/api/notes/ask", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -134,23 +160,31 @@ export function Reader() {
       });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
     },
-    onSuccess: () => setAskWhy(""),
+    onSuccess: () => {
+      setAskWhy("");
+      setApplied(null);
+    },
     onError: (e) => setAskWhy(e.message),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["draft", id] }),
   });
   const [saveWhy, setSaveWhy] = useState("");
   const saveDoc = useMutation({
-    mutationFn: async (documentId: string) => {
+    mutationFn: async (input: { documentId: string; keep: number[] }) => {
       const res = await fetch(`/api/notes/drafts/${current?.id}/save`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ document: documentId }),
+        body: JSON.stringify({ document: input.documentId, keep: input.keep }),
       });
-      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
+      const data = (await res.json()) as { error?: string; saved?: number };
+      if (!res.ok) throw new Error(data.error ?? `${res.status}`);
+      return data.saved ?? input.keep.length;
     },
-    onSuccess: () => {
+    onSuccess: async (changes) => {
       setSaveWhy("");
+      // the new text first, so Download and Save as PDF on the saved line take it
+      await queryClient.invalidateQueries({ queryKey: ["doc", id] });
       setReview(false);
+      setApplied({ changes, name: doc.data?.name ?? "the document" });
     },
     onError: (e) => setSaveWhy(e.message),
     onSettled: () => {
@@ -165,6 +199,7 @@ export function Reader() {
       const res = await fetch(`/api/notes/documents/${id}/undo`, { method: "POST" });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
     },
+    onSuccess: () => setApplied(null),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["doc", id] });
       queryClient.invalidateQueries({ queryKey: ["notes", id] });
@@ -177,6 +212,7 @@ export function Reader() {
     },
     onSettled: () => {
       setReview(false);
+      setAskWhy("");
       queryClient.invalidateQueries({ queryKey: ["draft", id] });
     },
   });
@@ -246,7 +282,7 @@ export function Reader() {
           start: block.from,
           shown: block.el.textContent ?? quote,
           x: r.left + r.width / 2,
-          y: r.bottom,
+          y: noteY(r.top, r.bottom),
           words: false,
         });
       } else setPick(null);
@@ -260,7 +296,14 @@ export function Reader() {
     const quote = doc.data.text.slice(from, to);
     if (quote.trim() === "") return setPick(null);
     const box = r.getBoundingClientRect();
-    setPick({ quote, start: from, shown: sel.toString(), x: box.left + box.width / 2, y: box.bottom, words: true });
+    setPick({
+      quote,
+      start: from,
+      shown: sel.toString(),
+      x: box.left + box.width / 2,
+      y: noteY(box.top, box.bottom),
+      words: true,
+    });
   };
   // the Note button, centred under the words but never past the screen's edges (it is about 210 px wide)
   const inside = (x: number) => Math.min(Math.max(x, 116), window.innerWidth - 116);
@@ -330,40 +373,37 @@ export function Reader() {
   const reading = mode === "read";
   // side by side takes the whole width: my notes go under it
   const side = mode === "side";
-  // the edit's controls come once there is something for them to do: open notes to turn into an edit, a draft on
-  // its way or ready, a save to undo. Until then the document's head holds only Read/Edit and Download
-  const asking = openNotes > 0 && (!current || current.status === "failed");
-  const tools = reading && (asking || current !== null || d.previous);
-  // the edit's controls, in the document's own head between Read/Edit and Download: the model's pace beside the
-  // button that asks, or the draft's state, and Undo
-  const toolsRow = (
-    <>
-      {asking && (
-        <>
-          <Speed value={speed} onChange={setSpeed} />
-          <button type="button" className="btn btn-primary" disabled={ask.isPending} onClick={() => ask.mutate()}>
-            Turn {openNotes === 1 ? "the note" : `${openNotes} notes`} into an edit
-          </button>
-        </>
-      )}
-      {current?.status === "making" && <Writing model={current.model} />}
-      {current?.status === "ready" && (
-        <button type="button" className="btn btn-primary" onClick={() => setReview(true)}>
-          Review the changes
-        </button>
-      )}
-      {current?.status === "failed" && (
-        <button type="button" className="btn btn-danger" onClick={() => discard.mutate(current.id)}>
-          Clear the failed ask
-        </button>
-      )}
-      {d.previous && (
-        <button type="button" className="btn btn-quiet" onClick={() => undo.mutate()}>
-          Undo the last save
-        </button>
-      )}
-    </>
-  );
+  // Apply and its states, built once: the notes' column shows it on a computer, the foot bar on a phone
+  const applyProps = {
+    open: openNotes,
+    draft: current,
+    asked,
+    editing: !reading,
+    speed,
+    onSpeed: setSpeed,
+    onApply: () => {
+      setAsked(openNotes);
+      ask.mutate();
+    },
+    applying: ask.isPending,
+    askWhy,
+    onStop: async () => {
+      const yes = await sure({
+        title: "Stop applying your notes?",
+        body: "The model's work so far goes; your notes stay open.",
+        yes: "Stop",
+      });
+      if (yes && current) discard.mutate(current.id);
+    },
+    onReview: () => setReview(true),
+    onDismiss: () => (current?.status === "failed" ? discard.mutate(current.id) : setAskWhy("")),
+    saved: applied,
+    onCloseSaved: () => setApplied(null),
+    onDownload: () => downloadText(d.name, d.text, docKind(d.name)),
+    printHref: `/notes/${encodeURIComponent(id)}/print`,
+    onUndo: d.previous ? () => undo.mutate() : undefined,
+    undoing: undo.isPending,
+  };
   const deleteNote = async (n: PlacedNote) => {
     const yes = await sure({
       title: "Delete this note?",
@@ -387,16 +427,20 @@ export function Reader() {
     >
       <PageHead
         back={back}
-        eyebrow={pdf ? "An uploaded PDF" : d.source === "upload" ? "Uploaded to kestrel" : "A file on this computer"}
         // the document's own h1 when it starts with one; then its file shows under it, by path or, for an upload,
         // by name
         title={titled || d.name}
         line={
           <>
-            {/* where the file is, whole and in its own case (two files can share a name), over the line */}
-            {(d.path || titled) && (
-              <span className="font-mono mb-1 block break-all text-small">{d.path ?? d.name}</span>
-            )}
+            {/* where it comes from, as a chip, and where the file is: one short line, the whole path in its title */}
+            <span className={cx("note-where", !(d.path || titled) && "note-where-inline")}>
+              <span className="chip chip-caps tone-muted">{sourceOf(d)}</span>
+              {(d.path || titled) && (
+                <span className="font-mono min-w-0 truncate text-small" title={d.path ?? d.name}>
+                  {d.path ? shortPath(d.path) : d.name}
+                </span>
+              )}
+            </span>
             {pdf ? (
               <>
                 <span className="lg:hidden">The PDF stays as it is: you edit its text here.</span>
@@ -413,7 +457,7 @@ export function Reader() {
                 {/* one line: the back bar above takes its tap size, and the document should start no lower than it did
                   (Edit, and Earlier versions in the column, say the rest) */}
                 <span className="hidden lg:inline">
-                  Select words to leave a note, then turn them into an edit you check first.
+                  Select words to leave a note, then Apply: you check each change before it's saved.
                 </span>
               </>
             )}
@@ -435,11 +479,6 @@ export function Reader() {
         }
       />
       <div className="grid min-w-0 gap-3">
-        {reading && (askWhy || current?.status === "failed") && (
-          <p role="alert" className="m-0 rounded-lg border border-line bg-warn-soft px-3 py-2 text-detail">
-            {sentence(askWhy || current?.error || "")}
-          </p>
-        )}
         <Doc
           key={id}
           id={id}
@@ -456,20 +495,37 @@ export function Reader() {
           onSave={saveText}
           printHref={`/notes/${encodeURIComponent(id)}/print`}
           onMode={setMode}
-          tools={tools && <div className="note-tools">{toolsRow}</div>}
+          // a short screen's Apply while notes wait, in the head's row (styles.css shows it only there; its other
+          // states stay in the bar, one row each)
+          tools={
+            <span className="note-apply-head">
+              <Apply {...applyProps} bar />
+            </span>
+          }
         />
+      </div>
+      {/* the phone's Apply: held at the screen's foot while I read, at rest above the notes at the document's end */}
+      <div className="note-bar">
+        <Apply {...applyProps} bar />
       </div>
       <div className={cx("grid gap-4", !side && "lg:sticky lg:top-6 lg:col-start-2 lg:row-span-3 lg:row-start-1")}>
         <NotesList
           notes={placed}
           headRef={notesHead}
+          apply={
+            <div className="note-apply-col">
+              <Apply {...applyProps} />
+            </div>
+          }
           onOpen={(n) => setSheet({ kind: "edit", note: n })}
           onDelete={deleteNote}
         />
         {(versions.data?.versions.length ?? 0) > 0 && (
           // a fold-out in the column, not a card of its own: closed, it is one quiet row under the notes
           <details className="note-versions">
-            <summary className="disclosure">Earlier versions · {versions.data?.versions.length}</summary>
+            <summary className="disclosure">
+              Earlier versions · <span className="font-mono tabular-nums">{versions.data?.versions.length}</span>
+            </summary>
             <p className="m-0 text-small text-muted">
               The text as it was before each save, here in kestrel. Restore brings one back.
             </p>
@@ -518,7 +574,7 @@ export function Reader() {
           type="button"
           className="note-pick"
           // where the words are: known only at run time, so it reaches the class as two variables
-          style={{ "--x": `${inside(pick.x)}px`, "--y": `${pick.y + 8}px` } as CSSProperties}
+          style={{ "--x": `${inside(pick.x)}px`, "--y": `${pick.y}px` } as CSSProperties}
           // keep the selection: the press must not clear it before the note opens
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => {
@@ -548,7 +604,10 @@ export function Reader() {
           draft={current}
           targets={{ [id]: d.path ?? "the upload, kept in kestrel" }}
           texts={{ [id]: current.perDocument[id]?.oldText ?? d.text }}
-          onSave={(documentId) => saveDoc.mutate(documentId)}
+          noteText={Object.fromEntries(placed.map((n) => [n.id, n.text]))}
+          dropped={dropped[current.id] ?? {}}
+          onDropped={(next) => setDropped((all) => ({ ...all, [current.id]: next }))}
+          onSave={(documentId, keep) => saveDoc.mutate({ documentId, keep })}
           saving={saveDoc.isPending}
           saveWhy={saveWhy}
           onDiscard={() => discard.mutate(current.id)}

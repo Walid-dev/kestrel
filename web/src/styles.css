@@ -3735,6 +3735,25 @@ body:has(.paper-view) {
 .paper-how {
   flex: 1 1 240px;
 }
+/* Android's way to a PDF, as numbered steps that wrap as whole steps: two short lines on a phone */
+.paper-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.paper-step {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.paper-step-n {
+  font-family: var(--mono);
+  font-weight: 500;
+  color: var(--strong);
+}
 .paper {
   max-width: 760px;
   margin: 0 auto;
@@ -3840,35 +3859,247 @@ body:has(.paper-view) {
 .note-titled .doc-read > .md > .md-h1:first-child + * {
   margin-top: 0;
 }
-/* the edit's controls, inside the document's head before Download: one row of controls, 8 apart. On a narrow screen
-   the head takes two rows: Read/Edit and Download on the first, the edit's controls on the second */
-.note-tools {
+/* where the document comes from (a chip) and where its file is, one short line over the line under the title */
+.note-where {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  margin-bottom: 4px;
 }
-@media (max-width: 47.99rem) {
-  .note-reader .doc-bar:not(.doc-bar-editing) > .doc-tools {
+/* no file to name (an upload): the chip leads the line's words instead of taking a row */
+.note-where-inline {
+  display: inline-flex;
+  margin: 0 8px 0 0;
+  vertical-align: 1px;
+}
+/* Apply (notes/apply.tsx), where the notes are: at the head of the notes' column from 64rem, where the column sits
+   beside the text; under that, a bar held at the screen's foot (over the tab bar on touch) that comes to rest above
+   the notes at the document's end. On a short screen under 64rem (a phone on its side) the bar would take a third of
+   the text: while notes wait, Apply sits in the document's head row there instead, and the other states (working,
+   ready, failed, saved) keep to one row of the bar. Each place shows only while it has something to say */
+.note-apply-col,
+.note-bar,
+.note-apply-head {
+  display: none;
+}
+@media (max-width: 63.99rem) and (max-height: 500px) {
+  .note-apply-head:has(> .note-apply-how) {
     display: contents;
   }
-  .note-reader .doc-bar:not(.doc-bar-editing) .doc-menu-button {
-    order: 1;
-    margin-left: auto;
-  }
-  .note-reader .doc-bar:not(.doc-bar-editing) .note-tools {
-    order: 2;
-    flex-basis: 100%;
-  }
-  /* "Saved…" would take a row of its own here; Undo the last save, on the second row, already says it */
-  .note-reader .doc-bar:not(.doc-bar-editing) .doc-status {
+  .note-reader > .note-bar:has(> .note-apply-how) {
     display: none;
   }
 }
-/* Earlier versions: a fold-out in the notes' column, its versions as inner blocks under it */
+@media (min-width: 64rem) {
+  .note-apply-col:not(:empty) {
+    display: grid;
+  }
+}
+@media (max-width: 63.99rem) {
+  .note-bar:not(:empty) {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    display: block;
+    margin-inline: calc(-1 * var(--gutter));
+    padding: 8px var(--gutter);
+    border-top: 1px solid var(--line);
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(10px);
+  }
+}
+@media (max-width: 63.99rem) and (not ((hover: hover) and (pointer: fine))) {
+  .note-bar:not(:empty) {
+    bottom: calc(49px + env(safe-area-inset-bottom));
+  }
+}
+/* notes waiting: the pace and Apply on one row, what the pace means under both (its field lets go of its box, as
+   Research's) */
+.note-apply-how {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 8px;
+}
+.note-apply-how > .seg-field {
+  display: contents;
+}
+.note-apply-how > .btn {
+  grid-area: 1 / 2;
+  justify-self: start;
+}
+.note-apply-how .seg-hint {
+  grid-area: 2 / 1 / 3 / -1;
+}
+/* in the phone's bar: one row, Apply taking the room the pace leaves, up to a thumb's reach on a wide screen (a
+   phone turned sideways), where it keeps to the right */
+.note-apply-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.note-apply-row > .btn {
+  flex: 1;
+  max-width: 22rem;
+  margin-left: auto;
+}
+/* a state of Apply (writing, ready, failed, saved): a sunk block with its tone's edge, its words then its buttons,
+   on one row when they fit */
+.note-apply-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  box-shadow: inset 2px 0 0 var(--tone);
+}
+.note-apply-say {
+  flex: 1 1 8rem;
+  min-width: 0;
+  margin: 0;
+  font: 400 var(--text-detail) / var(--text-detail--line-height) var(--sans);
+  color: var(--text);
+}
+.note-apply-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+/* failed and saved say more: the words (and the ✕) on the first row, the buttons on their own row under them */
+.note-apply-box:has(.note-apply-x) > .note-apply-say {
+  flex-basis: 0;
+}
+.note-apply-stack > .note-apply-acts {
+  flex-basis: 100%;
+  margin-left: 0;
+}
+.note-apply-x {
+  margin: -4px -6px -4px 0;
+}
+/* the bar is the block already: no second ground inside it */
+.note-bar .note-apply-box {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+/* a short, wide screen (a phone on its side) keeps every state in one row of the bar where it fits: the words cut to
+   one line (the column under the text says them whole), the buttons beside them, the ✕ last */
+@media (max-width: 63.99rem) and (max-height: 500px) {
+  .note-bar .note-apply-say {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+  }
+  .note-bar .note-apply-stack > .note-apply-acts {
+    flex-basis: auto;
+    margin-left: auto;
+  }
+  .note-bar .note-apply-x {
+    order: 1;
+  }
+  .note-bar .note-apply-pair {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+  }
+  .note-bar .note-apply-pair > .note-apply-box {
+    flex: 1 1 24rem;
+  }
+}
+/* a fold under the notes (Done) or in the review (the whole document): its parts 12 apart once open; closed, no gap
+   (a closed details still holds its hidden part, which the gap would space out) */
+.note-fold {
+  display: grid;
+}
+.note-fold[open] {
+  gap: 12px;
+}
+/* saved, then what comes next (the other documents' review, or Apply for the notes still open) under it */
+.note-apply-pair {
+  display: grid;
+  gap: 12px;
+}
+.note-bar .note-apply-pair {
+  gap: 8px;
+}
+/* the review: each change the model placed as a block (the note it answers, Keep or Drop, its own short diff), on
+   the card's ground over the wide box's page ground */
+.note-change {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.note-change-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+/* my note's words, marked as the notes are in the text: a pink edge */
+.note-said {
+  margin: 0;
+  padding-left: 10px;
+  box-shadow: inset 2px 0 0 var(--pink);
+  font: 400 var(--text-detail) / var(--text-detail--line-height) var(--sans);
+  color: var(--text);
+}
+/* a change's diff is a block inside the change's card (as .inner: sunk, no edge of its own) */
+.note-diff {
+  overflow-x: auto;
+  padding-block: 8px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  font: 400 var(--text-small) / var(--text-small--line-height) var(--sans);
+}
+/* a dropped change stays in its place, faded, so Keep brings it back */
+.note-change[data-dropped="true"] > .note-diff {
+  opacity: 0.45;
+}
+/* the review's head (the title, the ✕) and foot (Discard, Save) stay in reach while the changes scroll between
+   them, on a screen tall enough to spare the room (the listing sheet's rule, for this box; Dialog has no prop for it) */
+@media (min-height: 560px) {
+  .dialog:has(.note-review) > .dialog-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .dialog:has(.note-review) > .dialog-body {
+    padding-top: 14px;
+  }
+  .dialog:has(.note-review) > .dialog-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding-block: 12px;
+    border-top: 1px solid var(--line);
+    background: var(--bg);
+  }
+}
+/* Earlier versions: a fold-out in the notes' column, its versions as inner blocks under it (spaced once open) */
 .note-versions {
   display: grid;
+}
+.note-versions[open] {
   gap: 8px;
+}
+/* a document's line in the list: where it comes from (a chip), its folder (cut short), when it came */
+.notes-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 /* a document picked for a set: its tick box in the row's end, the box small, its label the control's size (a thumb's
    44 on touch) */

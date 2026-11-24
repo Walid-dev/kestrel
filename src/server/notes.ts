@@ -105,10 +105,15 @@ export function mountNotes(app: Hono, db: DatabaseSync, settings: Settings) {
     return c.json({ ok: true });
   });
   app.get("/api/notes/documents/:id/draft", (c) => c.json({ draft: draftFor(db, c.req.param("id")) }));
-  app.post("/api/notes/drafts/:id/save", zValidator("json", z.object({ document: z.string().min(1) })), (c) => {
+  // keep: the review's kept changes, by their place in the document's list; left out, every change is saved
+  const SaveBody = z.object({
+    document: z.string().min(1),
+    keep: z.array(z.number().int().min(0).max(10_000)).max(1000).optional(),
+  });
+  app.post("/api/notes/drafts/:id/save", zValidator("json", SaveBody), (c) => {
     try {
-      const document = c.req.valid("json").document;
-      const saved = saveDraft(db, c.req.param("id"), document);
+      const { document, keep } = c.req.valid("json");
+      const saved = saveDraft(db, c.req.param("id"), document, keep);
       const name = (db.prepare("SELECT name FROM documents WHERE id = ?").get(document) as { name: string } | undefined)
         ?.name;
       record("notes", `Saved changes to ${name ?? "a document"}`, `/notes/${encodeURIComponent(document)}`);

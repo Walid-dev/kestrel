@@ -1,14 +1,17 @@
 // Save writes the real file, but only if its bytes haven't changed since the draft was made: another tool may have
 // touched it. It writes a sibling file and swaps it in, keeping the permissions, the encoding (BOM), the line endings
 // and the final newline. The previous version is kept once for Undo, and the notes the saved changes answered move to
-// Done. An upload has no file: its kept text is the original, saved in place. My own edit, typed in the editor, saves
-// the same way (saveText).
+// Done. The review can drop some of the changes: only the kept ones are written, and a note goes to Done only when
+// every change that answers it was written. Undo opens those notes again. An upload has no file: its kept text is the
+// original, saved in place. My own edit, typed in the editor, saves the same way (saveText).
 import { createHash, randomUUID } from "node:crypto";
 import { chmodSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
+import { z } from "zod";
 import { MAX_BYTES, Refused } from "./documents.ts";
 import { getDraft } from "./drafts.ts";
+import { apply } from "./place.ts";
 
 type DocRow = {
   id: string;
@@ -21,6 +24,7 @@ type DocRow = {
   final_newline: number;
   sha256: string;
   previous_text: string | null;
+  previous_done: string | null;
 };
 
 const hash = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
@@ -43,7 +47,13 @@ function writeBeside(path: string, bytes: Buffer): void {
 
 const CHANGED = "changed since the draft was made: open the document again, check your notes, and ask again";
 
-export function saveDraft(db: DatabaseSync, draftId: string, documentId: string): { where: string } {
+// keep: the positions, in the document's placed list, of the changes the review kept; none given keeps them all
+export function saveDraft(
+  db: DatabaseSync,
+  draftId: string,
+  documentId: string,
+  keep?: number[],
+): { where: string; saved: number } {
   const draft = getDraft(db, draftId);
   if (draft?.status !== "ready") throw new Refused("no ready draft to save");
   const basis = JSON.parse(
@@ -58,6 +68,10 @@ export function saveDraft(db: DatabaseSync, draftId: string, documentId: string)
   const doc = db.prepare("SELECT * FROM documents WHERE id = ?").get(documentId) as DocRow | undefined;
   if (!doc) throw new Refused("no such document");
   if (doc.sha256 !== pinned.sha256) throw new Refused(CHANGED);
+  const kept = keep ? result.placed.filter((_, i) => keep.includes(i)) : result.placed;
+  if (kept.length === 0) throw new Refused("no change is kept: keep one, or discard the draft");
+  // the kept changes alone, placed again on the text the draft was made from (the same bytes: checked above)
+  const newText = kept.length === result.placed.length ? result.newText : apply(result.oldText, kept);
   let where: string;
   let newSha: string;
   if (doc.source === "file" && doc.path) {
@@ -68,30 +82,37 @@ export function saveDraft(db: DatabaseSync, draftId: string, documentId: string)
       throw new Refused(`the file is gone: ${doc.path}`);
     }
     if (hash(bytes) !== doc.sha256) throw new Refused(CHANGED);
-    const out = encode(result.newText, doc);
+    const out = encode(newText, doc);
     writeBeside(doc.path, out);
     newSha = hash(out);
     where = doc.path;
   } else {
-    newSha = hash(Buffer.from(result.newText, "utf8"));
+    newSha = hash(Buffer.from(newText, "utf8"));
     where = "the upload, kept in kestrel";
   }
+  // a note is answered when every change that names it was written: one dropped in the review, or one the code
+  // couldn't place, leaves it open
+  const unwritten = new Set(
+    [...result.placed.filter((p) => !kept.includes(p)), ...result.leftOut].flatMap((p) => p.change.notes),
+  );
+  const answered = [...new Set(kept.flatMap((p) => p.change.notes))].filter((id) => !unwritten.has(id));
   keepVersion(db, documentId, doc.text);
-  db.prepare("UPDATE documents SET previous_text = ?, text = ?, sha256 = ? WHERE id = ?").run(
+  // the notes this save closes are kept beside the previous text, so Undo opens them again
+  db.prepare("UPDATE documents SET previous_text = ?, previous_done = ?, text = ?, sha256 = ? WHERE id = ?").run(
     doc.text,
-    result.newText,
+    JSON.stringify(answered),
+    newText,
     newSha,
     documentId,
   );
-  const answered = new Set(result.placed.flatMap((p) => p.change.notes));
   for (const id of answered)
     db.prepare("UPDATE notes SET state = 'done' WHERE id = ? AND document_id = ?").run(id, documentId);
   // this document is saved; the draft goes once every document in it is
   const per = draft.perDocument;
-  per[documentId] = { ...result, savedAt: new Date().toISOString() };
+  per[documentId] = { ...result, newText, savedAt: new Date().toISOString() };
   if (draft.documents.every((d) => per[d.id]?.savedAt)) db.prepare("DELETE FROM drafts WHERE id = ?").run(draftId);
   else db.prepare("UPDATE drafts SET placed = ? WHERE id = ?").run(JSON.stringify(per), draftId);
-  return { where };
+  return { where, saved: kept.length };
 }
 
 export function undoSave(db: DatabaseSync, documentId: string): { where: string } {
@@ -116,11 +137,17 @@ export function undoSave(db: DatabaseSync, documentId: string): { where: string 
     where = doc.path;
   }
   keepVersion(db, documentId, doc.text);
-  db.prepare("UPDATE documents SET text = ?, previous_text = NULL, sha256 = ? WHERE id = ?").run(
+  db.prepare("UPDATE documents SET text = ?, previous_text = NULL, previous_done = NULL, sha256 = ? WHERE id = ?").run(
     doc.previous_text,
     sha,
     documentId,
   );
+  // the notes the undone save had answered wait again for Apply
+  for (const id of z
+    .array(z.string())
+    .catch([])
+    .parse(JSON.parse(doc.previous_done ?? "[]")))
+    db.prepare("UPDATE notes SET state = 'open' WHERE id = ? AND document_id = ?").run(id, documentId);
   return { where };
 }
 
@@ -166,7 +193,7 @@ export function saveText(
     sha = hash(out);
   }
   keepVersion(db, documentId, doc.text);
-  db.prepare("UPDATE documents SET previous_text = ?, text = ?, sha256 = ? WHERE id = ?").run(
+  db.prepare("UPDATE documents SET previous_text = ?, previous_done = NULL, text = ?, sha256 = ? WHERE id = ?").run(
     doc.text,
     text,
     sha,
@@ -222,7 +249,7 @@ export function restoreVersion(db: DatabaseSync, documentId: string, versionId: 
     where = doc.path;
   }
   keepVersion(db, documentId, doc.text);
-  db.prepare("UPDATE documents SET previous_text = ?, text = ?, sha256 = ? WHERE id = ?").run(
+  db.prepare("UPDATE documents SET previous_text = ?, previous_done = NULL, text = ?, sha256 = ? WHERE id = ?").run(
     doc.text,
     v.text,
     sha,
