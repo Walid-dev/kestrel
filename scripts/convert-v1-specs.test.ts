@@ -52,19 +52,28 @@ test("a spec that isn't a deal run by a collector is skipped", () => {
   assert.equal(dealSpecFromV1(SPEC.replace("fetch: script", "fetch: web"), "/x/a.md", "/c"), null);
 });
 
-test("an old hunt's must-haves written as one line become skills by word, never one per letter", () => {
+test("an old hunt's must-haves written as one line or several become skills by word, never one per letter", () => {
   const base = mkdtempSync(join(tmpdir(), "kestrel-convert-"));
   const from = join(base, "old.db");
   const old = new DatabaseSync(from);
   old.exec("CREATE TABLE job_hunts (id TEXT PRIMARY KEY, doc TEXT NOT NULL)");
   const hunt = {
     name: "Made-up keeping",
-    mustHave: "Smoker, Hive frames or Wax",
-    niceToHave: ["Comb OR Apiary", "Smoker"],
+    mustHave: "Smoker, Hive frames or Wax\nQueen rearing", // the old page's field is a textarea: one per line too
+    niceToHave: ["Comb OR Apiary", "smoker", "Pollen (or Nectar)"],
   };
   old.prepare("INSERT INTO job_hunts VALUES ('made-up-hunt', ?)").run(JSON.stringify(hunt));
   old.close();
   const [file] = convertSpecs(from, join(base, "searches"));
   const spec = JSON.parse(readFileSync(file, "utf8")) as { scoring: { skills: string[] } };
-  assert.deepEqual(spec.scoring.skills, ["Smoker", "Hive frames", "Wax", "Comb", "Apiary"]);
+  assert.deepEqual(spec.scoring.skills, [
+    "Smoker",
+    "Hive frames",
+    "Wax",
+    "Queen rearing",
+    "Comb",
+    "Apiary",
+    "Pollen",
+    "Nectar",
+  ]);
 });

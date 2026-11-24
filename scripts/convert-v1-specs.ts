@@ -32,17 +32,20 @@ const list = (s: string) =>
     .split(/[;,]/)
     .map((x) => x.trim())
     .filter(Boolean);
-// the must-haves and nice-to-haves as skills, each list or line split on commas, semicolons and "or" (the word, never
-// inside one): spread whole, a line of text gave one "skill" per letter, and every posting names letters
-const skills = (...from: unknown[]): string[] => [
-  ...new Set(
-    from
-      .flatMap((v) => (Array.isArray(v) ? v : [v]))
-      .flatMap((x) => (typeof x === "string" ? x.split(/[;,]|\bor\b/i) : []))
-      .map((x) => x.trim())
-      .filter(Boolean),
-  ),
-];
+// the must-haves and nice-to-haves as skills, each list or text split on commas, semicolons, line breaks (the old
+// page's field is a textarea) and "or" (the word, never inside one), stray brackets trimmed: spread whole, a text
+// gave one "skill" per letter, and every posting names letters
+const skills = (...from: unknown[]): string[] => {
+  const seen = new Map<string, string>(); // a repeat in other case is the same skill: the first spelling stays
+  for (const piece of from
+    .flatMap((v) => (Array.isArray(v) ? v : [v]))
+    .flatMap((x) => (typeof x === "string" ? x.split(/[;,\n]|\bor\b/i) : []))
+    // "Python (or Go)" splits into "Python (" and "Go)": a bracket left open or never opened goes, "Go (1.22)" stays
+    .map((x) => x.replace(/^[\s()]+|[\s(]+$/g, "").replace(/^([^(]*?)[\s)]+$/, "$1"))
+    .filter(Boolean))
+    if (!seen.has(piece.toLowerCase())) seen.set(piece.toLowerCase(), piece);
+  return [...seen.values()];
+};
 
 // one old deal spec (its text and path) as a kestrel search, or null when it isn't a deal run by a collector
 export function dealSpecFromV1(text: string, file: string, collectorsDir: string) {
