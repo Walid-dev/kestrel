@@ -5,6 +5,18 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-24 · A smaller, calmer look; no bar on top.**
+  The fonts read too big and some buttons huge. A measuring pass over every page at a phone's and a computer's size
+  fed two proposals (compact; calm) and a judge, who took the compact one as the base. Type: nine steps, UI text 13,
+  running text 14, a top page's title 26 (34 before), a child page's 22; one touch block makes small, detail and body a
+  step bigger. Controls: one ladder, 24 / 26 / 30 / 36 under a mouse (38 to 78 before), 32 / 36 / 44 drawn on touch,
+  every touch area exactly 44 through an invisible `::after` (reversing the 2026-11-23 rejection: an overlap sweep
+  found no clash with the row gaps the rule sets). Cards flat, radius 12; one filled button per screen; motion in five
+  tokens, all off under reduced motion. The top bar went (its chip repeated the Live tab's dot): each page starts at
+  its title, the wolf is Home in the tab bar and the dock, Live carries the status as a badge, and under a mouse the
+  same mark sits in a corner, never on Live. Left for a yes: the light accent (#3d74f0, 4.06:1 for its words; #2f64de
+  would read 4.86:1, but the palette is shared with the hub's pages).
+
 - **2026-11-24 · One file per page; a bad request answers 400; test copies never reach the models.**
   The web app was one 566 KB file: each page is now its own file (React's `lazy`, one table in `web/src/pages.tsx`),
   so a cold `/searches` sends 108 KB of script instead of 566 (brotli); the tabs' pages are fetched quietly after the

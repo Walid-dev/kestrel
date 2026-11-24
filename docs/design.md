@@ -1,105 +1,169 @@
 # The design system
 
 One look for every screen, set here once. Components use the tokens; a new screen uses the components; a change to
-the look happens in `web/src/styles.css`, nowhere else.
+the look happens in `web/src/styles.css` and `web/src/ui/`, nowhere else. `/design` shows every part at its real size.
+
+The look since 2026-11-24: small, calm and precise under a mouse, comfortable on touch. UI text is 13 px, running text
+14, a page's title 26. Every control sits on one ladder. Cards are flat; a screen has one filled button.
 
 ## The tokens (`web/src/styles.css`)
 
-- **Ground:** `--bg` (near-black blue), `--surface` for cards, `--surface-2` for sunk chips, `--line` for hairlines.
+- **Ground:** `--bg` (near-black blue; light #fafafa), `--surface` for cards, `--surface-2` for sunk blocks and chips,
+  `--surface-hover` for a hovered row or card.
+- **Lines:** `--line`, quiet, draws structure (cards, lists, dividers, bars); `--line-strong` draws a control's edge
+  and a hovered card.
 - **Ink:** `--text` for body, `--strong` for headings, `--muted` for secondary lines.
-- **The lead:** `--accent` — One Dark's blue. Primary buttons, links, focus rings, the active chip.
-- **The working colours**, the editor's neon shades: `--pink` (the wolf, the note marks), `--purple`, `--green`
-  (ok, done, diff plus), `--orange` (warnings), `--yellow` (the moon), `--red` (danger, diff minus).
-- **Type:** IBM Plex Sans for text, Sans Condensed bold for headings and the wordmark, Mono for data
-  (paths, chips, labels). All served from `web/public/fonts`.
+- **The lead:** `--accent` — One Dark's blue. The one filled button, links, focus rings.
+- **The working colours**, the editor's neon shades: `--pink` (the wolf, the note marks, needs me), `--purple`,
+  `--green` (ok, done, diff plus), `--orange` (warnings, asleep), `--yellow` (the moon), `--red` (danger).
+- **Shades** for what floats: `--shade-dialog`, `--shade-dock`, `--shade-pip`, `--shade-seg`, `--backdrop`.
+- **Fonts:** IBM Plex Sans for text, Sans Condensed for headings and the wordmark, Mono for numbers, paths, labels and
+  chips. All served from `web/public/fonts`. Only the weights that ship: Sans 400–600, Condensed 600/700, Mono
+  400/500; `<b>` and `<strong>` are 600, so the browser never fakes a bold.
 
-## The tokens as classes
+The role variables stay on `:root` (dark by default, light with the system); `@theme inline` names them as classes
+read at run time: `bg-page`, `bg-surface`, `bg-surface-2`, `bg-surface-hover`, `border-line`, `border-line-strong`,
+`text-ink`, `text-strong`, `text-muted`, `text-accent`, the working colours and their soft grounds. `text-tone`,
+`bg-tone` and `border-tone` read the nearest `tone-*`. No `dark:` classes.
 
-The role variables stay on `:root` (dark by default, light with the system) and `@theme inline` in
-`web/src/styles.css` names them as classes, read at run time; no `dark:` classes.
+## The type
 
-- **Colours by role:** `bg-page`, `bg-surface`, `bg-surface-2`, `border-line`, `text-ink` (`--text`), `text-strong`,
-  `text-muted`, `text-accent`, `bg-accent-soft`; the working colours (`text-green`, `text-red`, `text-pink`, …) and the
-  soft grounds. `text-tone`, `bg-tone` and `border-tone` read the nearest `tone-*`.
-- **Fonts:** `font-sans`, `font-cond`, `font-mono`.
-- **Eight type steps,** each with its line height: `text-label` 11 (mono labels), `text-small` 13 (hints, meta),
-  `text-detail` 14 (a card's description), `text-body` 15.5, `text-read` 16.5 (what is read slowly), `text-head` 19
-  (card and section headings, cond bold), `text-lead` 24 (one big line), `text-title` 34 (the page's title).
-- A part in a colour takes a tone on itself: `eyebrow tone-accent`, `.btn[aria-pressed]` in the accent or its tone.
+Nine steps, each with its line height and, for a heading, its weight (never `font-bold` beside a heading step):
+
+| Step           | Mouse      | Touch | For                                                  |
+| -------------- | ---------- | ----- | ---------------------------------------------------- |
+| `text-label`   | 11/16      | 11/16 | eyebrows and mono labels                             |
+| `text-small`   | 12/16      | 13/18 | hints, meta, dates                                   |
+| `text-detail`  | 13/20      | 14/20 | the UI's voice: controls, rows, a card's description |
+| `text-body`    | 14/22      | 15/24 | running text                                         |
+| `text-read`    | 16/26      | 16/26 | what is read slowly: a lesson, a document, a letter  |
+| `text-head`    | 16/22, 600 |       | a card's or a row's title                            |
+| `text-section` | 18/24, 600 |       | a section's heading, a dialog's title                |
+| `text-lead`    | 22/28, 600 |       | one big line; a child page's title                   |
+| `text-title`   | 26/30, 700 | 24/28 | a top page's title, nothing else                     |
+
+Weights by role: 400 text, 500 controls and row titles, 600 headings and emphasis, 700 the page title only. Numbers in
+Mono, tabular. Markdown: h1 lead, h2 section (purple), h3 head (cyan); inline code on the detail step.
+
+## The control ladder
+
+Every control's height is one of four steps, set by variables (`--h-*`) that one touch block switches. Heights come
+from `min-height`, so a wrapped label grows.
+
+| Step    | Mouse | Touch (drawn) | Parts                                                                   |
+| ------- | ----- | ------------- | ----------------------------------------------------------------------- |
+| small   | 24    | 32            | `.btn-sm`                                                               |
+| choice  | 26    | 32            | `.pill`, a seg's option                                                 |
+| control | 30    | 36            | `.btn`, `.btn-icon`, a seg's bar, `.input`, `.disclosure` and back rows |
+| large   | 36    | 44            | `.btn-big`, Field's box, text boxes, rows                               |
+
+**The hit-area rule:** on touch, anything drawn under 44 gets an invisible `::after` that makes it exactly 44 tall
+(icon-only buttons 44 × 44, square). Rows keep their areas apart: 8 between rows of buttons, 12 between rows of pills;
+`.pills-row` and `.pills-inline` do this themselves. Every text box is at least 16 px on touch, so iOS never zooms.
+
+**Radii:** 6 (pills, chips, `.btn-sm`, a seg's options, money, tooltips), 8 (`.btn`, `.btn-big`, `.input`, Field,
+the seg bar, tiles, inner blocks, dock items), 12 (cards, lists), 14 (dialogs, the dock, menus), 999 (round).
+
+## Motion
+
+Five tokens: `--ease-out`, `--ease-in`, `--t-fast` 120 ms, `--t-mid` 160 ms, `--t-slow` 220 ms, and `--t-move` for
+marks that turn. Hover changes only ground, edge or colour. A press scales a control to 0.97. A page fades in once
+when it opens; data that arrives later fades in. Dialogs ease in and out (the fade-out where the browser can animate
+the top layer). The working dot pulses every 2 s. One block at the end of the file turns all of it down when the system
+asks for reduced motion.
+
+## The shell
+
+No bar on top: each page starts at its own title, under the safe area (a strip under the phone's status bar stays as
+the page scrolls). The wolf is Home: first in the tab bar on touch and in the dock under a mouse (Mark's `tight`
+option). Live carries the status as a badge: an orange dot when the computer is asleep, a pink count when something
+needs me, a pulsing green dot while something works, nothing when all is idle. Under a mouse the same mark sits in the
+bottom-right corner (never on `/live`), in a lane the shell keeps free; its words open on hover or focus, and it opens
+Live. The asleep strip leads every page. Gutters 16 / 24 / 32; the page gap is 24 under a mouse, 20 on touch; the
+reading width is 720.
 
 ## The components
 
-- `.btn` — every button: 13.5 px, 6×12 padding, radius 8. `.btn-primary` (accent ground), `.btn-quiet` (muted),
-  `.btn-danger` (red text). Never a one-off button style.
-- `.card` — every surface block: `--surface`, `--line` hairline, radius 16, padding 16.
-- Chips are mono 11 px pills: `--accent-soft` when active, `--surface-2` when waiting, `--add-soft`/`--warn-soft`
-  for done/warn states.
-- `Dialog` (`web/src/ui/dialog.tsx`) — every box: a native dialog opened with `showModal`. Props: `open`, `onClose`,
-  `title`, `eyebrow`, `children`, `actions` (the main action last), `wide`, `busy`, `alert`. Esc, Back, a tap outside
-  and ✕ close it; typed words stay; focus returns to the opener; a child marked `data-autofocus` gets the first focus.
+- `.btn` — every button: the control step, 13/500. `.btn-primary` is the one filled button on a screen (a dialog
+  counts as its own); a list's per-item actions are plain `.btn`. `.btn-quiet` is a ghost (no edge, no ground).
+  `.btn-danger` has red words. `.btn-sm` is a card's secondary action. `.btn-icon` is round, its name in
+  `aria-label` and `title`. `.btn-big` is a page's one big action (Write it, Start): never full width under a mouse.
+  Full width only on touch, only for the action that ends a form, and for a dialog's primary. Rare actions go at the
+  page's foot; no ⋯ menus.
+- `.card` — a surface block: flat, radius 12, padding 14 / 16, on `--line`. A link card's hover is `--surface-hover`
+  with `--line-strong`. A card that matters gets a 2 px left edge in its tone. `.card-actions` is its action row;
+  `.inner` is a block inside a card (`--surface-2`, radius 8); never a card inside a card.
+- `List` and `Row` (`web/src/ui/list.tsx`) — a list in place of a stack of small cards: `to`, `href` or `onOpen`,
+  `icon`, `title`, `line`, `end`; `cols` gives two columns from 64rem. Rows are 40 / 48 (one line) or 54 / 62 (two),
+  their hairlines start at the text.
+- Chips are mono, 20 tall, in the caps voice (`chip chip-caps`), one colour per meaning: needs me pink; review today
+  cyan; learning, Ask and deep work purple; done and at work green; new muted. `.money` is the pay or price pill
+  (Mono 500 12, 22 tall) in the money scale's tone.
+- `Dialog` (`web/src/ui/dialog.tsx`) — every box: a native dialog opened with `showModal`, 440 wide (900 with `wide`),
+  radius 14, its title on the section step. Props: `open`, `onClose`, `title`, `eyebrow`, `children`, `actions` (the
+  main action last), `wide`, `busy`, `alert`. Esc, Back, a tap outside and ✕ close it; typed words stay; focus returns
+  to the opener; a child marked `data-autofocus` gets the first focus. Buttons at the right; on touch the primary takes
+  the room.
 - `Confirm` (`web/src/ui/confirm.tsx`) — every question before an action:
   `const sure = useConfirm(); if (await sure({ title, body, yes: "Delete", danger: true })) …`. The no-button is
   always Cancel; with `danger` the action is red and Cancel takes the focus; one question at a time, and a page left
   behind answers no.
-- `Pills` (`web/src/ui/pills.tsx`) — every choice shown whole. Props: `label`, `showLabel`, `options` (`value`,
-  `label`, `count`, `tone`, `hint`), `value`, `onChange`, `multiple`. They wrap, never scroll sideways, and stand 44 px
-  tall on a phone.
+- `Pills` (`web/src/ui/pills.tsx`) — every choice shown whole, on the choice step; a picked pill is neutral, not
+  filled. Props: `label`, `showLabel`, `options` (`value`, `label`, `count`, `tone`, `hint`, or `onPress` for an
+  action pill such as Show all), `value`, `onChange`, `multiple`. They wrap and never scroll sideways. A toggle beside
+  a group sits in `.pills-inline`.
+- `Seg` (`web/src/ui/seg.tsx`) — a choice among two to four, as one bar as wide as its words: `label`, `options` (with
+  `hint`), `value`, `onChange`, `modes`. What a pick means goes in its hint line under the bar, never a second line
+  inside it. `seg-modes` marks the picked mode with a dot.
+- `.tile` — a big choice (56 / 60), only when two or more options each need a line under the name; picked, it takes
+  the accent edge and a ✓.
 - `Doc` (`web/src/ui/doc.tsx`) — every document: Read, Edit and (1024 px and wider) Side by side, with a Download
   menu (the text, Save as PDF, Copy). Its Markdown is `src/shared/markdown.ts`, drawn by `web/src/ui/markdown.tsx` in
-  `.md`: headings in `--strong`, `--purple` and `--cyan`, real bullets and numbers, code on `--surface-2`, quotes with
-  an accent edge, tables in their own scrolling frame. A note's mark is `.doc-mark` (`--pink-soft`, a `--pink` line
-  under). The editor `.doc-src` is mono, 16 px on a phone.
+  `.md`. A note's mark is `.doc-mark` (`--pink-soft`, a `--pink` line under). The editor `.doc-src` is mono, 16 px on
+  touch.
 - `Page` and `PageHead` (`web/src/ui/page.tsx`) — every page's head: `title`, `eyebrow`, `line`, `actions`, `back`
-  (`{ to, label }`), `sticky`, `width` (`wide`, or `reading`: 768 px at most). Both widths start at the shell's left
-  edge. One title: 34 px cond bold, sentence case, the page's h1. A child page gets a bar: the back link on the left
-  (it keeps about twenty letters, then ends in …), the page's buttons on the right (they drop to their own row when
-  room runs out). A page's state chip goes in the line under the title.
+  (`{ to, label }`), `sticky`, `width` (`wide`, or `reading`: 720 at most), `titleAs`. A top page's title is the title
+  step; a child page (one with `back`) gets a back row (30 / 44) and its title a step down. Under a mouse at 48rem or
+  wider a top page's buttons sit on the title row; otherwise they wrap 12 under the line. A page's state chip goes in
+  the line under the title.
 - `Card` (`web/src/ui/card.tsx`) — plain; `to` makes the whole card a link; `title` adds `meta`, `to` or `onOpen`,
-  `onRemove` and `removeLabel`; `tone` colours its edge; `wide` spans the grid's row. Parts stack 12 px apart.
-- `EmptyState` (`web/src/ui/empty.tsx`) — nothing here yet, in one voice: `title`, `line`, `action`, `detail`.
+  `onRemove` and `removeLabel` (the ✕ waits out of sight under a mouse until hover or focus); `tone` colours its edge;
+  `wide` spans the grid's row.
+- `EmptyState` (`web/src/ui/empty.tsx`) — nothing here yet, in one voice, plain text in the flow (no box): `title`,
+  `line`, `action`, `detail`.
 - `Field` (`web/src/ui/field.tsx`) — a box where Enter sends (Shift+Enter makes a line), its round send button inside,
-  a hint under it, 16 px; a long word or a pasted link breaks inside it. Without `onSend` it is a search box.
-- `.input` — a plain text box where a form's button sends, not Enter alone (a setting, a short answer): Field's box
-  without the round button, one line, 16 px, 44 px tall. Never `.btn` on a text box.
-- Head buttons: PageHead's buttons take the head size by themselves (15 px, 9×14 padding, radius 10). `.btn-head` is
-  that size for a row of head buttons outside PageHead (Searches' controls, a document's bar). `titleAs="div"` keeps
-  PageHead's look without an h1, for an example inside another page.
-- `.btn-big` — a page's one big action (Write it, Start, Continue): 16 px, 13×18 padding, radius 12. `.tile` — a big
-  choice, its name over what it holds (a topic, a job); picked, it takes the accent edge and a ✓.
-- `.disclosure` — every fold-out heading (a details' summary): the heading voice, a ▶ that turns when open, the whole
-  row the target.
+  a hint under it; `tall` starts at three lines; a long word or a pasted link breaks inside it. Without `onSend` it is
+  a search box, and a tap anywhere on it focuses.
+- `.input` — a plain text box where a form's button sends (a setting, a short answer): one line, on the control step,
+  16 px on touch. Never `.btn` on a text box.
+- `.disclosure` — every fold-out heading (a details' summary): a control row, 13/500 muted (ink when open), a ▶ that
+  turns; never alone in a card of its own.
 - `cx()` (`web/src/ui/cx.ts`) joins class names.
-- An action pill: a Pills option with `onPress` (Show all) is a plain button among the choices, in the accent, never
-  part of the value. A toggle beside a group (Not applied yet, Star) sits in `.pills-inline`, so it wraps in line.
-- Patterns the pages share: a live list card is Card with a title, its meta a kind chip and the time; a page's view
-  switch (Live's Now and Activity, Applications' period) is `.seg`; a page with more than three head buttons puts
-  them in a wrapping row under the head; a read-only document is Doc without `onSave`; a page whose item is gone says
-  so in plain words and doesn't retry. Pay and price pills are `.money` in the money scale's tone (dark ink on a tint
-  in light, for contrast); the listing sheet is the wide Dialog, its title and ✕ kept in view on tall screens (the company, pay and match
-  scroll), Apply at its foot. A stage's colour comes from one map (`STAGES`); To review is new, so muted.
-- Chips speak in the mono caps voice (`chip chip-caps`), one colour per meaning: needs me pink; review today cyan;
-  learning, Ask and deep work purple; done and at work green; new muted.
-- `/design` shows every shared part in its states; a new part is reviewed there before a page uses it.
+- Patterns the pages share: a page's view switch (Live's Now and Activity, Applications' period) is a Seg; a read-only
+  document is Doc without `onSave`; a page whose item is gone says so in plain words and doesn't retry; the listing
+  sheet is the wide Dialog, its title and ✕ kept in view on tall screens, Apply at its foot; a stage's colour comes
+  from one map (`STAGES`).
+- `/design` shows every shared part in its states, the ladder at real size with its drawn and touch heights measured
+  on the device that shows it, and every type step with its roles; a new part is reviewed there first.
 
 ## The rules
 
-- **A choice is pills**, never a dropdown.
+- **One filled button per screen.** Everything else is a plain, quiet or small button.
+- **A choice is pills or a Seg**, never a dropdown.
 - **Ask before an action with Confirm**, never the browser's pop-up.
 - **A document reads rendered**, never as its raw Markdown: Doc, everywhere a document shows.
 - **Navigation follows the pointer**, never the width: the bottom bar on touch (a phone upright or turned, a tablet),
   the dock under a mouse.
-- **The phone's floor:** on touch, `.btn`, `.pill`, `.seg` buttons, `.ask-send`, `.field-send` and a card's ✕ are at
-  least 44 px, and so are `.input` and `.disclosure`; every text box is at least 16 px, so iOS never zooms.
-- **No one-off inline value:** a colour, size or spacing in `style` outside `web/src/ui/` is counted by
-  `scripts/check-design.ts` (inside the check), per file, against `scripts/design-baseline.json`; a count that rises
-  fails, with the class to use. A value that truly changes at run time goes in a CSS variable. A deliberate exception
-  says so on its line: `design-ok: <why>`.
-- **Enter submits** in any box; Shift+Enter makes the line. The box says so underneath.
+- **No one-off value:** `scripts/check-design.ts` (inside the check) counts inline colours, sizes and spacing outside
+  `web/src/ui/`, raw colours, `font-bold` beside a heading step, `btn-head`, a px, rem or em font size in
+  `styles.css` and a radius off the five; it reads every word of a `className={…}` expression. Each file's count may
+  not rise above `scripts/design-baseline.json` (empty: every file is at zero). A value that truly changes at run time
+  goes in a CSS variable; a deliberate exception says so on its line: `design-ok: <why>`.
+- **Enter submits** in any one-line box; Shift+Enter makes the line. The box says so underneath.
 - **Boxes are native dialogs** (`showModal`): Esc, Android's Back and a click outside all close them, and closing
   never loses typed words — drafts live on the device until Save or Discard.
 - **One thing happens where the eye is**: when background work finishes on an open screen, its result opens itself.
 - **Paths are shown in full** (mono, break-all) wherever two files could share a name.
-- **Space before decoration:** cards breathe (16 px padding, 12 px gaps, relaxed leading) before any new visual
-  element is added.
+- **Space before decoration:** room and hierarchy through weight and space, before any new visual element.
 - **Phone first, computer wide:** one column on the phone; on a computer the shell widens and side rails may appear.
   Every screen is checked at both widths in a real browser before it ships.
