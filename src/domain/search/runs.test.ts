@@ -99,7 +99,7 @@ test("the searches wait while an application is at work, and run on the next tic
   assert.ok((await tick(db, dirs, new Date("2026-11-21T03:01:00Z"))).includes("search:made-up"));
 });
 
-test("the mirror runs nightly while mirror-v1.json points at the old database (side by side)", async () => {
+test("with no run of the old setup to follow, the mirror runs by the clock while mirror-v1.json points at the old database", async () => {
   const { base, db } = setup(ITEM);
   const old = join(base, "old.db");
   const oldDb = new DatabaseSync(old);

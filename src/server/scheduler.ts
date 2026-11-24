@@ -7,7 +7,7 @@ import { mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs"
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { snapshot } from "../db/db.ts";
-import { importV1 } from "../domain/search/import-v1.ts";
+import { importV1, v1RunMark } from "../domain/search/import-v1.ts";
 import { lastRun, type Run, runSearch } from "../domain/search/runs.ts";
 import { isDue, loadSpecs, type Spec } from "../domain/search/specs.ts";
 import { begin } from "../platform/activity.ts";
@@ -27,6 +27,9 @@ export type SchedulerDirs = {
 // is one failed entry in Live and one log line. In memory, by folder: a restart tries at once.
 const copyFailed = new Map<string, number>();
 const RETRY_COPY_MS = 3_600_000;
+// the old setup's run mark (domain/search/import-v1.ts) each mirror last saw, by old database. In memory: the first
+// tick after a restart mirrors once, catching up a run that ended while kestrel was down.
+const mirrorSaw = new Map<string, string>();
 
 let ticking = false; // one tick at a time: a slow collector must never stack duplicate runs behind itself
 
@@ -71,15 +74,19 @@ async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promis
     }
     did.push(`search:${spec.id}`);
   }
-  // the side-by-side week's mirror: while mirror-v1.json names the old database, its statuses flow in nightly
+  // the side-by-side weeks' mirror, while mirror-v1.json names the old database: its new finds flow in at the first
+  // tick after each of its runs ends (its run mark moved: one read-only query a minute), and everything, statuses I
+  // marked there included, every everyMinutes at the latest
   const mirror = readMirror(dirs.mirrorFile);
   if (mirror) {
     const last = lastRun(db, "mirror:v1");
-    if (!last || now.getTime() - new Date(last.started).getTime() >= mirror.everyMinutes * 60_000) {
+    const mark = v1RunMark(mirror.from);
+    const ran = mark !== null && mark !== mirrorSaw.get(mirror.from);
+    if (!last || ran || now.getTime() - new Date(last.started).getTime() >= mirror.everyMinutes * 60_000) {
       let found = 0;
       let kept = 0;
       let problem = "";
-      const live = begin("mirror", "The nightly mirror from the old setup", "/searches");
+      const live = begin("mirror", "The mirror from the old setup", "/searches");
       try {
         live.step("Reading the old database");
         const counts = importV1(db, mirror.from, true, {
@@ -98,6 +105,9 @@ async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promis
       db.prepare(
         "INSERT INTO search_runs (id, search, started, ms, found, kept, problem) VALUES (?, ?, ?, 0, ?, ?, ?)",
       ).run(randomUUID(), "mirror:v1", now.toISOString(), found, kept, problem);
+      // seen even when the import failed: a failing mirror tries again at the next run or by the clock, not every
+      // minute (each try is one failed entry in Live), and its problem shows on the hunt's line meanwhile
+      if (mark !== null) mirrorSaw.set(mirror.from, mark);
       did.push("mirror:v1");
     }
   }

@@ -13,7 +13,7 @@ import { EmptyState } from "../ui/empty.tsx";
 import { Field } from "../ui/field.tsx";
 import { Page } from "../ui/page.tsx";
 import { Pills, type Tone } from "../ui/pills.tsx";
-import { ago, DEAL, DealCard, JobCard, type Listing, MATCH, Swipe, sourceName, stageTone } from "./cards.tsx";
+import { DEAL, DealCard, JobCard, type Listing, MATCH, Swipe, sourceName, stageTone } from "./cards.tsx";
 import { ListingSheet } from "./sheet.tsx";
 
 type Run = { started: string; found: number; kept: number; problem: string } | null;
@@ -103,8 +103,14 @@ function StatusLine({ hunt, mirror, about }: { hunt: Hunt; mirror?: Run; about: 
           )}
         </span>
       ) : hunt.mirrored ? (
-        <span title="Mirrored nightly from the old setup">
-          Mirrored{mirror ? <b className="text-ink"> {ago(mirror.started)}</b> : " nightly"}
+        <span title="Brought in from the old setup a minute after each of its searches, and once a day at least">
+          {mirror ? (
+            <>
+              Mirrored <b className="text-ink">{when(mirror.started)}</b>
+            </>
+          ) : (
+            "Not mirrored yet"
+          )}
         </span>
       ) : (
         <span>No search yet</span>

@@ -1,5 +1,6 @@
 // The nightly copy: a second copy on the same date lands beside the first, a copy that fails ends its Live entry and
-// waits an hour before it tries again, and a failed tick's log line carries no path. Made-up folders only.
+// waits an hour before it tries again, and a failed tick's log line carries no path. The mirror follows the old
+// setup's runs. Made-up folders and a made-up old database only.
 import assert from "node:assert/strict";
 import { chmodSync, mkdirSync, mkdtempSync, readdirSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -81,4 +82,42 @@ test("a copy that keeps failing tries once an hour, not every minute (review: on
   assert.equal(failed() - before, 1);
   await runTick(db, dirs, new Date("2026-11-25T22:00:00Z"));
   assert.equal(failed() - before, 2);
+});
+
+test("the mirror brings the old setup's finds at the first tick after each of its runs, the clock at the latest", async () => {
+  const { base, db } = setup();
+  const from = join(base, "old.db");
+  const old = new DatabaseSync(from);
+  old.exec(`CREATE TABLE job_listings (id TEXT, hunt TEXT, link TEXT, dedupe_key TEXT, status TEXT, found TEXT, data TEXT);
+    CREATE TABLE job_runs (id TEXT PRIMARY KEY, at TEXT NOT NULL, doc TEXT NOT NULL);
+    CREATE TABLE runs (run_id TEXT PRIMARY KEY, spec TEXT, started TEXT)`);
+  const put = old.prepare("INSERT INTO job_listings VALUES (?, 'made-up-hunt', ?, ?, 'new', '2026-11-21', ?)");
+  const job = (id: string) =>
+    put.run(id, `https://example.com/${id}`, `made co|${id}`, JSON.stringify({ title: `Keeper ${id}` }));
+  // an old run writes its row as it ends, stamped with the time it started
+  const ran = (id: string, started: string) => old.prepare("INSERT INTO job_runs VALUES (?, ?, '{}')").run(id, started);
+  const mirrorFile = join(base, "mirror-v1.json");
+  writeFileSync(mirrorFile, JSON.stringify({ from, everyMinutes: 1440 }));
+  const dirs = { specsDir: join(base, "searches"), backupsDir: join(base, "backups"), mirrorFile };
+  const mirrors = async (at: string) => (await tick(db, dirs, new Date(at))).includes("mirror:v1");
+  const listed = () => (db.prepare("SELECT COUNT(*) AS n FROM listings").get() as { n: number }).n;
+  job("o1");
+  ran("r1", "2026-11-21T14:00:00.000Z");
+  assert.ok(await mirrors("2026-11-21T14:10:00Z"));
+  assert.equal(listed(), 1);
+  assert.ok(!(await mirrors("2026-11-21T14:11:00Z"))); // no run since: no mirror
+  job("o2");
+  ran("r2", "2026-11-21T22:00:00.000Z");
+  assert.ok(await mirrors("2026-11-21T22:06:00Z")); // the next run's find, a minute after it ends, not a day
+  assert.equal(listed(), 2);
+  // a run that started before that mirror and ended after it still brings its finds
+  job("o3");
+  ran("r3", "2026-11-21T22:04:00.000Z");
+  assert.ok(await mirrors("2026-11-21T22:09:00Z"));
+  assert.equal(listed(), 3);
+  old.prepare("INSERT INTO runs VALUES ('d1', 'made-up-chairs', '2026-11-21 22:30:00')").run(); // a deal search's run
+  assert.ok(await mirrors("2026-11-21T22:31:00Z"));
+  assert.ok(!(await mirrors("2026-11-22T22:30:00Z"))); // no run for a day: not yet
+  assert.ok(await mirrors("2026-11-22T22:31:00Z")); // everyMinutes after the last mirror: the clock
+  old.close();
 });
