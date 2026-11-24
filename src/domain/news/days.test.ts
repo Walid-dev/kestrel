@@ -7,8 +7,9 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { migrate } from "../../db/migrate.ts";
+import { NewsSettings } from "../../platform/config.ts";
 import type { NewsBrief, NewsStory, Section } from "../../shared/news.ts";
-import { itemsWindow } from "./brief.ts";
+import { briefDue, itemsWindow } from "./brief.ts";
 import { daysKept, deleteDay, findStories, newsDays } from "./days.ts";
 import { Source } from "./sources.ts";
 
@@ -84,6 +85,7 @@ test("the find: every word in a headline or a story's text, any case; a % _ or q
     brief(
       story("Kettle maker raises $2bn", "It sold 100% of its shares."),
       story('Lab says "agents" write 30% of its code', "Its run_tests tool helps.", "building"),
+      story("O'Neil's ÉCOLE opens", "Its files live in C:\\made-up\\path.", "tech"),
     ),
   );
   // a brief Make it now replaced, and a failed run: neither is any page's, so neither is found
@@ -97,6 +99,12 @@ test("the find: every word in a headline or a story's text, any case; a % _ or q
   assert.deepEqual(found("%"), ["2026-11-24 s1 money", "2026-11-24 s2 building"]);
   assert.deepEqual(found("run_"), ["2026-11-24 s2 building"]);
   assert.deepEqual(found("_"), ["2026-11-24 s2 building"]);
+  assert.deepEqual(found("o'neil's"), ["2026-11-24 s3 tech"]);
+  assert.deepEqual(found("école"), ["2026-11-24 s3 tech"]); // an accented capital, in any case
+  assert.deepEqual(found("c:\\made-up\\"), ["2026-11-24 s3 tech"]); // a backslash is itself
+  // every word counts, however many: a ninth that isn't there finds nothing
+  assert.deepEqual(found("kettle maker raises sold 100% of its shares"), ["2026-11-24 s1 money"]);
+  assert.deepEqual(found("kettle maker raises sold 100% of its shares teapot"), []);
   assert.deepEqual(found("teapot"), ["2026-11-23 s1 money"]);
   assert.deepEqual(found("morning"), []);
   assert.deepEqual(found("   "), []);
@@ -151,6 +159,8 @@ test("a day deleted: every run, the links they told and their stories' questions
   asked.run("m3", "news", "x1:2", "me");
   asked.run("m4", "news", "y1:1", "me");
   asked.run("m5", "research", "x2:1", "me"); // another app's page that happens to share the ref
+  run(db, "x10", "2026-11-21", "done", brief(story("A brief whose id starts as x1's")));
+  asked.run("m6", "news", "x10:1", "me"); // x1's ref is x1:…, never x10:…
   // the link told on the 23rd, still new: no brief may tell it again while that day stands
   db.prepare(
     "INSERT INTO news_items (url, sources, title, first_seen, at) VALUES ('https://wire.example.com/a', '[\"wire\"]', 'Kettle maker grows', ?, ?)",
@@ -159,9 +169,9 @@ test("a day deleted: every run, the links they told and their stories' questions
 
   assert.equal(deleteDay(db, "2026-11-23"), 3);
   const left = (sql: string) => (db.prepare(sql).all() as Record<string, string>[]).map((r) => Object.values(r)[0]);
-  assert.deepEqual(left("SELECT id FROM news_briefs ORDER BY id"), ["y1"]);
+  assert.deepEqual(left("SELECT id FROM news_briefs ORDER BY id"), ["x10", "y1"]);
   assert.deepEqual(left("SELECT url FROM news_used"), ["https://wire.example.com/c"]);
-  assert.deepEqual(left("SELECT id FROM ask_messages ORDER BY id"), ["m4", "m5"]);
+  assert.deepEqual(left("SELECT id FROM ask_messages ORDER BY id"), ["m4", "m5", "m6"]);
   assert.deepEqual(
     itemsWindow(db, [WIRE], NOW).items.map((i) => i.url),
     ["https://wire.example.com/a"],
@@ -177,4 +187,26 @@ test("a day deleted: every run, the links they told and their stories' questions
   db.prepare("UPDATE ask_messages SET role = 'model', state = 'writing' WHERE id = 'm4'").run();
   assert.throws(() => deleteDay(db, "2026-11-22"), /still answering/);
   assert.deepEqual(left("SELECT id FROM news_briefs WHERE day = '2026-11-22'"), ["y1"]);
+});
+
+test("today deleted while the morning may still write it: refused, so it never comes back at the next minute", () => {
+  const db = memory();
+  const news = NewsSettings.parse({ enabled: true, time: "06:30", latestHour: 12 });
+  const at = (h: number, m = 0) => new Date(2026, 10, 24, h, m); // this computer's own time
+  run(db, "y", "2026-11-23", "done", brief(story("Yesterday")));
+  // written at 06:31 this computer's time, as the scheduler would
+  db.prepare("INSERT INTO news_briefs (id, day, state, started, brief) VALUES ('t', '2026-11-24', 'done', ?, ?)").run(
+    at(6, 31).toISOString(),
+    JSON.stringify(brief(story("Today"))),
+  );
+  for (const now of [at(5), at(8), at(11, 59)]) {
+    assert.throws(() => deleteDay(db, "2026-11-24", { news, now }), /written again at once: delete it from 12:00/);
+    assert.equal(briefDue(db, news, at(8)), false); // today's brief still stands, so none is due
+  }
+  // another day, the news off, or the morning over: deleted, and no brief is due for today after it
+  assert.equal(deleteDay(db, "2026-11-23", { news, now: at(8) }), 1);
+  assert.equal(deleteDay(db, "2026-11-24", { news, now: at(12) }), 1);
+  assert.equal(briefDue(db, news, at(12)), false);
+  run(db, "t2", "2026-11-24", "done", brief(story("Today again")));
+  assert.equal(deleteDay(db, "2026-11-24", { news: { ...news, enabled: false }, now: at(8) }), 1);
 });

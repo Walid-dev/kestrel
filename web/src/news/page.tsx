@@ -15,6 +15,7 @@ import {
   type NewsLink,
   type NewsRun,
   type NewsSourceHealth,
+  type NewsState,
   type NewsStory,
   PHASES,
   SECTIONS,
@@ -133,7 +134,7 @@ function Today() {
   const state = runOf(d);
   const running = state?.state === "running" ? state.run : null;
   const failed = state?.state === "failed" ? state : null;
-  const body = shown?.brief ? brief(shown, d.asked, say) : null;
+  const body = shown?.brief ? brief(shown, d, say) : null;
   const busy = Boolean(running) || make.isPending;
   const makeIt = (look: "primary" | "plain" | "small") => (
     <button
@@ -228,7 +229,7 @@ function Day({ day }: { day: string }) {
         actions={news.isError ? ALL_DAYS : undefined}
       />
     );
-  const body = brief(run, news.data?.asked ?? [], say);
+  const body = brief(run, news.data, say);
   return (
     <Page
       back={back}
@@ -258,7 +259,9 @@ function Day({ day }: { day: string }) {
           Delete this day
         </button>
         {remove.drop.isError && (
-          <span className="text-small text-red">The delete didn't land: {(remove.drop.error as Error).message}</span>
+          <span className="text-small text-red" role="alert">
+            The delete didn't land: {(remove.drop.error as Error).message}
+          </span>
         )}
       </div>
     </Page>
@@ -266,9 +269,13 @@ function Day({ day }: { day: string }) {
 }
 
 // the brief itself: the opening, then each section that has stories, in the brief's order, each story with its Ask
-// (asked: how many questions each story took). A plain function, not a component: every line it reads aloud
-// registers in the page's own render, in the order it is drawn
-function brief(run: NewsRun, asked: number[], say: (text: string) => ReactNode): ReactNode {
+// (asked: how many questions each story took, and where Ask is answering now). A plain function, not a component:
+// every line it reads aloud registers in the page's own render, in the order it is drawn
+function brief(
+  run: NewsRun,
+  on: Pick<NewsState, "asked" | "answering"> | undefined,
+  say: (text: string) => ReactNode,
+): ReactNode {
   const b = run.brief as NewsBrief;
   return (
     <>
@@ -301,7 +308,8 @@ function brief(run: NewsRun, asked: number[], say: (text: string) => ReactNode):
                   headline={say(s.headline)}
                   text={say(s.text)}
                   refId={`${run.id}:${at + 1}`}
-                  asked={asked[at] ?? 0}
+                  asked={on?.asked[at] ?? 0}
+                  answering={on?.answering[at] ?? false}
                 />
               ))}
             </div>
@@ -374,6 +382,7 @@ function Story({
   text,
   refId,
   asked,
+  answering,
 }: {
   n: number;
   story: NewsStory;
@@ -381,6 +390,7 @@ function Story({
   text: ReactNode;
   refId: string; // its conversation's: "<brief id>:<n>"
   asked: number;
+  answering: boolean; // an answer being written: the closed button says so, as Ask's own head does
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -445,7 +455,13 @@ function Story({
             <span className="news-ask-spark">
               <Spark size={14} />
             </span>
-            Ask {!asking && asked > 0 && <span className="news-ask-count">{asked} asked</span>}
+            Ask{" "}
+            {!asking &&
+              (answering ? (
+                <span className="news-ask-count">answering…</span>
+              ) : (
+                asked > 0 && <span className="news-ask-count">{asked} asked</span>
+              ))}
           </button>
           <button
             type="button"

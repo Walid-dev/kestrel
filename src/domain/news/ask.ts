@@ -46,23 +46,26 @@ export function newsPage(db: DatabaseSync, ref: string): AskPage | null {
     tools: [
       "WHAT YOU CAN DO HERE",
       "- The brief was written that morning: for what happened since, or what a source says in full, look before you",
-      "  answer. Read a source with its link above, or search the web; say what you found and where.",
+      "  answer. Open a source's link above with page, or search the web with web; say what you found and where.",
     ].join("\n"),
   };
 }
 
-// how many questions each story of a brief was asked, in the stories' order: the page's Ask buttons say it
-export function askedOn(db: DatabaseSync, brief: string, stories: number): number[] {
-  const asked = new Map(
+// how many questions each story of a brief was asked, and whether Ask is answering on it now, in the stories' order:
+// the page's Ask buttons say it (as Ask's own head says "2 asked" or "answering…")
+export function askedOn(db: DatabaseSync, brief: string, stories: number): { asked: number[]; answering: boolean[] } {
+  const rows = new Map(
     (
       db
         .prepare(
-          "SELECT ref, COUNT(*) AS n FROM ask_messages WHERE app = 'news' AND role = 'me' AND substr(ref, 1, ?) = ? GROUP BY ref",
+          `SELECT ref, SUM(role = 'me') AS n, MAX(state = 'writing') AS writing FROM ask_messages
+           WHERE app = 'news' AND substr(ref, 1, ?) = ? GROUP BY ref`,
         )
-        .all(brief.length + 1, `${brief}:`) as { ref: string; n: number }[]
-    ).map((r) => [r.ref, r.n]),
+        .all(brief.length + 1, `${brief}:`) as { ref: string; n: number; writing: number }[]
+    ).map((r) => [r.ref, r]),
   );
-  return Array.from({ length: stories }, (_, i) => asked.get(`${brief}:${i + 1}`) ?? 0);
+  const each = Array.from({ length: stories }, (_, i) => rows.get(`${brief}:${i + 1}`));
+  return { asked: each.map((r) => r?.n ?? 0), answering: each.map((r) => r?.writing === 1) };
 }
 
 export const newsHelper = { page: newsPage };

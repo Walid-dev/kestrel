@@ -285,6 +285,10 @@ async function writeBrief(db: DatabaseSync, settings: Settings, id: string, deps
 
 const RETRY_MS = 15 * 60_000;
 
+// the hour the morning's brief is no longer written: the latest hour, or the hour after the set time if later
+export const briefUntil = (news: NewsSettings): number =>
+  Math.max(news.latestHour, Number(news.time.split(":")[0]) + 1);
+
 // is this morning's brief due? From the set time until the latest hour (noon), once a day, catching up when the
 // computer wakes after the time, as the searches do (isDue). Before the time, yesterday's is never chased; after the
 // latest hour a missed morning waits for the next one. A morning that failed (a restart cut it short, the model's
@@ -293,7 +297,7 @@ export function briefDue(db: DatabaseSync, news: NewsSettings, now: Date): boole
   const [h, m] = news.time.split(":").map(Number);
   const slot = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
   if (now < slot) return false;
-  if (now.getHours() >= Math.max(news.latestHour, h + 1)) return false;
+  if (now.getHours() >= briefUntil(news)) return false;
   const done = db.prepare("SELECT MAX(started) AS at FROM news_briefs WHERE state = 'done'").get() as {
     at: string | null;
   };
@@ -363,7 +367,7 @@ const runOf = (r: Record<string, unknown>): NewsRun => ({
 
 // the brief to show (the newest written, of a day or of all), and the newest run when it is newer: one being
 // written, or one that failed, while the last good brief stays readable; with how many questions each of its
-// stories was asked
+// stories was asked, and which Ask is answering now
 export function newsState(db: DatabaseSync, settings: Settings, day?: string): NewsState {
   const brief = (
     day
@@ -382,7 +386,7 @@ export function newsState(db: DatabaseSync, settings: Settings, day?: string): N
     time: news.time,
     brief: shown,
     run: newest && newest.state !== "done" ? runOf(newest) : null,
-    asked: shown ? askedOn(db, shown.id, shown.brief?.stories.length ?? 0) : [],
+    ...(shown ? askedOn(db, shown.id, shown.brief?.stories.length ?? 0) : { asked: [], answering: [] }),
   };
 }
 

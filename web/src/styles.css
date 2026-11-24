@@ -4991,7 +4991,7 @@ body:has(.paper-view) {
 .news-story-acts {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   margin-left: auto;
 }
 .news-ask-spark {

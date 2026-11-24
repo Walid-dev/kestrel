@@ -36,7 +36,14 @@ const since = (day: string) =>
 
 export function NewsDays() {
   const [params, setParams] = useSearchParams();
-  const words = params.get("q") ?? "";
+  // the words live in the box's own state, so a keyboard that composes (Android's) never waits for the router; the
+  // address follows a quarter second after the last key, for Back
+  const [words, setWords] = useState(() => params.get("q") ?? "");
+  useEffect(() => {
+    if ((params.get("q") ?? "") === words) return;
+    const t = setTimeout(() => setParams(words ? { q: words } : {}, { replace: true }), 250);
+    return () => clearTimeout(t);
+  }, [words, params, setParams]);
   const finding = words.trim().length >= 2;
   const days = useAllDays();
   const remove = useDeleteDay();
@@ -96,19 +103,8 @@ export function NewsDays() {
       ) : (
         <>
           <div className="news-find">
-            <Field
-              label="Find a story"
-              placeholder="Find a story in every brief"
-              value={words}
-              onChange={(v) => setParams(v ? { q: v } : {}, { replace: true })}
-            />
+            <Field label="Find a story" placeholder="Find a story in every brief" value={words} onChange={setWords} />
           </div>
-          {/* a refused delete says so: the box named what would go, so silence would read as done */}
-          {remove.drop.isError && (
-            <p className="m-0 text-detail text-red">
-              The delete didn't land: {sentence((remove.drop.error as Error).message)}
-            </p>
-          )}
           {finding ? (
             <Found words={words.trim()} />
           ) : (
@@ -133,6 +129,13 @@ export function NewsDays() {
                             <>
                               {dayName(d.day)} · <span className="font-mono">{d.stories}</span>{" "}
                               {plural(d.stories, "story", "stories")}
+                              {/* a refused delete says so on its own row, where the eye is: the box named what
+                                  would go, so silence would read as done */}
+                              {remove.drop.isError && remove.drop.variables === d.day && (
+                                <span className="block text-red" role="alert">
+                                  The delete didn't land: {(remove.drop.error as Error).message}
+                                </span>
+                              )}
                             </>
                           }
                           end={

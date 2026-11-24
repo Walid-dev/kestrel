@@ -1,7 +1,7 @@
 // The news as Home's card, the page and the history read it: one query per day (today's shared by both), the days
 // kept, the find, a day deleted, and the formats they share. Today's brief asks again every 2 seconds while one is
-// written, else every 5 minutes; the live stream (the app's own ear, app.tsx) asks at once when a run starts or ends,
-// on Home's card as on the page. Every query here starts with "news" or "news-days", the two the live stream and a
+// written, else every 5 minutes (any day's, every 2 seconds while Ask answers on one of its stories); the live
+// stream (the app's own ear, app.tsx) asks at once when a run starts or ends, on Home's card as on the page. Every query here starts with "news" or "news-days", the two the live stream and a
 // deleted day read again.
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { NewsDays, NewsFind, NewsRun, NewsState, Section } from "../../../src/shared/news.ts";
@@ -20,7 +20,14 @@ export function useNews(day?: string) {
   return useQuery({
     queryKey: ["news", day ?? "today"],
     queryFn: () => getJson<NewsState>(`/api/news${day ? `?day=${day}` : ""}`),
-    refetchInterval: (q) => (day ? false : q.state.data?.run?.state === "running" ? 2000 : 5 * 60_000),
+    // every 2 seconds too while Ask answers on one of its stories, so the closed button's "answering…" turns to its
+    // count
+    refetchInterval: (q) =>
+      q.state.data?.answering?.some(Boolean) || (!day && q.state.data?.run?.state === "running")
+        ? 2000
+        : day
+          ? false
+          : 5 * 60_000,
     retry: (n, e) => !/no brief was written/.test(e.message) && n < 2,
   });
 }

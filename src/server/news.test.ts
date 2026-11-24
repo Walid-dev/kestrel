@@ -5,7 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { Hono } from "hono";
 import { migrate } from "../db/migrate.ts";
-import type { Settings } from "../platform/config.ts";
+import { NewsSettings, type Settings } from "../platform/config.ts";
 import { mountNews } from "./news.ts";
 
 function setup() {
@@ -27,7 +27,8 @@ function setup() {
       }),
     );
   const app = new Hono();
-  mountNews(app, db, {} as Settings); // the defaults: the news off, its time 06:30
+  // the news off, so deleting today is never held for the morning's brief (days.test.ts tests that)
+  mountNews(app, db, { news: NewsSettings.parse({ enabled: false }) } as Settings);
   return { app, db };
 }
 const read = async (res: Response) => ({ status: res.status, body: (await res.json()) as Record<string, unknown> });
@@ -39,6 +40,12 @@ test("a day that isn't one is 400 in plain words, a day with no brief 404; the d
     body: { error: "a day like 2026-11-24" },
   });
   assert.equal((await app.request("/api/news?day=2026-01-01")).status, 404);
+  // a day that can't be is a bad day, not a day with no brief
+  for (const day of ["2026-13-45", "2020-02-30"])
+    assert.deepEqual(await read(await app.request(`/api/news?day=${day}`)), {
+      status: 400,
+      body: { error: "a day like 2026-11-24" },
+    });
   assert.deepEqual(await read(await app.request("/api/news/days?limit=1")), {
     status: 200,
     body: {
@@ -52,7 +59,11 @@ test("a day that isn't one is 400 in plain words, a day with no brief 404; the d
     (older.body.days as { day: string }[]).map((d) => d.day),
     ["2026-11-23"],
   );
-  assert.equal((await app.request("/api/news/days?limit=0")).status, 400);
+  for (const limit of ["0", "101", "abc", "1.5"])
+    assert.deepEqual(await read(await app.request(`/api/news/days?limit=${limit}`)), {
+      status: 400,
+      body: { error: "a number from 1 to 100" },
+    });
   assert.equal((await app.request("/api/news/days?before=soon")).status, 400);
   assert.deepEqual(await read(await app.request("/api/news/find?q=KETTLE")), {
     status: 200,
@@ -68,6 +79,7 @@ test("a day deleted: 400 for a day that isn't one, 404 for one with no brief, 40
   const { app, db } = setup();
   const del = (day: string) => app.request(`/api/news/days/${day}`, { method: "DELETE" });
   assert.equal((await del("2026-11-5")).status, 400);
+  assert.equal((await del("2026-02-30")).status, 400);
   assert.equal((await del("2026-01-01")).status, 404);
   db.prepare("INSERT INTO news_briefs (id, day, state, started) VALUES ('r', '2026-11-24', 'running', ?)").run(
     "2026-11-24T09:00:00Z",

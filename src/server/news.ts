@@ -9,11 +9,20 @@ import { z } from "zod";
 import { newsState, sourcesHealth, startNews, sweepNews } from "../domain/news/brief.ts";
 import { daysKept, deleteDay, findStories, newsDays } from "../domain/news/days.ts";
 import { Refused } from "../domain/notes/documents.ts";
-import type { Settings } from "../platform/config.ts";
+import { newsOf, type Settings } from "../platform/config.ts";
 
-const DAY = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "a day like 2026-11-24");
+// a day that can be: 2026-02-30 is refused here (400), so a 404 is always a real day with no brief
+const DAY = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "a day like 2026-11-24")
+  .refine((d) => {
+    const t = Date.parse(`${d}T12:00:00Z`);
+    return !Number.isNaN(t) && new Date(t).toISOString().startsWith(d);
+  }, "a day like 2026-11-24");
+const UP_TO_100 = "a number from 1 to 100";
 
-// the validator's refusal, as the page shows it: its first reason, not the whole report
+// the validator's refusal, as the page shows it: its first reason, not the whole report (the news routes are the first
+// to answer so; the others still send zod's report, which the page shows as it is)
 const plainly = (r: { success: boolean; error?: { issues: { message: string }[] } }, c: Context) =>
   r.success
     ? undefined
@@ -31,7 +40,10 @@ export function mountNews(app: Hono, db: DatabaseSync, settings: Settings) {
     "/api/news/days",
     zValidator(
       "query",
-      z.object({ before: DAY.optional(), limit: z.coerce.number().int().min(1).max(100).default(60) }),
+      z.object({
+        before: DAY.optional(),
+        limit: z.coerce.number(UP_TO_100).int(UP_TO_100).min(1, UP_TO_100).max(100, UP_TO_100).default(60),
+      }),
       plainly,
     ),
     (c) => {
@@ -39,10 +51,12 @@ export function mountNews(app: Hono, db: DatabaseSync, settings: Settings) {
       return c.json({ days: newsDays(db, limit, before), ...daysKept(db) });
     },
   );
-  // a day deleted, every run of it; refused while one is written
+  // a day deleted, every run of it; refused while one is written, and today's while the morning may write it again
   app.delete("/api/news/days/:day", zValidator("param", z.object({ day: DAY }), plainly), (c) => {
     try {
-      if (!deleteDay(db, c.req.valid("param").day)) return c.json({ error: "no brief was written that day" }, 404);
+      const morning = { news: newsOf(settings), now: new Date() };
+      if (!deleteDay(db, c.req.valid("param").day, morning))
+        return c.json({ error: "no brief was written that day" }, 404);
       return c.json({ ok: true });
     } catch (e) {
       if (e instanceof Refused) return c.json({ error: e.message }, 400);

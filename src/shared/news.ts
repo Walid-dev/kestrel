@@ -85,8 +85,15 @@ export type NewsRun = {
 
 // GET /api/news: the brief to show (the newest written, of the day asked or any), the newest run when it is newer
 // than that one (running now, or today's that failed), and how many questions Ask took on each of the brief's
-// stories, in their order
-export type NewsState = { enabled: boolean; time: string; brief: NewsRun | null; run: NewsRun | null; asked: number[] };
+// stories, in their order, with whether it is answering on each now
+export type NewsState = {
+  enabled: boolean;
+  time: string;
+  brief: NewsRun | null;
+  run: NewsRun | null;
+  asked: number[];
+  answering: boolean[];
+};
 
 // GET /api/news/days: each day's newest brief, newest day first, a page at a time (?before= the last day of the page
 // above), with how many days are kept in all and the first of them

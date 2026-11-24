@@ -452,7 +452,8 @@ test("on News a story's page is the story, its sources and its day, with the web
   );
   assert.match(context, /THE DAY'S OPENING: Kettles had a made-up day\. A lab shipped Brew 2\./);
   assert.match(context, /THE DAY'S OTHER HEADLINES:\n- Kettle maker raises a made-up fortune$/);
-  for (const ref of ["nb:3", "nb:0", "nb:02", "nb:x", "nb", "gone:1", ":1"]) assert.equal(newsPage(db, ref), null, ref);
+  for (const ref of ["nb:3", "nb:0", "nb:02", "nb:x", "nb", "gone:1", ":1", "nb:1:2", "nb:-1", "nb:1000", " nb:1"])
+    assert.equal(newsPage(db, ref), null, ref);
   // asked: the model reads the story with the web offered, and the brief's own read counts the question
   const seen: { messages: { content: string }[] }[] = [];
   const s = await startStandIn((body) => {
@@ -469,6 +470,11 @@ test("on News a story's page is the story, its sources and its day, with the web
   assert.match(seen[0].messages[0].content, /```page\n\{"url"/);
   assert.equal(conversation(db, "news", "nb:2")[1].text, "It reads **two million** words.");
   assert.deepEqual(newsState(db, settings(s.url)).asked, [0, 1]);
+  assert.deepEqual(newsState(db, settings(s.url)).answering, [false, false]);
+  // an answer being written: the story's Ask says so while it is closed, as Ask's own head does
+  db.prepare("UPDATE ask_messages SET state = 'writing' WHERE app = 'news' AND role = 'model'").run();
+  assert.deepEqual(newsState(db, settings(s.url)).answering, [false, true]);
+  db.prepare("UPDATE ask_messages SET state = 'done' WHERE app = 'news'").run();
   // its day deleted: the conversation went with it, and the page is no more
   deleteDay(db, "2026-11-24");
   assert.deepEqual(conversation(db, "news", "nb:2"), []);
