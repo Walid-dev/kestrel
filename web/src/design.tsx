@@ -209,6 +209,7 @@ export function Design() {
   const [note, setNote] = useState("");
   const [sent, setSent] = useState<string[]>([]);
   const [find, setFind] = useState("");
+  const [hive, setHive] = useState("");
   // one long word with no space, as a pasted link is: the box must break it, never widen the page
   const [link, setLink] = useState(
     "https://example.com/made-up/beehive-sensors/a-very-long-path-with-no-spaces-in-it/and-a-query?hive=7&frame=12&reading=temperature-and-humidity",
@@ -262,6 +263,7 @@ export function Design() {
         >
           <Frame label="A top page">
             <PageHead
+              titleAs="div"
               title="Tasks"
               line="Three open, two done this week."
               actions={
@@ -273,6 +275,7 @@ export function Design() {
           </Frame>
           <Frame label="A page with a parent">
             <PageHead
+              titleAs="div"
               back={{ to: "/design", label: "A made-up pack" }}
               eyebrow="Part 2 · Topic 2.3"
               title="How a load balancer picks a worker"
@@ -334,7 +337,7 @@ export function Design() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" className="btn btn-head">
-              On a title line
+              In a page's head
             </button>
             <button type="button" className="btn btn-primary btn-big">
               Big: the page's one action
@@ -383,9 +386,9 @@ export function Design() {
             showLabel
             multiple
             options={[
-              { value: "review", label: "To review", count: 12, tone: "accent" },
+              { value: "review", label: "To review", count: 12, tone: "muted" },
               { value: "interested", label: "Interested", count: 4, tone: "green" },
-              { value: "applied", label: "Applied", count: 2, tone: "purple" },
+              { value: "applied", label: "Applied", count: 2, tone: "accent" },
               { value: "no", label: "Not for me", count: 30, tone: "muted" },
             ]}
             value={many}
@@ -547,6 +550,42 @@ export function Design() {
         </Part>
 
         <Part
+          title="Input"
+          when="A plain box (.input) where a form's button sends, not Enter alone: a setting, a short answer. Field's look without the round button: one line, 44 px tall, 16 px."
+        >
+          <label className="grid gap-1">
+            <span className="text-small font-semibold text-strong">Hive name</span>
+            <input
+              className="input"
+              placeholder="The bee yard"
+              value={hive}
+              onChange={(e) => setHive(e.target.value)}
+            />
+            <span className="text-small text-muted">shown on each reading</span>
+          </label>
+          <label className="grid gap-1">
+            <span className="text-small font-semibold text-strong">Its file name</span>
+            <input className="input font-mono" value="bee-yard" readOnly />
+          </label>
+        </Part>
+
+        <Part
+          title="Disclosure"
+          when="A fold-out: a details whose summary is .disclosure, in the heading voice with a ▶ that turns. The whole row opens it; 44 px tall on touch."
+        >
+          <details className="card">
+            <summary className="disclosure">How to read a frame</summary>
+            <p className="m-0 mt-2 text-detail">Hold it by its ends, over the box, and look for eggs first.</p>
+          </details>
+          <details>
+            <summary className="disclosure">
+              Done <span className="font-mono text-small text-muted">3</span>
+            </summary>
+            <p className="m-0 mt-2 text-detail text-muted">Three made-up tasks, ticked off.</p>
+          </details>
+        </Part>
+
+        <Part
           title="Dialog and Confirm"
           when="A box over the page. Esc, Back, a tap outside and the ✕ close it; typed words stay; the page behind stays still. Confirm asks before an action, the safe answer first when it can't be undone."
         >
@@ -623,7 +662,7 @@ export function Design() {
                   : "Type, close it any way, open it again: the words are still here."}
               </p>
               <input
-                className="btn w-full text-left"
+                className="input w-full"
                 placeholder="A few words"
                 data-autofocus=""
                 value={typed}

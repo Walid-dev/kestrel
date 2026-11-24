@@ -140,20 +140,21 @@ function ChatState({ chat, open }: { chat: AgentChat; open: (id: string) => void
   );
 }
 
-// each kind's name and its one colour (a tone, so its chip and its filter's dot match)
+// each kind's name and its one colour (a tone, so its chip and its filter's dot match), in design.md's meanings:
+// learning and deep work purple; pink stays for what needs me, so a task (added or done) is a plain record, muted
 const KIND: Record<string, [string, Tone]> = {
   search: ["Search", "purple"],
-  deep: ["Deep check", "accent"],
+  deep: ["Deep check", "purple"],
   model: ["Model", "yellow"],
   mirror: ["Mirror", "muted"],
   backup: ["Copy", "muted"],
-  lesson: ["Lesson", "green"],
-  task: ["Task", "pink"],
+  lesson: ["Lesson", "purple"],
+  task: ["Task", "muted"],
   apply: ["Application", "orange"],
   notes: ["Notes", "accent"],
   listing: ["Listing", "purple"],
   research: ["Research", "yellow"],
-  quiz: ["Quiz", "green"],
+  quiz: ["Quiz", "purple"],
   letter: ["Writing", "orange"],
 };
 const FILTERS: [string, string][] = [

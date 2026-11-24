@@ -9,7 +9,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import type { AskPage } from "../../ai/ask/prompt.ts";
-import { callModel } from "../../ai/client.ts";
+import { callModel, type Outcome } from "../../ai/client.ts";
 import { EXPLAIN_VERSION, explainPrompt, gradePrompt, makePrompt, QUIZ_VERSION, SYSTEM } from "../../ai/quiz/prompt.ts";
 import { Explained, Grade, Made } from "../../ai/quiz/shape.ts";
 import { record } from "../../platform/activity.ts";
@@ -20,6 +20,11 @@ import { modelFor } from "../models.ts";
 import { Refused } from "../notes/documents.ts";
 import { type Area, getLesson, LessonBody, lessonText } from "./lessons.ts";
 import { lessonStates } from "./review.ts";
+
+// a model that didn't answer because its door is down: the routes say 503 (the server's trouble, try again later), not
+// 400 (a request that was wrong). Still a Refused, so a caller that knows only Refused keeps working
+export class ModelDown extends Refused {}
+const refusal = (why: Outcome, message: string) => (why === "down" ? new ModelDown(message) : new Refused(message));
 
 export type QuizItem = { lesson: string; title: string; packName: string; q: string | null; a: string | null };
 
@@ -187,7 +192,7 @@ export async function makeQuestion(
     Made,
   );
   recordCall(db, `quiz-make:v${QUIZ_VERSION}`, got);
-  if (!got.ok) throw new Refused(`the model didn't write a question: ${got.why}`);
+  if (!got.ok) throw refusal(got.why, `the model didn't write a question: ${got.why}`);
   return got.value;
 }
 
@@ -216,7 +221,7 @@ export async function gradeAnswer(
     Grade,
   );
   recordCall(db, `quiz-grade:v${QUIZ_VERSION}`, got);
-  if (!got.ok) throw new Refused(`the model didn't mark it: ${got.why}`);
+  if (!got.ok) throw refusal(got.why, `the model didn't mark it: ${got.why}`);
   const at = new Date().toISOString();
   db.prepare("INSERT INTO quiz_answers (id, lesson, question, answer, verdict, at) VALUES (?, ?, ?, ?, ?, ?)").run(
     randomUUID(),
@@ -273,7 +278,7 @@ export async function explainAnswer(
     Explained,
   );
   recordCall(db, `quiz-explain:v${EXPLAIN_VERSION}`, got);
-  if (!got.ok) throw new Refused(`the model didn't explain it: ${got.why} (${got.detail})`);
+  if (!got.ok) throw refusal(got.why, `the model didn't explain it: ${got.why} (${got.detail})`);
   db.prepare(
     `INSERT INTO quiz_explanations (lesson, question, body, model, at) VALUES (?, ?, ?, ?, ?)
      ON CONFLICT (lesson, question) DO UPDATE SET body = excluded.body, model = excluded.model, at = excluded.at`,

@@ -291,7 +291,7 @@ function Counted({
         <span className="eyebrow">Tokens a day, the last 30 days</span>
         <Days daily={r.daily} />
         <details>
-          <summary className="cursor-pointer py-2 text-detail text-muted">The 30 days as a table</summary>
+          <summary className="disclosure">The 30 days as a table</summary>
           <table className="mt-2 w-full text-detail">
             <tbody>
               {r.daily.map((d) => (
@@ -336,9 +336,7 @@ function Counted({
 
       {r.prices && (
         <details className="card">
-          <summary className="font-cond cursor-pointer text-head font-bold text-strong">
-            The prices, with where they were seen
-          </summary>
+          <summary className="disclosure">The prices, with where they were seen</summary>
           <div className="grid gap-3 pt-3 text-detail">
             {r.prices.about && <p className="m-0 text-muted">{r.prices.about}</p>}
             {r.prices.cloud.map((c) => (

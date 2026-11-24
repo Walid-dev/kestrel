@@ -458,8 +458,9 @@ h3 {
   font: 11px / 1.2 var(--mono);
   color: var(--muted);
 }
-/* the listing sheet, a wide Dialog: its head (the ✕ in it) and its foot (Apply) stay in reach while a long listing
-   scrolls between them, when the screen is tall enough to spare the room; a phone turned sideways scrolls them away */
+/* the listing sheet, a wide Dialog: its head (the title and the ✕; the company, pay and match scroll under it) and its
+   foot (Apply) stay in reach while a long listing scrolls between them, when the screen is tall enough to spare the
+   room; a phone turned sideways scrolls them away */
 @media (min-height: 560px) {
   .dialog:has(.listing-head) > .dialog-head {
     position: sticky;
@@ -765,7 +766,8 @@ h3 {
   gap: 6px;
   min-width: 0;
 }
-/* one row when the back link keeps room for its name (14em, about twenty letters): past that its name ends in …;
+/* one row when the back link keeps room for its name (13em, about twenty letters, so a guide's Listen and Slow at the
+   head's size still sit beside it on a phone): past that its name ends in …;
    with less, the buttons drop to a row of their own, on the right, so the back link always says where it goes. On a
    page it sits close over the head it belongs to (the page's gap is 20 px, the head's own 6) */
 .page-bar {
@@ -809,7 +811,7 @@ h3 {
 }
 .page-back {
   display: inline-flex;
-  flex: 1 1 14em;
+  flex: 1 1 13em;
   align-items: center;
   gap: 6px;
   max-width: max-content;
@@ -943,6 +945,7 @@ h3 {
 /* EmptyState: nothing here yet, said once and plainly, with the next step; the setting it needs, if any, small */
 .empty {
   display: grid;
+  align-content: start;
   justify-items: start;
   gap: 6px;
   padding: 20px;
@@ -1043,6 +1046,50 @@ textarea.field-input {
   line-height: 1.45;
   color: var(--muted);
 }
+/* a plain text box, where a form's button (Save, Research) sends and not Enter alone: a search's settings, a short
+   answer, a pack's parent. Field's box without its round button, one line, 44 px tall and 16 px, so a phone never
+   zooms; the focus shows on its border (the text boxes' rule at the end) */
+.input {
+  min-width: 0;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: var(--strong);
+  font: 400 16px / 1.5 var(--sans);
+  transition: border-color 0.15s;
+}
+.input::placeholder {
+  color: var(--muted);
+}
+.input[disabled] {
+  cursor: default;
+  color: var(--muted);
+}
+/* a fold-out's heading (a details' summary): the heading voice with a ▶ that turns when it opens, the whole row the
+   tap's target, 44 px tall on touch (the phone's floor) */
+.disclosure {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+  font: 700 19px / 1.25 var(--cond);
+  color: var(--strong);
+  cursor: pointer;
+}
+.disclosure::-webkit-details-marker {
+  display: none;
+}
+.disclosure::before {
+  content: "▶" / "";
+  flex: none;
+  font: 11px / 1 var(--sans);
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+details[open] > .disclosure::before {
+  transform: rotate(90deg);
+}
 /* a bar of parts, each as long as its share (--part, set by the page from the data) in its tone: Learn's progress */
 .meter {
   display: flex;
@@ -1079,8 +1126,12 @@ textarea.field-input {
   font: 12px var(--mono);
   color: var(--muted);
 }
-/* the buttons on a page's title line: a size up from the others */
-.btn-head {
+/* a page's head buttons: a size up from the others. PageHead's own buttons (its actions, beside the title or on the
+   back link's bar) take it by themselves; a row of head buttons outside it (Searches' controls, a document's bar)
+   names it with btn-head */
+.btn-head,
+.page-actions .btn,
+.page-tools .btn {
   font-size: 15px;
   padding: 9px 14px;
   border-radius: 10px;
@@ -1187,8 +1238,10 @@ figure {
   border-radius: 10px;
   padding: 14px 16px;
 }
+/* a box of words to read in a tone (the quiz's verdict): its edge in the tone, its ground a faint mix of the same,
+   so a red verdict never sits on a blue ground */
 .read-box {
-  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  background: color-mix(in srgb, var(--tone, var(--accent)) 7%, var(--surface));
   border: 1px solid var(--line);
   border-left: 3px solid var(--tone, var(--accent));
   border-radius: 10px;
@@ -2636,12 +2689,42 @@ body:has(.paper-view) {
   padding: 6px 12px;
   font-size: 13.5px;
 }
-/* the reader on a short screen (a phone on its side): its title one step down, so a long file name keeps to one line
-   and the document starts on the first screen */
+/* the reader on a short screen (a phone on its side): the bar, the title one step down (a long file name keeps to one
+   line) and the document's own bar, nothing else above it, so the document's first lines show on the first screen.
+   The eyebrow and the line under the title (where the file is, how to leave a note) come back with the room */
 @media (max-height: 500px) {
+  .note-reader {
+    gap: 12px;
+  }
+  .note-reader > .page-bar {
+    margin-bottom: -6px;
+  }
+  .note-reader .page-head > .eyebrow,
+  .note-reader .page-line {
+    display: none;
+  }
   .note-reader .page-title {
     font-size: var(--text-lead);
     line-height: var(--text-lead--line-height);
+  }
+}
+/* and on a phone on its side, the edit's row (Turn my notes into an edit, Review the changes, Undo) beside the title,
+   not a row of its own over the document: the document's column lets go of its parts (contents), so the row joins
+   the head's; everything else spans the page. Not on a short computer window, where the notes column is beside */
+@media (max-height: 500px) and (max-width: 63.99rem) {
+  .note-reader:has(.note-tools) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+  .note-reader:has(.note-tools) > :not(.page-head),
+  .note-reader:has(.note-tools) .note-main > :not(.note-tools) {
+    grid-column: 1 / -1;
+  }
+  .note-reader .note-main {
+    display: contents;
+  }
+  .note-reader .note-tools {
+    justify-content: flex-end;
   }
 }
 /* a research answer's source, inline: the site's name, a small link that opens the page */
@@ -2782,10 +2865,10 @@ dialog:focus-visible {
 @media (pointer: coarse) {
   button.btn,
   a.btn,
-  input.btn,
-  select.btn,
+  .input,
   .pill,
-  .seg button {
+  .seg button,
+  .disclosure {
     min-height: 44px;
   }
   /* a link dressed as a button centres its words in the taller box, as a button does by itself */

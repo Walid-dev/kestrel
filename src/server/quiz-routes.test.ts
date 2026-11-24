@@ -1,5 +1,6 @@
 // The quiz's doors: a start narrowed to picked lessons, refused when a pick is outside the topic or the count out of
-// range; archive, the archived list, restore and delete. Made-up lessons only; no model is asked.
+// range; archive, the archived list, restore and delete; an explanation asked while the model door is down. Made-up
+// lessons only; no model is asked (the down door is a closed port on this computer).
 import assert from "node:assert/strict";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -12,7 +13,7 @@ import { addLesson, addPack, setPackGroup } from "../domain/learn/lessons.ts";
 import type { Settings } from "../platform/config.ts";
 import { mountLearn } from "./learn.ts";
 
-function setup() {
+function setup(settings = {} as Settings) {
   const base = mkdtempSync(join(tmpdir(), "kestrel-quizapi-"));
   const db = new DatabaseSync(join(base, "t.db"));
   migrate(db, join(base, "t.db"));
@@ -21,7 +22,7 @@ function setup() {
   for (const id of ["spout", "lid", "handle"])
     addLesson(db, pack, `About ${id}`, { say: [`${id}.`], check: [{ q: `What is a ${id}?`, a: "A part." }] }, 0, id);
   const app = new Hono();
-  mountLearn(app, db, {} as Settings); // the doors tested here never reach a model
+  mountLearn(app, db, settings); // only the down door's test reaches for a model, at an address where none answers
   return app;
 }
 const send = (app: Hono, path: string, method = "POST", body?: unknown) =>
@@ -64,4 +65,14 @@ test("archive, the archived list, restore and delete", async () => {
   assert.equal((await send(app, `/api/learn/quizzes/${quiz.id}`, "DELETE")).status, 200);
   assert.deepEqual(await list(), []);
   assert.equal((await send(app, `/api/learn/quizzes/${quiz.id}/archive`)).status, 400);
+});
+
+test("an explanation asked while the model door is down answers 503, a bad request still 400", async () => {
+  const models = { url: "http://127.0.0.1:1", careful: "made-up-model", fast: "made-up-model", contextChars: 100_000 };
+  const app = setup({ models } as Settings);
+  const body = { lesson: "spout", question: "What is a spout?", expected: "A part." };
+  const down = await send(app, "/api/learn/quiz/explain", "POST", body);
+  assert.equal(down.status, 503);
+  assert.match(((await down.json()) as { error: string }).error, /down/);
+  assert.equal((await send(app, "/api/learn/quiz/explain", "POST", { ...body, lesson: "kettle" })).status, 400);
 });

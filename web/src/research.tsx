@@ -220,7 +220,7 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
               <label key={q} className="grid gap-1.5">
                 <span className="text-body text-strong">{q}</span>
                 <input
-                  className="btn w-full"
+                  className="input w-full"
                   value={answers[i] ?? ""}
                   placeholder="Your answer, or leave it empty"
                   enterKeyHint="send"
@@ -460,7 +460,7 @@ function ReportView({ id, onBack }: { id: string; onBack: () => void }) {
         {/* the report's foot: who wrote it from what, and its Delete, a button like every other */}
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-small text-muted">
-            Written by {rep.model} from {rep.read.length} pages it read.
+            Written by {rep.model} from {rep.read.length} {rep.read.length === 1 ? "page" : "pages"} it read.
           </span>
           <button
             type="button"
