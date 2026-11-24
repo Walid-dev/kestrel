@@ -67,6 +67,7 @@ const COLOURS: { group: string; when: string; tokens: [string, string, string][]
       ["--purple", "Ask, deep work, learning", "tone-purple"],
       ["--pink", "needs me, the wolf, note marks", "tone-pink, text-pink"],
       ["--cyan", "review today, drawings' fifth colour", "tone-cyan"],
+      ["--indigo", "News: its word, its icon", "tone-indigo, text-indigo"],
     ],
   },
   {
@@ -149,7 +150,7 @@ const STEPS: { cls: string; mouse: string; touch: string; roles: string; font: s
   },
 ];
 
-const TONES: Tone[] = ["accent", "green", "yellow", "orange", "red", "purple", "pink", "cyan", "muted"];
+const TONES: Tone[] = ["accent", "green", "yellow", "orange", "red", "purple", "pink", "cyan", "indigo", "muted"];
 
 // a made-up topic's lessons: the long list the quiz will show
 const LESSONS = [
@@ -449,7 +450,7 @@ export function Design() {
 
         <Part
           title="Page and PageHead"
-          when="Every page starts with its own head: there is no bar above it. A top page: its title, its buttons beside it under a mouse (in a row under the line on touch). A child page: the back row (the parent's name, its tools on the right), then a title a step down. Two widths, both from the left edge: wide for lists, reading (720) for text."
+          when="Every page starts with its own head: there is no bar above it. A top page: its title, its buttons beside it under a mouse (in a row under the line on touch). A head may carry an aside: two short lines past a thin rule, level with the eyebrow and the title. A child page: the back row (the parent's name, its tools on the right), then a title a step down. Two widths, both from the left edge: wide for lists, reading (720) for text."
         >
           <Frame label="A top page">
             <PageHead
@@ -462,6 +463,14 @@ export function Design() {
                   Notify this phone
                 </button>
               }
+            />
+          </Frame>
+          <Frame label="A head with an aside (Home)">
+            <PageHead
+              titleAs="div"
+              eyebrow="Mon 23 Nov"
+              title="Home"
+              aside={["Two short lines beside the head,", "level with its own two."]}
             />
           </Frame>
           <Frame label="A child page">

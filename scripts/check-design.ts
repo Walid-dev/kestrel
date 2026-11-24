@@ -19,7 +19,7 @@ export type Hit = { line: number; what: string; fix: string };
 // the variables that have a class (styles.css, @theme inline), by the class's name: --bg paints as page, --text as ink
 const ROLE: Record<string, string> = {
   ...Object.fromEntries(
-    "surface surface-2 surface-hover line line-strong strong muted accent accent-soft green red orange yellow purple pink pink-soft cyan teal magenta ok warn warn-soft add-soft del-soft great good fair poor tone"
+    "surface surface-2 surface-hover line line-strong strong muted accent accent-soft green red orange yellow purple pink pink-soft cyan teal magenta indigo ok warn warn-soft add-soft del-soft great good fair poor tone"
       .split(" ")
       .map((r) => [r, r]),
   ),
