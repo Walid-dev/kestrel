@@ -1,12 +1,12 @@
 // Home: the launcher, and the page that carries the name: the date over it and the pink wolf with kestrel as its
-// title (there is no bar above the pages). What needs me and this morning's brief first, then each app as a card that
-// opens it, then Cost and Models, the two pages about the models themselves.
+// title (there is no bar above the pages). What needs me and this morning's brief first, then the apps as one list of
+// rows (two columns on a computer), each opening its app, then Cost and Models, the two pages about the models.
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useChatLink } from "./chats.tsx";
 import { LiveStrip } from "./live-strip.tsx";
 import { Mark } from "./mark.tsx";
-import { Card } from "./ui/card.tsx";
+import { List, Row } from "./ui/list.tsx";
 import { Page } from "./ui/page.tsx";
 
 export const STROKE = {
@@ -141,29 +141,31 @@ const APPS: { name: string; what: string; to: string }[] = [
   },
 ];
 
-// an app's card: its icon in its colour, its name, what it does
-function AppFace({ name, what }: { name: string; what: string }) {
-  return (
-    <>
-      <span className="flex items-center gap-3">
-        <span className={APP_COLOR[name]}>{ICONS[name]}</span>
-        <h2 className="m-0 font-cond text-head text-strong">{name}</h2>
-      </span>
-      <span className="text-detail text-muted">{what}</span>
-    </>
-  );
-}
-
-// Cost and Models: one line each, the name and what it shows
-function ToolFace({ icon, name, what }: { icon: ReactNode; name: string; what: string }) {
-  return (
-    <span className="flex items-center gap-3">
-      <span className="text-yellow">{icon}</span>
-      <span className="font-cond text-head text-strong">{name}</span>
-      <span className="ml-auto min-w-0 truncate text-detail text-muted">{what}</span>
-    </span>
-  );
-}
+// Cost and Models, the two pages about the models themselves, in a list of their own under the apps
+const TOOLS: { name: string; what: string; to: string; icon: ReactNode }[] = [
+  {
+    name: "Cost",
+    what: "What the models cost",
+    to: "/cost",
+    icon: (
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
+        <circle cx="9" cy="9" r="5.5" />
+        <path d="M14.5 9.6a5.5 5.5 0 1 1-4.9 4.9" />
+      </svg>
+    ),
+  },
+  {
+    name: "Models",
+    what: "Which model runs each job",
+    to: "/models",
+    icon: (
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M12 7.5v4.5l3 2" />
+      </svg>
+    ),
+  },
+];
 
 // today, as the eyebrow says it, in the order every other date in the app takes (the browser's own): MON, NOV 23
 const today = () => new Date().toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
@@ -191,63 +193,42 @@ export function Home() {
       }
       line="One app, one computer, my own models."
     >
-      <div className="grid gap-3 md:grid-cols-2">
-        <LiveStrip />
-        {lines.length > 0 && (
-          <Card wide>
-            <span className="eyebrow">This morning</span>
-            <div>
-              {lines.map((line) => (
-                <p key={line} className="m-0">
-                  {line}
-                </p>
-              ))}
-            </div>
-          </Card>
-        )}
-        {APPS.map((app) =>
-          // on a computer, Chat opens the chat app itself, in its own tab, where this browser is signed in
-          app.to === "/chats" && chat.external ? (
-            <a
-              key={app.name}
-              href={chat.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="card card-link card-stack"
-            >
-              <AppFace name={app.name} what={app.what} />
-            </a>
-          ) : (
-            <Card key={app.name} to={app.to}>
-              <AppFace name={app.name} what={app.what} />
-            </Card>
-          ),
-        )}
-        <Card to="/cost">
-          <ToolFace
-            name="Cost"
-            what="what the models cost"
-            icon={
-              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-                <circle cx="9" cy="9" r="5.5" />
-                <path d="M14.5 9.6a5.5 5.5 0 1 1-4.9 4.9" />
-              </svg>
-            }
+      <LiveStrip />
+      {lines.length > 0 && (
+        <section className="grid gap-2" aria-label="This morning">
+          <span className="eyebrow">This morning</span>
+          <div className="text-body">
+            {lines.map((line) => (
+              <p key={line} className="m-0">
+                {line}
+              </p>
+            ))}
+          </div>
+        </section>
+      )}
+      <List cols label="The apps">
+        {APPS.map((app) => (
+          <Row
+            key={app.name}
+            // on a computer, Chat opens the chat app itself, in its own tab, where this browser is signed in
+            {...(app.to === "/chats" && chat.external ? { href: chat.href } : { to: app.to })}
+            icon={<span className={`grid ${APP_COLOR[app.name]}`}>{ICONS[app.name]}</span>}
+            title={app.name}
+            line={<span className="block truncate">{app.what}</span>}
           />
-        </Card>
-        <Card to="/models">
-          <ToolFace
-            name="Models"
-            what="which model runs each job"
-            icon={
-              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-                <circle cx="12" cy="12" r="8.5" />
-                <path d="M12 7.5v4.5l3 2" />
-              </svg>
-            }
+        ))}
+      </List>
+      <List cols label="The models">
+        {TOOLS.map((tool) => (
+          <Row
+            key={tool.name}
+            to={tool.to}
+            icon={<span className="grid text-yellow">{tool.icon}</span>}
+            title={tool.name}
+            line={<span className="block truncate">{tool.what}</span>}
           />
-        </Card>
-      </div>
+        ))}
+      </List>
     </Page>
   );
 }

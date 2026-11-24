@@ -1,17 +1,17 @@
 // Tasks: my to-do list, for me and for the agents to pick later, the old Hub's way. A box to write the task and whom
-// it is for (any agent, Claude Code, dsh, me); Enter adds and the newest comes first. A tap on a task's words edits them
-// in place (Enter or leaving saves, Escape puts them back); its who, when and note under it; a round box ticks it off.
-// Done tasks fold below. Agents read the same list through the kestrel command and close one with a note.
+// it is for (any agent, Claude Code, dsh, me); Enter adds and the newest comes first. The tasks are one list of rows: a
+// tap on a task's words edits them in place (Enter or leaving saves, Escape puts them back); when and its note under
+// them; whom it is for at the row's end (a tap changes it); a round box ticks it off. Done tasks fold below. Agents read the same list through the kestrel command and close one with a note.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Ask } from "./ask.tsx";
 import { enterSends } from "./keys.ts";
-import { Card } from "./ui/card.tsx";
 import { useConfirm } from "./ui/confirm.tsx";
 import { cx } from "./ui/cx.ts";
 import { EmptyState } from "./ui/empty.tsx";
 import { Field } from "./ui/field.tsx";
+import { List } from "./ui/list.tsx";
 import { Page } from "./ui/page.tsx";
 import { Pills, type Tone } from "./ui/pills.tsx";
 
@@ -91,7 +91,7 @@ export function Tasks() {
   return (
     <Page width="reading" title="Tasks" line={`${open.length} open${done.length ? ` · ${done.length} done` : ""}`}>
       {/* the new task: its words, whom it is for; Enter adds */}
-      <Card>
+      <div className="grid gap-3">
         <Field
           label="New task"
           placeholder="What needs doing?"
@@ -109,27 +109,29 @@ export function Tasks() {
           value={who}
           onChange={setWho}
         />
-      </Card>
+      </div>
 
       {failed && <p className="m-0 text-detail text-red">{(failed.error as Error).message}</p>}
 
       {tasks.data && open.length === 0 && <EmptyState title="Nothing open." line="Write the next thing above." />}
       {open.length > 0 && (
-        <ol className="m-0 grid list-none gap-2 p-0">
+        <List label="Open tasks">
           {open.map((t) => (
             <Row key={t.id} t={t} act={act.mutate} busy={act.isPending && act.variables?.id === t.id} />
           ))}
-        </ol>
+        </List>
       )}
 
       {done.length > 0 && (
         <details>
           <summary className="disclosure">Done · {done.length}</summary>
-          <ol className="m-0 mt-2 grid list-none gap-2 p-0">
-            {done.map((t) => (
-              <Row key={t.id} t={t} act={act.mutate} busy={act.isPending && act.variables?.id === t.id} />
-            ))}
-          </ol>
+          <div className="mt-2">
+            <List label="Done tasks">
+              {done.map((t) => (
+                <Row key={t.id} t={t} act={act.mutate} busy={act.isPending && act.variables?.id === t.id} />
+              ))}
+            </List>
+          </div>
         </details>
       )}
       <Ask
@@ -165,89 +167,79 @@ function Row({ t, act, busy }: { t: Task; act: Act; busy: boolean }) {
     act({ id: t.id, how: "edit", change: { who: WHO[(i + 1) % WHO.length][0] } });
   };
   return (
-    <li className={cx("card grid grid-cols-[auto_1fr_auto] items-start gap-3 !p-3", busy && "busy")}>
-      {/* the round box keeps its small look; the area that takes the tap is a thumb's size around it */}
+    // a row of the list: the round box, the words (the row's target: a tap anywhere on it edits them), when and the
+    // note under them; whom it is for and the ✕ at its end, each a target of its own above the row's. On a narrow
+    // phone whom it is for moves under the words, beside when, so the words keep the width (styles.css, .task-row)
+    <li className={cx("list-row task-row", busy && "busy")}>
+      {/* the round box keeps its small look inside a round icon button, whose area takes the tap */}
       <button
         type="button"
         aria-label={t.done ? "Not done" : "Done"}
+        title={t.done ? "Not done" : "Done"}
         aria-pressed={t.done}
-        className={cx(
-          "relative mt-0.5 grid h-[22px] w-[22px] place-items-center rounded-full border-2 text-page after:absolute after:-inset-3 after:rounded-full",
-          t.done ? "border-green bg-green" : "border-line bg-transparent",
-        )}
+        className="btn btn-icon btn-quiet task-tick"
         onClick={() => act({ id: t.id, how: t.done ? "reopen" : "check" })}
       >
-        {t.done && (
-          <svg
-            viewBox="0 0 24 24"
-            width="13"
-            height="13"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="3.4"
-            aria-hidden="true"
-          >
-            <path d="m5 12.5 4.5 4.5L19 7.5" />
-          </svg>
-        )}
+        <span className={cx("task-box", t.done && "task-box-done")}>
+          {t.done && (
+            <svg
+              viewBox="0 0 24 24"
+              width="12"
+              height="12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3.4"
+              aria-hidden="true"
+            >
+              <path d="m5 12.5 4.5 4.5L19 7.5" />
+            </svg>
+          )}
+        </span>
       </button>
-      <div className="min-w-0">
-        {draft === null ? (
-          <button
-            type="button"
-            title="Tap to edit"
-            className={cx(
-              "-mx-1 block w-full cursor-text whitespace-pre-wrap wrap-anywhere rounded-md px-1 text-left text-body",
-              t.done ? "text-muted line-through" : "text-strong",
-            )}
-            onClick={() => setDraft(t.text)}
-          >
-            {t.text}
-          </button>
-        ) : (
-          <textarea
-            // biome-ignore lint/a11y/noAutofocus: the tap that opened it asked for the words
-            autoFocus
-            aria-label="The task's words"
-            className="-mx-1 field-sizing-content w-full resize-none rounded-md bg-surface-2 px-1 text-body text-strong outline-none ring-1 ring-line"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onFocus={(e) =>
-              e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)
-            }
-            onBlur={save}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") setDraft(null);
-              else enterSends(save)(e);
-            }}
-          />
-        )}
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-small text-muted">
-          {/* the chip's tap area grows mostly downward: upward it stops short of the words above, so a tap meant to
-              edit them never changes whom the task is for */}
-          <button
-            type="button"
-            className={cx(
-              "chip chip-caps relative after:absolute after:-inset-x-1 after:-top-1.5 after:-bottom-5",
-              `tone-${t.done ? "muted" : tone}`,
-            )}
-            title="Tap to change whom it is for"
-            onClick={nextWho}
-          >
-            {label}
-          </button>
-          <span>
-            {when(t.edited ?? t.added)}
-            {t.edited ? " · edited" : ""}
-          </span>
-          {t.note && <span className="basis-full text-green">{t.note}</span>}
-        </div>
-      </div>
+      {draft === null ? (
+        <button
+          type="button"
+          title="Tap to edit"
+          className={cx("list-open task-text", t.done && "task-text-done")}
+          onClick={() => setDraft(t.text)}
+        >
+          {t.text}
+        </button>
+      ) : (
+        <textarea
+          // biome-ignore lint/a11y/noAutofocus: the tap that opened it asked for the words
+          autoFocus
+          aria-label="The task's words"
+          className="task-edit"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
+          onBlur={save}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setDraft(null);
+            else enterSends(save)(e);
+          }}
+        />
+      )}
+      <span className="list-line task-when">
+        {when(t.edited ?? t.added)}
+        {t.edited ? " · edited" : ""}
+      </span>
+      {t.note && <span className="list-line task-note">{t.note}</span>}
+      <button
+        type="button"
+        className={cx("chip chip-caps task-who", `tone-${t.done ? "muted" : tone}`)}
+        title="Tap to change whom it is for"
+        aria-label={`For ${label}: tap to change`}
+        onClick={nextWho}
+      >
+        {label}
+      </button>
       <button
         type="button"
         aria-label="Delete"
         title="Delete"
-        className="card-remove"
+        className="card-remove task-x"
         onClick={async () => {
           const yes = await sure({
             title: "Delete this task?",

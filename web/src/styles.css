@@ -420,6 +420,11 @@ h3 {
   border: 0;
   display: grid;
   gap: 8px;
+}
+/* the two choices side by side when there's room for both, Keep it running on its own line under them */
+.stop-choices {
+  display: grid;
+  gap: 8px;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 .stop-choice {
@@ -1875,6 +1880,185 @@ pre.code .f {
 .dia-plain {
   fill: var(--surface-2);
   stroke: currentColor;
+}
+/* ── The pages' own rules: Home, Chat, Tasks, Models ── */
+/* Home's live row: one row of a list; what needs me takes the pink edge on its left, its words in the UI's voice */
+.home-live-needs .list {
+  box-shadow: inset 2px 0 0 var(--pink);
+}
+.home-live .list-title {
+  font: 600 var(--text-detail) / var(--text-detail--line-height) var(--sans);
+}
+/* Chat on a phone: the frame runs from edge to edge and down to the tab bar, over the shell's gutters and its foot;
+   the head above it keeps the gutters, so the title starts where every page's does */
+.chat-page {
+  display: grid;
+  margin: 0 calc(-1 * var(--gutter)) calc(-1 * (49px + env(safe-area-inset-bottom) + 24px));
+}
+.chat-page-head {
+  display: grid;
+  gap: 8px;
+  padding: 0 var(--gutter) 12px;
+}
+/* Tasks: a task is a list row, laid out as a grid: the round box, the words (the row's target: a tap edits them) in
+   running text, not a title's weight, when and the note under them, whom it is for and the ✕ at the end. On a narrow
+   phone whom it is for moves under the words, beside when, so the words keep the row's width */
+.task-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "tick text who x"
+    "tick when who x"
+    "tick note who x";
+  gap: 0 12px;
+  align-items: center;
+}
+.task-row + .task-row::before {
+  left: calc(var(--row-x) + var(--h-control) + 12px);
+}
+.task-tick {
+  grid-area: tick;
+  z-index: 1;
+  align-self: start;
+  /* centred on the words' first line */
+  margin-block: calc((var(--text-body--line-height) - var(--h-control)) / 2);
+}
+.task-text,
+.task-edit {
+  grid-area: text;
+}
+/* the lines under the words keep their room to themselves, so a row without a note has no gap for one */
+.task-when {
+  grid-area: when;
+  margin-top: 2px;
+}
+.task-row .task-note {
+  grid-area: note;
+  margin-top: 2px;
+  color: var(--green);
+}
+/* the controls at the end line up with the words' first line, as the box does, however many lines the words take */
+.task-who {
+  grid-area: who;
+  align-self: start;
+  margin-top: calc((var(--text-body--line-height) - 20px) / 2);
+}
+.task-row .task-x {
+  grid-area: x;
+  align-self: start;
+  margin-top: calc((var(--text-body--line-height) - 24px) / 2);
+}
+@media (pointer: coarse) {
+  .task-row .task-x {
+    margin-top: calc((var(--text-body--line-height) - 28px) / 2);
+  }
+}
+/* on a narrow phone whom it is for is the row's last line, beside when, under the note: its tap area then only
+   grows into the row's foot, never over the words or the note */
+@media (max-width: 30rem) {
+  .task-row {
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "tick text text x"
+      "tick note note x"
+      "tick who when x";
+    column-gap: 8px;
+  }
+  .task-row :is(.task-who, .task-when) {
+    align-self: center;
+    margin-top: 6px;
+  }
+  .task-row .task-tick {
+    margin-inline-end: 4px;
+  }
+}
+/* ticked, the box itself says so: the button keeps no pressed edge around it */
+.btn.task-tick[aria-pressed="true"] {
+  border-color: transparent;
+}
+.task-box {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--bg);
+}
+.task-box-done {
+  border-color: var(--green);
+  background: var(--green);
+}
+.task-text {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--strong);
+  font: 400 var(--text-body) / var(--text-body--line-height) var(--sans);
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+.task-text-done {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.task-edit {
+  field-sizing: content;
+  width: 100%;
+  margin-inline: -4px;
+  padding: 0 4px;
+  resize: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--strong);
+  font: 400 var(--text-body) / var(--text-body--line-height) var(--sans);
+}
+/* whom it is for: a chip that changes on a tap; on touch its tap area is 44 tall, as every control's, and meets the
+   ✕'s area beside it without overlapping */
+.task-who {
+  position: relative;
+  z-index: 1;
+  justify-self: start;
+  border: 0;
+  cursor: pointer;
+}
+@media (pointer: coarse) {
+  .task-who::after {
+    content: "";
+    position: absolute;
+    inset: calc(50% - var(--h-hit) / 2) 0;
+  }
+}
+/* on a narrow phone the chip is the row's last line: its area keeps 8 above it (a tap on the words' or the note's
+   last line edits the words) and takes the rest below, the row's foot growing to hold it, so it never reaches the
+   next row */
+@media (pointer: coarse) and (max-width: 30rem) {
+  .task-row {
+    padding-bottom: 16px;
+  }
+  .task-row :is(.task-who, .task-when) {
+    margin-top: 8px;
+  }
+  .task-who::after {
+    inset: -8px 0 calc(20px - var(--h-hit) + 8px);
+  }
+}
+/* Models: the model at a row's end, in mono, as a pill that opens the picker; on a narrow phone it drops under the
+   words, at the text's left edge */
+.models-pick {
+  font: 500 var(--text-small) / var(--text-small--line-height) var(--mono);
+}
+@media (max-width: 30rem) {
+  .models-uses .list-row {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .models-uses .list-text {
+    flex-basis: 100%;
+  }
 }
 /* ── The shell (web/src/app.tsx): the frame every page sits in ── */
 /* One column on the phone, wider on a computer. No bar on top: each page starts at its own title, 40 from the top
