@@ -10,13 +10,13 @@ import { migrate } from "../db/migrate.ts";
 import { sweepDeepChecks } from "../domain/search/deep.ts";
 import { loadSettings } from "../platform/config.ts";
 import { dataDir, isDeployed } from "../platform/paths.ts";
-import { plainWords } from "../platform/plain.ts";
 import { alertRun } from "./alerts.ts";
 import { app } from "./app.ts";
 import { mountApply } from "./apply.ts";
 import { mountAsk } from "./ask.ts";
 import { mountBrief } from "./brief.ts";
 import { mountCost } from "./cost.ts";
+import { answerFailure } from "./errors.ts";
 import { mountEvents } from "./events.ts";
 import { identity } from "./identity.ts";
 import { mountLearn } from "./learn.ts";
@@ -117,11 +117,8 @@ startScheduler(db, {
 // every request through the identity check: enforced when deployed, open on made-up data (identity.ts says why).
 // The root is composed after every route is mounted: route() copies what exists when it is called.
 const root = new Hono();
-// a failed request logs one plain line, never a stack: the service log must stay free of paths and content
-root.onError((e, c) => {
-  console.error(`a request failed: ${e.name}: ${plainWords(e.message)}`);
-  return c.json({ error: "something went wrong on the computer's side" }, 500);
-});
+// a bad request answers 400 in plain words, any other failure 500; each logs one plain line, never a stack (errors.ts)
+root.onError(answerFailure);
 root.use("*", identity(settings.tailscaleLogin, isDeployed()));
 root.route("/", app);
 
