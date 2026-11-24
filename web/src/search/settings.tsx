@@ -5,6 +5,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
+import { Page } from "../ui/page.tsx";
 import { Pills } from "../ui/pills.tsx";
 
 type Raw = Record<string, unknown>;
@@ -29,20 +30,43 @@ const KNOBS: [string, string, string][] = [
   ["HOURS_OLD", "Posted within (hours)", "older postings are skipped"],
 ];
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+// a setting: its name over its box, a hint under it
+function Labeled({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     // biome-ignore lint/a11y/noLabelWithoutControl: the control is the child passed in, which a wrapping label names
-    <label className="grid gap-1">
-      <span className="text-[13px] font-semibold" style={{ color: "var(--strong)" }}>
+    <label className="grid content-start gap-1">
+      <span className="text-small font-semibold text-strong">{label}</span>
+      {children}
+      {hint && <span className="text-small text-muted">{hint}</span>}
+    </label>
+  );
+}
+
+// a choice of two, as one bar: its name over it (read out as the group's name)
+function Seg<V extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: [V, string][];
+  value: V;
+  onChange: (v: V) => void;
+}) {
+  return (
+    <div className="grid gap-1">
+      <span className="text-small font-semibold text-strong" aria-hidden="true">
         {label}
       </span>
-      {children}
-      {hint && (
-        <span className="text-[12px]" style={{ color: "var(--muted)" }}>
-          {hint}
-        </span>
-      )}
-    </label>
+      <fieldset className="seg" aria-label={label}>
+        {options.map(([v, name]) => (
+          <button key={v} type="button" aria-pressed={value === v} onClick={() => onChange(v)}>
+            {name}
+          </button>
+        ))}
+      </fieldset>
+    </div>
   );
 }
 
@@ -109,14 +133,9 @@ export function SearchSettings() {
 
   if (loaded.isError)
     return (
-      <main className="grid gap-3">
-        <Link to="/searches" className="text-sm" style={{ color: "var(--accent)" }}>
-          ← Searches
-        </Link>
-        <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-          {String((loaded.error as Error).message)}
-        </p>
-      </main>
+      <Page title="Settings" back={{ to: "/searches", label: "Searches" }} width="reading">
+        <p className="m-0 text-detail text-red">{String((loaded.error as Error).message)}</p>
+      </Page>
     );
   if (!raw) return null;
   const kind = raw.kind === "deals" ? "deals" : "jobs";
@@ -140,13 +159,12 @@ export function SearchSettings() {
   const pickable = [...new Set([...(collectors.data?.collectors ?? []), String(raw.collector ?? "")].filter(Boolean))];
 
   return (
-    <main className="mx-auto grid w-full max-w-4xl gap-4">
-      <Link to="/searches" className="text-sm font-medium" style={{ color: "var(--accent)" }}>
-        ← Searches
-      </Link>
-      <h2 className="font-cond m-0 text-[30px] font-bold uppercase leading-none tracking-tight">
-        {editing ? `${String(raw.name || editing)} · Settings` : `A new ${kind === "jobs" ? "job" : "deal"} search`}
-      </h2>
+    <Page
+      back={{ to: "/searches", label: "Searches" }}
+      eyebrow={editing ? "Settings" : undefined}
+      title={editing ? String(raw.name || editing) : `A new ${kind === "jobs" ? "job" : "deal"} search`}
+      width="reading"
+    >
       <form
         className="grid gap-4"
         onSubmit={(e) => {
@@ -157,7 +175,7 @@ export function SearchSettings() {
         <section className="card grid gap-3">
           <span className="eyebrow">This search</span>
           <div className="grid gap-3 md:grid-cols-2">
-            <Field label="Name">
+            <Labeled label="Name">
               <input
                 className="btn"
                 value={String(raw.name ?? "")}
@@ -167,16 +185,16 @@ export function SearchSettings() {
                 }}
                 placeholder={kind === "jobs" ? "Full-stack AI engineer" : "Office chair"}
               />
-            </Field>
+            </Labeled>
             {!editing && (
-              <Field label="Its file name" hint="lowercase words and dashes">
+              <Labeled label="Its file name" hint="lowercase words and dashes">
                 <input className="btn font-mono" value={id} onChange={(e) => setId(slug(e.target.value))} />
-              </Field>
+              </Labeled>
             )}
-            <Field label="What it looks for" hint="one line, shown under the search's name">
+            <Labeled label="What it looks for" hint="one line, shown under the search's name">
               <input className="btn" value={String(raw.about ?? "")} onChange={(e) => put({ about: e.target.value })} />
-            </Field>
-            <Field
+            </Labeled>
+            <Labeled
               label="How often"
               hint={raw.auto === false ? "only when you press Search now" : "hours between searches"}
             >
@@ -198,37 +216,29 @@ export function SearchSettings() {
                   Only when I ask
                 </button>
               </div>
-            </Field>
+            </Labeled>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {!editing &&
-              (["jobs", "deals"] as const).map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  className={`pill ${k === "jobs" ? "tone-accent" : "tone-orange"}`}
-                  aria-pressed={kind === k}
-                  onClick={() => navigate(`/searches/settings?new=${k}`, { replace: true })}
-                >
-                  <span className="dot" /> {k === "jobs" ? "Jobs" : "Deals"}
-                </button>
-              ))}
-            <button
-              type="button"
-              className="pill tone-green"
-              aria-pressed={raw.enabled !== false}
-              onClick={() => put({ enabled: true })}
-            >
-              <span className="dot" /> On
-            </button>
-            <button
-              type="button"
-              className="pill tone-muted"
-              aria-pressed={raw.enabled === false}
-              onClick={() => put({ enabled: false })}
-            >
-              <span className="dot" /> Paused
-            </button>
+          <div className="grid gap-3 md:grid-cols-2">
+            {!editing && (
+              <Seg
+                label="What it finds"
+                options={[
+                  ["jobs", "Jobs"],
+                  ["deals", "Deals"],
+                ]}
+                value={kind}
+                onChange={(k) => navigate(`/searches/settings?new=${k}`, { replace: true })}
+              />
+            )}
+            <Seg
+              label="State"
+              options={[
+                ["on", "On"],
+                ["paused", "Paused"],
+              ]}
+              value={raw.enabled === false ? "paused" : "on"}
+              onChange={(v) => put({ enabled: v === "on" })}
+            />
           </div>
         </section>
 
@@ -236,7 +246,7 @@ export function SearchSettings() {
           <span className="eyebrow">Where it looks</span>
           {/* every collector in sight, one tap to pick: pills, the app's way to choose, never a dropdown */}
           <div className="grid gap-1">
-            <span className="text-[13px] font-semibold" style={{ color: "var(--strong)" }} aria-hidden="true">
+            <span className="text-small font-semibold text-strong" aria-hidden="true">
               Collector
             </span>
             {pickable.length > 0 ? (
@@ -248,55 +258,55 @@ export function SearchSettings() {
                 describedBy={hintId}
               />
             ) : (
-              <p className="m-0 text-[13.5px]" style={{ color: "var(--muted)" }}>
+              <p className="m-0 text-small text-muted">
                 {collectors.isPending ? "Loading the collectors…" : "No collector yet."}
               </p>
             )}
-            <span id={hintId} className="text-[12px]" style={{ color: "var(--muted)" }}>
+            <span id={hintId} className="text-small text-muted">
               a script in the data folder's collectors; it prints the listings it finds
             </span>
           </div>
           <div className="grid gap-3 md:grid-cols-3">
             {KNOBS.map(([k, label, hint]) => (
-              <Field key={k} label={label} hint={hint}>
+              <Labeled key={k} label={label} hint={hint}>
                 <input className="btn" value={env[k] ?? ""} onChange={(e) => putEnv(k, e.target.value)} />
-              </Field>
+              </Labeled>
             ))}
           </div>
           {others.map(([k, v]) => (
-            <Field key={k} label={k}>
+            <Labeled key={k} label={k}>
               <input className="btn font-mono" value={v} onChange={(e) => putEnv(k, e.target.value)} />
-            </Field>
+            </Labeled>
           ))}
         </section>
 
         <section className="card grid gap-3">
           <span className="eyebrow">What makes a good match</span>
           <div className="grid gap-3 md:grid-cols-2">
-            <Field label="Titles to look for" hint="commas between them">
+            <Labeled label="Titles to look for" hint="commas between them">
               <input
                 className="btn"
                 value={list(title.want)}
                 onChange={(e) => putScore({ title: { ...title, want: split(e.target.value) } })}
               />
-            </Field>
-            <Field label="Titles to avoid">
+            </Labeled>
+            <Labeled label="Titles to avoid">
               <input
                 className="btn"
                 value={list(title.avoid)}
                 onChange={(e) => putScore({ title: { ...title, avoid: split(e.target.value) } })}
               />
-            </Field>
+            </Labeled>
             {kind === "jobs" ? (
               <>
-                <Field label="Skills" hint="each one named in a posting adds to its score">
+                <Labeled label="Skills" hint="each one named in a posting adds to its score">
                   <input
                     className="btn"
                     value={list(scoring.skills)}
                     onChange={(e) => putScore({ skills: split(e.target.value) })}
                   />
-                </Field>
-                <Field label="Lowest pay, a year" hint="hourly and monthly pay are turned into a year first">
+                </Labeled>
+                <Labeled label="Lowest pay, a year" hint="hourly and monthly pay are turned into a year first">
                   <input
                     className="btn"
                     type="number"
@@ -304,24 +314,24 @@ export function SearchSettings() {
                     value={pay.floor ?? 0}
                     onChange={(e) => putScore({ pay: { ...pay, floor: Number(e.target.value) || 0 } })}
                   />
-                </Field>
-                <Field label="Levels to look for">
+                </Labeled>
+                <Labeled label="Levels to look for">
                   <input
                     className="btn"
                     value={list(level.want)}
                     onChange={(e) => putScore({ level: { ...level, want: split(e.target.value) } })}
                   />
-                </Field>
-                <Field label="Levels to avoid">
+                </Labeled>
+                <Labeled label="Levels to avoid">
                   <input
                     className="btn"
                     value={list(level.avoid)}
                     onChange={(e) => putScore({ level: { ...level, avoid: split(e.target.value) } })}
                   />
-                </Field>
+                </Labeled>
               </>
             ) : (
-              <Field label="Price cap" hint="an ad over it is set aside">
+              <Labeled label="Price cap" hint="an ad over it is set aside">
                 <input
                   className="btn"
                   type="number"
@@ -329,34 +339,34 @@ export function SearchSettings() {
                   value={price.cap ?? 0}
                   onChange={(e) => putScore({ price: { cap: Number(e.target.value) || 0 } })}
                 />
-              </Field>
+              </Labeled>
             )}
-            <Field label="Places" hint="a place named in the listing scores as near">
+            <Labeled label="Places" hint="a place named in the listing scores as near">
               <input
                 className="btn"
                 value={list(places.words)}
                 onChange={(e) => putScore({ places: { ...places, words: split(e.target.value) } })}
               />
-            </Field>
+            </Labeled>
             {kind === "jobs" && (
-              <Field label="Open only in" hint="a job open only elsewhere is set aside; the first word names it">
+              <Labeled label="Open only in" hint="a job open only elsewhere is set aside; the first word names it">
                 <input
                   className="btn"
                   value={list(places.within)}
                   onChange={(e) => putScore({ places: { ...places, within: split(e.target.value) } })}
                 />
-              </Field>
+              </Labeled>
             )}
             {kind === "jobs" && (
-              <Field label="Not open when the posting says" hint="words that keep people elsewhere out">
+              <Labeled label="Not open when the posting says" hint="words that keep people elsewhere out">
                 <input
                   className="btn"
                   value={list(places.closed)}
                   onChange={(e) => putScore({ places: { ...places, closed: split(e.target.value) } })}
                 />
-              </Field>
+              </Labeled>
             )}
-            <Field label="Fresh within (days)">
+            <Labeled label="Fresh within (days)">
               <input
                 className="btn"
                 type="number"
@@ -364,7 +374,7 @@ export function SearchSettings() {
                 value={Number(scoring.freshDays ?? 7)}
                 onChange={(e) => putScore({ freshDays: Math.max(1, Number(e.target.value) || 1) })}
               />
-            </Field>
+            </Labeled>
           </div>
           {kind === "jobs" && (
             <div className="flex flex-wrap gap-2">
@@ -380,11 +390,7 @@ export function SearchSettings() {
           )}
         </section>
 
-        {save.isError && (
-          <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-            {String((save.error as Error).message)}
-          </p>
-        )}
+        {save.isError && <p className="m-0 text-detail text-red">{String((save.error as Error).message)}</p>}
         <div className="flex gap-2">
           <button type="submit" className="btn btn-primary" disabled={save.isPending || (!editing && !id)}>
             {save.isPending ? "Saving…" : editing ? "Save" : "Make the search"}
@@ -394,6 +400,6 @@ export function SearchSettings() {
           </Link>
         </div>
       </form>
-    </main>
+    </Page>
   );
 }

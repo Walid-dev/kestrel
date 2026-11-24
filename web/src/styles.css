@@ -388,6 +388,99 @@ h3 {
   text-transform: uppercase;
   white-space: nowrap;
 }
+/* a listing's pay or price, in its place on the money scale (its tone-*). Dark puts the ground's colour on the money
+   colour; light can't (white on the light money colours reads under 4.5:1), so there it is dark ink on a tint of it,
+   edged in it */
+.money {
+  flex: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-family: var(--mono);
+  font-weight: 700;
+  line-height: 1.2;
+  background: var(--tone);
+  color: var(--bg);
+}
+.money:not([class*="tone-"]) {
+  background: var(--surface-2);
+  color: var(--strong);
+}
+@media (prefers-color-scheme: light) {
+  .money[class*="tone-"] {
+    background: color-mix(in srgb, var(--tone) 14%, var(--surface));
+    color: var(--strong);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 55%, transparent);
+  }
+}
+/* a match's ring: a dot in its tone, a ring of the card's ground inside its edge */
+.match-ring {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  border-radius: 999px;
+  border: 2.5px solid var(--tone);
+  background: var(--tone);
+  box-shadow: inset 0 0 0 2.5px var(--surface);
+}
+/* a score or a price on the money scale: the scale as a track, the dot where this listing sits (--at, from its data),
+   the numbers under it */
+.money-bar {
+  position: relative;
+  height: 6px;
+  margin: 4px 0 16px;
+  border-radius: 999px;
+}
+.money-bar-score {
+  background: linear-gradient(90deg, var(--poor) 0%, var(--fair) 40%, var(--good) 65%, var(--great) 88%);
+}
+.money-bar-price {
+  margin-bottom: 20px;
+  background: linear-gradient(90deg, var(--great) 0%, var(--fair) 50%, var(--poor) 100%);
+}
+.money-bar-dot {
+  position: absolute;
+  top: 50%;
+  left: var(--at);
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  border: 3px solid var(--surface);
+  background: var(--tone);
+  box-shadow: 0 0 0 1px var(--tone);
+}
+.money-bar-mark {
+  position: absolute;
+  top: 12px;
+  left: var(--at);
+  transform: translateX(-50%);
+  font: 11px / 1.2 var(--mono);
+  color: var(--muted);
+}
+/* the listing sheet, a wide Dialog: its head (the ✕ in it) and its foot (Apply) stay in reach while a long listing
+   scrolls between them, when the screen is tall enough to spare the room; a phone turned sideways scrolls them away */
+@media (min-height: 560px) {
+  .dialog:has(.listing-head) > .dialog-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .dialog:has(.listing-head) > .dialog-body {
+    padding-top: 14px;
+  }
+  .dialog:has(.listing-head) > .dialog-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding-block: 12px;
+    border-top: 1px solid var(--line);
+    background: var(--bg);
+  }
+}
 /* a filter pill: quiet until picked; a dot in its tone; its count beside. A long name wraps inside it: one unbroken
    word must never push the page wider than the phone */
 .pill {

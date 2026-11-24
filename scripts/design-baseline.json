@@ -15,10 +15,6 @@
   "web/src/notes/set.tsx": 11,
   "web/src/quiz.tsx": 36,
   "web/src/research.tsx": 35,
-  "web/src/search/cards.tsx": 39,
-  "web/src/search/searches.tsx": 18,
-  "web/src/search/settings.tsx": 9,
-  "web/src/search/sheet.tsx": 29,
   "web/src/stop.tsx": 6,
   "web/src/tasks.tsx": 18
 }

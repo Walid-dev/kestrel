@@ -2,7 +2,9 @@
 // in a coloured pill; where and when; the match line with its bar (a deal: where its price sits against the usual);
 // the model's read (short, so it stays) and the deep check: its verdict as a chip, or the button that starts one; the
 // report itself waits in the open listing. A tap anywhere opens the whole listing.
-import { type ReactNode, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useRef, useState } from "react";
+import { cx } from "../ui/cx.ts";
+import { Pills, type Tone } from "../ui/pills.tsx";
 
 export type Listing = {
   id: string;
@@ -23,55 +25,55 @@ export type Listing = {
   deepState: string | null; // the latest deep check: running, done or failed
 };
 
-export const STAGES: Record<"jobs" | "deals", { status: string; label: string; tone: string }[]> = {
+export const STAGES: Record<"jobs" | "deals", { status: string; label: string; tone: Tone }[]> = {
   jobs: [
-    { status: "new", label: "To review", tone: "tone-muted" },
-    { status: "interested", label: "Interested", tone: "tone-green" },
-    { status: "maybe", label: "Not sure", tone: "tone-yellow" },
-    { status: "applied", label: "Applied", tone: "tone-accent" },
-    { status: "interviewing", label: "Interviewing", tone: "tone-orange" },
-    { status: "offer", label: "Offer", tone: "tone-green" },
-    { status: "rejected", label: "Rejected", tone: "tone-red" },
-    { status: "closed", label: "Closed", tone: "tone-muted" },
-    { status: "fake", label: "Not real", tone: "tone-red" },
-    { status: "passed", label: "Not for me", tone: "tone-muted" },
+    { status: "new", label: "To review", tone: "muted" },
+    { status: "interested", label: "Interested", tone: "green" },
+    { status: "maybe", label: "Not sure", tone: "yellow" },
+    { status: "applied", label: "Applied", tone: "accent" },
+    { status: "interviewing", label: "Interviewing", tone: "orange" },
+    { status: "offer", label: "Offer", tone: "green" },
+    { status: "rejected", label: "Rejected", tone: "red" },
+    { status: "closed", label: "Closed", tone: "muted" },
+    { status: "fake", label: "Not real", tone: "red" },
+    { status: "passed", label: "Not for me", tone: "muted" },
   ],
   deals: [
-    { status: "new", label: "To review", tone: "tone-muted" },
-    { status: "interested", label: "Interested", tone: "tone-green" },
-    { status: "maybe", label: "Not sure", tone: "tone-yellow" },
-    { status: "applied", label: "Contacted", tone: "tone-accent" },
-    { status: "passed", label: "Not interested", tone: "tone-muted" },
-    { status: "closed", label: "Sold", tone: "tone-muted" },
+    { status: "new", label: "To review", tone: "muted" },
+    { status: "interested", label: "Interested", tone: "green" },
+    { status: "maybe", label: "Not sure", tone: "yellow" },
+    { status: "applied", label: "Contacted", tone: "accent" },
+    { status: "passed", label: "Not interested", tone: "muted" },
+    { status: "closed", label: "Sold", tone: "muted" },
   ],
 };
 export const stageOf = (kind: "jobs" | "deals", status: string) =>
-  STAGES[kind].find((s) => s.status === status) ?? { status, label: status, tone: "tone-muted" };
+  STAGES[kind].find((s) => s.status === status) ?? { status, label: status, tone: "muted" };
 
-export const MATCH: Record<string, { label: string; tone: string }> = {
-  great: { label: "Great match", tone: "tone-great" },
-  good: { label: "Good match", tone: "tone-good" },
-  weak: { label: "Possible match", tone: "tone-fair" },
-  poor: { label: "Weak match", tone: "tone-poor" },
+export const MATCH: Record<string, { label: string; tone: Tone }> = {
+  great: { label: "Great match", tone: "great" },
+  good: { label: "Good match", tone: "good" },
+  weak: { label: "Possible match", tone: "fair" },
+  poor: { label: "Weak match", tone: "poor" },
 };
-export const DEAL: Record<string, { label: string; tone: string }> = {
-  great: { label: "Great deal", tone: "tone-great" },
-  good: { label: "Good deal", tone: "tone-good" },
-  fair: { label: "Fair price", tone: "tone-fair" },
-  over: { label: "Overpriced", tone: "tone-poor" },
+export const DEAL: Record<string, { label: string; tone: Tone }> = {
+  great: { label: "Great deal", tone: "great" },
+  good: { label: "Good deal", tone: "good" },
+  fair: { label: "Fair price", tone: "fair" },
+  over: { label: "Overpriced", tone: "poor" },
 };
 // a deep check's verdict, each in its own colour wherever it shows: go in green, think twice in orange, no in coral
-export const VERDICT: Record<string, { label: string; tone: string }> = {
-  apply: { label: "Apply", tone: "tone-great" },
-  maybe: { label: "Maybe", tone: "tone-orange" },
-  skip: { label: "Skip", tone: "tone-poor" },
-  buy: { label: "Buy", tone: "tone-great" },
-  negotiate: { label: "Negotiate", tone: "tone-orange" },
-  unsure: { label: "Unsure", tone: "tone-muted" },
+export const VERDICT: Record<string, { label: string; tone: Tone }> = {
+  apply: { label: "Apply", tone: "great" },
+  maybe: { label: "Maybe", tone: "orange" },
+  skip: { label: "Skip", tone: "poor" },
+  buy: { label: "Buy", tone: "great" },
+  negotiate: { label: "Negotiate", tone: "orange" },
+  unsure: { label: "Unsure", tone: "muted" },
 };
 
-// a pay or price pill's colour: the match's (or the deal's) place on the money scale
-const MONEY: Record<string, string> = {
+// a pay or price pill's colour: the match's (or the deal's) place on the money scale, as its tone
+const MONEY: Record<string, Tone> = {
   great: "great",
   good: "good",
   weak: "fair",
@@ -79,8 +81,9 @@ const MONEY: Record<string, string> = {
   poor: "poor",
   over: "poor",
 };
-export const moneyColour = (tier: string | undefined) =>
-  tier && MONEY[tier] ? `var(--${MONEY[tier]})` : "var(--good)";
+export const moneyTone = (tier: string | undefined): string => `tone-${(tier && MONEY[tier]) || "good"}`;
+// where a dot sits on a bar: data, so it reaches the class as a variable
+const at = (left: string) => ({ "--at": left }) as CSSProperties;
 
 export const str = (v: unknown): string => (typeof v === "string" ? v : "");
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
@@ -116,43 +119,19 @@ export const day = (iso: string) => {
   return Number.isNaN(t) ? "" : new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 };
 
-function Ring({ tone }: { tone: string }) {
-  return (
-    <span
-      className={`${tone} inline-block h-[15px] w-[15px] shrink-0 rounded-full`}
-      style={{
-        border: "2.5px solid var(--tone)",
-        boxShadow: "inset 0 0 0 2.5px var(--surface)",
-        background: "var(--tone)",
-      }}
-    />
-  );
+function Ring({ tone }: { tone: Tone }) {
+  return <span className={`match-ring tone-${tone}`} aria-hidden="true" />;
 }
+
+const scoreTone = (n: number) => (n >= 80 ? "great" : n >= 60 ? "good" : n >= 40 ? "fair" : "poor");
 
 // a 0–100 score on the money scale (coral, amber, lime, mint), the dot where it sits in its own colour
 export function ScoreBar({ score }: { score: number }) {
-  const at = Math.max(0, Math.min(100, score));
-  const dot = moneyColour(at >= 80 ? "great" : at >= 60 ? "good" : at >= 40 ? "fair" : "poor");
+  const where = at(`${Math.max(0, Math.min(100, score))}%`);
   return (
-    <div
-      className="relative mt-1 mb-4 h-1.5 rounded-full"
-      style={{
-        background: "linear-gradient(90deg, var(--poor) 0%, var(--fair) 40%, var(--good) 65%, var(--great) 88%)",
-      }}
-    >
-      <span
-        className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full"
-        style={{
-          left: `${at}%`,
-          background: dot,
-          border: "3px solid var(--surface)",
-          boxShadow: `0 0 0 1px ${dot}`,
-        }}
-      />
-      <span
-        className="font-mono absolute top-3 -translate-x-1/2 text-[10.5px]"
-        style={{ left: `${at}%`, color: "var(--muted)" }}
-      >
+    <div className="money-bar money-bar-score">
+      <span className={`money-bar-dot tone-${scoreTone(score)}`} style={where} />
+      <span className="money-bar-mark" style={where}>
         {score}
       </span>
     </div>
@@ -163,69 +142,56 @@ export function ScoreBar({ score }: { score: number }) {
 export function PriceBar({ price, deal }: { price: number; deal: NonNullable<Listing["deal"]> }) {
   const lo = Math.min(price, deal.p25) * 0.75;
   const hi = Math.max(price, deal.p75) * 1.2;
-  const at = (v: number) => `${((v - lo) / (hi - lo)) * 100}%`;
+  const place = (v: number) => at(`${((v - lo) / (hi - lo)) * 100}%`);
   return (
-    <div
-      className="relative mt-1 mb-5 h-1.5 rounded-full"
-      style={{ background: "linear-gradient(90deg, var(--great) 0%, var(--fair) 50%, var(--poor) 100%)" }}
-    >
+    <div className="money-bar money-bar-price">
       {[deal.p25, deal.p75].map((v) => (
-        <span
-          key={v}
-          className="font-mono absolute top-3 -translate-x-1/2 text-[10.5px]"
-          style={{ left: at(v), color: "var(--muted)" }}
-        >
+        <span key={v} className="money-bar-mark" style={place(v)}>
           ${Math.round(v)}
         </span>
       ))}
-      <span
-        className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full"
-        style={{
-          left: at(price),
-          background: moneyColour(deal.tier),
-          border: "3px solid var(--surface)",
-          boxShadow: `0 0 0 1px ${moneyColour(deal.tier)}`,
-        }}
-      />
+      <span className={cx("money-bar-dot", moneyTone(deal.tier))} style={place(price)} />
     </div>
   );
 }
 
+// a box for a model's words (its read of a listing): an eyebrow in its tone, a chip beside it, the words under
 export function ReadBox({
   label,
   chip,
-  tone,
+  tone = "accent",
   chipTone,
   children,
 }: {
   label: string;
   chip?: string;
-  tone?: string;
-  chipTone?: string;
+  tone?: Tone;
+  chipTone?: Tone;
   children: ReactNode;
 }) {
   return (
-    <div className={`read-box ${tone ?? "tone-accent"} grid gap-1.5`}>
+    <div className={`read-box tone-${tone} grid gap-1.5`}>
       <div className="flex items-center gap-2">
-        <span className="eyebrow" style={{ color: "var(--tone)" }}>
-          {label}
-        </span>
-        {chip && <span className={`chip ${chipTone ?? tone ?? "tone-accent"}`}>{chip}</span>}
+        <span className={`eyebrow tone-${tone}`}>{label}</span>
+        {chip && <span className={`chip tone-${chipTone ?? tone}`}>{chip}</span>}
       </div>
-      <div className="text-[14.5px] leading-relaxed" style={{ color: "var(--text)" }}>
-        {children}
-      </div>
+      <div className="text-detail text-ink">{children}</div>
     </div>
   );
 }
 
-const fitTone = (fit: number) => (fit >= 7 ? "tone-great" : fit >= 4 ? "tone-fair" : "tone-poor");
-const APP_CHIP: Record<string, [string, string]> = {
-  sent: ["Sent", "tone-accent"],
-  "not-sent": ["Not sent", "tone-orange"],
-  "needs-me": ["Needs me", "tone-pink"],
-  applying: ["Applying", "tone-green"],
-  queued: ["Queued", "tone-muted"],
+const fitTone = (fit: number): Tone => (fit >= 7 ? "great" : fit >= 4 ? "fair" : "poor");
+const APP_CHIP: Record<string, [string, Tone]> = {
+  sent: ["Sent", "accent"],
+  "not-sent": ["Not sent", "orange"],
+  "needs-me": ["Needs me", "pink"],
+  applying: ["Applying", "green"],
+  queued: ["Queued", "muted"],
+};
+// a source as one name everywhere, on the cards and in the filter: "made-up-board" reads "Made up board"
+export const sourceName = (s: string) => {
+  const words = s.replaceAll("-", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
 };
 
 // the Apply button, or what became of it once pressed: queued, applying, waiting on me, sent; one not sent can go again
@@ -233,7 +199,7 @@ export function ApplyButton({ state, onQueue, pending }: { state?: string; onQue
   const chip = state && state !== "not-sent" ? APP_CHIP[state] : null;
   if (chip && !pending)
     return (
-      <span className={`chip chip-caps ml-auto inline-flex items-center gap-1.5 ${chip[1]}`}>
+      <span className={`chip chip-caps ml-auto inline-flex items-center gap-1.5 tone-${chip[1]}`}>
         {state === "applying" && <span className="dot tone-green pulse" />}
         {chip[0]}
       </span>
@@ -256,17 +222,22 @@ function Head({ l }: { l: Listing }) {
   const app = l.app && l.status === "new" ? APP_CHIP[l.app.state] : null;
   const group = str(l.data.family) || str(l.data.category);
   return (
-    <div className="flex items-center gap-2">
-      <span className={`chip chip-caps ${app ? app[1] : stage.tone}`}>{app ? app[0] : stage.label}</span>
-      {group && <span className="eyebrow truncate">{group}</span>}
-      <span className="eyebrow ml-auto truncate">{l.source.replaceAll("-", " ")}</span>
-      {(l.starred === 1 || (l.kind === "jobs" && l.priority)) && <span style={{ color: "var(--yellow)" }}>★</span>}
+    <div className="flex items-center gap-2 text-small text-muted">
+      <span className={`chip chip-caps tone-${app ? app[1] : stage.tone}`}>{app ? app[0] : stage.label}</span>
+      {group && <span className="min-w-0 truncate">{group}</span>}
+      <span className="ml-auto min-w-0 truncate">{sourceName(l.source)}</span>
+      {(l.starred === 1 || (l.kind === "jobs" && l.priority)) && (
+        <span className="text-yellow" title="Starred">
+          ★
+        </span>
+      )}
     </div>
   );
 }
 
 // the model's read stays on the card, words and all: it is short. The deep check shows only its verdict, as a chip in
-// the verdict's colour — the report waits in the open listing — or, with none yet, the blue button that starts one
+// the verdict's colour — the report waits in the open listing — or, with none yet, the quiet button that starts one
+// (Apply is the card's one main button)
 function Results({ l, onDeep, busy }: { l: Listing; onDeep: () => void; busy?: string }) {
   let verdict = "";
   try {
@@ -284,22 +255,21 @@ function Results({ l, onDeep, busy }: { l: Listing; onDeep: () => void; busy?: s
         <ReadBox
           label="Model's read"
           chip={fit != null ? `Fit ${fit}/10` : undefined}
-          tone="tone-accent"
           chipTone={fit != null ? fitTone(fit) : undefined}
         >
           {why}
         </ReadBox>
       )}
       <div className="flex flex-wrap items-center gap-1.5">
-        {!why && fit != null && <span className={`chip ${fitTone(fit)}`}>Model's read {fit}/10</span>}
+        {!why && fit != null && <span className={`chip tone-${fitTone(fit)}`}>Model's read {fit}/10</span>}
         {v && !running ? (
-          <span className={`chip ${v.tone}`}>
+          <span className={`chip tone-${v.tone}`}>
             Deep check · <b>{v.label}</b>
           </span>
         ) : (
           <button
             type="button"
-            className="btn btn-primary inline-flex items-center gap-2"
+            className="btn inline-flex items-center gap-2"
             disabled={running || busy === "deep"}
             onClick={(e) => {
               e.stopPropagation();
@@ -321,14 +291,22 @@ function Results({ l, onDeep, busy }: { l: Listing; onDeep: () => void; busy?: s
   );
 }
 
-const BUTTON_TONE: Record<string, string> = {
-  passed: "tone-red",
-  maybe: "tone-yellow",
-  interested: "tone-green",
-  applied: "tone-accent",
-  closed: "tone-muted",
+// the stages a card can be marked with, each in its colour: a choice, as pills; the picked one again sets it back
+const MARKS: Record<"jobs" | "deals", [string, string, Tone][]> = {
+  jobs: [
+    ["passed", "Not for me", "red"],
+    ["maybe", "Not sure", "yellow"],
+    ["interested", "Interested", "green"],
+  ],
+  deals: [
+    ["passed", "Not interested", "red"],
+    ["maybe", "Not sure", "yellow"],
+    ["interested", "Interested", "green"],
+    ["applied", "Contacted", "accent"],
+    ["closed", "Sold", "muted"],
+  ],
 };
-// the stage buttons under a card: the card stays where it is, a tap here never opens the sheet
+// the stage pills under a card: the card stays where it is, a tap here never opens the sheet
 function Stages({
   l,
   onStatus,
@@ -340,41 +318,26 @@ function Stages({
   extra?: ReactNode;
   busy?: string;
 }) {
-  const set: [string, string][] =
-    l.kind === "jobs"
-      ? [
-          ["passed", "Not for me"],
-          ["maybe", "? Not sure"],
-          ["interested", "✓ Interested"],
-        ]
-      : [
-          ["passed", "Not interested"],
-          ["maybe", "? Not sure"],
-          ["interested", "✓ Interested"],
-          ["applied", "Contacted"],
-          ["closed", "Sold"],
-        ];
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: the wrapper only stops the card's own tap
-    <div className="flex flex-wrap gap-2 pt-1" onClick={(e) => e.stopPropagation()} onKeyDown={undefined}>
-      {set.map(([s, label]) => (
-        <button
-          key={s}
-          type="button"
-          className={`btn ${BUTTON_TONE[s] ?? "tone-muted"}`}
-          aria-pressed={l.status === s}
-          style={{
-            borderColor: `color-mix(in srgb, var(--tone) ${l.status === s ? 90 : 45}%, var(--line))`,
-            color: "var(--tone)",
-            background: l.status === s ? "color-mix(in srgb, var(--tone) 16%, var(--surface))" : undefined,
-            fontWeight: l.status === s ? 600 : undefined,
-          }}
-          onClick={() => onStatus(l.status === s ? "new" : s)}
-        >
-          {busy === `status:${s}` && <span className="spin mr-1.5 align-[-1px]" />}
-          {label}
-        </button>
-      ))}
+    <div className="flex flex-wrap items-center gap-2 pt-1" onClick={(e) => e.stopPropagation()} onKeyDown={undefined}>
+      <Pills
+        label="Mark it"
+        options={MARKS[l.kind].map(([s, label, tone]) => ({
+          value: s,
+          tone,
+          label:
+            busy === `status:${s}` ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="spin" /> {label}
+              </span>
+            ) : (
+              label
+            ),
+        }))}
+        value={l.status}
+        onChange={(s) => onStatus(l.status === s ? "new" : s)}
+      />
       {extra}
     </div>
   );
@@ -383,13 +346,12 @@ function Stages({
 // the title opens the posting or the ad itself; the rest of the card opens the whole listing
 function Title({ l, text }: { l: Listing; text: string }) {
   return (
-    <h3 className="font-cond m-0 text-[21px] font-bold leading-tight">
+    <h3 className="font-cond m-0 text-head font-bold">
       <a
         href={l.link}
         target="_blank"
         rel="noopener noreferrer"
-        className="hover:underline"
-        style={{ color: "var(--strong)", textUnderlineOffset: 3 }}
+        className="text-strong underline-offset-3 hover:underline"
         onClick={(e) => e.stopPropagation()}
       >
         {text}
@@ -421,8 +383,7 @@ export function Swipe({
   };
   return (
     <div
-      className="relative"
-      style={{ touchAction: "pan-y" }}
+      className="relative touch-pan-y"
       onPointerDown={(e) => {
         if (e.pointerType === "mouse" && e.button !== 0) return;
         if ((e.target as HTMLElement).closest("a, button, input, textarea, select")) return;
@@ -461,18 +422,13 @@ export function Swipe({
     >
       {dx !== 0 && (
         <div
-          className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-2xl"
-          style={{
-            background:
-              dx > 0
-                ? "color-mix(in srgb, var(--green) 18%, transparent)"
-                : "color-mix(in srgb, var(--red) 16%, transparent)",
-            opacity: Math.min(1, Math.abs(dx) / (width.current / 3)),
-          }}
+          className={cx(
+            "pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-2xl",
+            dx > 0 ? "bg-green/18 text-green" : "bg-red/16 text-red",
+          )}
+          style={{ opacity: Math.min(1, Math.abs(dx) / (width.current / 3)) }}
         >
-          <span className="font-cond text-2xl font-bold" style={{ color: dx > 0 ? "var(--green)" : "var(--red)" }}>
-            {dx > 0 ? "✓ Interested" : leftLabel}
-          </span>
+          <span className="font-cond text-lead font-bold">{dx > 0 ? "Interested" : leftLabel}</span>
         </div>
       )}
       <div
@@ -486,6 +442,34 @@ export function Swipe({
       >
         {children}
       </div>
+    </div>
+  );
+}
+
+// when it was posted and found, the words that matter in the ink
+function When({ l }: { l: Listing }) {
+  const posted = str(l.data.posted);
+  return (
+    <p className="m-0 text-small text-muted">
+      {posted && (
+        <>
+          Posted <b className="text-ink">{ago(posted)}</b> · {day(posted)} ·{" "}
+        </>
+      )}
+      Found <b className="text-ink">{day(l.found)}</b>
+    </p>
+  );
+}
+
+// the match (or the deal) in a line: its ring, its name, and why
+function MatchLine({ tone, label, why }: { tone: Tone; label: string; why: string }) {
+  return (
+    <div className="flex items-start gap-2 text-detail">
+      <Ring tone={tone} />
+      <span>
+        <b className="text-strong">{label}</b>
+        {why && <span className="text-muted"> · {why}</span>}
+      </span>
     </div>
   );
 }
@@ -508,10 +492,12 @@ export function JobCard({
   const d = l.data;
   const pay = payOf(d);
   const m = MATCH[l.match];
-  const posted = str(d.posted);
+  const where = [str(d.location), str(d.workMode)].filter(Boolean);
   return (
+    // the whole card opens the listing and its title opens the posting, so it is the .card ground itself, not Card
+    // (Card's title would open the listing instead of the posting)
     <article
-      className="card card-link grid content-start gap-3 cursor-pointer"
+      className="card card-link card-stack cursor-pointer"
       aria-busy={Boolean(busy)}
       onClick={onOpen}
       onKeyDown={(e) => e.key === "Enter" && onOpen()}
@@ -520,32 +506,19 @@ export function JobCard({
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <Title l={l} text={str(d.title)} />
-          <p className="m-0 mt-1 text-[14.5px]" style={{ color: "var(--text)" }}>
+          <p className="m-0 mt-1 text-detail text-ink">
             {str(d.org)}
-            <span style={{ color: "var(--muted)" }}>
-              {[str(d.location), str(d.workMode)].filter(Boolean).length
-                ? ` · ${[str(d.location), str(d.workMode)].filter(Boolean).join(" · ")}`
-                : ""}
-            </span>
+            {where.length > 0 && (
+              <span className="text-muted">
+                {str(d.org) && " · "}
+                {where.join(" · ")}
+              </span>
+            )}
           </p>
         </div>
-        {pay && (
-          <span
-            className="font-mono shrink-0 rounded-lg px-2.5 py-1.5 text-[15px] font-bold"
-            style={{ background: moneyColour(l.match), color: "var(--bg)" }}
-          >
-            {pay}
-          </span>
-        )}
+        {pay && <span className={cx("money text-body", moneyTone(l.match))}>{pay}</span>}
       </div>
-      <p className="m-0 text-[13px]" style={{ color: "var(--muted)" }}>
-        {posted && (
-          <>
-            Posted <b style={{ color: "var(--text)" }}>{ago(posted)}</b> · {day(posted)} ·{" "}
-          </>
-        )}
-        Found <b style={{ color: "var(--text)" }}>{day(l.found)}</b>
-      </p>
+      <When l={l} />
       {(str(d.seniority) || str(d.employment)) && (
         <div className="flex flex-wrap gap-1.5">
           {str(d.seniority) && <span className="chip tone-muted">{str(d.seniority)}</span>}
@@ -555,15 +528,7 @@ export function JobCard({
           )}
         </div>
       )}
-      {m && (
-        <div className="flex items-start gap-2 text-[14px]">
-          <Ring tone={m.tone} />
-          <span>
-            <b style={{ color: "var(--strong)" }}>{m.label}</b>
-            {str(d.why) && <span style={{ color: "var(--muted)" }}> · {str(d.why)}</span>}
-          </span>
-        </div>
-      )}
+      {m && <MatchLine tone={m.tone} label={m.label} why={str(d.why)} />}
       {l.score != null && <ScoreBar score={l.score} />}
       <Results l={l} onDeep={onDeep} busy={busy} />
       <Stages
@@ -597,11 +562,9 @@ export function DealCard({
   const price = num(d.price);
   const deal = l.deal;
   const t = deal ? DEAL[deal.tier] : null;
-  const posted = str(d.posted);
-  const pill = !deal ? "var(--surface-2)" : moneyColour(deal.tier);
   return (
     <article
-      className="card card-link grid content-start gap-3 cursor-pointer"
+      className="card card-link card-stack cursor-pointer"
       aria-busy={Boolean(busy)}
       onClick={onOpen}
       onKeyDown={(e) => e.key === "Enter" && onOpen()}
@@ -610,42 +573,22 @@ export function DealCard({
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <Title l={l} text={str(d.title)} />
-          <p className="m-0 mt-1 text-[14.5px]" style={{ color: "var(--muted)" }}>
-            {str(d.location)}
-          </p>
+          <p className="m-0 mt-1 text-detail text-muted">{str(d.location)}</p>
         </div>
         {price != null && (
-          <span
-            className="font-mono shrink-0 rounded-lg px-3 py-1.5 text-[18px] font-bold"
-            style={{ background: pill, color: deal ? "var(--bg)" : "var(--strong)" }}
-          >
-            ${Math.round(price)}
-          </span>
+          <span className={cx("money text-head", deal && moneyTone(deal.tier))}>${Math.round(price)}</span>
         )}
       </div>
-      <p className="m-0 text-[13px]" style={{ color: "var(--muted)" }}>
-        {posted && (
-          <>
-            Posted <b style={{ color: "var(--text)" }}>{ago(posted)}</b> · {day(posted)} ·{" "}
-          </>
-        )}
-        Found <b style={{ color: "var(--text)" }}>{day(l.found)}</b>
-      </p>
+      <When l={l} />
       {deal && t && price != null && (
         <>
-          <div className="flex items-start gap-2 text-[14px]">
-            <Ring tone={t.tone} />
-            <span>
-              <b style={{ color: "var(--strong)" }}>{t.label}</b>
-              <span style={{ color: "var(--muted)" }}> · {deal.pct}% of the usual asking price</span>
-            </span>
-          </div>
+          <MatchLine tone={t.tone} label={t.label} why={`${deal.pct}% of the usual asking price`} />
           <PriceBar price={price} deal={deal} />
-          <p className="m-0 text-[13.5px]" style={{ color: "var(--muted)" }}>
+          <p className="m-0 text-small text-muted">
             {deal.under > 0 ? (
-              <b style={{ color: "var(--green)" }}>${deal.under} under</b>
+              <b className="text-green">${deal.under} under</b>
             ) : (
-              <b style={{ color: "var(--red)" }}>${-deal.under} over</b>
+              <b className="text-red">${-deal.under} over</b>
             )}{" "}
             the usual ${Math.round(deal.median)} used, from {deal.n} listings.
           </p>
