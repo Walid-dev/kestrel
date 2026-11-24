@@ -1,6 +1,6 @@
 // Ask on Notes: what an open document's page shows the model (its text and my notes on it) and the one change the
 // model may propose there: a note, on exact words of the document or on the whole of it, as a card I tap. A note
-// tapped joins my others, and the page's own "Ask for changes" turns them into an edit I review, save and can undo:
+// tapped joins my others, and the page's own Apply turns them into an edit I review, save and can undo:
 // the document has one way to change.
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
@@ -55,7 +55,7 @@ export function describeNote(db: DatabaseSync, ref: string, action: unknown): st
 export function runNote(db: DatabaseSync, _settings: unknown, ref: string, action: unknown): string {
   const a = Note.parse(action);
   addNote(db, ref, { quote: a.quote, text: a.text });
-  return "Noted, with your other notes: Ask for changes turns them into an edit.";
+  return "Noted, with your other notes: Apply turns them into changes you check first.";
 }
 
 export const notesHelper = { page: notesPage, act: { describe: describeNote, run: runNote } };

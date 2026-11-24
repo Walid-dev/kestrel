@@ -1,4 +1,4 @@
-// Drafts: "Ask for changes" starts one; the model answers in the set shape; the code places each change in the
+// Drafts: Apply (the reader's button) starts one; the model answers in the set shape; the code places each change in the
 // original text; the draft waits in the database until I save or discard it. One draft is made at a time (the model
 // queue is serial anyway), and a set too long for the model is refused before any call, with what to do instead.
 import { randomUUID } from "node:crypto";

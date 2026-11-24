@@ -98,3 +98,36 @@ test("undo refuses when the file changed after the save, and touches nothing (R2
   assert.throws(() => undoSave(db, doc.id), /changed after the save/);
   assert.match(readFileSync(file, "utf8"), /newer edit/); // the newer edit survives
 });
+
+test("a change dropped in the review isn't written, and its note stays open", async () => {
+  const base = mkdtempSync(join(tmpdir(), "kestrel-keep-"));
+  const folder = join(base, "docs");
+  mkdirSync(folder);
+  const file = join(folder, "a.md");
+  writeFileSync(file, "The plan has three parts. It runs for six weeks.\n");
+  const db = new DatabaseSync(join(base, "t.db"));
+  migrate(db, join(base, "t.db"));
+  const cfg = settings(folder, "http://127.0.0.1:1");
+  const doc = openFile(db, cfg, file);
+  const parts = addNote(db, doc.id, { text: "two, not three", quote: "three parts" });
+  const weeks = addNote(db, doc.id, { text: "four weeks now", quote: "six weeks" });
+  const label = realpathSync(file);
+  const s = await startStandIn(() => ({
+    content: JSON.stringify({
+      overview: "Two changes.",
+      changes: [
+        { document: label, find: "three parts", replace: "two parts", notes: [parts.id] },
+        { document: label, find: "six weeks", replace: "four weeks", notes: [weeks.id] },
+      ],
+      unanswered: [],
+    }),
+  }));
+  const made = startDraft(db, settings(folder, s.url), { documentIds: [doc.id], speed: "careful" });
+  await made.done;
+  await s.close();
+  // the review dropped the first change (place 0) and kept the second (place 1)
+  assert.equal(saveDraft(db, made.id, doc.id, [1]).saved, 1);
+  assert.equal(readFileSync(file, "utf8"), "The plan has three parts. It runs for four weeks.\n");
+  const state = Object.fromEntries(listNotes(db, doc.id).map((n) => [n.id, n.state]));
+  assert.deepEqual(state, { [parts.id]: "open", [weeks.id]: "done" });
+});
