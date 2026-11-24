@@ -1,14 +1,15 @@
 // Home: the launcher, and the page that carries the name: the date over it and the pink wolf with kestrel as its
-// title (there is no bar above the pages). What needs me first, then this morning's brief as one small strip of
-// figures, what waits and what comes next, each opening its page, then the apps as one list of rows (two columns on a computer), each in a few words and opening
-// its app, then Cost and Models, the two pages about the models.
+// title (there is no bar above the pages), what kestrel is in two lines beside them. The morning's news first, then
+// what needs me, then this morning's brief as one small strip of figures, what waits and what comes next, each opening
+// its page, then the apps as one list of rows (two columns on a computer), each in a few words and opening its app,
+// then Cost and Models, the two pages about the models.
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { useChatLink } from "./chats.tsx";
 import { LiveStrip } from "./live-strip.tsx";
 import { Mark } from "./mark.tsx";
-import { NewsCard } from "./news/card.tsx";
+import { NEWS_ICON, NewsCard } from "./news/card.tsx";
 import { cx } from "./ui/cx.ts";
 import { List, Row } from "./ui/list.tsx";
 import { Page } from "./ui/page.tsx";
@@ -60,6 +61,7 @@ export const ICONS: Record<string, ReactNode> = {
       <path d="m8.5 12.5 2.5 2.5 4.5-5" />
     </svg>
   ),
+  News: NEWS_ICON,
   Chat: (
     <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
       <path d="M4.5 5.5h15v10h-9L6 19v-3.5H4.5z" />
@@ -93,6 +95,7 @@ const APP_COLOR: Record<string, string> = {
   Learn: "text-purple",
   Notes: "text-accent",
   Tasks: "text-pink",
+  News: "text-indigo",
   Research: "text-yellow",
   Quiz: "text-teal",
   Applications: "text-orange",
@@ -100,7 +103,7 @@ const APP_COLOR: Record<string, string> = {
   "Interview prep": "text-good",
 };
 
-// the order is mine: Searches, Chat, Learn, Notes, Tasks, then the rest
+// the order is mine: Searches, Chat, Learn, Notes, Tasks, News, then the rest
 const APPS: { name: string; what: string; to: string }[] = [
   {
     name: "Searches",
@@ -119,6 +122,7 @@ const APPS: { name: string; what: string; to: string }[] = [
     to: "/notes",
   },
   { name: "Tasks", what: "My list, and the agents'", to: "/tasks" },
+  { name: "News", what: "The morning's AI and tech news", to: "/news" },
   {
     name: "Research",
     what: "Questions answered from the web",
@@ -323,13 +327,14 @@ export function Home() {
     <Page
       eyebrow={today()}
       title={
-        <span className="inline-flex items-center gap-2">
+        <span className="flex items-center gap-2">
           <Mark size={24} />
           kestrel
         </span>
       }
-      line="One app, one computer, my own models."
+      aside={["One app, one computer,", "local models."]}
     >
+      <NewsCard />
       <LiveStrip />
       {brief.data && (
         <section className="home-figs" aria-label="This morning">
@@ -385,7 +390,6 @@ export function Home() {
             ))}
         </section>
       )}
-      <NewsCard />
       <List cols label="The apps">
         {APPS.map((app) => (
           <Row

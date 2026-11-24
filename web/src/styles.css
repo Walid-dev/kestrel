@@ -30,6 +30,7 @@
   --color-cyan: var(--cyan);
   --color-teal: var(--teal);
   --color-magenta: var(--magenta);
+  --color-indigo: var(--indigo);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
@@ -140,6 +141,8 @@
   --cyan: #86e1fc;
   --teal: #5fd4c8;
   --magenta: #e88bd6;
+  /* News' own blue: a periwinkle, between the accent's sky and the purple, 5.5:1 on the surface (measured) */
+  --indigo: #818cf8;
   --ok: #c3e88d;
   --warn: #ff966c;
   --warn-soft: rgba(255, 150, 108, 0.14);
@@ -229,6 +232,7 @@
     --cyan: #0b7a99;
     --teal: #0e8a7f;
     --magenta: #a8327f;
+    --indigo: #4f46e5;
     --ok: #1a7f37;
     --warn: #b35900;
     --warn-soft: rgba(179, 89, 0, 0.1);
@@ -520,6 +524,9 @@ h3 {
 }
 .tone-cyan {
   --tone: var(--cyan);
+}
+.tone-indigo {
+  --tone: var(--indigo);
 }
 /* the money scale's tones: a match or a deal, from great to poor */
 .tone-great {
@@ -1304,6 +1311,34 @@ h3 {
   max-width: 64ch;
   color: var(--muted);
   text-wrap: pretty;
+}
+/* a head with an aside (Home's): the eyebrow and the title on the left, a short statement on the right past a thin
+   rule, as tall as they are, its first line level with the eyebrow and its last with the title. The two blocks sit
+   side by side at every width. Each of its two lines stays one line, so it keeps two; when room runs short the
+   title's column gives way, not the statement's */
+.page-head-aside {
+  grid-template-columns: minmax(0, max-content) max-content;
+  column-gap: 16px;
+}
+.page-head-aside > .eyebrow,
+.page-head-aside > .page-title-row {
+  grid-column: 1;
+}
+.page-aside {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+  margin: 0;
+  padding-left: 16px;
+  border-left: 1px solid var(--line);
+  font: var(--text-small) / var(--text-small--line-height) var(--sans);
+  color: var(--muted);
+}
+.page-aside > span {
+  white-space: nowrap;
 }
 /* the page's own buttons: on touch, or in a narrow window, one wrapping row 12 under the line; under a mouse with the
    room, on the title's row, at its right, centred on it, the line going under both */
@@ -4655,10 +4690,11 @@ body:has(.paper-view) {
 .list-row:has(.writing-busy) {
   opacity: 0.55;
 }
-/* News on Home (web/src/news/card.tsx): one small card under the figures, the whole card one link to the page. On a
-   phone: the head (the eyebrow, when, the count) with the chevron beside it, then the three headlines one line each,
-   the source after it in mono, the headline giving way first. From 48rem, as the figures above: one row of columns,
-   the head first, each headline over its source, so the card is no taller than they */
+/* News on Home (web/src/news/card.tsx): one small card, Home's first, the whole card one link to the page. On a
+   phone: the head (News in its indigo, when, the count) with the chevron beside it, then the three headlines one line
+   each, its section's dot before it and the source after it in mono, the headline giving way first. From 48rem, as
+   the figures under it: one row of columns, the head first, each headline over its source, so the card is no taller
+   than they. Colour only in marks and words, never a ground */
 .news-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -4695,7 +4731,16 @@ body:has(.paper-view) {
 .news-card-count {
   flex: none;
   font: var(--text-small) / var(--text-small--line-height) var(--mono);
+  font-variant-numeric: tabular-nums;
   color: var(--muted);
+}
+/* the time and the count read as the figures do: the value in ink, its word quiet */
+.news-card-when {
+  color: var(--text);
+}
+.news-card-count b {
+  font-weight: 500;
+  color: var(--strong);
 }
 .news-card-count {
   margin-left: auto;
@@ -4727,6 +4772,14 @@ body:has(.paper-view) {
   flex: 0 1 auto;
   font: 500 var(--text-detail) / var(--text-detail--line-height) var(--sans);
   color: var(--text);
+}
+/* the section's dot leads the headline, inside it, so the line still ends in … as one; small, as a pill's */
+.news-card-headline > .dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  vertical-align: 0.1em;
 }
 /* the source keeps its name: the longest short name is 12 letters */
 .news-card-src {
@@ -4769,6 +4822,10 @@ body:has(.paper-view) {
     flex-direction: column;
     align-items: stretch;
     gap: 2px;
+  }
+  /* the source under its headline's words, past the dot (6 + 6) */
+  .news-card-line > .news-card-src {
+    margin-left: 12px;
   }
   .news-card-note {
     grid-column: 2 / -2;

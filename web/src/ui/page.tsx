@@ -15,6 +15,10 @@ export type HeadProps = {
   eyebrow?: ReactNode;
   // one line under the title: what the page is for, or where things stand
   line?: ReactNode;
+  // a short statement beside the head, as two short lines (Home's "One app, one computer, / local models."): set
+  // past a thin rule, its first line level with the eyebrow and its last with the title, at every width. It needs an
+  // eyebrow and takes the place of the line; each part stays one line, so keep both a few words
+  aside?: [ReactNode, ReactNode];
   // the page's own buttons
   actions?: ReactNode;
   // the page above this one, by name: "Learn", a pack
@@ -26,7 +30,16 @@ export type HeadProps = {
   titleAs?: "h1" | "div";
 };
 
-export function PageHead({ title, eyebrow, line, actions, back, sticky = false, titleAs: Title = "h1" }: HeadProps) {
+export function PageHead({
+  title,
+  eyebrow,
+  line,
+  aside,
+  actions,
+  back,
+  sticky = false,
+  titleAs: Title = "h1",
+}: HeadProps) {
   const bar = Boolean(back) || sticky;
   return (
     <>
@@ -55,7 +68,7 @@ export function PageHead({ title, eyebrow, line, actions, back, sticky = false, 
           {actions && <div className="page-tools">{actions}</div>}
         </div>
       )}
-      <header className="page-head">
+      <header className={cx("page-head", aside && "page-head-aside")}>
         {eyebrow && <span className="eyebrow">{eyebrow}</span>}
         {/* read in this order (title, line, buttons), as a phone shows it; a wider screen moves the buttons up beside
             the title (styles.css) */}
@@ -64,6 +77,11 @@ export function PageHead({ title, eyebrow, line, actions, back, sticky = false, 
           {line && <p className="page-line">{line}</p>}
           {actions && !bar && <div className="page-actions">{actions}</div>}
         </div>
+        {aside && (
+          <p className="page-aside">
+            <span>{aside[0]}</span> <span>{aside[1]}</span>
+          </p>
+        )}
       </header>
     </>
   );
