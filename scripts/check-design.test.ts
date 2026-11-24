@@ -59,3 +59,31 @@ test("the ratchet fails a file that grew, passes one that held, and names one th
   assert.deepEqual(over, ["a.tsx", "c.tsx"]);
   assert.deepEqual(under, ["d.tsx"]);
 });
+
+test("a style held in a named object, a CSSProperties object or a shorthand key is still counted", () => {
+  const named = `const box = { color: "var(--pink)", fontSize: 13 };\nconst el = <b style={box} />;`;
+  assert.deepEqual(
+    scan(named).map((h) => [h.line, h.what]),
+    [
+      [1, "inline color"],
+      [1, "inline fontSize"],
+    ],
+  );
+  assert.equal(scan(named)[0].fix, "text-pink");
+  const typed = `const s: CSSProperties = {\n  background: "var(--surface)",\n};`;
+  assert.deepEqual(
+    scan(typed).map((h) => [h.line, h.what]),
+    [[2, "inline background"]],
+  );
+  assert.deepEqual(
+    scan(`<b style={{ color, padding }} />`).map((h) => h.what),
+    ["inline color", "inline padding"],
+  );
+  // an object no style reads is not a look: a query's options, a record's fields
+  assert.equal(scan(`const q = { color: "red-team", gap: 2 };`).length, 0);
+});
+
+test("a link to a place on the page is not a raw colour", () => {
+  assert.equal(scan(`<a href="#feed">Feed</a>`).length, 0);
+  assert.equal(scan(`const ink = "#feed";`).length, 1);
+});

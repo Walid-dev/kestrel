@@ -430,6 +430,7 @@ h3 {
 }
 .seg button {
   display: grid;
+  place-content: center;
   justify-items: center;
   gap: 2px;
   padding: 11px 10px;
@@ -654,13 +655,14 @@ h3 {
   gap: 6px;
   min-width: 0;
 }
-/* one row: the back link gives way first (its name ends in …), then the buttons wrap among themselves. On a page it
-   sits close over the head it belongs to (the page's gap is 20 px, the head's own 6) */
+/* one row when the back link keeps room for its name (14em, about twenty letters): past that its name ends in …;
+   with less, the buttons drop to a row of their own, on the right, so the back link always says where it goes. On a
+   page it sits close over the head it belongs to (the page's gap is 20 px, the head's own 6) */
 .page-bar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 0 8px;
   min-height: 44px;
 }
 .page > .page-bar {
@@ -697,10 +699,10 @@ h3 {
 }
 .page-back {
   display: inline-flex;
-  justify-self: start;
+  flex: 1 1 14em;
   align-items: center;
   gap: 6px;
-  max-width: 100%;
+  max-width: max-content;
   min-width: 0;
   min-height: 44px;
   padding-right: 10px;
@@ -724,7 +726,7 @@ h3 {
   gap: 8px;
 }
 .page-tools {
-  grid-column: 2;
+  margin-left: auto;
   justify-content: flex-end;
 }
 .page-title-row {
@@ -861,6 +863,7 @@ h3 {
    16 px always, so a phone never zooms into it; it grows with the words */
 .field {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
   min-width: 0;
 }
@@ -888,6 +891,9 @@ h3 {
   background: transparent;
   color: var(--strong);
   font: 400 16px / 1.5 var(--sans);
+  /* a box sized by its words is as wide as its longest one: a pasted link would push the box past the screen, so
+     a long word breaks anywhere */
+  overflow-wrap: anywhere;
 }
 textarea.field-input {
   field-sizing: content;
@@ -2110,7 +2116,8 @@ dialog:focus-visible {
   a.btn,
   input.btn,
   select.btn,
-  .pill {
+  .pill,
+  .seg button {
     min-height: 44px;
   }
   /* a link dressed as a button centres its words in the taller box, as a button does by itself */

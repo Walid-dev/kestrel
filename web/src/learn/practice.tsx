@@ -1,5 +1,5 @@
 // Practice: what is due, one check at a time — say your answer, show the real one, grade yourself honestly. The head
-// says where things stand in Learn's own words (to review today, new), so the numbers match on both pages.
+// counts this page's own queue (the lessons it can ask), so its number never names a lesson the page won't show.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Card } from "../ui/card.tsx";
@@ -8,7 +8,7 @@ import { Page } from "../ui/page.tsx";
 import { STATE } from "./lesson.tsx";
 
 type Lesson = { id: string; title: string; body: { check: { q: string; a: string }[] } };
-type Overview = { summary: { due: number; new: number }; lessons: { id: string; state: string }[] };
+type Overview = { lessons: { id: string; state: string }[] };
 
 export function LearnPractice() {
   const queryClient = useQueryClient();
@@ -22,7 +22,7 @@ export function LearnPractice() {
       return (await res.json()) as { lessons: Lesson[] };
     },
   });
-  // the same query as Learn's front page, so the pair of numbers is the same one
+  // the same query as Learn's front page, for the state chip of the lesson asked
   const overview = useQuery({
     queryKey: ["learn-overview", area],
     queryFn: async () => {
@@ -46,8 +46,8 @@ export function LearnPractice() {
       queryClient.invalidateQueries({ queryKey: ["learn-overview"] });
     },
   });
-  const next = (due.data?.lessons ?? []).find((l) => l.body.check.length > 0);
-  const s = overview.data?.summary;
+  const asks = (due.data?.lessons ?? []).filter((l) => l.body.check.length > 0);
+  const next = asks[0];
   const state = STATE[overview.data?.lessons.find((l) => l.id === next?.id)?.state ?? ""];
   const failed = due.error ?? grade.error;
   return (
@@ -55,7 +55,7 @@ export function LearnPractice() {
       width="reading"
       back={area === "interview" ? { to: "/interview", label: "Interview prep" } : { to: "/learn", label: "Learn" }}
       title="Practice"
-      line={s && `${s.due} to review today, and ${s.new} new.`}
+      line={asks.length > 0 && `${asks.length} to ask today.`}
     >
       {failed ? (
         <p className="m-0 text-detail text-red">{String((failed as Error).message)}</p>

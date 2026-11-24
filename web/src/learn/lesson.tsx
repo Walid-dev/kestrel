@@ -36,6 +36,9 @@ type Lesson = {
 };
 // a lesson's four states, each with its name and its one colour, the same on every chip and in the progress bar:
 // the one to act on today stands out, a new one stays quiet
+// a pack's name as a title: stored in lower case, shown with its first letter up, the same on the pack and its lessons
+export const titled = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+
 export const STATE: Record<string, { label: string; tone: Tone }> = {
   due: { label: "Review today", tone: "cyan" },
   new: { label: "New", tone: "muted" },
@@ -186,7 +189,7 @@ export function LearnLesson() {
   const back =
     L.area === "interview"
       ? { to: "/interview", label: "Interview prep" }
-      : { to: `/learn?pack=${encodeURIComponent(L.pack)}`, label: L.packName || "Learn" };
+      : { to: `/learn?pack=${encodeURIComponent(L.pack)}`, label: titled(L.packName) || "Learn" };
   const sibs = siblings.data?.lessons ?? [];
   const at = sibs.findIndex((l) => l.id === id);
   const state = STATE[L.state] ?? STATE.new;
@@ -306,7 +309,6 @@ export function LearnLesson() {
       sticky
       actions={
         <>
-          <span className={`chip chip-caps tone-${state.tone}`}>{state.label}</span>
           <button
             type="button"
             className="btn btn-primary"
@@ -328,6 +330,8 @@ export function LearnLesson() {
       }
       eyebrow={[b.part, b.eyebrow].filter(Boolean).join(" · ") || undefined}
       title={title}
+      // the state sits under the title, not in the bar: on a phone the bar keeps its room for the back link's name
+      line={<span className={`chip chip-caps tone-${state.tone}`}>{state.label}</span>}
     >
       {lede && <p className="m-0 text-read text-ink">{lede}</p>}
       {body}

@@ -9,7 +9,7 @@ import { EmptyState } from "../ui/empty.tsx";
 import { Field } from "../ui/field.tsx";
 import { Page } from "../ui/page.tsx";
 import { Pills, type Tone } from "../ui/pills.tsx";
-import { STATE } from "./lesson.tsx";
+import { STATE, titled } from "./lesson.tsx";
 
 type Pack = {
   id: string;
@@ -37,7 +37,6 @@ type Overview = {
   lessons: Row[];
 };
 
-export const titled = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 const lessonPath = (id: string) => `/learn/lesson/${encodeURIComponent(id)}`;
 // a part of the progress bar: its length is data, so it reaches the class as a variable
 const share = (n: number, total: number) => ({ "--part": `${(n / total) * 100}%` }) as CSSProperties;

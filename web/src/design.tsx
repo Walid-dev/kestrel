@@ -208,6 +208,10 @@ export function Design() {
   const [note, setNote] = useState("");
   const [sent, setSent] = useState<string[]>([]);
   const [find, setFind] = useState("");
+  // one long word with no space, as a pasted link is: the box must break it, never widen the page
+  const [link, setLink] = useState(
+    "https://example.com/made-up/beehive-sensors/a-very-long-path-with-no-spaces-in-it/and-a-query?hive=7&frame=12&reading=temperature-and-humidity",
+  );
 
   return (
     <Page
@@ -253,7 +257,7 @@ export function Design() {
 
         <Part
           title="Page and PageHead"
-          when="Every page starts with it: one title size, one case. A page with a parent gets the back link, its buttons on the same bar (it can stay on top while the page scrolls); a top page has its buttons beside the title. Two widths, both from the left edge under kestrel: wide for lists, reading for text."
+          when="Every page starts with it: one title size, one case. A page with a parent gets the back link, its buttons on the same bar (it can stay on top while the page scrolls; when the back link would keep less than about twenty letters of its name, the buttons drop to a row of their own); a top page has its buttons beside the title. Two widths, both from the left edge under kestrel: wide for lists, reading for text."
         >
           <Frame label="A top page">
             <PageHead
@@ -271,11 +275,14 @@ export function Design() {
               back={{ to: "/design", label: "A made-up pack" }}
               eyebrow="Part 2 · Topic 2.3"
               title="How a load balancer picks a worker"
+              line={<span className="chip chip-caps tone-cyan">Review today</span>}
               actions={
                 <>
-                  <span className="chip chip-caps tone-cyan">Review today</span>
                   <button type="button" className="btn btn-primary">
                     ▶ Listen
+                  </button>
+                  <button type="button" className="btn">
+                    Slow
                   </button>
                 </>
               }
@@ -518,6 +525,7 @@ export function Design() {
             onSend={() => setSaved(typed)}
             tall
           />
+          <Field label="A pasted link" value={link} onChange={setLink} onSend={() => setLink("")} sendLabel="Save" />
           <Field label="Search the lessons" value={find} onChange={setFind} />
         </Part>
 

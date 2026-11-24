@@ -48,20 +48,30 @@ function fixFor(key: string, value: string): string {
   return SPACE;
 }
 
+// a key with its value (color: "var(--muted)"), or a key alone, the shorthand of a variable by that name ({ color })
 const KEY =
-  /[{,]\s*["']?(color|background(?:Color)?|border(?:Top|Right|Bottom|Left|Block|Inline)?(?:Color)?|outlineColor|fill|stroke|fontSize|fontFamily|font|lineHeight|padding\w*|margin\w*|gap|rowGap|columnGap)["']?\s*:(?=([^\n]*))/g;
-const RAW = /(?<![&\w])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b|\b(?:rgba?|hsla?|oklch|oklab)\(/g;
+  /[{,]\s*["']?(color|background(?:Color)?|border(?:Top|Right|Bottom|Left|Block|Inline)?(?:Color)?|outlineColor|fill|stroke|fontSize|fontFamily|font|lineHeight|padding\w*|margin\w*|gap|rowGap|columnGap)["']?\s*(?::(?=([^\n]*))|(?=[,}]))/g;
+// a link to a place on the page (href="#feed") is not a colour
+const RAW =
+  /(?<![&\w]|(?:href|to)=["'`])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b|\b(?:rgba?|hsla?|oklch|oklab)\(/g;
 const OK = /design-ok:\s*\S/;
 
-// each style={…} in the text, its body found by counting braces outside strings
+// the object a style reads: each style={…} in the text, each object a style={name} names (const name = {…}), and each
+// object typed as a style (CSSProperties = {…}), so a look moved out of the attribute is still counted. A body runs
+// from its opening brace to the one that closes it, counted outside strings
 function styleBodies(text: string): { at: number; body: string }[] {
+  const starts = new Set<number>();
+  for (const m of text.matchAll(/\bstyle=\{/g)) starts.add(m.index + m[0].length - 1);
+  for (const m of text.matchAll(/\bstyle=\{\s*(\w+)\s*\}/g))
+    for (const d of text.matchAll(new RegExp(`\\b(?:const|let|var)\\s+${m[1]}\\b[^=\\n]*=\\s*\\{`, "g")))
+      starts.add(d.index + d[0].length - 1);
+  for (const m of text.matchAll(/\bCSSProperties\s*=\s*\{/g)) starts.add(m.index + m[0].length - 1);
   const out: { at: number; body: string }[] = [];
-  for (const m of text.matchAll(/\bstyle=\{/g)) {
-    const at = m.index + m[0].length;
-    let depth = 1;
+  for (const at of [...starts].sort((a, b) => a - b)) {
+    let depth = 0;
     let quote = "";
     let i = at;
-    for (; i < text.length && depth > 0; i++) {
+    for (; i < text.length; i++) {
       const ch = text[i];
       if (quote) {
         if (ch === "\\") i++;
@@ -69,8 +79,9 @@ function styleBodies(text: string): { at: number; body: string }[] {
       } else if (ch === '"' || ch === "'" || ch === "`") quote = ch;
       else if (ch === "{") depth++;
       else if (ch === "}") depth--;
+      if (depth === 0) break;
     }
-    out.push({ at, body: text.slice(at, i - 1) });
+    out.push({ at, body: text.slice(at, i + 1) });
   }
   return out;
 }
@@ -86,7 +97,7 @@ export function scan(text: string): Hit[] {
   for (const { at, body } of styleBodies(text))
     for (const m of body.matchAll(KEY)) {
       const line = lineAt(at + m.index + m[0].indexOf(m[1]));
-      if (!OK.test(lines[line - 1])) hits.push({ line, what: `inline ${m[1]}`, fix: fixFor(m[1], m[2]) });
+      if (!OK.test(lines[line - 1])) hits.push({ line, what: `inline ${m[1]}`, fix: fixFor(m[1], m[2] ?? "") });
     }
   lines.forEach((l, i) => {
     if (OK.test(l)) return;
