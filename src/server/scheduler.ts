@@ -27,9 +27,14 @@ export type SchedulerDirs = {
 // is one failed entry in Live and one log line. In memory, by folder: a restart tries at once.
 const copyFailed = new Map<string, number>();
 const RETRY_COPY_MS = 3_600_000;
-// the old setup's run mark (domain/search/import-v1.ts) each mirror last saw, by old database. In memory: the first
-// tick after a restart mirrors once, catching up a run that ended while kestrel was down.
+// the old setup's run mark (domain/search/import-v1.ts), by old database: the one the last mirror saw, and the newest
+// with the minute it first showed. A round of the old setup writes a row as each of its searches ends, a minute or two
+// apart (about 20 deal searches, then the jobs): the mirror waits until the mark has stayed still SETTLE_MS, so a
+// round brings one mirror, not one per search. In memory: a restart mirrors once, SETTLE_MS after its first tick,
+// catching up a run that ended while kestrel was down.
 const mirrorSaw = new Map<string, string>();
+const mirrorMark = new Map<string, { mark: string; since: number }>();
+const SETTLE_MS = 5 * 60_000;
 
 let ticking = false; // one tick at a time: a slow collector must never stack duplicate runs behind itself
 
@@ -74,14 +79,20 @@ async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promis
     }
     did.push(`search:${spec.id}`);
   }
-  // the side-by-side weeks' mirror, while mirror-v1.json names the old database: its new finds flow in at the first
-  // tick after each of its runs ends (its run mark moved: one read-only query a minute), and everything, statuses I
-  // marked there included, every everyMinutes at the latest
+  // the side-by-side weeks' mirror, while mirror-v1.json names the old database: its new finds flow in once its runs
+  // have settled (its run mark moved, then stayed still SETTLE_MS: one read-only query a minute), and everything,
+  // statuses I marked there included, every everyMinutes at the latest
   const mirror = readMirror(dirs.mirrorFile);
   if (mirror) {
     const last = lastRun(db, "mirror:v1");
     const mark = v1RunMark(mirror.from);
-    const ran = mark !== null && mark !== mirrorSaw.get(mirror.from);
+    let ran = false;
+    if (mark !== null) {
+      const seen = mirrorMark.get(mirror.from);
+      const since = seen?.mark === mark ? seen.since : now.getTime();
+      mirrorMark.set(mirror.from, { mark, since });
+      ran = mark !== mirrorSaw.get(mirror.from) && now.getTime() - since >= SETTLE_MS;
+    }
     if (!last || ran || now.getTime() - new Date(last.started).getTime() >= mirror.everyMinutes * 60_000) {
       let found = 0;
       let kept = 0;
@@ -105,7 +116,7 @@ async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promis
       db.prepare(
         "INSERT INTO search_runs (id, search, started, ms, found, kept, problem) VALUES (?, ?, ?, 0, ?, ?, ?)",
       ).run(randomUUID(), "mirror:v1", now.toISOString(), found, kept, problem);
-      // seen even when the import failed: a failing mirror tries again at the next run or by the clock, not every
+      // seen even when the import failed: a failing mirror tries again after the next round or by the clock, not every
       // minute (each try is one failed entry in Live), and its problem shows on the hunt's line meanwhile
       if (mark !== null) mirrorSaw.set(mirror.from, mark);
       did.push("mirror:v1");

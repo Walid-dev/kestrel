@@ -84,7 +84,7 @@ test("a copy that keeps failing tries once an hour, not every minute (review: on
   assert.equal(failed() - before, 2);
 });
 
-test("the mirror brings the old setup's finds at the first tick after each of its runs, the clock at the latest", async () => {
+test("the mirror brings the old setup's finds once its runs settle, one mirror a round, the clock at the latest", async () => {
   const { base, db } = setup();
   const from = join(base, "old.db");
   const old = new DatabaseSync(from);
@@ -96,28 +96,49 @@ test("the mirror brings the old setup's finds at the first tick after each of it
     put.run(id, `https://example.com/${id}`, `made co|${id}`, JSON.stringify({ title: `Keeper ${id}` }));
   // an old run writes its row as it ends, stamped with the time it started
   const ran = (id: string, started: string) => old.prepare("INSERT INTO job_runs VALUES (?, ?, '{}')").run(id, started);
+  const dealRan = (id: string) =>
+    old.prepare("INSERT INTO runs VALUES (?, 'made-up-chairs', '2026-11-21 10:00:00')").run(id);
   const mirrorFile = join(base, "mirror-v1.json");
   writeFileSync(mirrorFile, JSON.stringify({ from, everyMinutes: 1440 }));
   const dirs = { specsDir: join(base, "searches"), backupsDir: join(base, "backups"), mirrorFile };
-  const mirrors = async (at: string) => (await tick(db, dirs, new Date(at))).includes("mirror:v1");
+  // a tick every minute from one time to another, as the server runs them: the minutes that mirrored
+  const mirrored = async (at: string, to: string, during: Record<string, () => void> = {}) => {
+    const hit: string[] = [];
+    for (let t = new Date(at).getTime(); t <= new Date(to).getTime(); t += 60_000) {
+      const hhmm = new Date(t).toISOString().slice(11, 16);
+      during[hhmm]?.();
+      if ((await tick(db, dirs, new Date(t))).includes("mirror:v1")) hit.push(hhmm);
+    }
+    return hit;
+  };
   const listed = () => (db.prepare("SELECT COUNT(*) AS n FROM listings").get() as { n: number }).n;
   job("o1");
-  ran("r1", "2026-11-21T14:00:00.000Z");
-  assert.ok(await mirrors("2026-11-21T14:10:00Z"));
+  ran("r1", "2026-11-21T09:00:00.000Z");
+  assert.deepEqual(await mirrored("2026-11-21T09:30:00Z", "2026-11-21T09:40:00Z"), ["09:30"]); // the first mirror
   assert.equal(listed(), 1);
-  assert.ok(!(await mirrors("2026-11-21T14:11:00Z"))); // no run since: no mirror
-  job("o2");
-  ran("r2", "2026-11-21T22:00:00.000Z");
-  assert.ok(await mirrors("2026-11-21T22:06:00Z")); // the next run's find, a minute after it ends, not a day
+  // a round: three deal searches end a minute or two apart, then the job run, which started before the deals ended
+  const round = {
+    "10:01": () => dealRan("d1"),
+    "10:02": () => dealRan("d2"),
+    "10:04": () => dealRan("d3"),
+    "10:06": () => {
+      job("o2");
+      ran("r2", "2026-11-21T10:03:00.000Z");
+    },
+  };
+  // one mirror, five quiet minutes after the round's last row, not one per search
+  assert.deepEqual(await mirrored("2026-11-21T10:00:00Z", "2026-11-21T10:30:00Z", round), ["10:11"]);
   assert.equal(listed(), 2);
   // a run that started before that mirror and ended after it still brings its finds
-  job("o3");
-  ran("r3", "2026-11-21T22:04:00.000Z");
-  assert.ok(await mirrors("2026-11-21T22:09:00Z"));
+  const late = {
+    "10:40": () => {
+      job("o3");
+      ran("r3", "2026-11-21T10:09:00.000Z");
+    },
+  };
+  assert.deepEqual(await mirrored("2026-11-21T10:31:00Z", "2026-11-21T10:50:00Z", late), ["10:45"]);
   assert.equal(listed(), 3);
-  old.prepare("INSERT INTO runs VALUES ('d1', 'made-up-chairs', '2026-11-21 22:30:00')").run(); // a deal search's run
-  assert.ok(await mirrors("2026-11-21T22:31:00Z"));
-  assert.ok(!(await mirrors("2026-11-22T22:30:00Z"))); // no run for a day: not yet
-  assert.ok(await mirrors("2026-11-22T22:31:00Z")); // everyMinutes after the last mirror: the clock
+  // no run for a day: the clock, everyMinutes after the last mirror
+  assert.deepEqual(await mirrored("2026-11-22T10:43:00Z", "2026-11-22T10:47:00Z"), ["10:45"]);
   old.close();
 });
