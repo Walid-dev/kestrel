@@ -3,8 +3,11 @@
 // kestrel's own frame, in kestrel's look, so it opens like the rest of the app; its own window goes through dsh's door,
 // which carries the sign-in. dsh lets only pages on the same machine name show it in a frame.
 import { useQuery } from "@tanstack/react-query";
-import { useLayoutEffect, useRef, useState } from "react";
+import { type CSSProperties, useLayoutEffect, useRef, useState } from "react";
 import { StopRunning } from "./stop.tsx";
+import { Card } from "./ui/card.tsx";
+import { EmptyState } from "./ui/empty.tsx";
+import { Page, PageHead } from "./ui/page.tsx";
 
 type Link = { name: string; what: string; desktop: string; phone?: string; phoneFrame?: string };
 
@@ -31,21 +34,21 @@ export function Chats() {
   const { link, loaded } = useChatLink();
   if (loaded && !link)
     return (
-      <main className="grid gap-3">
-        <h2 className="font-cond m-0 text-[28px] font-bold">Chat</h2>
-        <p className="m-0 text-sm" style={{ color: "var(--muted)" }}>
-          No chat app is set yet (settings.json: links).
-        </p>
-      </main>
+      <Page title="Chat">
+        <EmptyState
+          title="No chat app is set yet."
+          line="Once its address is in the settings, the chats open here."
+          detail="settings.json: links"
+        />
+      </Page>
     );
   if (!link) return null;
   // a computer: dsh's own app, signed in at this address
   if (onComputer())
     return (
-      <main className="grid max-w-2xl gap-4">
-        <h2 className="font-cond m-0 text-[34px] font-bold uppercase leading-none tracking-tight">Chat</h2>
-        <section className="card grid gap-3">
-          <p className="m-0 text-[15px]" style={{ color: "var(--text)" }}>
+      <Page title="Chat" width="reading">
+        <Card>
+          <p className="m-0 text-ink">
             On this computer, your chats open in the DeepSeek Harness itself, where this browser is signed in.
           </p>
           <a
@@ -56,9 +59,9 @@ export function Chats() {
           >
             Open the DeepSeek Harness ↗
           </a>
-        </section>
+        </Card>
         <StopRunning className="card" />
-      </main>
+      </Page>
     );
   return <ChatFrame link={link} />;
 }
@@ -82,28 +85,29 @@ function ChatFrame({ link }: { link: Link }) {
     window.addEventListener("resize", fit);
     return () => window.removeEventListener("resize", fit);
   }, []);
+  // the frame's height is measured on the page, so it reaches the class as a variable
+  const fitted = height === undefined ? undefined : ({ "--frame-h": `${height}px` } as CSSProperties);
   return (
-    // the frame takes the page's side gutters and its room for the bottom bar, which it fills itself
+    // the frame takes the page's side gutters and its room for the bottom bar, which it fills itself; the head keeps
+    // them, so the title starts where every page's does
     <main className="-mx-4 -mb-28 grid md:-mx-6 md:-mb-16">
-      <div className="flex items-center gap-3 px-4 pb-2 md:px-6">
-        <h2 className="font-cond m-0 text-[20px] font-bold leading-none">Chat</h2>
-        <a
-          href={link.phone ?? frame}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="ml-auto shrink-0 text-[13px] font-medium"
-          style={{ color: "var(--accent)" }}
-        >
-          Its own window ↗
-        </a>
+      <div className="grid gap-2 px-4 pb-3 md:px-6">
+        <PageHead
+          title="Chat"
+          actions={
+            <a href={link.phone ?? frame} target="_blank" rel="noopener noreferrer" className="btn btn-quiet">
+              Open in its own window ↗
+            </a>
+          }
+        />
+        <StopRunning />
       </div>
-      <StopRunning className="px-4 pb-2 md:px-6" />
       <iframe
         ref={box}
         title="Chat"
         src={frame}
-        className="block w-full border-0"
-        style={{ height, background: "var(--bg)" }}
+        className={`block w-full border-0 bg-page ${fitted ? "h-(--frame-h)" : ""}`}
+        style={fitted}
         allow="clipboard-read; clipboard-write; microphone"
       />
     </main>

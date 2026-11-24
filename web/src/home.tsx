@@ -1,10 +1,11 @@
-// Home: the launcher. Each app is a card; the ones still being built say which version brings them (docs/PLAN.md)
-// and stay quiet until then.
+// Home: the launcher. What needs me and this morning's brief first, then each app as a card that opens it, then Cost
+// and Models, the two pages about the models themselves.
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { Link } from "react-router";
 import { useChatLink } from "./chats.tsx";
 import { LiveStrip } from "./live-strip.tsx";
+import { Card } from "./ui/card.tsx";
+import { Page } from "./ui/page.tsx";
 
 export const STROKE = {
   fill: "none",
@@ -78,86 +79,89 @@ export const ICONS: Record<string, ReactNode> = {
   ),
 };
 
-// each app its own colour, the same on Home's cards and in the dock: no two apps share one
-// each app's own colour, no two alike (Searches green, my pick)
+// each app its own colour, no two alike (Searches green, my pick), as a colour class so it follows the theme
 const APP_COLOR: Record<string, string> = {
-  Home: "var(--strong)",
-  Searches: "var(--great)",
-  Chat: "var(--cyan)",
-  Learn: "var(--purple)",
-  Notes: "var(--accent)",
-  Tasks: "var(--pink)",
-  Research: "var(--yellow)",
-  Quiz: "var(--teal)",
-  Applications: "var(--orange)",
-  Writing: "var(--magenta)",
-  "Interview prep": "var(--good)",
-  Live: "var(--green)",
+  Searches: "text-great",
+  Chat: "text-cyan",
+  Learn: "text-purple",
+  Notes: "text-accent",
+  Tasks: "text-pink",
+  Research: "text-yellow",
+  Quiz: "text-teal",
+  Applications: "text-orange",
+  Writing: "text-magenta",
+  "Interview prep": "text-good",
 };
 
 // the order is mine: Searches, Chat, Learn, Notes, Tasks, then the rest
-const APPS: { name: string; what: string; when: string; to: string | null }[] = [
+const APPS: { name: string; what: string; to: string }[] = [
   {
     name: "Searches",
     what: "Job and deal hunts that run on their own, each listing whole, deep checks on a tap.",
-    when: "v0.2",
     to: "/searches",
   },
   {
     name: "Chat",
     what: "The agent's chats, live as they work: write to one, answer its questions, stop it.",
-    when: "",
     to: "/chats",
   },
-  {
-    name: "Learn",
-    what: "One lesson per page, read aloud, with practice and Ask.",
-    when: "v0.4",
-    to: "/learn",
-  },
+  { name: "Learn", what: "One lesson per page, read aloud, with practice and Ask.", to: "/learn" },
   {
     name: "Notes",
     what: "A document, my notes on its words, and the changes the computer's model proposes.",
-    when: "v0.1",
     to: "/notes",
   },
-  {
-    name: "Tasks",
-    what: "One line each; an agent closes one with a note of what was done.",
-    when: "v0.5",
-    to: "/tasks",
-  },
+  { name: "Tasks", what: "One line each; an agent closes one with a note of what was done.", to: "/tasks" },
   {
     name: "Research",
     what: "Ask anything: the computer's model searches the web, quick or deep, and writes it plain, like a lesson.",
-    when: "v0.6",
     to: "/research",
   },
   {
     name: "Quiz",
     what: "Questions from my lessons; the model marks my answer, explains it and answers my questions. My place is kept.",
-    when: "v0.6",
     to: "/quiz",
   },
   {
     name: "Applications",
     what: "One page by state; what needs me waits here and nothing gets lost.",
-    when: "v0.3",
     to: "/applications",
   },
   {
     name: "Writing",
     what: "A cover letter, a form's answer or any text for a job, written the way an application writes it.",
-    when: "v0.6",
     to: "/writing",
   },
   {
     name: "Interview prep",
     what: "Answers to say for a job or a project, and the helper that finds them while you're asked.",
-    when: "v0.4",
     to: "/interview",
   },
 ];
+
+// an app's card: its icon in its colour, its name, what it does
+function AppFace({ name, what }: { name: string; what: string }) {
+  return (
+    <>
+      <span className="flex items-center gap-3">
+        <span className={APP_COLOR[name]}>{ICONS[name]}</span>
+        <span className="font-cond text-head font-bold text-strong">{name}</span>
+      </span>
+      <span className="text-detail text-muted">{what}</span>
+    </>
+  );
+}
+
+// Cost and Models: one line each, the name and what it shows
+function ToolFace({ icon, name, what }: { icon: ReactNode; name: string; what: string }) {
+  return (
+    <span className="flex items-center gap-3">
+      <span className="text-yellow">{icon}</span>
+      <span className="font-cond text-head font-bold text-strong">{name}</span>
+      <span className="ml-auto min-w-0 truncate text-detail text-muted">{what}</span>
+    </span>
+  );
+}
 
 export function Home() {
   const chat = useChatLink();
@@ -170,103 +174,66 @@ export function Home() {
     },
     refetchInterval: 5 * 60_000,
   });
+  const lines = brief.data?.lines ?? [];
   return (
-    <main className="grid gap-3.5 md:grid-cols-2">
-      <LiveStrip />
-      {brief.data && (
-        <section className="card md:col-span-2">
-          <p className="font-mono mb-1.5 text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--muted)" }}>
-            This morning
-          </p>
-          {(brief.data.lines ?? []).map((line) => (
-            <p key={line} className="text-sm leading-relaxed">
-              {line}
-            </p>
-          ))}
-        </section>
-      )}
-      <p
-        className="font-mono mt-1 mb-1 text-[11px] uppercase tracking-[0.18em] md:col-span-2"
-        style={{ color: "var(--muted)" }}
-      >
-        One app · one computer · my own models
-      </p>
-      {APPS.map((app) => {
-        const soon = app.to === null; // a card without a door isn't here yet
-        const card = (
-          <section
-            key={app.name}
-            className="rounded-2xl border p-5 transition-all duration-200 hover:-translate-y-px"
-            style={{
-              borderColor: "var(--line)",
-              background: "var(--surface)",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.18)",
-            }}
-          >
-            <div className="flex items-center gap-3">
-              <span style={{ color: APP_COLOR[app.name], opacity: soon ? 0.75 : 1 }}>{ICONS[app.name]}</span>
-              <h2 className="font-cond text-xl font-bold" style={{ color: soon ? "var(--muted)" : "var(--text)" }}>
-                {app.name}
-              </h2>
-              {app.when && (
-                <span
-                  className="font-mono ml-auto rounded-full px-2.5 py-1 text-[11px]"
-                  style={
-                    soon
-                      ? { background: "var(--surface-2)", color: "var(--muted)" }
-                      : { background: "var(--accent-soft)", color: "var(--accent)" }
-                  }
-                >
-                  {app.when}
-                </span>
-              )}
+    <Page title="Home" line="One app, one computer, my own models.">
+      <div className="grid gap-3 md:grid-cols-2">
+        <LiveStrip />
+        {lines.length > 0 && (
+          <Card wide>
+            <span className="eyebrow">This morning</span>
+            <div>
+              {lines.map((line) => (
+                <p key={line} className="m-0">
+                  {line}
+                </p>
+              ))}
             </div>
-            <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
-              {app.what}
-            </p>
-          </section>
-        );
-        if (app.to === "/chats" && chat.external)
-          return (
-            <a key={app.name} href={chat.href} target="_blank" rel="noopener noreferrer" aria-label="Open Chat">
-              {card}
+          </Card>
+        )}
+        {APPS.map((app) =>
+          // on a computer, Chat opens the chat app itself, in its own tab, where this browser is signed in
+          app.to === "/chats" && chat.external ? (
+            <a
+              key={app.name}
+              href={chat.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="card card-link card-stack"
+            >
+              <AppFace name={app.name} what={app.what} />
             </a>
-          );
-        return app.to === null ? (
-          card
-        ) : (
-          <Link key={app.name} to={app.to} aria-label={`Open ${app.name}`}>
-            {card}
-          </Link>
-        );
-      })}
-      <Link to="/cost" className="card card-link flex items-center gap-3">
-        <span style={{ color: "var(--yellow)" }}>
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-            <circle cx="9" cy="9" r="5.5" />
-            <path d="M14.5 9.6a5.5 5.5 0 1 1-4.9 4.9" />
-          </svg>
-        </span>
-        <span className="font-cond text-lg font-bold">Cost</span>
-        <span className="ml-auto truncate text-sm" style={{ color: "var(--muted)" }}>
-          what the models cost
-        </span>
-      </Link>
-      <Link
-        to="/models"
-        className="card flex items-center gap-3 transition-all duration-200 hover:-translate-y-px md:col-span-2"
-      >
-        <span style={{ color: "var(--yellow)" }}>
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-            <circle cx="12" cy="12" r="8.5" />
-            <path d="M12 7.5v4.5l3 2" />
-          </svg>
-        </span>
-        <span className="font-cond text-lg font-bold">Models</span>
-        <span className="ml-auto text-sm" style={{ color: "var(--muted)" }}>
-          which model runs each job
-        </span>
-      </Link>
-    </main>
+          ) : (
+            <Card key={app.name} to={app.to}>
+              <AppFace name={app.name} what={app.what} />
+            </Card>
+          ),
+        )}
+        <Card to="/cost">
+          <ToolFace
+            name="Cost"
+            what="what the models cost"
+            icon={
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
+                <circle cx="9" cy="9" r="5.5" />
+                <path d="M14.5 9.6a5.5 5.5 0 1 1-4.9 4.9" />
+              </svg>
+            }
+          />
+        </Card>
+        <Card to="/models">
+          <ToolFace
+            name="Models"
+            what="which model runs each job"
+            icon={
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
+                <circle cx="12" cy="12" r="8.5" />
+                <path d="M12 7.5v4.5l3 2" />
+              </svg>
+            }
+          />
+        </Card>
+      </div>
+    </Page>
   );
 }

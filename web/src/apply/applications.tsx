@@ -9,6 +9,11 @@ import { Ask } from "../ask.tsx";
 import { useEvents } from "../events.ts";
 import { ago, day } from "../search/cards.tsx";
 import { ListingSheet } from "../search/sheet.tsx";
+import { Card } from "../ui/card.tsx";
+import { EmptyState } from "../ui/empty.tsx";
+import { Field } from "../ui/field.tsx";
+import { Page } from "../ui/page.tsx";
+import { Pills, type Tone } from "../ui/pills.tsx";
 
 type Application = {
   id: string;
@@ -24,13 +29,19 @@ type Application = {
 };
 type Lists = { byState: Record<string, Application[]>; counts: Record<string, number> };
 
-const STATES: { state: string; title: string; tone: string; what: string }[] = [
-  { state: "needs-me", title: "Needs me", tone: "tone-pink", what: "a step only I can do" },
-  { state: "applying", title: "Applying now", tone: "tone-green", what: "an agent is on the form" },
-  { state: "queued", title: "Queued", tone: "tone-muted", what: "starts by itself once nothing else is at work" },
-  { state: "not-sent", title: "Not sent", tone: "tone-orange", what: "stopped before sending, with why" },
-  { state: "sent", title: "Sent", tone: "tone-accent", what: "the form went through" },
+// each state in its one colour: needs me pink, at work green, as on every page
+const STATES: { state: string; title: string; tone: Tone; what: string }[] = [
+  { state: "needs-me", title: "Needs me", tone: "pink", what: "A step only I can do." },
+  { state: "applying", title: "Applying now", tone: "green", what: "An agent is on the form." },
+  { state: "queued", title: "Queued", tone: "muted", what: "Starts by itself once nothing else is at work." },
+  { state: "not-sent", title: "Not sent", tone: "orange", what: "Stopped before sending, with why." },
+  { state: "sent", title: "Sent", tone: "accent", what: "The form went through." },
 ];
+const PERIODS = [
+  ["7", "This week"],
+  ["30", "30 days"],
+  ["all", "All time"],
+] as const;
 const PAGE = 60;
 
 export function Applications() {
@@ -88,6 +99,7 @@ export function Applications() {
   const counts = lists.data?.counts ?? {};
   const state =
     pick ?? ((counts["needs-me"] ?? 0) > 0 ? "needs-me" : (counts["not-sent"] ?? 0) > 0 ? "not-sent" : "sent");
+  const shown = STATES.find((x) => x.state === state);
   // the picked state, then the words and the period
   const since = period === "all" ? 0 : Date.now() - Number(period) * 86_400_000;
   const needle = q.trim().toLowerCase();
@@ -103,190 +115,142 @@ export function Applications() {
   const failed = [lists, retry, sent].find((x) => x.isError);
 
   return (
-    <main className="grid gap-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="font-cond m-0 text-[34px] font-bold uppercase leading-none tracking-tight">Applications</h2>
-        <Link to="/searches" className="btn btn-quiet">
-          Find jobs to queue →
-        </Link>
-        {!told && typeof Notification !== "undefined" && (
-          <button
-            type="button"
-            className="btn ml-auto"
-            onClick={async () => setTold((await Notification.requestPermission()) === "granted")}
-          >
-            Tell me on this phone
-          </button>
-        )}
-      </div>
-
-      <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
-        {STATES.map((x) => (
-          <button
-            key={x.state}
-            type="button"
-            title={x.what}
-            className={`card ${x.tone} flex items-center gap-2 !px-3 !py-2 text-left`}
-            style={
-              state === x.state
-                ? { borderColor: "var(--tone)", boxShadow: "0 0 0 1px var(--tone)" }
-                : { cursor: "pointer" }
-            }
-            onClick={() => {
-              setPick(x.state);
-              setLimit(PAGE);
-            }}
-          >
-            <span className="dot" />
-            <span className="min-w-0 flex-1 truncate text-[13px]" style={{ color: "var(--muted)" }}>
-              {x.title}
-            </span>
-            <span className="font-cond text-[22px] font-bold leading-none" style={{ color: "var(--strong)" }}>
-              {counts[x.state] ?? 0}
-            </span>
-          </button>
-        ))}
-      </section>
-      <section className="flex flex-wrap gap-2">
-        <input
-          type="search"
-          className="btn min-w-0 flex-1"
-          placeholder="Search title, company or reason"
+    <Page
+      title="Applications"
+      actions={
+        <>
+          <Link to="/searches" className="btn">
+            Find jobs
+          </Link>
+          {!told && typeof Notification !== "undefined" && (
+            <button
+              type="button"
+              className="btn"
+              onClick={async () => setTold((await Notification.requestPermission()) === "granted")}
+            >
+              Notify this phone
+            </button>
+          )}
+        </>
+      }
+    >
+      <Pills
+        label="State"
+        options={STATES.map((x) => ({ value: x.state, label: x.title, tone: x.tone, count: counts[x.state] ?? 0 }))}
+        value={state}
+        onChange={(v) => {
+          setPick(v);
+          setLimit(PAGE);
+        }}
+      />
+      {/* the words on a row of their own, so the box keeps its width on a phone; the period under it, beside it wider */}
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_20rem] md:items-center">
+        <Field
+          label="Search title, company or reason"
           value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
+          onChange={(v) => {
+            setQ(v);
             setLimit(PAGE);
           }}
         />
-        {(
-          [
-            ["7", "This week"],
-            ["30", "30 days"],
-            ["all", "All time"],
-          ] as const
-        ).map(([k, label]) => (
-          <button key={k} type="button" className="pill" aria-pressed={period === k} onClick={() => setPeriod(k)}>
-            {label}
-          </button>
-        ))}
-      </section>
+        <fieldset className="seg" aria-label="Period">
+          {PERIODS.map(([k, label]) => (
+            <button key={k} type="button" aria-pressed={period === k} onClick={() => setPeriod(k)}>
+              {label}
+            </button>
+          ))}
+        </fieldset>
+      </div>
 
-      <section className="card flex flex-wrap items-center gap-x-6 gap-y-2 text-[14.5px]">
-        <span className="eyebrow">After sending</span>
-        <span>
-          <b className="font-mono" style={{ color: "var(--orange)" }}>
-            {s.interviewing ?? 0}
-          </b>{" "}
-          interviewing
-        </span>
-        <span>
-          <b className="font-mono" style={{ color: "var(--green)" }}>
-            {s.offer ?? 0}
-          </b>{" "}
-          offers
-        </span>
-        <span>
-          <b className="font-mono" style={{ color: "var(--red)" }}>
-            {s.rejected ?? 0}
-          </b>{" "}
-          rejected
-        </span>
-        <span>
-          <b className="font-mono" style={{ color: "var(--accent)" }}>
-            {s.applied ?? 0}
-          </b>{" "}
-          waiting for an answer
-        </span>
-        <span className="ml-auto" style={{ color: "var(--muted)" }}>
-          This week: <b style={{ color: "var(--text)" }}>{sentWeek}</b> sent,{" "}
-          <b style={{ color: "var(--text)" }}>{stoppedWeek}</b> stopped
-        </span>
-      </section>
+      <Card>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-detail">
+          <span className="eyebrow">After sending</span>
+          <span>
+            <b className="font-mono text-orange">{s.interviewing ?? 0}</b> interviewing
+          </span>
+          <span>
+            <b className="font-mono text-green">{s.offer ?? 0}</b> offers
+          </span>
+          <span>
+            <b className="font-mono text-red">{s.rejected ?? 0}</b> rejected
+          </span>
+          <span>
+            <b className="font-mono text-accent">{s.applied ?? 0}</b> waiting for an answer
+          </span>
+          <span className="ml-auto text-muted">
+            This week: <b className="text-ink">{sentWeek}</b> sent, <b className="text-ink">{stoppedWeek}</b> stopped
+          </span>
+        </div>
+      </Card>
 
-      {failed && (
-        <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-          {String((failed.error as Error).message)}
-        </p>
-      )}
+      {failed && <p className="m-0 text-detail text-red">{String((failed.error as Error).message)}</p>}
 
       <section className="grid gap-3">
-        <h3 className="font-cond m-0 text-xl font-bold">
-          {STATES.find((x) => x.state === state)?.title}{" "}
-          <span className="font-mono text-sm" style={{ color: "var(--muted)" }}>
-            {rows.length}
-          </span>
-        </h3>
+        <div className="grid gap-1">
+          <h2 className="font-cond m-0 text-head font-bold">
+            {shown?.title} <span className="font-mono text-small text-muted">{rows.length}</span>
+          </h2>
+          {shown && <p className="m-0 text-small text-muted">{shown.what}</p>}
+        </div>
         {lists.data && rows.length === 0 && (
-          <p className="m-0 text-sm" style={{ color: "var(--muted)" }}>
-            Nothing here right now.
-          </p>
+          <EmptyState
+            title="Nothing here right now."
+            line={needle || period !== "all" ? "Other words or a longer period may find some." : undefined}
+          />
         )}
         <div className="grid gap-3 md:grid-cols-2">
-          {rows.slice(0, limit).map((a) => (
-            <article
-              key={a.id}
-              className={`card grid content-start gap-2 ${a.listing ? "card-link cursor-pointer" : ""}`}
-              onClick={() => a.listing && setOpen(a.listing)}
-              onKeyDown={(e) => e.key === "Enter" && a.listing && setOpen(a.listing)}
-            >
-              <div className="flex items-center gap-2">
-                <span className={`chip chip-caps ${STATES.find((x) => x.state === a.state)?.tone ?? "tone-muted"}`}>
-                  {STATES.find((x) => x.state === a.state)?.title ?? a.state}
-                </span>
-                <span className="text-[12.5px]" style={{ color: "var(--muted)" }}>
-                  {ago(a.updated)} · {day(a.updated)}
-                </span>
-                <span className="eyebrow ml-auto truncate">{a.agent}</span>
-              </div>
-              <h4 className="font-cond m-0 text-[19px] font-bold leading-tight">
-                <a
-                  href={a.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:underline"
-                  style={{ color: "var(--strong)", textUnderlineOffset: 3 }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {a.title || a.link}
-                </a>
-              </h4>
-              {a.org && (
-                <p className="m-0 text-[14px]" style={{ color: "var(--text)" }}>
-                  {a.org}
-                </p>
-              )}
-              {a.reason && (
-                <p
-                  className="m-0 rounded-lg px-3 py-2 text-[13.5px]"
-                  style={{ background: a.state === "needs-me" ? "var(--pink-soft)" : "var(--warn-soft)" }}
-                >
-                  {a.reason}
-                </p>
-              )}
-              {/* biome-ignore lint/a11y/noStaticElementInteractions: the wrapper only stops the card's own tap */}
-              <div className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()} onKeyDown={undefined}>
-                <a
-                  href={a.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn"
-                  style={{ color: "var(--accent)" }}
-                >
-                  The posting ↗
-                </a>
-                {a.state === "needs-me" && (
-                  <button type="button" className="btn" disabled={sent.isPending} onClick={() => sent.mutate(a.id)}>
-                    I sent it
-                  </button>
-                )}
-                {a.state === "not-sent" && (
-                  <button type="button" className="btn" disabled={retry.isPending} onClick={() => retry.mutate(a.id)}>
-                    Retry
-                  </button>
-                )}
-              </div>
-            </article>
-          ))}
+          {rows.slice(0, limit).map((a) => {
+            const st = STATES.find((x) => x.state === a.state);
+            return (
+              <Card
+                key={a.id}
+                tone={a.state === "needs-me" ? "pink" : undefined}
+                title={a.title || a.link}
+                // the title opens the listing whole, here; the posting has its own button
+                onOpen={a.listing ? () => a.listing && setOpen(a.listing) : undefined}
+                meta={
+                  <>
+                    <span className={`chip chip-caps tone-${st?.tone ?? "muted"}`}>{st?.title ?? a.state}</span>
+                    <span className="text-small text-muted">
+                      {ago(a.updated)} · {day(a.updated)}
+                    </span>
+                    {a.agent && <span className="eyebrow ml-auto truncate">{a.agent}</span>}
+                  </>
+                }
+              >
+                <div className="grid gap-3">
+                  {a.org && <p className="m-0 text-ink">{a.org}</p>}
+                  {a.reason && (
+                    <p
+                      className={`m-0 rounded-lg px-3 py-2 text-ink ${a.state === "needs-me" ? "bg-pink-soft" : "bg-warn-soft"}`}
+                    >
+                      {a.reason}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    <a href={a.link} target="_blank" rel="noopener noreferrer" className="btn">
+                      The posting ↗
+                    </a>
+                    {a.state === "needs-me" && (
+                      <button type="button" className="btn" disabled={sent.isPending} onClick={() => sent.mutate(a.id)}>
+                        I sent it
+                      </button>
+                    )}
+                    {a.state === "not-sent" && (
+                      <button
+                        type="button"
+                        className="btn"
+                        disabled={retry.isPending}
+                        onClick={() => retry.mutate(a.id)}
+                      >
+                        Retry
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
         </div>
         {rows.length > limit && (
           <button type="button" className="btn justify-self-center" onClick={() => setLimit((n) => n + PAGE)}>
@@ -308,6 +272,6 @@ export function Applications() {
         onChange={() => queryClient.invalidateQueries({ queryKey: ["apply"] })}
       />
       {open && <ListingSheet id={open} onClose={() => setOpen(null)} />}
-    </main>
+    </Page>
   );
 }
