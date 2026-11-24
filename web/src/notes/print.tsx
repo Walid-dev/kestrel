@@ -2,7 +2,8 @@
 // nothing of the app around it, so the browser's own print makes the new PDF; no package, nothing made on the
 // computer's side. A page of its own (/notes/<id>/print, opened in a tab of its own) because a home-screen app on the
 // iPhone can't print in place: there, Share, Print, Save to Files. On a computer the print dialog opens by itself
-// (Save as PDF is in it) and the tab closes after.
+// (Save as PDF is in it) and the tab closes after. On Android the button opens the system's print screen, whose list
+// at the top (a printer's name) holds Save as PDF: the page says so first, and never opens it by itself.
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { Link, useParams } from "react-router";
@@ -10,8 +11,21 @@ import { docKind } from "../../../src/shared/markdown.ts";
 import type { DocumentFull } from "../../../src/shared/notes.ts";
 import { Markdown } from "../ui/markdown.tsx";
 
-// a computer: a fine pointer that can hover (an iPad with a trackpad still shares through its own sheet)
-const computer = () => matchMedia("(pointer: fine) and (hover: hover)").matches && navigator.maxTouchPoints < 2;
+// which way to a PDF this device takes. A computer: a fine pointer that can hover (an iPad with a trackpad still
+// shares through its own sheet). Android: Chrome's print screen. Else the iPhone's (or iPad's) share sheet.
+type Device = "computer" | "android" | "iphone";
+const device = (): Device =>
+  matchMedia("(pointer: fine) and (hover: hover)").matches && navigator.maxTouchPoints < 2
+    ? "computer"
+    : /Android/i.test(navigator.userAgent)
+      ? "android"
+      : "iphone";
+const HOW: Record<Device, string> = {
+  computer: "In the print dialog, choose Save as PDF.",
+  android:
+    "Tap Save as PDF. On the next screen, open the list at the top (where a printer's name shows), choose Save as PDF, then tap the round PDF button.",
+  iphone: "To keep it as a PDF: tap Share, then Print, then Save to Files.",
+};
 
 export function NotesPrint() {
   const { id = "" } = useParams();
@@ -35,7 +49,7 @@ export function NotesPrint() {
   // on a computer, the print dialog once the fonts are in; the tab it opened in closes after
   const printed = useRef(false);
   useEffect(() => {
-    if (!doc.data || printed.current || !computer()) return;
+    if (!doc.data || printed.current || device() !== "computer") return;
     let gone = false;
     document.fonts.ready.then(() =>
       requestAnimationFrame(() => {
@@ -57,19 +71,16 @@ export function NotesPrint() {
       </div>
     );
   if (!doc.data) return <div className="paper-view" />;
+  const on = device();
   return (
     <div className="paper-view">
       <div className="paper-bar">
         <Link to={`/notes/${encodeURIComponent(id)}`} className="paper-back">
           ← Back to the document
         </Link>
-        <span className="paper-how">
-          {computer()
-            ? "In the print dialog, choose Save as PDF."
-            : "To keep it as a PDF: tap Share, then Print, then Save to Files."}
-        </span>
+        <span className="paper-how">{HOW[on]}</span>
         <button type="button" className="btn" onClick={() => window.print()}>
-          Print
+          {on === "iphone" ? "Print" : "Save as PDF"}
         </button>
       </div>
       <article className="paper">
