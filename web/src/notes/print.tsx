@@ -4,11 +4,12 @@
 // iPhone can't print in place: there, Share, Print, Save to Files. On a computer the print dialog opens by itself
 // (Save as PDF is in it) and the tab closes after. On Android the button opens the system's print screen, whose list
 // at the top (a printer's name) holds Save as PDF: the page says so first, as three short steps, and never opens it
-// by itself.
+// by itself. On paper it is set like a well-made document (styles.css, "Save as PDF"): no browser header or footer
+// (the date, the title, the page's address), close type, and a CV's look for a document that starts like one.
 import { useQuery } from "@tanstack/react-query";
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useMemo, useRef } from "react";
 import { Link, useParams } from "react-router";
-import { docKind } from "../../../src/shared/markdown.ts";
+import { type DocKind, docKind, parse } from "../../../src/shared/markdown.ts";
 import type { DocumentFull } from "../../../src/shared/notes.ts";
 import { Markdown } from "../ui/markdown.tsx";
 
@@ -37,6 +38,18 @@ const HOW: Record<Device, ReactNode> = {
   ),
   iphone: "To keep it as a PDF: tap Share, then Print, then Save to Files.",
 };
+
+// a document that starts like a CV: a PDF's (or a text's) lines whose first line is short and ends no sentence (a
+// name), with section headings further on. On paper the name is large, the lines under it small (a role, a contact
+// line), the headings take a rule, and a line over a list (a role and its dates) is bold.
+function startsLikeCv(text: string, kind: DocKind): boolean {
+  if (kind !== "lines") return false;
+  const blocks = parse(text, kind);
+  const name = text.trimStart().split("\n", 1)[0].trim();
+  return (
+    blocks[0]?.k === "para" && name.length <= 40 && !/[.!?:;,]$/.test(name) && blocks.some((b) => b.k === "heading")
+  );
+}
 
 export function NotesPrint() {
   const { id = "" } = useParams();
@@ -75,6 +88,7 @@ export function NotesPrint() {
     };
   }, [doc.data]);
 
+  const cv = useMemo(() => (doc.data ? startsLikeCv(doc.data.text, docKind(doc.data.name)) : false), [doc.data]);
   if (doc.isError)
     return (
       <div className="paper-view">
@@ -94,7 +108,7 @@ export function NotesPrint() {
           {on === "iphone" ? "Print" : "Save as PDF"}
         </button>
       </div>
-      <article className="paper">
+      <article className={cv ? "paper paper-cv" : "paper"}>
         <Markdown text={doc.data.text} kind={docKind(doc.data.name)} />
       </article>
     </div>

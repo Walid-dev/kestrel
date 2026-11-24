@@ -538,10 +538,14 @@ function table(src: string, lines: Ln[], i: number, out: Block[]): number {
 }
 
 // ---- a PDF's or a plain text's lines: each kept, a bullet at a line's start a list item ----
+// A PDF's text keeps the printed line breaks, so a sentence that wrapped on the page comes in pieces: a line that only
+// goes on with the sentence above it joins that paragraph or list item (continues, below); every other line keeps its
+// own line.
 
-// first-level bullets, and second-level ones that sit under a first-level item when one is just above (\uf0b7 and
-// \uf0a7 are the bullets of Word's Symbol and Wingdings fonts, as a PDF's text may carry them)
-const LINE_BULLET = /^[ \t]*(?:([•◦▪‣●○■–\uf0b7\uf0a7])[ \t]*(?=\S)|([-*])[ \t]+(?=\S))/;
+// first-level bullets, and second-level ones that sit under a first-level item when one is just above (\uf0b7,
+// \uf0a7, \uf076, \uf0d8 and \uf0fc are the bullets of Word's Symbol and Wingdings fonts, as a PDF's text may carry
+// them)
+const LINE_BULLET = /^[ \t]*(?:([•◦▪‣●○■–·►▸➢➤✓✔\uf0b7\uf0a7\uf076\uf0d8\uf0fc])[ \t]*(?=\S)|([-*])[ \t]+(?=\S))/;
 const SECOND = new Set(["◦", "○", "–"]);
 
 // a section's title in a PDF's text, as a CV prints it: a short line in capitals ("EXPERIENCE", "SKILLS & TOOLS"),
@@ -559,6 +563,31 @@ function capsTitle(line: string): boolean {
   );
 }
 
+// the small words a wrapped line may end on mid-sentence ("…and wrote the" / "Field handbook…")
+const JOINER = /(?:^|\s)(?:and|or|of|the|a|an|to|with|for|in|on|at|by|from|as|that|which|into|via|across|including)$/;
+// a line that starts with an address of its own: a web address ("example.org/me", "https://…") or an email
+const OWN_ADDRESS = /^(?:[a-z0-9-]+(?:\.[a-z0-9-]+)+\/|https?:|www\.|[^\s@]+@[^\s@]+\.\w)/i;
+
+// does this line only go on with the sentence of the line above? Yes when it starts in lower case, when the line
+// above left a bracket open or ends on a comma, a hyphen or a small word (and, of, the…), or when the line above
+// was full (near the text's longest line, measure) without ending its sentence. Never for a heading, a bullet, an
+// address or a line under a heading: a name, a role and a contact line keep their own lines.
+function continues(above: string, line: string, measure: number): boolean {
+  if (!above || !line || LINE_BULLET.test(line) || capsTitle(line) || capsTitle(above) || OWN_ADDRESS.test(line))
+    return false;
+  const open = (above.match(/\(/g)?.length ?? 0) > (above.match(/\)/g)?.length ?? 0);
+  return (
+    /^\p{Ll}/u.test(line) ||
+    open ||
+    /(?:[,&+]|\p{L}-)$/u.test(above) ||
+    JOINER.test(above) ||
+    (measure >= 50 && above.length >= measure * 0.85 && !/[.!?:;]$/.test(above))
+  );
+}
+
+// a line's words, and whether they go on from the line before (on) rather than start a line of their own
+type Seg = Ln & { on?: boolean };
+
 function lineBlocks(src: string, lines: Ln[]): Block[] {
   const out: Block[] = [];
   const slugs: Slugs = new Map();
@@ -568,6 +597,10 @@ function lineBlocks(src: string, lines: Ln[]): Block[] {
     while (e > l.s && isSpace(src[e - 1])) e--;
     return { s: indent(src, l).at, e };
   };
+  // how long a full line runs in this text: its longest line, leaving out the very long ones (sentences an upload
+  // already joined, a pasted paragraph)
+  const measure = lines.reduce((m, l) => (l.e - l.s <= 140 ? Math.max(m, l.e - l.s) : m), 0);
+  const goesOn = (above: Ln, l: Ln) => continues(src.slice(above.s, above.e), src.slice(l.s, l.e), measure);
   let i = 0;
   while (i < lines.length) {
     if (blank(src, lines[i])) {
@@ -583,23 +616,28 @@ function lineBlocks(src: string, lines: Ln[]): Block[] {
         if (!b) break;
         const w = words(lines[i]);
         const at = lines[i].s + b[0].length;
+        // the item's sentence may go on in the lines under it
+        const segs: Seg[] = [{ s: at, e: w.e }];
+        while (i + 1 < lines.length && !blank(src, lines[i + 1]) && goesOn(segs[segs.length - 1], words(lines[i + 1])))
+          segs.push({ ...words(lines[++i]), on: true });
+        const end = segs[segs.length - 1].e;
         const item: Item = {
           from: w.s,
-          to: w.e,
+          to: end,
           check: null,
-          blocks: [{ k: "para", from: at, to: w.e, runs: lineRuns(src, [{ s: at, e: w.e }]) }],
+          blocks: [{ k: "para", from: at, to: end, runs: lineRuns(src, segs) }],
         };
         const ch = b[1] ?? b[2];
         if (SECOND.has(ch) && lastTop && !lastTop.second) {
           const kids = lastTop.item.blocks;
           let sub = kids.at(-1);
           if (sub?.k !== "list") {
-            sub = { k: "list", from: w.s, to: w.e, ordered: false, start: 1, tight: true, items: [] };
+            sub = { k: "list", from: w.s, to: end, ordered: false, start: 1, tight: true, items: [] };
             kids.push(sub);
           }
           sub.items.push(item);
-          sub.to = w.e;
-          lastTop.item.to = w.e;
+          sub.to = end;
+          lastTop.item.to = end;
         } else {
           items.push(item);
           lastTop = { item, second: SECOND.has(ch) };
@@ -615,19 +653,26 @@ function lineBlocks(src: string, lines: Ln[]): Block[] {
       i++;
       continue;
     }
-    const segs: Ln[] = [];
-    for (; i < lines.length && !blank(src, lines[i]) && !bulletOf(lines[i]) && !title(lines[i]); i++)
-      segs.push(words(lines[i]));
+    const segs: Seg[] = [];
+    for (; i < lines.length && !blank(src, lines[i]) && !bulletOf(lines[i]) && !title(lines[i]); i++) {
+      const w = words(lines[i]);
+      const above = segs[segs.length - 1];
+      segs.push(above && goesOn(above, w) ? { ...w, on: true } : w);
+    }
     out.push({ k: "para", from: segs[0].s, to: segs[segs.length - 1].e, runs: lineRuns(src, segs) });
   }
   return out;
 }
 
-// one line after another, a break between them; only bare addresses become links (a PDF's text has no other marks)
-function lineRuns(src: string, segs: Ln[]): Run[] {
+// one line after another, a break between them, or for a line that goes on from the one above, the line's end read as
+// a space (nothing after a hyphen: "mid-" and "size" read "mid-size"); only bare addresses become links (a PDF's text
+// has no other marks)
+function lineRuns(src: string, segs: Seg[]): Run[] {
   const out: Run[] = [];
   segs.forEach((g, n) => {
-    if (n > 0) out.push({ k: "br", at: segs[n - 1].e });
+    const above = segs[n - 1];
+    if (above && !g.on) out.push({ k: "br", at: above.e });
+    else if (above && !/\p{L}-$/u.test(src.slice(above.s, above.e))) push(out, leaf("text", src, above.e, g.s));
     let lit = g.s;
     for (let i = g.s; i < g.e; i++) {
       if (i > g.s && !/[\s(]/.test(src[i - 1])) continue;
