@@ -4,7 +4,7 @@
 // About me and in the context folder (read on this computer only, never put into a search). Every answer is kept.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Ask as AskBox } from "./ask.tsx";
 import { block, type Cite, Cites, heard, type Say } from "./learn/blocks.tsx";
@@ -48,6 +48,8 @@ const LEVELS: [Level, string, string][] = [
 ];
 const QUESTION_MAX = 1000; // the server's limit on a question
 const BACK = { to: "/research", label: "Research" };
+// an answer the server doesn't have: final, so it is not asked for again
+const GONE = "It may have been deleted.";
 const when = (iso: string) =>
   new Date(iso).toLocaleString(undefined, {
     weekday: "short",
@@ -111,6 +113,12 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
   const [questions, setQuestions] = useState<string[] | null>(null);
   const [answers, setAnswers] = useState<string[]>([]);
   const [keep, setKeep] = useState(true);
+  // the question box waits while its questions are open, so the focus goes on to the first answer, where the eye goes;
+  // in the same commit, so a phone's keyboard moves along instead of closing
+  const round = useRef<HTMLFormElement>(null);
+  useLayoutEffect(() => {
+    if (questions) round.current?.querySelector("input")?.focus();
+  }, [questions]);
   const context = useQuery({
     queryKey: ["research-context"],
     queryFn: async () => (await (await fetch("/api/research/context")).json()) as Context,
@@ -167,11 +175,13 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
           busy={first.isPending || ask.isPending || Boolean(running)}
           disabled={Boolean(questions)}
           hint={
-            running
-              ? "Researching… the next question can go once this answer is written"
-              : first.isPending
-                ? "Thinking of a few questions first…"
-                : undefined
+            questions
+              ? "Answer the questions below, or skip them"
+              : running
+                ? "Researching… the next question can go once this answer is written"
+                : first.isPending
+                  ? "Thinking of a few questions first…"
+                  : undefined
           }
           tall
         />
@@ -198,6 +208,7 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
         <Card tone="purple">
           {/* Enter in any answer researches now, the way a form sends */}
           <form
+            ref={round}
             className="grid gap-3"
             onSubmit={(e) => {
               e.preventDefault();
@@ -299,9 +310,11 @@ function ReportView({ id, onBack }: { id: string; onBack: () => void }) {
     queryKey: ["research", id],
     queryFn: async () => {
       const res = await fetch(`/api/research/${encodeURIComponent(id)}`);
-      if (!res.ok) throw new Error(`This answer didn't load (${res.status})`);
+      if (res.status === 404) throw new Error(GONE);
+      if (!res.ok) throw new Error(`The server answered ${res.status}: try again in a moment.`);
       return (await res.json()) as Full;
     },
+    retry: (n, e) => e.message !== GONE && n < 3,
     refetchInterval: (q) => (q.state.data?.state === "running" ? 2000 : false),
   });
   const sure = useConfirm();

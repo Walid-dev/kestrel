@@ -184,7 +184,8 @@ export function Writing() {
                   : "No jobs yet: one shows here once you apply for it, or mark it Interested."}
               </p>
             ) : (
-              <div className="grid max-h-[360px] gap-2 overflow-y-auto">
+              // at most half the screen, so a phone turned sideways still scrolls the page around it
+              <div className="grid max-h-[min(440px,50vh)] gap-2 overflow-y-auto">
                 {list.map((j) => (
                   <button
                     key={j.id}
@@ -231,11 +232,17 @@ export function Writing() {
                 placeholder={box[3]}
                 value={ask}
                 onChange={(v) => setAsk(v.slice(0, ASK_MAX))}
-                onSend={() => write.mutate()}
+                // the words can be typed before a job is picked; only the send waits for it
+                onSend={() => ready && write.mutate()}
                 sendLabel="Write it"
                 busy={write.isPending || running}
-                disabled={!ready}
-                hint={running ? "Writing…" : "Enter writes it · Shift+Enter for a new line"}
+                hint={
+                  running
+                    ? "Writing…"
+                    : !job
+                      ? "Pick a job above, then Enter writes it"
+                      : "Enter writes it · Shift+Enter for a new line"
+                }
                 tall
               />
             )}
@@ -320,16 +327,8 @@ export function Writing() {
             </Card>
           )}
           {t && t.state === "failed" && (
-            <Card
-              title={t.title}
-              meta={
-                <>
-                  <span className="chip chip-caps tone-purple">{KIND_NAME[t.kind] ?? "Letter"}</span>
-                  <span className="chip chip-caps tone-red">Failed</span>
-                  <span className="ml-auto text-small text-muted">{when(t.started)}</span>
-                </>
-              }
-            >
+            // the try itself, its chips and date, is the open card in the list: here only why it failed
+            <Card title="Why it failed">
               <span className="text-ink">{sentence(t.error)}</span>
             </Card>
           )}
@@ -386,6 +385,9 @@ function TryView({ t }: { t: Try }) {
             <span className="chip chip-caps tone-red">The skill's letter step wasn't found</span>
           )}
         </div>
+        {t.notes.checked === false && (
+          <p className="m-0 text-small text-muted">The applications' check isn't set up in kestrel's settings.</p>
+        )}
       </div>
       {t.notes.review && <ReviewBox r={t.notes.review} />}
       {(t.notes.needs?.length ?? 0) > 0 && (
@@ -411,21 +413,22 @@ function TryView({ t }: { t: Try }) {
           <Doc id={`writing:${t.id}`} name={`${t.title} ${KIND_NAME[t.kind].toLowerCase()}.txt`} text={t.text} rev="" />
         </div>
         {t.kind !== "letter" ? null : t.notes.pdf ? (
-          <div className="grid content-start gap-2">
+          // its link in a bar on top, the height of the Doc's bar beside it, so the letter and the PDF start level
+          <div className="grid content-start gap-3">
+            <a
+              href={`/api/letters/${t.id}/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-head btn-quiet justify-self-end"
+            >
+              Open the PDF ↗
+            </a>
             {/* the PDF as an employer gets it: a white page in both themes */}
             <iframe
               title="The PDF"
               src={`/api/letters/${t.id}/pdf`}
               className="h-[70vh] w-full rounded-2xl border border-line bg-white"
             />
-            <a
-              href={`/api/letters/${t.id}/pdf`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-quiet justify-self-start"
-            >
-              Open the PDF ↗
-            </a>
           </div>
         ) : (
           <EmptyState title="No PDF this time." line={sentence(t.notes.pdfNote || "the PDF tool made none")} />
