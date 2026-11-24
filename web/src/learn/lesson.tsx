@@ -248,7 +248,8 @@ export function LearnLesson() {
     body = (
       <>
         {review}
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        {/* two columns from a computer's width, each as tall as its own content: Say it never stretches */}
+        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           {b.say.length > 0 && (
             <Card>
               <h2 className="font-cond m-0 text-head">{sayHead}</h2>
@@ -257,9 +258,10 @@ export function LearnLesson() {
               </p>
               <div className="grid gap-2">{sayRows}</div>
               <div className="flex flex-wrap items-center gap-2 pt-1">
+                {/* plain: the page's one filled button is the bar's Listen, which reads the whole page */}
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="btn"
                   onClick={() => (reader.reading ? reader.stop() : reader.play(list.current, sayFrom, sayTo))}
                 >
                   {reader.reading ? "■ Stop" : "▶ Listen"}
@@ -348,16 +350,12 @@ export function LearnLesson() {
                   ? "It comes back to review on the ladder: 1, 3, 7, 16, 35 days."
                   : "Be honest: a lesson you knew climbs; one you missed comes back tomorrow."}
             </span>
+            {/* two plain buttons: an honest grade, with no nudge toward either */}
             <span className="ml-auto flex gap-2">
               <button type="button" className="btn" disabled={grade.isPending} onClick={() => grade.mutate("again")}>
                 Again
               </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={grade.isPending}
-                onClick={() => grade.mutate("good")}
-              >
+              <button type="button" className="btn" disabled={grade.isPending} onClick={() => grade.mutate("good")}>
                 {guide ? "✓ Done" : "✓ I knew it"}
               </button>
             </span>

@@ -7,6 +7,7 @@ import { Link, useSearchParams } from "react-router";
 import { Card } from "../ui/card.tsx";
 import { EmptyState } from "../ui/empty.tsx";
 import { Field } from "../ui/field.tsx";
+import { List, Row as ListRow } from "../ui/list.tsx";
 import { Page } from "../ui/page.tsx";
 import { Pills, type Tone } from "../ui/pills.tsx";
 import { STATE, titled } from "./lesson.tsx";
@@ -46,25 +47,46 @@ function StateChip({ state }: { state: string }) {
   return <span className={`chip chip-caps tone-${s.tone}`}>{s.label}</span>;
 }
 
-function LessonCard({ l }: { l: Row }) {
+// the lessons as one list of rows: the title, its short line under it, the state's chip at the end; two columns on a
+// computer once there are two rows to fill them
+function Lessons({ rows, label }: { rows: Row[]; label: string }) {
   return (
-    <Card title={l.title} to={lessonPath(l.id)} meta={<StateChip state={l.state} />}>
-      {l.short && <span className="line-clamp-3">{l.short}</span>}
-    </Card>
+    <List cols={rows.length > 1} label={label}>
+      {rows.map((l) => (
+        <ListRow
+          key={l.id}
+          to={lessonPath(l.id)}
+          title={l.title}
+          line={l.short ? <span className="line-clamp-2">{l.short}</span> : undefined}
+          end={<StateChip state={l.state} />}
+        />
+      ))}
+    </List>
   );
 }
 
+// a guide's topic: its number before the title, in the numbers' voice; a ✓ once it is read
 function TopicRow({ r, mark }: { r: Row; mark: string }) {
   const done = r.state === "known" || r.state === "learning";
   return (
-    <Card to={lessonPath(r.id)}>
-      <span className="flex items-center gap-4">
-        <span className="font-cond w-10 shrink-0 text-head text-muted">{mark}</span>
-        <span className="min-w-0 flex-1">{r.title}</span>
-        {r.state === "due" && <StateChip state="due" />}
-        {done && <span className="text-green">✓</span>}
-      </span>
-    </Card>
+    <ListRow
+      to={lessonPath(r.id)}
+      title={
+        <span className="flex items-baseline gap-3">
+          <span className="font-mono w-8 shrink-0 text-small text-muted tabular-nums">{mark}</span>
+          <span className="min-w-0">{r.title}</span>
+        </span>
+      }
+      end={
+        r.state === "due" ? (
+          <StateChip state="due" />
+        ) : done ? (
+          <span className="text-green" role="img" aria-label="Done">
+            ✓
+          </span>
+        ) : undefined
+      }
+    />
   );
 }
 
@@ -82,7 +104,7 @@ function GuideContents({ rows }: { rows: Row[] }) {
     <div className="grid gap-3">
       <div className="flex flex-wrap items-center gap-2">
         {next && (
-          <Link to={lessonPath(next.id)} className="btn btn-primary">
+          <Link to={lessonPath(next.id)} className="btn">
             Continue: {next.title}
           </Link>
         )}
@@ -93,7 +115,7 @@ function GuideContents({ rows }: { rows: Row[] }) {
       {parts.map((p) =>
         p.name ? (
           <details key={p.name} open={p.rows.some((r) => r.id === next?.id)}>
-            <summary className="disclosure border-b border-line py-2.5">
+            <summary className="disclosure">
               {/* the part's number and its name on one baseline; the ▶ (the fold-out's own) centred beside them */}
               <span className="flex min-w-0 items-baseline gap-3">
                 <span className="eyebrow">{p.name.split(" · ")[0]}</span>
@@ -103,18 +125,20 @@ function GuideContents({ rows }: { rows: Row[] }) {
                 {p.rows.filter(done).length}/{p.rows.length}
               </span>
             </summary>
-            <div className="grid gap-2 pt-3">
-              {p.rows.map((r) => (
-                <TopicRow key={r.id} r={r} mark={r.eyebrow.match(/Topic (\S+)/)?.[1] ?? "·"} />
-              ))}
+            <div className="pt-2">
+              <List label={p.name}>
+                {p.rows.map((r) => (
+                  <TopicRow key={r.id} r={r} mark={r.eyebrow.match(/Topic (\S+)/)?.[1] ?? "·"} />
+                ))}
+              </List>
             </div>
           </details>
         ) : (
-          <div key={`loose-${p.rows[0].id}`} className="grid gap-2">
+          <List key={`loose-${p.rows[0].id}`}>
             {p.rows.map((r) => (
               <TopicRow key={r.id} r={r} mark={r.title === "Glossary" ? "A–Z" : r.title === "References" ? "↗" : "·"} />
             ))}
-          </div>
+          </List>
         ),
       )}
     </div>
@@ -217,23 +241,25 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
     setParams(v === "all" ? {} : v.startsWith("group:") ? { group: v.slice(6) } : { pack: v.slice(5) });
   const home = area === "learn" ? "Learn" : "Interview prep";
 
+  const homePath = area === "learn" ? "/learn" : "/interview";
+  const otherName = other === "learn" ? "Learn" : "Interview prep";
+
   return (
     <Page
       title={chosen ? titled(chosen.name) : pickGroup || home}
+      // a pack or a parent is a page under the area's front: its back row, and its title a step down
+      back={chosen || pickGroup ? { to: homePath, label: home } : undefined}
       line={
-        chosen
-          ? `${chosen.lessons} lessons · ${chosen.known} known`
-          : pickGroup
-            ? `${inGroup.size} pack${inGroup.size === 1 ? "" : "s"} under ${pickGroup}`
-            : undefined
-      }
-      actions={
-        chosen && (
-          <>
-            <label className="flex items-center gap-2 text-small text-muted">
-              Under
+        chosen ? (
+          // the pack's parent sits in its line: a small label and the box, where Enter or leaving the box saves it
+          <span className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <span>
+              {chosen.lessons} lessons · {chosen.known} known
+            </span>
+            <label className="flex items-center gap-2">
+              <span className="text-small">Under</span>
               <input
-                className="input w-36"
+                className="input w-50 max-w-full"
                 list="learn-groups"
                 defaultValue={chosen.group}
                 key={chosen.id}
@@ -249,16 +275,10 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
                 ))}
               </datalist>
             </label>
-            <button
-              type="button"
-              className="btn btn-quiet"
-              disabled={move.isPending}
-              onClick={() => move.mutate({ id: chosen.id, to: other })}
-            >
-              Move to {other === "learn" ? "Learn" : "Interview prep"}
-            </button>
-          </>
-        )
+          </span>
+        ) : pickGroup ? (
+          `${inGroup.size} pack${inGroup.size === 1 ? "" : "s"} under ${pickGroup}`
+        ) : undefined
       }
     >
       {[overview, move, regroup].map((x) =>
@@ -270,14 +290,18 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
       )}
       <div className="grid gap-6 lg:grid-cols-[330px_minmax(0,1fr)]">
         <aside className="grid content-start gap-4">
+          {/* the review: how many today, in the numbers' voice, the page's one filled button, where the lessons stand */}
           <Card>
-            <p className="m-0 text-read text-strong">
-              <b className="font-cond text-lead">{s.due}</b> to review today, and <b>{s.new}</b> new.
+            <p className="m-0 flex flex-wrap items-baseline gap-x-2 text-body text-ink">
+              <b className="font-mono text-lead font-medium text-strong tabular-nums">{s.due}</b>
+              <span>
+                to review today, and <b className="text-strong">{s.new}</b> new.
+              </span>
             </p>
             <Link to={`/learn/practice?area=${area}`} className="btn btn-primary justify-self-start">
               Start the review
             </Link>
-            {/* where the lessons stand, each state in its one colour, the same as on its chips */}
+            {/* each state in its one colour, the same as on its chips */}
             <div className="meter" aria-hidden="true">
               <span className="tone-green" style={share(s.known, total)} />
               <span className="tone-purple" style={share(s.learning, total)} />
@@ -298,9 +322,9 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
               </span>
             </div>
           </Card>
-          <details className="card">
+          <details>
             <summary className="disclosure">How to learn here</summary>
-            <ol className="mt-2 mb-0 grid gap-1.5 pl-5 text-detail">
+            <ol className="mt-1 mb-0 grid gap-1.5 pl-5 text-detail">
               <li>Read the lesson once, slowly.</li>
               <li>
                 Tap <b>Listen</b>. Then say each sentence with the voice.
@@ -316,8 +340,8 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
           </details>
           <Field label="Search the lessons" value={q} onChange={setQ} />
           {/* everything, then each parent with its packs; the packs fold away */}
-          <div className="grid gap-2">
-            <div className="flex items-start gap-2">
+          <div className="grid gap-2 pointer-coarse:gap-3">
+            <div className="flex items-center gap-2">
               <Pills label="Every lesson" options={[{ value: "all", label: "All" }]} value={picked} onChange={choose} />
               <button
                 type="button"
@@ -348,27 +372,32 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
                 />
               ))}
           </div>
-          {area === "learn" ? (
-            <Card title="Interview prep →" to="/interview">
-              Answers to say for a job or a project, and the helper that finds them while you're asked.
-            </Card>
-          ) : (
-            <Card title="The interview helper →" to="/interview/helper">
-              Hold while the question is asked; the nearest prepared answer shows large.
-            </Card>
-          )}
+          <List>
+            {area === "learn" ? (
+              <ListRow
+                to="/interview"
+                title="Interview prep"
+                line="Answers to say for a job or a project, and the helper that finds them while you're asked."
+              />
+            ) : (
+              <ListRow
+                to="/interview/helper"
+                title="The interview helper"
+                line="Hold while the question is asked; the nearest prepared answer shows large."
+              />
+            )}
+          </List>
         </aside>
 
-        <section className="grid content-start gap-4">
+        <section className="grid content-start gap-6">
           {q.trim().length > 1 ? (
             found.data && found.data.lessons.length === 0 ? (
               <EmptyState title="No lesson has those words." line="Try another word, or fewer of them." />
             ) : (
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {(found.data?.lessons ?? []).map((l) => (
-                  <LessonCard key={l.id} l={{ ...l, state: stateOf.get(l.id) ?? "new" }} />
-                ))}
-              </div>
+              <Lessons
+                label="Lessons found"
+                rows={(found.data?.lessons ?? []).map((l) => ({ ...l, state: stateOf.get(l.id) ?? "new" }))}
+              />
             )
           ) : isGuide && chosen ? (
             <GuideContents rows={[...rows].sort((a, b) => a.position - b.position)} />
@@ -379,27 +408,21 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
                 g.st === "known" ? (
                   <details key={g.st}>
                     <summary className="disclosure">
-                      Known <span className="font-mono text-small text-green">{g.rows.length}</span>
+                      Known · <span className="font-mono tabular-nums">{g.rows.length}</span>
                     </summary>
-                    <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                      {g.rows.map((l) => (
-                        <LessonCard key={l.id} l={l} />
-                      ))}
+                    <div className="mt-2">
+                      <Lessons label="Known" rows={g.rows} />
                     </div>
                   </details>
                 ) : (
                   <div key={g.st} className="grid gap-3">
-                    <h2 className="font-cond m-0 text-head">
-                      {STATE[g.st].label}{" "}
-                      <span className={`font-mono text-small ${g.st === "due" ? "text-cyan" : "text-muted"}`}>
+                    <h2 className="font-cond m-0 text-section">
+                      {STATE[g.st].label} ·{" "}
+                      <span className={`font-mono tabular-nums ${g.st === "due" ? "text-cyan" : "text-muted"}`}>
                         {g.rows.length}
                       </span>
                     </h2>
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                      {g.rows.map((l) => (
-                        <LessonCard key={l.id} l={l} />
-                      ))}
-                    </div>
+                    <Lessons label={STATE[g.st].label} rows={g.rows} />
                   </div>
                 ),
               )
@@ -421,6 +444,19 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
             ))}
         </section>
       </div>
+      {/* a rare action, at the page's foot: the pack moves to the other area, and the page goes back to this one */}
+      {chosen && (
+        <div>
+          <button
+            type="button"
+            className="btn btn-quiet"
+            disabled={move.isPending}
+            onClick={() => move.mutate({ id: chosen.id, to: other })}
+          >
+            Move to {otherName}
+          </button>
+        </div>
+      )}
     </Page>
   );
 }
