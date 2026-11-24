@@ -220,7 +220,7 @@ const soon = (iso: string) => {
   const d = new Date(iso);
   return d.toDateString() === new Date().toDateString()
     ? d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
-    : `${d.toLocaleDateString(undefined, { weekday: "short" })} ${d.toLocaleTimeString(undefined, { hour: "numeric" })}`;
+    : `${d.toLocaleDateString(undefined, { weekday: "short" })} ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
 };
 
 // one figure: its label over its value in mono, a dot in its tone before it, the whole cell a link to its page

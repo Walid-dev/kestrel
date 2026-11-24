@@ -77,7 +77,8 @@ function StatusLine({ hunt, mirror, about }: { hunt: Hunt; mirror?: Run; about: 
   const noun = (n: number) => (hunt.kind === "jobs" ? (n === 1 ? "job" : "jobs") : n === 1 ? "ad" : "ads");
   const warnings: { flag: string; text: string }[] = [];
   if (l?.problem) warnings.push({ flag: flagOf(l.problem), text: sentence(l.problem) });
-  else if (!l && mirror?.problem) warnings.push({ flag: flagOf(mirror.problem), text: sentence(mirror.problem) });
+  else if (!l && hunt.mirrored && mirror?.problem)
+    warnings.push({ flag: flagOf(mirror.problem), text: sentence(mirror.problem) });
   if (l && hunt.mode && hunt.mode !== "paused" && Date.now() - Date.parse(l.at) > 26 * 3600_000)
     warnings.push({
       flag: "Late",
@@ -109,8 +110,8 @@ function StatusLine({ hunt, mirror, about }: { hunt: Hunt; mirror?: Run; about: 
         <span>No search yet</span>
       )}
       {hunt.mode === "paused" ? (
-        <span>
-          Next <b className="text-ink">on Search now</b>
+        <span title="Paused: it searches only when you press Search now">
+          Next <b className="text-ink">when I press Search now</b>
         </span>
       ) : (
         hunt.next && (

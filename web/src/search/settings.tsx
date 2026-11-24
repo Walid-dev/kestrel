@@ -203,7 +203,7 @@ export function SearchSettings() {
                 <input className="input font-mono" value={id} onChange={(e) => setId(slug(e.target.value))} />
               </Labeled>
             )}
-            <Labeled label="What it looks for" hint="one line, shown under the search's name">
+            <Labeled label="What it looks for" hint="one line, shown under About on Searches">
               <input
                 className="input"
                 value={String(raw.about ?? "")}

@@ -741,13 +741,13 @@ h3 {
     inset: calc(50% - var(--h-hit) / 2) 0;
   }
 }
-/* New search: a plain button with the accent's plus under a mouse, first on the head's row. Where the page's buttons
-   wrap under the line (touch, a narrow window), that row is full, so it goes round, top right of the head, level with
-   the title, and the title keeps clear of it */
+/* New search: a plain button with the accent's plus, first on the head's row. Narrower than 48rem (a phone upright,
+   a narrow window) that row is full, so it goes round, top right of the head, level with the title, and the title
+   keeps clear of it */
 .hunt-add > svg {
   color: var(--accent);
 }
-@media not all and (hover: hover) and (pointer: fine) and (min-width: 48rem) {
+@media not all and (min-width: 48rem) {
   .page-head:has(.hunt-add) {
     position: relative;
   }
@@ -772,7 +772,8 @@ h3 {
     display: none;
   }
 }
-@media (pointer: coarse) {
+/* the round + on touch: a square 44 area (the labelled button keeps the buttons' own) */
+@media (pointer: coarse) and (width < 48rem) {
   .page-actions > .btn.hunt-add::after {
     inset: calc(50% - var(--h-hit) / 2);
   }
@@ -2374,6 +2375,10 @@ pre.code .f {
   padding: 12px 14px;
   background: var(--surface);
 }
+/* five figures (no saving of its own): the cloud across both columns on a phone, then one row of five */
+.cost-figure-wide {
+  grid-column: 1 / -1;
+}
 @media (pointer: coarse) {
   .cost-figure {
     padding: 12px 16px;
@@ -2381,11 +2386,20 @@ pre.code .f {
 }
 @media (min-width: 48rem) {
   .cost-figures {
+    grid-template-columns:
+      minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 0.75fr)
+      minmax(0, 0.75fr);
+  }
+  .cost-figure-wide {
+    grid-column: auto;
+  }
+  /* six figures (the saving its own, when the electricity is in US$): three across, six from 64rem */
+  .cost-figures-six {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 @media (min-width: 64rem) {
-  .cost-figures {
+  .cost-figures-six {
     grid-template-columns:
       minmax(0, 1.3fr) minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 0.7fr)
       minmax(0, 0.7fr);

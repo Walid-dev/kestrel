@@ -121,15 +121,13 @@ const tierOf = (v: number, [a, b, c]: readonly [number, number, number]): Tier =
 const MONTH = [5, 20, 60] as const;
 const PER_M = { input: [0.5, 2, 5], cachedInput: [0.1, 0.5, 1.5], output: [2, 8, 20] } as const;
 const TIER_WORD: Record<Tier, string> = { great: "cheap", good: "fair", fair: "costly", poor: "very costly" };
-// the days the period covers, for its pace: today so far (an hour at least), the 7 or 30 days, or since oMLX started
+// the days the period covers, for its pace: the period's days, or fewer when counting started inside it; a day at least,
+// so today's use reads as a day's and an overnight batch at 1 AM isn't multiplied by the hours since midnight. With no
+// start, All counts as 30 days
 function spanDays(r: Report, days: string): number {
-  if (days === "1") {
-    const at = new Date(r.at);
-    const midnight = new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime();
-    return Math.max(1 / 24, (at.getTime() - midnight) / 86_400_000);
-  }
-  if (days === "all") return r.since ? Math.max(1, (Date.parse(r.at) - Date.parse(r.since)) / 86_400_000) : 30;
-  return Number(days) || 30;
+  const counted = r.since ? (Date.parse(r.at) - Date.parse(r.since)) / 86_400_000 : Number.POSITIVE_INFINITY;
+  const period = days === "all" ? (r.since ? counted : 30) : Number(days) || 30;
+  return Math.max(1, Math.min(period, counted));
 }
 
 // the server answers 503 when oMLX's table isn't there to read: a set-up step, not a failure. It also answers 503
@@ -259,24 +257,30 @@ function NotSetUp({ reason }: { reason: string }) {
   );
 }
 
-// the period in six figures, one cell each: a label, the value in mono, one quiet line with the parts in bold. Two
-// columns on a phone (the cloud and what it saved side by side, first), three from 48rem, six in a row from 64rem.
-// The cloud's value carries its place on the money scale as a dot; what was saved is green
+// the period in figures, one cell each: a label, the value in mono, one quiet line with the parts in bold. Six when the
+// electricity is in US$ (what was saved a figure of its own, beside the cloud's: two columns on a phone, three from
+// 48rem, six from 64rem); else five, the cloud across a phone's two columns with what it saved a green line in it,
+// then one row of five. The cloud's value carries its place on the money scale as a dot; what was saved is green
 function Strip({ r, days, loading }: { r: Report; days: string; loading: boolean }) {
   const p = r.period;
   const [lead, ...others] = p.cloud;
   const watts = r.prices?.electricity.watts;
   const power = p.electricity;
-  const month = lead?.usd != null ? (lead.usd * 30) / spanDays(r, days) : null;
+  const span = spanDays(r, days);
+  const month = lead?.usd != null ? (lead.usd * 30) / span : null;
   const tier = month != null ? tierOf(month, MONTH) : null;
-  // what running here saved: the cloud's price less the electricity, when both are in one currency; else the cloud's
-  // price, with the electricity named beside it rather than turned into another currency
-  const same = !power || power.currency === "USD";
-  const saved = lead?.usd != null ? Math.max(0, lead.usd - (power && same ? power.cost : 0)) : null;
+  // what running here saved: the cloud's price less the electricity, a figure of its own only when both are in US$.
+  // Without a rate it is a green line in the cloud's cell, the electricity named beside it, never converted
+  const saved = lead?.usd != null && power?.currency === "USD" ? Math.max(0, lead.usd - power.cost) : null;
   return (
-    <section aria-label="The period" aria-busy={loading} className={cx("cost-figures", loading && "busy")}>
+    <section
+      aria-label="The period"
+      aria-busy={loading}
+      className={cx("cost-figures", saved != null && "cost-figures-six", loading && "busy")}
+    >
       <Figure
         label="Cloud would cost"
+        wide={saved == null}
         value={lead?.usd != null ? money(lead.usd) : "—"}
         tone={tier ?? undefined}
         title={
@@ -298,10 +302,24 @@ function Strip({ r, days, loading }: { r: Report; days: string; loading: boolean
                 ? ": no reference price"
                 : lead.unpriced.length > 0 && ` · ${lead.unpriced.length} unpriced`}
             </span>
-            {/* over 30 days the pace is the figure itself */}
-            {month != null && days !== "30" && (
+            {/* over a full 30 days the pace is the figure itself */}
+            {month != null && month > 0 && Math.abs(span - 30) > 0.01 && (
               <span className="block">
                 <b className="text-ink">≈{money(month)}</b> a month
+              </span>
+            )}
+            {saved == null && lead.usd != null && lead.usd > 0 && (
+              <span className="block">
+                <span className="text-green">
+                  saved <b>{money(lead.usd)}</b>
+                </span>
+                {power ? (
+                  <>
+                    , less <b className="text-ink">{money(power.cost, power.currency)}</b> of power
+                  </>
+                ) : (
+                  ", no power price"
+                )}
               </span>
             )}
             {others.map((c) => (
@@ -321,27 +339,16 @@ function Strip({ r, days, loading }: { r: Report; days: string; loading: boolean
           </>
         )}
       </Figure>
-      <Figure
-        label="Saved"
-        value={saved != null ? money(saved) : "—"}
-        good={saved != null && saved > 0}
-        title={
-          saved == null
-            ? "Nothing to compare: no cloud price"
-            : `What running on this computer saved against ${lead?.name ?? "the cloud"}${power && !same ? `, less ${money(power.cost, power.currency)} of electricity` : ""}`
-        }
-      >
-        {saved != null &&
-          (!power ? (
-            "no electricity price"
-          ) : same ? (
-            "the cloud, less the electricity"
-          ) : (
-            <>
-              less <b className="text-ink">{money(power.cost, power.currency)}</b> of electricity
-            </>
-          ))}
-      </Figure>
+      {saved != null && (
+        <Figure
+          label="Saved"
+          value={money(saved)}
+          good={saved > 0}
+          title={`What running on this computer saved against ${lead?.name ?? "the cloud"}, less the electricity`}
+        >
+          the cloud, less the electricity
+        </Figure>
+      )}
       <Figure
         label="Electricity"
         value={power ? money(power.cost, power.currency) : "—"}
@@ -373,6 +380,7 @@ function Figure({
   title,
   tone,
   good = false,
+  wide = false,
   children,
 }: {
   label: string;
@@ -382,10 +390,12 @@ function Figure({
   tone?: Tier;
   // a saving: the value in green
   good?: boolean;
+  // across both columns on a phone, when the strip has five figures
+  wide?: boolean;
   children?: ReactNode;
 }) {
   return (
-    <div className="cost-figure" title={title}>
+    <div className={cx("cost-figure", wide && "cost-figure-wide")} title={title}>
       <span className="eyebrow">{label}</span>
       <span
         className={cx(
