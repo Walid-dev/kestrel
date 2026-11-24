@@ -1,8 +1,9 @@
 // Live, the old setup's: Now is what runs this minute, step by step — a search, a deep check, a model writing, an
 // agent applying, an application waiting for me — each with its timer and steps, what needs me first, in a grid of
 // cards that uses the width; the last thing that finished opens its work. Activity is the week: everything that ran
-// and every mark I made (a lesson graded, a task done, a stage set, an application sent), one list per day, each row
-// opening the work itself — the listing, the lesson, the task list, the note.
+// and every mark I made (a lesson graded, a task done, a stage set, an application sent), one list per day read
+// straight down, two days side by side on a computer, each row opening the work itself — the listing, the lesson,
+// the task list, the note.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
@@ -11,6 +12,7 @@ import { useEvents } from "./events.ts";
 import { ListingSheet } from "./search/sheet.tsx";
 import { QueuePause, StopChat } from "./stop.tsx";
 import { Card } from "./ui/card.tsx";
+import { cx } from "./ui/cx.ts";
 import { EmptyState } from "./ui/empty.tsx";
 import { List, Row } from "./ui/list.tsx";
 import { Page } from "./ui/page.tsx";
@@ -252,10 +254,17 @@ function LogRow({ a, go }: { a: Item; go: (link: string) => void }) {
   );
 }
 
-// a few words of the head's line with the value bold, so the eye reads the numbers and skips the rest
-const fact = (value: ReactNode, words: string) => (
+// a few words of the head's line with the value bold, so the eye reads the numbers and skips the rest; a tone colours
+// the value, the eye's anchor, and leaves the words muted
+const fact = (value: ReactNode, words: string, tone?: Tone) => (
   <span>
-    <b className="text-ink">{value}</b> {words}
+    <b className={tone ? `text-${tone}` : "text-ink"}>{value}</b> {words}
+  </span>
+);
+// a title clamped at two lines, as a listing's card has it, whole on hover
+const clamped = (title: string) => (
+  <span className="line-clamp-2" title={title}>
+    {title}
   </span>
 );
 
@@ -331,6 +340,8 @@ export function LivePage() {
   const chatOf = (a: App) =>
     chats.find((c) => c.applying && a.title && (c.job?.title === a.title || c.title.includes(a.title)));
   const loose = chats.filter((c) => !d?.apps.some((a) => chatOf(a)?.id === c.id));
+  // an application needs me when its state says so or its chat waits for me: one test for its card and the head's count
+  const needsMe = (a: App) => a.state === "needs-me" || chatOf(a)?.waiting === "you";
   const busy =
     (d?.now.length ?? 0) +
     (d?.apps.filter((a) => a.state !== "queued").length ?? 0) +
@@ -354,16 +365,16 @@ export function LivePage() {
   const kinds = [...new Set([...Object.keys(KIND), ...counts.keys()])].filter((k) => counts.has(k) || k === kind);
 
   const queued = d?.apps.filter((a) => a.state === "queued").length ?? 0;
-  const needs =
-    (d?.apps.filter((a) => a.state === "needs-me").length ?? 0) + loose.filter((c) => c.waiting === "you").length;
+  // the head counts as the cards are marked: an application that needs me is not also at work
+  const needs = (d?.apps.filter(needsMe).length ?? 0) + loose.filter((c) => c.waiting === "you").length;
   const atWork =
     (d?.now.length ?? 0) +
-    (d?.apps.filter((a) => a.state === "applying").length ?? 0) +
+    (d?.apps.filter((a) => a.state === "applying" && !needsMe(a)).length ?? 0) +
     loose.filter((c) => c.working).length;
-  // the head's line: where things stand, each value bold; what needs me in pink; a held queue as a chip in its colour
+  // the head's line: where things stand, each value bold; what needs me its number in pink; a held queue as a chip
   const line = d && (
     <span className="live-facts">
-      {needs > 0 && <span className="text-pink">{fact(needs, "needs me")}</span>}
+      {needs > 0 && fact(needs, "needs me", "pink")}
       {atWork > 0 && fact(atWork, "at work")}
       {queued > 0 && fact(queued, "queued")}
       {d.paused && <span className="chip chip-caps tone-yellow">Queue paused</span>}
@@ -383,7 +394,7 @@ export function LivePage() {
         <Card
           key={a.id}
           tone="green"
-          title={shortTitle(a)}
+          title={clamped(shortTitle(a))}
           meta={
             <Meta
               chip={kindChip(a.kind)}
@@ -411,15 +422,16 @@ export function LivePage() {
     });
   for (const a of d?.apps ?? []) {
     const chat = chatOf(a);
-    const [words, tone] = APP_STATE[a.state] ?? APP_STATE.queued;
-    const needsMe = a.state === "needs-me" || chat?.waiting === "you";
+    const needs = needsMe(a);
+    // its chip says what its edge says: an application whose chat waits for me needs me, whatever its state
+    const [words, tone] = needs ? APP_STATE["needs-me"] : (APP_STATE[a.state] ?? APP_STATE.queued);
     cards.push({
-      rank: needsMe ? 0 : a.state === "queued" ? 3 : 1,
+      rank: needs ? 0 : a.state === "queued" ? 3 : 1,
       node: (
         <Card
           key={a.id}
-          tone={needsMe ? "pink" : a.state === "applying" ? "green" : undefined}
-          title={a.title || a.link}
+          tone={needs ? "pink" : a.state === "applying" ? "green" : undefined}
+          title={clamped(a.title || a.link)}
           meta={
             <Meta
               chip={<span className={`chip chip-caps tone-${tone}`}>{words}</span>}
@@ -460,7 +472,7 @@ export function LivePage() {
         <Card
           key={c.id}
           tone={tone}
-          title={c.job?.title || c.title || "A chat"}
+          title={clamped(c.job?.title || c.title || "A chat")}
           meta={
             <Meta
               chip={
@@ -534,7 +546,7 @@ export function LivePage() {
           {cards.map((c) => c.node)}
           {busy === 0 && last && (
             <Card
-              title={shortTitle(last)}
+              title={clamped(shortTitle(last))}
               onOpen={last.link ? () => go(last.link) : undefined}
               meta={
                 <Meta
@@ -575,18 +587,21 @@ export function LivePage() {
             value={kind}
             onChange={setKind}
           />
-          {days.map(([name, items]) => (
-            <section key={name} className="live-log grid gap-2" aria-label={name}>
-              <h2 className="font-cond m-0 text-section">
-                {name} <span className="font-mono text-small text-muted">{items.length}</span>
-              </h2>
-              <List cols label={name}>
-                {items.map((a) => (
-                  <LogRow key={a.id} a={a} go={go} />
-                ))}
-              </List>
-            </section>
-          ))}
+          {/* a day reads straight down in time, one column; on a computer two days sit side by side */}
+          <div className={cx("grid items-start gap-6", days.length > 1 && "lg:grid-cols-2")}>
+            {days.map(([name, items]) => (
+              <section key={name} className="live-log grid gap-2" aria-label={name}>
+                <h2 className="font-cond m-0 text-section">
+                  {name} <span className="font-mono text-small text-muted">{items.length}</span>
+                </h2>
+                <List label={name}>
+                  {items.map((a) => (
+                    <LogRow key={a.id} a={a} go={go} />
+                  ))}
+                </List>
+              </section>
+            ))}
+          </div>
           {log.data && log.data.activity.length === 0 && (
             <EmptyState
               title={`Nothing in the last week${kind !== "all" ? " of this kind" : ""}.`}

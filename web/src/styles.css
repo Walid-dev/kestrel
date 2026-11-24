@@ -1943,6 +1943,11 @@ pre.code .f {
   gap: 2px 8px;
   margin-top: 2px;
 }
+/* a row that opens nothing has no chevron: its end keeps the chevron's room (14, and the row's gap of 12), so every
+   time in the column shares one right edge */
+.live-log .list-row:not(:has(> .list-chevron)) > .list-end {
+  margin-inline-end: 26px;
+}
 /* Chat on a phone: the frame runs from edge to edge and down to the tab bar, over the shell's gutters and its foot;
    the head above it keeps the gutters, so the title starts where every page's does */
 .chat-page {

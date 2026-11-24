@@ -1,10 +1,10 @@
 // Tasks: my to-do list, for me and for the agents to pick later, the old Hub's way. A box to write the task and whom
-// it is for (any agent, Claude Code, dsh, me, each with its count of open tasks); Enter adds and the newest comes
+// it is for (any agent, Claude Code, dsh, me: a choice for the new task, not a filter); Enter adds and the newest comes
 // first. The tasks are one list of rows: a tap on a task's words edits them in place (Enter or leaving saves, Escape
 // puts them back); its note under them, then one meta line, whom it is for (a tap changes it) and when, at every
 // width; a round box ticks it off. On a computer the list keeps the wide column and the done tasks and Ask take a
 // rail beside it; on a phone they follow under it. Agents read the same list through the kestrel command and close one
-// with a note (the head's line says so on hover).
+// with a note (the box's hint says so).
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -98,7 +98,7 @@ export function Tasks() {
       width="wide"
       title="Tasks"
       line={
-        <span title="Agents read this list through the kestrel command, pick a task only when I ask, and close it with a short note of what was done.">
+        <span>
           <b className="text-ink">{open.length}</b> open
           {done.length > 0 && (
             <>
@@ -111,7 +111,7 @@ export function Tasks() {
     >
       <div className="tasks-layout">
         <div className="grid gap-6">
-          {/* the new task: its words, whom it is for; Enter adds */}
+          {/* the new task: its words, whom it is for; Enter adds. The pills choose, they don't filter: no counts */}
           <div className="grid gap-3">
             <Field
               label="New task"
@@ -121,17 +121,12 @@ export function Tasks() {
               onSend={() => add.mutate()}
               busy={add.isPending}
               sendLabel="Add"
-              hint="Enter adds · Shift+Enter for a new line · tap a task to edit it"
+              hint="Enter adds · tap a task to edit it · agents take one only when I ask, and close it with a note"
             />
             <Pills
               label="For"
               showLabel
-              options={WHO.map(([value, label, tone]) => ({
-                value,
-                label,
-                tone,
-                count: open.filter((t) => (t.who || "any") === value).length,
-              }))}
+              options={WHO.map(([value, label, tone]) => ({ value, label, tone }))}
               value={who}
               onChange={setWho}
             />

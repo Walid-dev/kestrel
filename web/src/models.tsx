@@ -248,7 +248,8 @@ export function Models() {
             prices them in the cloud.
           </p>
           <div className="models-calls">
-            <List cols label="The calls they made">
+            {/* two columns only when there are two calls or more: one call takes the card's whole width */}
+            <List cols={calls.length > 1} label="The calls they made">
               {calls.map((r) => {
                 const p = purposeOf(r.purpose);
                 return (

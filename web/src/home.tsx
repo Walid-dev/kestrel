@@ -170,24 +170,37 @@ const TOOLS: { name: string; what: string; to: string; icon: ReactNode }[] = [
   },
 ];
 
-// the morning brief as figures. The server says it in sentences (src/domain/brief.ts), one count each, and only the
-// counts above zero: each figure reads its count from the sentence its words match, and a figure with no sentence is
-// 0. What needs me and the queue are left out here: the live row above says them. A sentence no figure or the live
-// row names stays a sentence under the figures, so a new one is never lost
-const FIGURES: { label: string; words: RegExp; to: string; tone: Tone; hint: string }[] = [
+// the morning brief as figures, each the count its page shows when tapped. Great matches and Priority are the job
+// hunt's own pills, read from the counts Searches reads (its first job hunt, as Searches opens on, and its "Not applied
+// yet" switch as this browser keeps it). The other two come from the server's brief, in sentences
+// (src/domain/brief.ts), one count each, and only the counts above zero: each figure reads its count from the sentence
+// its words match, and a figure with no sentence is 0. What needs me and the queue are left out here: the live row
+// above says them. A sentence no figure or the live row names stays a sentence under the figures, so a new one is
+// never lost
+type Counts = { stages: Record<string, number>; match: Record<string, number> };
+const FIGURES: {
+  label: string;
+  words: RegExp;
+  to: string;
+  tone: Tone;
+  hint: string;
+  hunt?: (c: Counts) => number;
+}[] = [
   {
     label: "Great matches",
     words: /great match/i,
     to: "/searches?stage=review&match=great",
     tone: "great",
-    hint: "Great matches that arrived since yesterday",
+    hint: "Great matches still to review in the job hunt",
+    hunt: (c) => c.match.great ?? 0,
   },
   {
     label: "Priority",
     words: /priority/i,
     to: "/searches?stage=priority",
     tone: "yellow",
-    hint: "Starred listings, and great matches not passed on",
+    hint: "The job hunt's Priority list: starred listings, and great matches not passed on",
+    hunt: (c) => c.stages.priority ?? 0,
   },
   {
     label: "To review",
@@ -200,6 +213,14 @@ const FIGURES: { label: string; words: RegExp; to: string; tone: Tone; hint: str
 ];
 const LIVE_ROW = /on me\b|queued|nothing waits/i;
 const countIn = (line: string) => Number(line.match(/\d+/)?.[0] ?? 0);
+// Searches' "Not applied yet" switch, on unless this browser turned it off (search/searches.tsx keeps it under this key)
+const notApplied = () => {
+  try {
+    return localStorage.getItem("kestrel-search-todo") !== "off";
+  } catch {
+    return true;
+  }
+};
 
 // today, as the eyebrow says it, in the order every other date in the app takes (the browser's own): MON, NOV 23
 const today = () => new Date().toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
@@ -216,6 +237,29 @@ export function Home() {
     refetchInterval: 5 * 60_000,
   });
   const lines = brief.data?.lines ?? [];
+  // the job hunt Searches opens on, and its counts as the Searches page asks for them (the same query keys, so either
+  // page's answer serves the other)
+  const hunts = useQuery({
+    queryKey: ["searches"],
+    queryFn: async () => {
+      const res = await fetch("/api/search");
+      if (!res.ok) throw new Error(`${res.status}`);
+      return (await res.json()) as { hunts: { key: string; kind: string }[] };
+    },
+  });
+  const hunt = hunts.data?.hunts.find((h) => h.kind === "jobs");
+  const counted = new URLSearchParams({ kind: "jobs", hunt: hunt?.key ?? "" });
+  if (notApplied()) counted.set("todo", "1");
+  counted.set("stage", "review");
+  const counts = useQuery({
+    queryKey: ["search-counts", counted.toString()],
+    queryFn: async () => {
+      const res = await fetch(`/api/search/counts?${counted}`);
+      if (!res.ok) throw new Error(`${res.status}`);
+      return (await res.json()) as Counts;
+    },
+    enabled: Boolean(hunt),
+  });
   return (
     <Page
       eyebrow={today()}
@@ -231,13 +275,23 @@ export function Home() {
       {brief.data && (
         <section className="card home-figs" aria-label="This morning">
           {FIGURES.map((f) => {
-            const n = countIn(lines.find((l) => f.words.test(l)) ?? "");
+            // a hunt figure is 0 when there is no job hunt, and waits for its counts (a dash) rather than show a wrong 0
+            const n = f.hunt
+              ? hunt
+                ? counts.data && f.hunt(counts.data)
+                : hunts.data && 0
+              : countIn(lines.find((l) => f.words.test(l)) ?? "");
             return (
-              <Link key={f.label} to={f.to} className="home-fig" title={f.hint}>
+              <Link
+                key={f.label}
+                to={f.hunt && hunt ? `${f.to}&hunt=jobs:${encodeURIComponent(hunt.key)}` : f.to}
+                className="home-fig"
+                title={f.hint}
+              >
                 <span className="eyebrow">{f.label}</span>
                 <span className="flex items-center gap-2">
                   <span className={`dot tone-${f.tone}`} aria-hidden="true" />
-                  <b className={`font-mono text-lead tabular-nums ${n ? "text-strong" : "text-muted"}`}>{n}</b>
+                  <b className={`font-mono text-lead tabular-nums ${n ? "text-strong" : "text-muted"}`}>{n ?? "–"}</b>
                 </span>
               </Link>
             );
