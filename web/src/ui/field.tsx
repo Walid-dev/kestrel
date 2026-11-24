@@ -1,6 +1,7 @@
 // A box to write in, the app's one way: Enter sends and Shift+Enter makes a new line (the line under the box says
-// so), the round send button sits inside at its foot, the box grows with the words, and the text is 16 px so a phone
-// never zooms into it. Without onSend it is a search box: one line, no button, no rule to say.
+// so), the round send button sits inside at its foot, the box grows with the words, and on touch the text is 16 px so
+// a phone never zooms into it. Without onSend it is a search box: one line, no button, no rule to say, the plain
+// box's look (.input).
 import { useId } from "react";
 import { enterSends } from "../keys.ts";
 import { cx } from "./cx.ts";
@@ -85,8 +86,8 @@ export function Field({
           ) : (
             <svg
               viewBox="0 0 24 24"
-              width="17"
-              height="17"
+              width="14"
+              height="14"
               fill="none"
               stroke="currentColor"
               strokeWidth="2.4"

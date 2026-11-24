@@ -155,7 +155,7 @@ export function Ask({
         {isOpen && messages.length > 0 && (
           <button
             type="button"
-            className="ask-icon"
+            className="btn btn-icon"
             aria-label="Start over"
             title="Start over"
             disabled={writing || clear.isPending}

@@ -59,7 +59,7 @@ function TopicRow({ r, mark }: { r: Row; mark: string }) {
   return (
     <Card to={lessonPath(r.id)}>
       <span className="flex items-center gap-4">
-        <span className="font-cond w-10 shrink-0 text-head font-bold text-muted">{mark}</span>
+        <span className="font-cond w-10 shrink-0 text-head text-muted">{mark}</span>
         <span className="min-w-0 flex-1">{r.title}</span>
         {r.state === "due" && <StateChip state="due" />}
         {done && <span className="text-green">✓</span>}
@@ -389,7 +389,7 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
                   </details>
                 ) : (
                   <div key={g.st} className="grid gap-3">
-                    <h2 className="font-cond m-0 text-head font-bold">
+                    <h2 className="font-cond m-0 text-head">
                       {STATE[g.st].label}{" "}
                       <span className={`font-mono text-small ${g.st === "due" ? "text-cyan" : "text-muted"}`}>
                         {g.rows.length}

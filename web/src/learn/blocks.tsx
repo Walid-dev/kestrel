@@ -501,7 +501,7 @@ export function block(b: Block, say: Say, key: string | number): ReactNode {
       return <div key={key}>{lines(b.lines, say)}</div>;
     case "subhead":
       return (
-        <h3 key={key} className="font-cond mt-3 text-head font-bold">
+        <h3 key={key} className="font-cond mt-3 text-head">
           {heard(str(b.text), say)}
         </h3>
       );
@@ -631,7 +631,7 @@ export function block(b: Block, say: Say, key: string | number): ReactNode {
       const quiz = c ? check(str(c.q), c.a, say) : null;
       return (
         <div key={key} className="grid gap-2.5 pt-2">
-          <h3 className="font-cond m-0 text-head font-bold">
+          <h3 className="font-cond m-0 text-head">
             {term}
             {str(b.full) && <span className="ml-2 font-sans text-detail font-normal text-muted">{str(b.full)}</span>}
           </h3>

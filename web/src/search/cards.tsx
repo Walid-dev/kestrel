@@ -367,7 +367,7 @@ function OpenKey({ title }: { title: string }) {
 // the title opens the posting or the ad itself; the rest of the card opens the whole listing
 function Title({ l, text }: { l: Listing; text: string }) {
   return (
-    <h3 className="font-cond m-0 text-head font-bold">
+    <h3 className="font-cond m-0 text-head">
       <a
         href={l.link}
         target="_blank"
@@ -444,12 +444,12 @@ export function Swipe({
       {dx !== 0 && (
         <div
           className={cx(
-            "pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-2xl",
+            "pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-xl",
             dx > 0 ? "bg-green/18 text-green" : "bg-red/16 text-red",
           )}
           style={{ opacity: Math.min(1, Math.abs(dx) / (width.current / 3)) }}
         >
-          <span className="font-cond text-lead font-bold">{dx > 0 ? "Interested" : leftLabel}</span>
+          <span className="font-cond text-lead">{dx > 0 ? "Interested" : leftLabel}</span>
         </div>
       )}
       <div

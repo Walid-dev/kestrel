@@ -13,6 +13,8 @@
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-surface-hover: var(--surface-hover);
   --color-ink: var(--text);
   --color-strong: var(--strong);
   --color-muted: var(--muted);
@@ -43,27 +45,37 @@
   --font-cond: var(--cond);
   --font-mono: var(--mono);
 }
-/* The type steps, from the sizes the pages really used (28 of them on 2026-11-23, folded into eight). Each carries its
-   line height. label: mono labels and counts; small: hints, meta lines, captions; detail: a card's description;
-   body: running text (the page's own size); read: what is read slowly (a lesson, a line to say); head: a card's or a
-   section's heading; lead: one big line (a number, an answer to say); title: the page's title. */
+/* The type steps (docs/design.md): nine sizes, each with its line height, and each heading step with its own weight, so
+   a page never adds font-bold beside one. Every font size in this file reads a step too. These are the sizes under a
+   mouse; the touch block after :root makes the small ones a step bigger for the thumb's distance.
+   label: eyebrows, legends, chip caps, counts · small: hints, meta lines, times, a row's second line · detail: the UI's
+   voice, every button, pill and seg · body: running text · read: what is read slowly (a lesson, a document) · head: a
+   card's title · section: a page's section, a dialog's title · lead: one big line, a child page's title · title: a
+   top page's title, once per page. */
 @theme {
   --text-label: 11px;
-  --text-label--line-height: 1.35;
-  --text-small: 13px;
-  --text-small--line-height: 1.45;
-  --text-detail: 14px;
-  --text-detail--line-height: 1.5;
-  --text-body: 15.5px;
-  --text-body--line-height: 1.6;
-  --text-read: 16.5px;
-  --text-read--line-height: 1.7;
-  --text-head: 19px;
-  --text-head--line-height: 1.25;
-  --text-lead: 24px;
-  --text-lead--line-height: 1.25;
-  --text-title: 34px;
-  --text-title--line-height: 1.05;
+  --text-label--line-height: 16px;
+  --text-small: 12px;
+  --text-small--line-height: 16px;
+  --text-detail: 13px;
+  --text-detail--line-height: 20px;
+  --text-body: 14px;
+  --text-body--line-height: 22px;
+  --text-read: 16px;
+  --text-read--line-height: 26px;
+  --text-head: 16px;
+  --text-head--line-height: 22px;
+  --text-head--font-weight: 600;
+  --text-section: 18px;
+  --text-section--line-height: 24px;
+  --text-section--font-weight: 600;
+  --text-lead: 22px;
+  --text-lead--line-height: 28px;
+  --text-lead--font-weight: 600;
+  --text-title: 26px;
+  --text-title--line-height: 30px;
+  --text-title--font-weight: 700;
+  --text-title--letter-spacing: -0.01em;
 }
 
 @font-face {
@@ -102,7 +114,10 @@
   --bg: #15171c;
   --surface: #1c1f26;
   --surface-2: #242831;
-  --line: #333845;
+  --surface-hover: #21252d;
+  /* two lines: the quiet one draws structure (cards, lists, dividers, bars), the strong one a control's edge */
+  --line: #2a2e37;
+  --line-strong: #333845;
   --text: #c6ccd7;
   --strong: #e9edf4;
   --muted: #8a919e;
@@ -133,14 +148,66 @@
   --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
   --cond: "IBM Plex Sans Condensed", "Arial Narrow", sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* the shadows, only on what floats (a dialog, the dock, the status pip, a seg's picked option), and the dim behind
+     a dialog: deeper in the dark, where a shadow reads less */
+  --shade-dialog: rgba(0, 0, 0, 0.55);
+  --shade-dock: rgba(0, 0, 0, 0.4);
+  --shade-pip: rgba(0, 0, 0, 0.35);
+  --shade-seg: rgba(0, 0, 0, 0.3);
+  --backdrop: rgba(0, 0, 0, 0.5);
+  /* The control ladder (docs/design.md): every control's drawn height, under a mouse. small: .btn-sm · choice: a pill,
+     a seg's option · control: .btn, .btn-icon, the seg's bar, a disclosure's and a back link's row · large: .btn-big,
+     a Field's box · box: .input and the search box. Touch draws them taller (the block below), and anything drawn
+     under --h-hit there takes the rest as a transparent area around it (the hit areas, at the end of this file). */
+  --h-sm: 24px;
+  --h-choice: 26px;
+  --h-control: 30px;
+  --h-large: 36px;
+  --h-box: 30px;
+  --h-hit: 44px;
+  /* the motion: short, eased, never a bounce; nothing lasts longer than --t-slow (loops aside) */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --t-fast: 120ms;
+  --t-mid: 160ms;
+  --t-slow: 220ms;
+  /* a mark that turns (a fold-out's ▶, Ask's chevron): none at all when the system asks for less motion */
+  --t-move: var(--t-fast);
+}
+/* Touch: the one block that changes the sizes for a thumb (the type steps from small to body, the title a step down so
+   it fits a phone, every control on the touch ladder). Everything else reads these variables, so nothing else switches
+   by device. A touch target is at least --h-hit (44) tall; text boxes and the one main action are drawn at 44. */
+@media (pointer: coarse) {
+  :root {
+    --text-small: 13px;
+    --text-small--line-height: 18px;
+    --text-detail: 14px;
+    --text-detail--line-height: 20px;
+    --text-body: 15px;
+    --text-body--line-height: 24px;
+    --text-title: 24px;
+    --text-title--line-height: 28px;
+    --h-sm: 36px;
+    --h-choice: 32px;
+    --h-control: 36px;
+    --h-large: 44px;
+    --h-box: 44px;
+  }
 }
 @media (prefers-color-scheme: light) {
   :root {
     color-scheme: light;
-    --bg: #fafafa;
+    --bg: #f6f6f7;
     --surface: #ffffff;
     --surface-2: #f0f0f1;
-    --line: #dcdce0;
+    --surface-hover: #f5f5f7;
+    --line: #e6e6e9;
+    --line-strong: #dcdce0;
+    --shade-dialog: rgba(0, 0, 0, 0.18);
+    --shade-dock: rgba(0, 0, 0, 0.15);
+    --shade-pip: rgba(0, 0, 0, 0.12);
+    --shade-seg: rgba(0, 0, 0, 0.12);
+    --backdrop: rgba(0, 0, 0, 0.3);
     --text: #383a42;
     --strong: #1c1e24;
     --muted: #696c77;
@@ -181,27 +248,116 @@ h2,
 h3 {
   color: var(--strong);
 }
-/* one button voice everywhere: the hunt pages' size, quiet by default */
+/* One button voice everywhere, on the control ladder: drawn at --h-control (30 under a mouse, 36 on touch), its label
+   in the UI's voice. The height comes from min-height with the label centred, so every button of a step measures the
+   same and a label that wraps still grows. A press answers at once (the motion block); a hover only changes the ground. */
 .btn {
-  font: 500 13.5px / 1.2 var(--sans);
-  padding: 6px 12px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--h-control);
+  padding: 2px 12px;
   border-radius: 8px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   background: var(--surface);
   color: var(--text);
+  font: 500 var(--text-detail) / var(--text-detail--line-height) var(--sans);
   cursor: pointer;
 }
+.btn > svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+/* the screen's one filled button (a dialog counts as a screen of its own): the main action, never a list's per-item
+   one */
 .btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  --fill: var(--accent);
+  background: var(--fill);
+  border-color: var(--fill);
   color: var(--bg);
   font-weight: 600;
 }
+/* a ghost: no edge, no ground, muted words, for the secondary action beside a primary and the rare ones */
 .btn-quiet {
+  border-color: transparent;
+  background: transparent;
   color: var(--muted);
 }
 .btn-danger {
   color: var(--red);
+}
+/* under the pointer: a plain button's ground comes up a step, a filled one deepens a hair toward the ink, a ghost
+   takes the sunk ground and the ink */
+@media (hover: hover) {
+  .btn:hover:not([disabled]) {
+    background: var(--surface-hover);
+  }
+  .btn-primary:hover:not([disabled]) {
+    background: color-mix(in srgb, var(--fill) 92%, var(--strong));
+    border-color: color-mix(in srgb, var(--fill) 92%, var(--strong));
+  }
+  .btn-quiet:hover:not([disabled]) {
+    background: var(--surface-2);
+    color: var(--strong);
+  }
+}
+/* a card's secondary action ("The page ↗", "Edit in Notes →"): a step down under a mouse; the same as .btn on touch */
+.btn-sm {
+  min-height: var(--h-sm);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: var(--text-small);
+  line-height: var(--text-small--line-height);
+}
+.btn-sm > svg {
+  width: 12px;
+  height: 12px;
+}
+/* the page's one main action at the end of a form (Write it, Start): a step up, never full width under a mouse */
+.btn-big {
+  min-height: var(--h-large);
+  min-width: 140px;
+  padding: 2px 16px;
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  font-weight: 600;
+}
+/* a round button that holds only an icon (reset, start over, close): its name in aria-label and title */
+.btn-icon {
+  width: var(--h-control);
+  min-width: 0;
+  height: var(--h-control);
+  padding: 0;
+  border-radius: 999px;
+}
+.btn-icon > svg {
+  width: 16px;
+  height: 16px;
+}
+@media (pointer: coarse) {
+  .btn {
+    min-width: 44px;
+    padding-inline: 14px;
+  }
+  .btn-sm {
+    border-radius: 8px;
+    font-size: var(--text-detail);
+    line-height: var(--text-detail--line-height);
+  }
+  .btn-sm > svg {
+    width: 14px;
+    height: 14px;
+  }
+  .btn-big {
+    padding-inline: 20px;
+  }
+  .btn-icon {
+    min-width: 0;
+    padding: 0;
+  }
 }
 /* a card that opens with one tap and has its own ✕: the open button stretches over the whole card, the ✕ sits above */
 .card-open {
@@ -216,24 +372,44 @@ h3 {
   inset: 0;
   border-radius: inherit;
 }
+/* the ✕ that deletes: small and round. In a card or a list row under a mouse it waits out of sight until the pointer or
+   the keyboard comes in (it stays in the tab order); on touch it is always there, drawn a little bigger */
 .card-remove {
   position: relative;
   z-index: 1;
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
-  margin: -4px -6px -4px 0;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin: -2px -4px -2px 0;
   border: 0;
   border-radius: 999px;
   background: none;
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--text-small);
+  line-height: 1;
   cursor: pointer;
 }
-.card-remove:hover {
-  background: color-mix(in srgb, var(--red) 14%, transparent);
-  color: var(--red);
+@media (hover: hover) {
+  .card-remove:hover {
+    background: var(--del-soft);
+    color: var(--red);
+  }
+}
+@media (pointer: coarse) {
+  .card-remove {
+    width: 28px;
+    height: 28px;
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  :is(.card, .list-row) .card-remove {
+    opacity: 0;
+  }
+  :is(.card, .list-row):is(:hover, :focus-within) .card-remove {
+    opacity: 1;
+  }
 }
 /* Stop's question on an application: two choices, each saying what happens after it */
 .stop-ask {
@@ -249,18 +425,18 @@ h3 {
 .stop-choice {
   display: grid;
   gap: 2px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   text-align: left;
   border: 1px solid color-mix(in srgb, var(--red) 40%, var(--line));
-  border-radius: 10px;
+  border-radius: 8px;
   background: color-mix(in srgb, var(--red) 6%, var(--surface));
   color: var(--strong);
-  font: 400 13px / 1.35 var(--sans);
+  font: 400 var(--text-detail) / var(--text-detail--line-height) var(--sans);
   cursor: pointer;
 }
 .stop-choice b {
   color: var(--red);
-  font-size: 14px;
+  font-size: var(--text-body);
 }
 .stop-choice span {
   color: var(--muted);
@@ -270,39 +446,46 @@ h3 {
 .btn[disabled] {
   cursor: default;
   background: var(--surface-2);
-  border-color: var(--line);
+  border-color: var(--line-strong);
   color: color-mix(in srgb, var(--muted) 75%, transparent);
+}
+.btn-quiet[disabled] {
+  border-color: transparent;
+  background: transparent;
 }
 /* a button that stays on (Slow, Record me): its tone's edge and words, the accent unless a tone-* says otherwise */
 .btn[aria-pressed="true"] {
   border-color: var(--tone, var(--accent));
   color: var(--tone, var(--accent));
 }
+/* a card: flat, on the quiet hairline, never a shadow at rest (only what floats has one). Two levels of enclosure at
+   most: the page, then the card; a block inside a card is .inner, never another card */
 .card {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 16px;
+  border-radius: 12px;
+  padding: 14px;
 }
-/* a card that opens something: it lifts a hair under the pointer */
-.card-link {
-  /* a raised card: its own shadow, so each card stands apart from the next while scrolling */
-  box-shadow:
-    0 1px 0 color-mix(in srgb, var(--strong) 6%, transparent) inset,
-    0 2px 4px rgba(0, 0, 0, 0.22),
-    0 10px 28px -12px rgba(0, 0, 0, 0.55);
-  transition:
-    transform 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease;
+@media (pointer: coarse) {
+  .card {
+    padding: 16px;
+  }
 }
-.card-link:hover {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
-  box-shadow:
-    0 1px 0 color-mix(in srgb, var(--strong) 8%, transparent) inset,
-    0 4px 10px rgba(0, 0, 0, 0.28),
-    0 16px 36px -14px rgba(0, 0, 0, 0.6);
+/* a card that opens something: under the pointer its ground and edge come up a step; pressed, the ground deepens */
+@media (hover: hover) {
+  .card-link:hover {
+    background: var(--surface-hover);
+    border-color: var(--line-strong);
+  }
+}
+.card-link:active {
+  background: color-mix(in srgb, var(--strong) 5%, var(--surface));
+}
+/* a block inside a card (a deep check, a line to say, Ask's direct answer): the sunk ground, no edge */
+.inner {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-2);
 }
 
 /* tones: one colour per meaning, set once and read by chips, bars, callouts and diagram parts */
@@ -347,20 +530,21 @@ h3 {
   --tone: var(--poor);
 }
 
-/* a chip: a small coloured label (a state, a match, a source) */
+/* a chip: a small coloured label (a state, a match, a source), the tone's words on a tint of it */
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font: 600 11.5px / 1 var(--sans);
-  padding: 4px 8px;
+  gap: 4px;
+  height: 20px;
+  padding: 0 7px;
   border-radius: 6px;
+  font: 500 var(--text-small) / 1 var(--sans);
   color: var(--tone, var(--muted));
   background: color-mix(in srgb, var(--tone, var(--muted)) 15%, transparent);
   white-space: nowrap;
 }
 .chip-caps {
-  font: 600 10.5px / 1 var(--mono);
+  font: 500 var(--text-label) / 1 var(--mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -379,27 +563,30 @@ h3 {
   left: 50%;
   z-index: 2;
   transform: translateX(-50%);
-  padding: 3px 8px;
+  padding: 2px 8px;
   border-radius: 6px;
   background: var(--accent);
   color: var(--bg);
-  font: 600 10.5px / 1.2 var(--mono);
+  font: 500 var(--text-label) / var(--text-label--line-height) var(--mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
 }
-/* a listing's pay or price, in its place on the money scale (its tone-*). Dark puts the ground's colour on the money
-   colour; light can't (white on the light money colours reads under 4.5:1), so there it is dark ink on a tint of it,
-   edged in it */
+/* a listing's pay or price, in its place on the money scale (its tone-*): mono, tabular, a chip's size. Dark puts the
+   tone's words on a tint of it (4.5:1 or more, measured); light can't (its money colours read under 4.5:1 as words),
+   so there it is dark ink on a tint of it, edged in it */
 .money {
+  display: inline-flex;
   flex: none;
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-family: var(--mono);
-  font-weight: 700;
-  line-height: 1.2;
-  background: var(--tone);
-  color: var(--bg);
+  align-items: center;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 6px;
+  font: 500 var(--text-small) / 1 var(--mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--tone) 15%, transparent);
+  color: var(--tone);
 }
 .money:not([class*="tone-"]) {
   background: var(--surface-2);
@@ -455,7 +642,7 @@ h3 {
   top: 12px;
   left: var(--at);
   transform: translateX(-50%);
-  font: 11px / 1.2 var(--mono);
+  font: var(--text-label) / 1.2 var(--mono);
   color: var(--muted);
 }
 /* the listing sheet, a wide Dialog: its head (the title and the ✕; the company, pay and match scroll under it) and its
@@ -489,100 +676,145 @@ h3 {
 .pills-inline > .pills > .pills-row {
   display: contents;
 }
+/* its rows 12 apart on touch, as the Pills' own, so the pills' touch areas never overlap */
+@media (pointer: coarse) {
+  .pills-inline {
+    row-gap: 12px;
+  }
+}
 /* a listing card's Open, unseen until Tab reaches it: then the whole card takes the keyboard's ring */
 .card-link:has(> .card-key:focus-visible) {
   outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
   outline-offset: 2px;
 }
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--tone, var(--muted));
+  flex: none;
+}
 /* a filter pill: quiet until picked; a dot in its tone; its count beside. A long name wraps inside it: one unbroken
    word must never push the page wider than the phone */
 .pill {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   max-width: 100%;
-  font: 500 13.5px / 1.2 var(--sans);
-  padding: 7px 12px;
-  border-radius: 9px;
-  border: 1px solid var(--line);
+  min-height: var(--h-choice);
+  padding: 2px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
   background: var(--surface);
   color: var(--text);
+  font: 500 var(--text-detail) / var(--text-detail--line-height) var(--sans);
   text-align: left;
   overflow-wrap: anywhere;
   cursor: pointer;
 }
+.pill > .dot {
+  width: 6px;
+  height: 6px;
+}
+/* its count: mono, quiet (ink when picked), the same width per digit */
 .pill b {
-  font-family: var(--mono);
-  font-weight: 600;
-  color: var(--strong);
+  font: 500 var(--text-small) / 1 var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--count, var(--muted));
 }
+/* picked: neutral (the accent is for acting), a faint ground of the ink and a firmer edge; the weight never changes,
+   so the words never jump */
 .pill[aria-pressed="true"] {
-  border-color: var(--strong);
-  background: var(--surface-2);
+  --count: var(--strong);
+  border-color: color-mix(in srgb, var(--strong) 40%, transparent);
+  background: color-mix(in srgb, var(--strong) 8%, var(--surface));
   color: var(--strong);
 }
-/* a choice among a few, as one bar (the quiz's source and its length): the picked part raised, a small line under */
+@media (pointer: coarse) {
+  .pill {
+    min-width: 44px;
+    padding-inline: 12px;
+  }
+}
+/* A view switch of two to four options, as one bar: as wide as its words (each option at least 64), never a card's
+   width; the picked option raised. What the pick means is one quiet line under the bar (.seg-hint, Seg in
+   web/src/ui/seg.tsx), never a second line inside it. The bar's hairline is a shadow, so it adds no height. It sizes
+   to fit (inline, held at the start), not to max-content: a fixed max-content width would count in full when a grid
+   sizes its column, and push the whole card wider than a phone */
 .seg {
   margin: 0;
   min-width: 0;
-  display: grid;
+  display: inline-grid;
   grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  gap: 4px;
-  padding: 4px;
-  border-radius: 14px;
-  border: 1px solid var(--line);
+  grid-auto-columns: auto;
+  justify-self: start;
+  max-width: 100%;
+  min-height: var(--h-control);
+  gap: 2px;
+  padding: 2px;
+  border: 0;
+  border-radius: 8px;
   background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--line);
 }
 .seg button {
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 2px;
-  padding: 11px 10px;
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  min-height: var(--h-choice);
+  padding: 2px 12px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 6px;
   background: transparent;
   color: var(--muted);
-  font: 600 15.5px / 1.2 var(--sans);
+  font: 500 var(--text-detail) / var(--text-detail--line-height) var(--sans);
   cursor: pointer;
-  transition:
-    background 0.15s,
-    color 0.15s;
 }
+/* a second line still inside an option (a page not yet on Seg's hint line): quiet, under the name */
 .seg button small {
-  font: 500 12px / 1.2 var(--sans);
+  font: 400 var(--text-small) / var(--text-small--line-height) var(--sans);
   color: var(--muted);
 }
 .seg button[aria-pressed="true"] {
   background: var(--surface);
   color: var(--strong);
   box-shadow:
-    0 0 0 1px var(--line),
-    0 2px 6px rgba(0, 0, 0, 0.18);
+    0 0 0 1px var(--line-strong),
+    0 1px 2px var(--shade-seg);
 }
-/* a hunt's switch, On / Quiet / Paused, as the old hunt page had it: On lit green when it is on */
-.seg-modes {
-  display: inline-grid;
-  grid-auto-columns: auto;
-  padding: 3px;
-  gap: 2px;
-  border-radius: 11px;
+/* what the picked option means, under the bar, read with it (aria-describedby) */
+.seg-field {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  min-width: 0;
 }
+.seg-hint {
+  margin: 0;
+  font: 400 var(--text-small) / var(--text-small--line-height) var(--sans);
+  color: var(--muted);
+}
+/* a hunt's switch, On / Quiet / Paused: a plain seg whose picked mode shows a dot in its colour on a tint of it, the
+   word in ink (the modes' own colours read under 4.5:1 as words in light) */
 .seg-modes button {
-  padding: 7px 14px;
-  font-size: 15px;
-  border-radius: 8px;
+  flex-direction: row;
+  gap: 6px;
 }
-/* the old pages' switch: the mode that is on is filled with its colour and glows (On green, Quiet amber, Paused red) */
 .seg-modes button[data-mode][aria-pressed="true"] {
   --mode: var(--great);
+  background: color-mix(in srgb, var(--mode) 14%, var(--surface));
+  color: var(--strong);
+}
+.seg-modes button[data-mode][aria-pressed="true"]::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
   background: var(--mode);
-  color: var(--bg);
-  font-weight: 650;
-  box-shadow:
-    0 0 0 1px var(--mode),
-    0 0 16px color-mix(in srgb, var(--mode) 50%, transparent);
 }
 .seg-modes button[data-mode="quiet"][aria-pressed="true"] {
   --mode: var(--warn);
@@ -605,21 +837,32 @@ h3 {
   padding: 0;
   margin-bottom: 8px;
 }
+/* 8 apart; on touch 12 between rows, so the rows' taller touch areas meet and never overlap */
 .pills-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+@media (pointer: coarse) {
+  .pills-row {
+    row-gap: 12px;
+  }
+  .pills-legend {
+    margin-bottom: 12px;
+  }
 }
 .pill-name {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 .pills .pill small {
-  font: 500 12px / 1.2 var(--sans);
+  font: 400 var(--text-small) / var(--text-small--line-height) var(--sans);
   color: var(--muted);
 }
-.pills .pill:hover:not([aria-pressed="true"]) {
-  border-color: color-mix(in srgb, var(--strong) 30%, var(--line));
+@media (hover: hover) {
+  .pill:hover:not([aria-pressed="true"], .pill-action, [disabled]) {
+    border-color: color-mix(in srgb, var(--strong) 30%, var(--line-strong));
+  }
 }
 /* an action among the pills (Show all): the accent's words on no ground, so it reads as a button, not a choice */
 .pills .pill-action {
@@ -628,21 +871,21 @@ h3 {
 }
 /* the action that can't be undone, filled: Confirm's Delete */
 .btn-primary.btn-danger {
-  background: var(--red);
-  border-color: var(--red);
+  --fill: var(--red);
   color: var(--bg);
 }
 /* light's --red under white words reads 3.5:1; the deeper --poor reads 4.7:1, enough for the box's main word */
 @media (prefers-color-scheme: light) {
   .btn-primary.btn-danger {
-    background: var(--poor);
-    border-color: var(--poor);
+    --fill: var(--poor);
   }
 }
-/* Dialog: the sheets' look, one place. Centred on the phone and the computer; the box scrolls, never the page behind */
+/* Dialog: the sheets' look, one place. Centred on the phone and the computer; the box scrolls, never the page behind.
+   It floats, so it has the shadow; the dim behind it has no blur. It eases in, and out where the browser can keep a
+   closing box on top (the motion block) */
 .dialog {
   margin: auto;
-  width: min(calc(100vw - 32px), 460px);
+  width: min(calc(100vw - 32px), 440px);
   /* the browser caps a modal dialog at its own max-width; the widths here are the ones that count */
   max-width: none;
   max-height: min(88dvh, 760px);
@@ -650,10 +893,10 @@ h3 {
   overscroll-behavior: contain;
   padding: 0;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 14px;
   background: var(--surface);
   color: var(--text);
-  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 16px 48px -16px var(--shade-dialog);
 }
 .dialog-wide {
   width: min(calc(100vw - 16px), 900px);
@@ -661,139 +904,110 @@ h3 {
   background: var(--bg);
 }
 .dialog::backdrop {
-  background: rgba(0, 0, 0, 0.55);
-}
-.dialog[open] {
-  animation: dialog-in 0.16s ease-out;
-}
-.dialog[open]::backdrop {
-  animation: dialog-fade 0.16s ease-out;
-}
-@keyframes dialog-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.985);
-  }
-}
-@keyframes dialog-fade {
-  from {
-    opacity: 0;
-  }
+  background: var(--backdrop);
 }
 .dialog-head {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 18px 18px 0 20px;
+  padding: 16px 16px 0 20px;
 }
 .dialog-title {
   margin: 0;
-  font: 700 20px / 1.25 var(--cond);
+  font: 600 var(--text-section) / var(--text-section--line-height) var(--cond);
   color: var(--strong);
   overflow-wrap: anywhere;
 }
+/* the ✕: a round ghost button (btn btn-icon btn-quiet), its top edge on the title's line */
 .dialog-x {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 32px;
-  height: 32px;
-  margin: -4px -6px 0 0;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-}
-.dialog-x:hover {
-  background: var(--surface-2);
-  color: var(--strong);
+  margin: -3px -4px 0 0;
 }
 .dialog-body {
   padding: 8px 20px 0;
-  font-size: 15px;
-  line-height: 1.55;
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
 }
 .dialog-body > p {
   margin: 0;
 }
+/* the buttons at the foot, on the right, the main action last; on touch the main one takes the room and the thumb's
+   height, its ghost beside it as wide as its words */
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 18px 20px 18px;
+  padding: 16px 20px;
 }
 .dialog-head:only-child,
 .dialog-body:last-child {
   padding-bottom: 20px;
 }
-/* the phone: the thumb's size for every control in a box (the pills' and buttons' floor is the phone's floor, below) */
 @media (pointer: coarse) {
-  .dialog-x {
-    width: 44px;
-    height: 44px;
-    margin: -10px -12px 0 0;
-  }
-  .dialog-actions .btn {
+  .dialog-actions .btn-primary {
     flex: 1;
-    min-height: 44px;
-    font-size: 15px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .dialog[open],
-  .dialog[open]::backdrop {
-    animation: none;
+    min-height: var(--h-hit);
   }
 }
 /* ── The page parts (web/src/ui/, shown on /design) ── */
-/* Page: every page's frame. Two widths, both from the shell's left edge, so a title always starts where the name
-   kestrel starts: wide for lists and grids, reading for text (a line the eye can follow) */
+/* Page: every page's frame. Two widths, both from the shell's left edge, so a title always starts at the same place:
+   wide for lists and grids, reading for text (a line the eye can follow). One gap, from the head to the first content
+   and between sections. A page arrives softly, once, when it mounts (the motion block) */
 .page {
+  --page-gap: 24px;
   display: grid;
   align-content: start;
-  gap: 20px;
+  gap: var(--page-gap);
   min-width: 0;
+}
+@media (pointer: coarse) {
+  .page {
+    --page-gap: 20px;
+  }
 }
 .page-reading {
-  max-width: 768px;
+  max-width: 720px;
 }
-/* PageHead: the back link and the page's tools on one bar, the eyebrow, one title size in one case, the line under
-   it. A long word in a title breaks rather than widen the page */
+/* PageHead: the back link and the page's tools on one row, the eyebrow, the title, the line under it. A long word in
+   a title breaks rather than widen the page */
 .page-head {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
-/* one row when the back link keeps room for its name (13em, about twenty letters, so a guide's Listen and Slow at the
-   head's size still sit beside it on a phone): past that its name ends in …;
-   with less, the buttons drop to a row of their own, on the right, so the back link always says where it goes. On a
-   page it sits close over the head it belongs to (the page's gap is 20 px, the head's own 6) */
+/* a child page's back row: the back link and the page's tools on one row when the back link keeps room for its name
+   (13em, about twenty letters): past that its name ends in …; with less, the tools drop to a row of their own, on the
+   right, so the back link always says where it goes. The title follows 8 under it */
 .page-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0 8px;
-  min-height: 44px;
+  gap: 8px;
+  min-height: var(--h-control);
 }
 .page > .page-bar {
-  margin-bottom: -14px;
+  margin-bottom: calc(8px - var(--page-gap));
 }
-/* the bar that stays on top while the page scrolls (a lesson's Listen): the page's ground, frosted, edge to edge of
-   the screen (a shadow carries its ground past the gutters; the clip keeps it one bar tall). At the top of the page
-   it is clear, so no band shows over the page's glow; the ground fades in over the first 48 px scrolled */
+@media (pointer: coarse) {
+  .page-bar {
+    min-height: var(--h-hit);
+  }
+}
+/* the row that stays on top while the page scrolls (a lesson's Listen), under the phone's status bar: the page's
+   ground, frosted, edge to edge of the screen (a shadow carries its ground past the gutters; the clip keeps it one row
+   tall). At the top of the page it is clear, so no band shows over the page's glow; the ground fades in over the first
+   48 px scrolled */
 .page-bar-sticky {
   --bar: color-mix(in srgb, var(--bg) 88%, transparent);
   position: sticky;
-  top: 0;
+  top: env(safe-area-inset-top);
   z-index: 10;
   padding-block: 6px;
   margin-block: -6px 0;
   background: var(--bar);
   box-shadow: 0 0 0 100vmax var(--bar);
   clip-path: inset(0 -100vmax);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
 }
 @supports (animation-timeline: scroll()) {
   .page-bar-sticky {
@@ -813,22 +1027,28 @@ h3 {
   display: inline-flex;
   flex: 1 1 13em;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   max-width: max-content;
   min-width: 0;
-  min-height: 44px;
-  padding-right: 10px;
-  font: 500 14px / 1.3 var(--sans);
+  min-height: var(--h-control);
+  padding-right: 8px;
+  font: 500 var(--text-detail) / var(--text-detail--line-height) var(--sans);
   color: var(--accent);
 }
 .page-back svg {
   flex: none;
+  margin-left: -4px;
 }
 .page-back span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+@media (pointer: coarse) {
+  .page-back {
+    min-height: var(--h-hit);
+  }
 }
 .page-tools,
 .page-actions {
@@ -845,28 +1065,35 @@ h3 {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 6px 16px;
+  gap: 4px 16px;
 }
+/* a top page's title, once per page; a child page's (it has a back row) is a step down, so a counter or a file name
+   never outweighs what is under it */
 .page-title {
   min-width: 0;
   margin: 0;
-  font: 700 34px / 1.05 var(--cond);
+  font: 700 var(--text-title) / var(--text-title--line-height) var(--cond);
   letter-spacing: -0.01em;
   color: var(--strong);
   overflow-wrap: anywhere;
   text-wrap: balance;
 }
+.page-title-child {
+  font-size: var(--text-lead);
+  line-height: var(--text-lead--line-height);
+}
 .page-line {
   margin: 0;
-  max-width: 68ch;
+  max-width: 64ch;
   color: var(--muted);
   text-wrap: pretty;
 }
-/* on a phone the buttons come under the line; wider, they sit beside the title and the line goes below both */
+/* the page's own buttons: on touch, or in a narrow window, one wrapping row 12 under the line; under a mouse with the
+   room, on the title's row, at its right, centred on it, the line going under both */
 .page-actions {
-  margin-top: 6px;
+  margin-top: 8px;
 }
-@media (min-width: 48rem) {
+@media (hover: hover) and (pointer: fine) and (min-width: 48rem) {
   .page-title-row {
     grid-template-columns: minmax(0, 1fr) auto;
   }
@@ -875,15 +1102,17 @@ h3 {
   }
   .page-actions {
     grid-area: 1 / 2;
+    justify-content: flex-end;
     margin-top: 0;
   }
   .page-line {
     grid-area: 2 / 1 / 3 / -1;
   }
 }
-/* Card: the .card ground. A block stacks its parts 12 px apart (design.md: cards breathe). With a title: its meta
-   row on top (chips, a date, the ✕ at the end), the title in the heading voice, what it holds under it. A card that
-   opens is opened by its title, stretched over the whole card; any other link or button in it sits above that */
+/* Card: the .card ground. A block stacks its parts 12 px apart. With a title: its meta row on top (chips, a date, the
+   ✕ at the end), the title in the heading voice, what it holds under it, 4 apart, and its action row 12 under that.
+   A card that opens is opened by its title, stretched over the whole card; any other link or button in it sits above
+   that */
 .card-stack {
   display: grid;
   align-content: start;
@@ -893,7 +1122,14 @@ h3 {
   position: relative;
   display: grid;
   align-content: start;
-  gap: 6px;
+  gap: 4px;
+}
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
 }
 .card-titled :is(a, button):not(.card-open) {
   position: relative;
@@ -914,7 +1150,7 @@ h3 {
 }
 .card-title {
   margin: 0;
-  font: 700 19px / 1.25 var(--cond);
+  font: 600 var(--text-head) / var(--text-head--line-height) var(--cond);
   color: var(--strong);
   text-wrap: pretty;
 }
@@ -925,12 +1161,13 @@ h3 {
 }
 .card-titled > .card-body {
   color: var(--muted);
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: var(--text-detail);
+  line-height: var(--text-detail--line-height);
 }
-/* a card about one thing that matters now (needs me, review today): its edge in that tone */
+/* a card about one thing that matters now (needs me, review today): a 2 px edge in that tone on its left, the one
+   tinted thing on the screen */
 .card-tone {
-  border-color: color-mix(in srgb, var(--tone) 55%, var(--line));
+  box-shadow: inset 2px 0 0 var(--tone);
 }
 /* across the whole row of the grid it sits in */
 .card-wide {
@@ -942,93 +1179,226 @@ h3 {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-/* EmptyState: nothing here yet, said once and plainly, with the next step; the setting it needs, if any, small */
+/* List and Row (web/src/ui/list.tsx): many small things as one card of rows instead of a stack of small cards. A row
+   is one target: its title opens it, stretched over the whole row, with a chevron at its end; what sits at its end (a
+   chip, the ✕) stays a target of its own, above. Hairlines split the rows from the text's left edge. The height
+   comes from the words: one line is 40 (48 on touch) at least, a title over a line 54 (62). With cols, two columns
+   from 64rem, the rows running left to right, a hairline between the columns */
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.list-row {
+  --row-x: 14px;
+  --row-icon: 16px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  padding: 8px var(--row-x);
+}
+@media (pointer: coarse) {
+  .list-row {
+    --row-x: 16px;
+    --row-icon: 18px;
+    min-height: 48px;
+    padding-block: 10px;
+  }
+}
+.list-row + .list-row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: var(--row-x);
+  right: 0;
+  border-top: 1px solid var(--line);
+}
+.list-row:has(> .list-icon)::before {
+  left: calc(var(--row-x) + var(--row-icon) + 12px);
+}
+.list-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--row-icon);
+  height: var(--row-icon);
+}
+.list-icon svg {
+  width: var(--row-icon);
+  height: var(--row-icon);
+}
+.list-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.list-title {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--strong);
+  font: 500 var(--text-body) / var(--text-body--line-height) var(--sans);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.list-line {
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+  line-height: var(--text-small--line-height);
+  overflow-wrap: anywhere;
+}
+.list-end {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+.list-chevron {
+  flex: none;
+  color: var(--muted);
+}
+.list-open {
+  cursor: pointer;
+}
+.list-open::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+/* the keyboard's ring goes round the whole row, inside it, since the list clips what passes its edge */
+.list-open:focus-visible {
+  outline: none;
+}
+.list-open:focus-visible::after {
+  outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  outline-offset: -2px;
+}
+@media (hover: hover) {
+  .list-row:has(.list-open):hover {
+    background: var(--surface-hover);
+  }
+}
+.list-row:has(.list-open):active {
+  background: color-mix(in srgb, var(--strong) 5%, var(--surface));
+}
+@media (min-width: 64rem) {
+  .list-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .list-cols > .list-row:nth-child(2)::before {
+    display: none;
+  }
+  .list-cols > .list-row:nth-child(odd):not(:last-child) {
+    box-shadow: 1px 0 0 var(--line);
+  }
+}
+/* EmptyState: nothing here yet, said once and plainly in the flow (no box around it), with the next step; the setting
+   it needs, if any, small */
 .empty {
   display: grid;
   align-content: start;
   justify-items: start;
-  gap: 6px;
-  padding: 20px;
-  border: 1px dashed var(--line);
-  border-radius: 16px;
+  gap: 4px;
 }
 .empty-title {
   margin: 0;
-  font-weight: 600;
+  font: 600 var(--text-body) / var(--text-body--line-height) var(--sans);
   color: var(--strong);
 }
 .empty-line {
   margin: 0;
   max-width: 60ch;
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: var(--text-detail);
+  line-height: var(--text-detail--line-height);
   color: var(--muted);
 }
 .empty-action {
   margin-top: 8px;
 }
 .empty-detail {
-  font: 12px / 1.4 var(--mono);
+  font: var(--text-small) / var(--text-small--line-height) var(--mono);
   color: var(--muted);
   overflow-wrap: anywhere;
 }
-/* Field: a box to write in that sends on Enter, its round send button inside at its foot, the rule said under it.
-   16 px always, so a phone never zooms into it; it grows with the words */
+/* Field: a box to write in that sends on Enter, its round send button inside at its foot, the rule said under it,
+   4 under the box. It grows with the words; on touch it writes at 16 px, so a phone never zooms into it */
 .field {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
-.field-box {
+.field-box,
+.ask-compose {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  padding: 5px 5px 5px 14px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
+  min-height: var(--h-large);
+  padding: 3px 3px 3px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
   background: var(--surface-2);
-  transition: border-color 0.15s;
 }
-.field-box:focus-within {
+.field-box:focus-within,
+.ask-compose:focus-within {
   border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
 }
-.field-input {
+.field-input,
+.ask-input {
   flex: 1;
   min-width: 0;
   max-height: 40vh;
-  padding: 8px 0;
+  padding: 3px 0;
   border: 0;
   outline: none;
   resize: none;
   background: transparent;
   color: var(--strong);
-  font: 400 16px / 1.5 var(--sans);
+  font: 400 var(--text-body) / 22px var(--sans);
   /* a box sized by its words is as wide as its longest one: a pasted link would push the box past the screen, so
      a long word breaks anywhere */
   overflow-wrap: anywhere;
 }
-textarea.field-input {
+textarea.field-input,
+.ask-input {
   field-sizing: content;
 }
-/* a search: one line, no button, a little slimmer */
+/* a search: the plain box's look (.input), one line, no button */
 .field-search .field-box {
-  padding-right: 14px;
+  align-items: center;
+  min-height: var(--h-box);
+  padding: 0 10px;
 }
 .field-search .field-input {
-  padding-block: 5px;
+  padding-block: 0;
+  line-height: 20px;
 }
-.field-input::placeholder {
+.field-input::placeholder,
+.ask-input::placeholder {
   color: var(--muted);
 }
+/* a question or an answer: three lines from the start */
 .field-tall .field-input {
-  min-height: 88px;
+  min-height: calc(3lh + 6px);
 }
-.field-send {
+.field-send,
+.ask-send {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   flex: none;
   border: 0;
   border-radius: 999px;
@@ -1036,28 +1406,56 @@ textarea.field-input {
   color: var(--bg);
   cursor: pointer;
 }
-.field-send[disabled] {
+.field-send > svg,
+.ask-send > svg {
+  width: 14px;
+  height: 14px;
+}
+.field-send[disabled],
+.ask-send[disabled] {
   cursor: default;
   background: var(--line);
   color: var(--muted);
 }
 .field-hint {
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: var(--text-small);
+  line-height: var(--text-small--line-height);
   color: var(--muted);
 }
+@media (pointer: coarse) {
+  .field-box,
+  .ask-compose {
+    padding-left: 14px;
+  }
+  .field-input,
+  .ask-input {
+    padding-block: 6px;
+    line-height: 24px;
+  }
+  .field-tall .field-input {
+    min-height: calc(3lh + 12px);
+  }
+  .field-search .field-box {
+    padding-inline: 12px;
+  }
+  .field-send,
+  .ask-send {
+    width: 36px;
+    height: 36px;
+  }
+}
 /* a plain text box, where a form's button (Save, Research) sends and not Enter alone: a search's settings, a short
-   answer, a pack's parent. Field's box without its round button, one line, 44 px tall and 16 px, so a phone never
-   zooms; the focus shows on its border (the text boxes' rule at the end) */
+   answer, a pack's parent. One line, on the ladder (30 under a mouse; 44 and 16 px on touch, so a phone never zooms);
+   the focus shows on its border (the text boxes' rule at the end) */
 .input {
   min-width: 0;
-  padding: 9px 14px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
+  min-height: var(--h-box);
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
   background: var(--surface-2);
   color: var(--strong);
-  font: 400 16px / 1.5 var(--sans);
-  transition: border-color 0.15s;
+  font: 400 var(--text-body) / 20px var(--sans);
 }
 .input::placeholder {
   color: var(--muted);
@@ -1066,16 +1464,25 @@ textarea.field-input {
   cursor: default;
   color: var(--muted);
 }
-/* a fold-out's heading (a details' summary): the heading voice with a ▶ that turns when it opens, the whole row the
-   tap's target, 44 px tall on touch (the phone's floor) */
+@media (pointer: coarse) {
+  .input {
+    padding-inline: 12px;
+  }
+}
+/* a fold-out (a details' summary): a control, not a heading. One row in the UI's voice with a ▶ that turns when it
+   opens, the whole row the target; open, its words come up to ink. Never alone in a card of its own */
 .disclosure {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  min-height: var(--h-control);
   list-style: none;
-  font: 700 19px / 1.25 var(--cond);
-  color: var(--strong);
+  font: 500 var(--text-detail) / var(--text-detail--line-height) var(--sans);
+  color: var(--muted);
   cursor: pointer;
+}
+details[open] > .disclosure {
+  color: var(--strong);
 }
 .disclosure::-webkit-details-marker {
   display: none;
@@ -1083,12 +1490,17 @@ textarea.field-input {
 .disclosure::before {
   content: "▶" / "";
   flex: none;
-  font: 11px / 1 var(--sans);
+  font: 400 var(--text-label) / 1 var(--sans);
   color: var(--muted);
-  transition: transform 0.15s;
+  transition: transform var(--t-move);
 }
 details[open] > .disclosure::before {
   transform: rotate(90deg);
+}
+@media (pointer: coarse) {
+  .disclosure {
+    min-height: var(--h-hit);
+  }
 }
 /* a bar of parts, each as long as its share (--part, set by the page from the data) in its tone: Learn's progress */
 .meter {
@@ -1112,96 +1524,81 @@ details[open] > .disclosure::before {
 .swatch i {
   width: 36px;
   height: 36px;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid var(--line);
   background: var(--swatch);
 }
 .swatch span {
   display: grid;
   min-width: 0;
-  font-size: 13.5px;
-  line-height: 1.3;
+  font-size: var(--text-detail);
+  line-height: var(--text-detail--line-height);
 }
 .swatch code {
-  font: 12px var(--mono);
+  font: var(--text-small) / var(--text-small--line-height) var(--mono);
   color: var(--muted);
 }
-/* a page's head buttons: a size up from the others. PageHead's own buttons (its actions, beside the title or on the
-   back link's bar) take it by themselves; a row of head buttons outside it (Searches' controls, a document's bar)
-   names it with btn-head */
-.btn-head,
-.page-actions .btn,
-.page-tools .btn {
-  font-size: 15px;
-  padding: 9px 14px;
-  border-radius: 10px;
-}
-/* a big choice: a topic, its name over what it holds; picked, it takes the accent and a check */
+/* a big choice, only when two or more options each need a line under the name (one option is a pill): a topic, its
+   name over what it holds, the height from its words; picked, the accent's edge and tint and a check */
 .tile {
   position: relative;
   display: grid;
   align-content: start;
-  gap: 4px;
-  min-height: 78px;
-  padding: 14px 16px;
-  border-radius: 14px;
-  border: 1px solid var(--line);
+  gap: 2px;
+  min-height: 56px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
   background: var(--surface);
   color: var(--text);
   text-align: left;
   cursor: pointer;
-  transition:
-    border-color 0.15s,
-    background 0.15s;
 }
-.tile:hover {
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+@media (hover: hover) {
+  .tile:hover:not([aria-pressed="true"]) {
+    border-color: color-mix(in srgb, var(--strong) 30%, var(--line-strong));
+  }
 }
 .tile b {
-  font: 600 16.5px / 1.25 var(--sans);
+  font: 600 var(--text-body) / 1.4 var(--sans);
   color: var(--strong);
   padding-right: 18px;
 }
 .tile span {
-  font-size: 13px;
+  font-size: var(--text-small);
+  line-height: var(--text-small--line-height);
   color: var(--muted);
 }
 .tile[aria-pressed="true"] {
   border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
-  box-shadow: inset 0 0 0 1px var(--accent);
+  background: var(--accent-soft);
 }
 .tile[aria-pressed="true"]::after {
   content: "✓";
   position: absolute;
-  top: 12px;
-  right: 14px;
-  font: 700 14px / 1 var(--sans);
+  top: 8px;
+  right: 10px;
+  font: 600 var(--text-small) / 1 var(--sans);
   color: var(--accent);
 }
-.btn-big {
-  font-size: 16px;
-  padding: 13px 18px;
-  border-radius: 12px;
+@media (pointer: coarse) {
+  .tile {
+    min-height: 60px;
+  }
 }
 .quiz-done:hover {
   background: var(--surface-2);
 }
 /* a quiz's score in its list: a chip a size up, so the number reads before the name */
 .quiz-score {
-  padding: 6px 10px;
-  font-size: 13px;
+  height: 24px;
+  padding: 0 8px;
+  font-size: var(--text-detail);
 }
-.dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 99px;
-  background: var(--tone, var(--muted));
-  flex: none;
-}
+/* a few words over a title or a group (where a page sits, a legend, a date): mono caps, quiet */
 .eyebrow {
-  font: 500 11px / 1.3 var(--mono);
-  letter-spacing: 0.16em;
+  font: 500 var(--text-label) / var(--text-label--line-height) var(--mono);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
 }
@@ -1228,15 +1625,15 @@ figure {
 .callout {
   background: var(--accent-soft);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 14px 16px;
+  border-radius: 8px;
+  padding: 12px 14px;
 }
 .example {
   background: var(--surface);
   border: 1px solid var(--line);
   border-left: 3px solid var(--green);
-  border-radius: 10px;
-  padding: 14px 16px;
+  border-radius: 8px;
+  padding: 12px 14px;
 }
 /* a box of words to read in a tone (the quiz's verdict): its edge in the tone, its ground a faint mix of the same,
    so a red verdict never sits on a blue ground */
@@ -1244,24 +1641,24 @@ figure {
   background: color-mix(in srgb, var(--tone, var(--accent)) 7%, var(--surface));
   border: 1px solid var(--line);
   border-left: 3px solid var(--tone, var(--accent));
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 12px 14px;
 }
 .like {
   color: var(--muted);
 }
 code.inline {
-  font: 13.5px var(--mono);
+  font: var(--text-detail) var(--mono);
   padding: 1px 5px;
-  border-radius: 5px;
+  border-radius: 6px;
   background: var(--surface-2);
   border: 1px solid var(--line);
 }
 pre.code {
-  font: 13px / 1.55 var(--mono);
+  font: var(--text-detail) / var(--text-detail--line-height) var(--mono);
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 12px 14px;
   overflow-x: auto;
   margin: 0;
@@ -1288,25 +1685,31 @@ pre.code .f {
   box-shadow:
     0 0 0 3px var(--accent-soft),
     0 0 0 4px var(--accent);
-  border-radius: 5px;
+  border-radius: 6px;
 }
 .say-tap {
   cursor: pointer;
 }
-/* a lesson's line to say: a tap reads it aloud; the line being read is lit */
+/* a lesson's line to say, an inner block read slowly: a tap reads it aloud; the line being read is lit */
 .say-row {
   display: flex;
   width: 100%;
+  min-height: 40px;
   align-items: flex-start;
   gap: 12px;
-  padding: 10px 12px;
-  border-radius: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
   background: var(--surface-2);
   color: var(--strong);
-  font-size: 16.5px;
-  line-height: 1.625;
+  font-size: var(--text-read);
+  line-height: var(--text-read--line-height);
   text-align: left;
   cursor: pointer;
+}
+@media (pointer: coarse) {
+  .say-row {
+    min-height: var(--h-hit);
+  }
 }
 .say-row > span:last-child {
   min-width: 0;
@@ -1322,11 +1725,12 @@ pre.code .f {
   flex: none;
   width: 20px;
   height: 20px;
-  margin-top: 4px;
+  margin-top: 3px;
   border-radius: 999px;
   background: var(--surface);
   color: var(--accent);
-  font-size: 9px;
+  font-size: var(--text-label);
+  line-height: 1;
 }
 /* a word and what it means: the word underlined with dots */
 .term {
@@ -1340,7 +1744,7 @@ pre.code .f {
   display: grid;
   place-items: center;
   min-height: 9rem;
-  font: 700 24px / 1.25 var(--cond);
+  font: 600 var(--text-lead) / var(--text-lead--line-height) var(--cond);
   color: var(--strong);
   touch-action: none;
   user-select: none;
@@ -1362,15 +1766,18 @@ pre.code .f {
   stroke: currentColor;
 }
 /* ── The shell (web/src/app.tsx): the frame every page sits in ── */
-/* One column on the phone, wider on a computer. Its sides keep clear of the notch when the phone is turned (the page
-   reaches under it: viewport-fit=cover), and its foot clears the bottom bar. --gutter is its side margin. */
+/* One column on the phone, wider on a computer. No bar on top: each page starts at its own title, 40 from the top
+   under a mouse and 16 under the phone's status bar on touch. Its sides keep clear of the notch when the phone is
+   turned (the page reaches under it: viewport-fit=cover), and its foot clears the tab bar. --gutter is its side
+   margin. */
 .shell {
   --gutter: 16px;
   width: 100%;
   max-width: 576px;
   min-height: 100svh;
   margin-inline: auto;
-  padding: 0 max(var(--gutter), env(safe-area-inset-right)) 112px max(var(--gutter), env(safe-area-inset-left));
+  padding: calc(env(safe-area-inset-top) + 16px) max(var(--gutter), env(safe-area-inset-right))
+    calc(49px + env(safe-area-inset-bottom) + 24px) max(var(--gutter), env(safe-area-inset-left));
 }
 @media (min-width: 48rem) {
   .shell {
@@ -1380,7 +1787,7 @@ pre.code .f {
 }
 @media (min-width: 64rem) {
   .shell {
-    --gutter: 40px;
+    --gutter: 32px;
     max-width: 1440px;
   }
 }
@@ -1389,58 +1796,54 @@ pre.code .f {
     max-width: 1760px;
   }
 }
-/* the head: the name that goes Home and the live chip, each a 44 px target */
-.shell-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: calc(14px + env(safe-area-inset-top)) 0 14px;
+@media (hover: hover) and (pointer: fine) {
+  .shell {
+    padding-top: 40px;
+    padding-bottom: 64px;
+  }
 }
-.head-home {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  font: 700 24px / 1 var(--cond);
-  letter-spacing: -0.025em;
-  color: var(--strong);
+/* the phone's status bar (the clock, the battery) in the home-screen app: a frosted strip of the page's ground, so
+   words never scroll under the clock. It is 0 px tall where the screen has no such bar (a browser, a computer) */
+.shell::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  inset-inline: 0;
+  z-index: 25;
+  height: env(safe-area-inset-top);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px);
 }
-.head-live {
-  display: flex;
-  align-items: center;
-  min-height: 44px;
-  margin-left: auto;
-}
-/* the chip inside the 44 px target: lit while anything works or waits for me */
-.head-chip {
+/* the computer is asleep: one strip that leads every page, from the shell, over the page's own head. Not fixed, and
+   it can't be closed: it goes when the computer answers again */
+.asleep {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 10px;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  font: 400 12px / 1.3 var(--mono);
-  color: var(--muted);
+  max-width: 720px;
+  min-height: 40px;
+  margin: 0 0 12px;
+  padding: 6px 12px;
+  border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent);
+  border-radius: 8px;
+  background: var(--warn-soft);
+  color: var(--text);
+  font-size: var(--text-small);
+  line-height: var(--text-small--line-height);
 }
-.head-chip-on {
-  background: var(--surface);
-  border-color: var(--line);
-  color: var(--strong);
+.asleep svg {
+  flex: none;
+  color: var(--yellow);
 }
-.head-chip .dot {
-  width: 10px;
-  height: 10px;
+@media (hover: hover) and (pointer: fine) {
+  .asleep {
+    min-height: 32px;
+    margin-bottom: 16px;
+  }
 }
-/* a dot on a nav icon: something works (green, glowing) or waits for me (pink) */
-.nav-badge {
-  position: absolute;
-  top: -2px;
-  right: -4px;
-  width: 8px;
-  height: 8px;
-}
-/* where the places are depends on the pointer, never the width: a touch screen (a phone upright or turned, a tablet)
-   gets the bottom bar under the thumb; a mouse or a trackpad gets the dock at the right edge */
+/* Where the places are depends on the pointer, never the width: a touch screen (a phone upright or turned, a tablet)
+   gets the tab bar under the thumb; a mouse or a trackpad gets the dock at the right edge, and the status pip in the
+   corner. */
 .tabbar {
   position: fixed;
   inset-inline: 0;
@@ -1448,38 +1851,66 @@ pre.code .f {
   z-index: 30;
   display: flex;
   justify-content: center;
-  padding: 6px max(4px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom))
-    max(4px, env(safe-area-inset-left));
+  padding: 0 max(4px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(4px, env(safe-area-inset-left));
   border-top: 1px solid var(--line);
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
-  backdrop-filter: blur(10px);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px);
 }
+/* each tab 48 tall under the bar's hairline: the icon 7 from the top, the name 3 under it */
 .tabbar-item {
   display: flex;
   flex: 1;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   max-width: 120px;
-  min-height: 44px;
-  padding: 4px 8px;
-  border-radius: 8px;
-  font: 500 10.5px / 1.4 var(--sans);
+  height: 48px;
+  padding-top: 7px;
+  font: 500 var(--text-label) / 13px var(--sans);
   color: var(--muted);
+  -webkit-tap-highlight-color: transparent;
 }
 .tabbar-item[aria-current="page"] {
   color: var(--accent);
 }
+/* an icon's box: the wolf (Home) is drawn a little smaller in it, so it weighs what the line icons weigh */
+.nav-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+}
+/* Live's badge, the status where the eye goes for it: a dot (asleep, orange; working, green and pulsing) or the count
+   of what needs me (pink). Nothing when all is well */
+.nav-badge {
+  position: absolute;
+  top: -3px;
+  right: -6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--tone);
+}
+.nav-count {
+  width: auto;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  color: var(--bg);
+  font: 600 var(--text-label) / 16px var(--sans);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
 @media (hover: hover) and (pointer: fine) {
-  .shell {
-    padding-bottom: 64px;
-  }
   .tabbar {
     display: none;
   }
 }
 /* the computer's dock: a thin zone at the screen's right edge; the pointer there slides the dock in, a frosted column
-   of the apps, each with its name beside it on hover; it never covers the page until called */
+   of the apps (the wolf first, as Home), each with its name beside it on hover; it never covers the page until called.
+   The keyboard's focus shows it too */
 .dock-zone {
   display: none;
   position: fixed;
@@ -1500,17 +1931,14 @@ pre.code .f {
   right: 10px;
   display: grid;
   gap: 4px;
-  padding: 10px 8px;
+  padding: 8px;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 14px;
   background: color-mix(in srgb, var(--surface) 88%, transparent);
   backdrop-filter: blur(14px);
-  box-shadow: 0 18px 50px -12px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 8px 24px -8px var(--shade-dock);
   transform: translate(calc(100% + 24px), -50%);
   opacity: 0;
-  transition:
-    transform 0.22s ease,
-    opacity 0.18s ease;
   pointer-events: none;
 }
 .dock-shown {
@@ -1524,17 +1952,12 @@ pre.code .f {
   place-items: center;
   width: 44px;
   height: 44px;
-  border-radius: 12px;
+  border-radius: 8px;
   color: var(--muted);
-  transition:
-    background 0.15s,
-    color 0.15s,
-    transform 0.15s;
 }
 .dock-item:hover {
   color: var(--strong);
   background: var(--surface-2);
-  transform: scale(1.08);
 }
 .dock-item.active {
   color: var(--accent);
@@ -1545,44 +1968,86 @@ pre.code .f {
   right: calc(100% + 10px);
   top: 50%;
   transform: translateY(-50%);
-  padding: 4px 10px;
-  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 6px;
   white-space: nowrap;
-  font: 600 13px var(--sans);
+  font: 500 var(--text-detail) / 1 var(--sans);
   color: var(--strong);
   background: var(--surface);
   border: 1px solid var(--line);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.12s;
+  transition: opacity var(--t-fast);
 }
 .dock-item:hover .dock-label,
 .dock-item:focus-visible .dock-label {
   opacity: 1;
 }
-/* Ask: the conversation on a page, in the lessons' look. A one-line head (the spark, what it asks about, Start over as
-   a round icon); my lines on the right in the accent's tint; the model's answer laid out like a lesson: the direct
-   answer in its own tile, headings as a lesson's, each point a tile with its mark; the line to ask with its send
-   button inside. Narrow (Notes' side column), it tightens instead of wrapping its head. */
+/* the computer's status pip, in the bottom-right corner, only while something needs a look (asleep, waiting for me,
+   at work) and never on Live itself, which it opens. It floats, so it has the shadow; it sits under the dock's zone */
+.pip {
+  display: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .pip {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 35;
+    display: inline-flex;
+  }
+}
+.pip,
+.pip-demo {
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 10px 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 16px -6px var(--shade-pip);
+  color: var(--strong);
+  font: 500 var(--text-small) / 16px var(--mono);
+  white-space: nowrap;
+}
+/* the pip as /design shows it, in the page's flow */
+.pip-demo {
+  display: inline-flex;
+}
+@media (hover: hover) {
+  .pip:hover {
+    background: var(--surface-hover);
+  }
+}
+/* Ask: the conversation on a page, in the lessons' look, with a card's room around it. Closed, it is one row (40
+   under a mouse, 48 on touch): the spark, what it asks about, how much was asked, the chevron. Open: Start over as a
+   round icon (btn btn-icon); my lines on the right in the accent's tint; the model's answer laid out like a lesson: the
+   direct answer on an inner block, headings as a lesson's, each point a block with its mark; the starters as pills;
+   the line to ask is Field's box, its send button inside (the Field rules above). Narrow (Notes' side column), it
+   tightens instead of wrapping its head. */
 .ask {
   container-type: inline-size;
   display: grid;
-  gap: 14px;
-  padding: 16px 18px 18px;
+  gap: 12px;
 }
 .ask-head {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   min-width: 0;
 }
 .ask-spark {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   flex: none;
-  border-radius: 9px;
+  border-radius: 6px;
   color: var(--purple);
   background: color-mix(in srgb, var(--purple) 14%, transparent);
 }
@@ -1592,7 +2057,7 @@ pre.code .f {
   flex: 1;
   min-width: 0;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -1604,7 +2069,7 @@ pre.code .f {
   flex: 1;
   min-width: 0;
   margin: 0;
-  font: 700 17px / 1.2 var(--cond);
+  font: 600 var(--text-head) / var(--text-head--line-height) var(--cond);
   color: var(--strong);
   white-space: nowrap;
   overflow: hidden;
@@ -1612,55 +2077,44 @@ pre.code .f {
 }
 .ask-count {
   flex: none;
-  font-size: 12.5px;
+  font-size: var(--text-small);
+  line-height: var(--text-small--line-height);
   color: var(--muted);
 }
 .ask-chevron {
   flex: none;
   color: var(--muted);
-  transition: transform 0.15s;
+  transition: transform var(--t-move);
 }
 .ask-closed .ask-chevron {
   transform: rotate(-90deg);
 }
 .ask-closed {
-  padding-top: 12px;
-  padding-bottom: 12px;
+  padding-block: 7px;
 }
-.ask-icon {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  flex: none;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-}
-.ask-icon:hover {
-  color: var(--strong);
-  background: var(--surface-2);
+@media (pointer: coarse) {
+  .ask-closed {
+    padding-block: 11px;
+  }
 }
 .ask-mine {
   justify-self: end;
   max-width: 85%;
   margin: 0;
-  padding: 9px 14px;
-  border-radius: 16px 16px 4px 16px;
+  padding: 8px 12px;
+  border-radius: 12px 12px 4px 12px; /* design-ok: the bubble's tail points at me */
   background: var(--accent-soft);
   color: var(--strong);
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 .ask-answer {
   display: grid;
-  gap: 10px;
-  font-size: 15.5px;
-  line-height: 1.65;
+  gap: 8px;
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
   color: var(--text);
   overflow-wrap: anywhere;
 }
@@ -1668,33 +2122,34 @@ pre.code .f {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: var(--text-detail);
   color: var(--muted);
 }
 .ask-failed {
   margin: 0;
-  font-size: 13.5px;
+  font-size: var(--text-detail);
+  line-height: var(--text-detail--line-height);
   color: var(--red);
 }
-/* the direct answer: a lesson's sentence tile */
+/* the direct answer: read slowly, on an inner block */
 .ask-lead {
   margin: 0;
-  padding: 11px 14px;
-  border-radius: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
   background: var(--surface-2);
   color: var(--strong);
-  font-size: 16px;
-  line-height: 1.6;
+  font-size: var(--text-read);
+  line-height: var(--text-read--line-height);
 }
 .ask-p {
   margin: 0;
 }
 .ask-h {
-  margin: 6px 0 0;
-  font: 700 17px / 1.25 var(--cond);
+  margin: 4px 0 0;
+  font: 600 var(--text-head) / var(--text-head--line-height) var(--cond);
   color: var(--strong);
 }
-/* each point of a list in a tile of its own, its mark in a small round badge, as the lessons' Say it lines */
+/* each point of a list on an inner block of its own, its mark in a small round badge, as the lessons' Say it lines */
 .ask-points {
   display: grid;
   gap: 6px;
@@ -1706,33 +2161,32 @@ pre.code .f {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 9px 12px;
-  border-radius: 11px;
+  padding: 8px 12px;
+  border-radius: 8px;
   background: var(--surface-2);
-  line-height: 1.55;
 }
 .ask-mark {
   display: grid;
   place-items: center;
   width: 20px;
   height: 20px;
-  margin-top: 2px;
+  margin-top: 1px;
   flex: none;
   border-radius: 999px;
   background: var(--surface);
   color: var(--accent);
-  font: 600 11px / 1 var(--mono);
+  font: 500 var(--text-label) / 1 var(--mono);
 }
-/* the quiz: what I said and the lesson's answer, each a lesson's tile */
+/* the quiz: what I said and the lesson's answer, each a lesson's inner block */
 .quiz-said {
   display: grid;
   gap: 4px;
   align-content: start;
-  padding: 11px 14px;
-  border-radius: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
   background: var(--surface-2);
-  font-size: 15.5px;
-  line-height: 1.55;
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
 }
 .quiz-answer {
   background: color-mix(in srgb, var(--accent) 9%, var(--surface));
@@ -1759,15 +2213,15 @@ pre.code .f {
     min-height: 44px;
   }
 }
-/* a flow the model drew: steps side by side, each a card in its own colour with an arrow to the next; where the room
-   is narrow (a phone), a vertical stepper on one soft panel, each step's number in a ring on a thin line */
+/* a flow the model drew: steps side by side, each a block in its own colour with an arrow to the next; where the room
+   is narrow (a phone), a vertical stepper on one inner block, each step's number in a ring on a thin line */
 .ask-flow {
   container-type: inline-size;
   display: grid;
   gap: 10px;
   margin: 0;
-  padding: 14px 16px;
-  border-radius: 14px;
+  padding: 12px 14px;
+  border-radius: 8px;
   background: var(--surface-2);
 }
 .ask-flow ol {
@@ -1783,7 +2237,6 @@ pre.code .f {
   grid-template-columns: 26px minmax(0, 1fr);
   gap: 12px;
   padding-bottom: 12px;
-  line-height: 1.55;
 }
 .ask-flow li:last-child {
   padding-bottom: 0;
@@ -1795,7 +2248,7 @@ pre.code .f {
   top: 28px;
   bottom: 2px;
   width: 2px;
-  border-radius: 2px;
+  border-radius: 999px;
   background: color-mix(in srgb, var(--c) 40%, transparent);
 }
 .ask-step {
@@ -1807,13 +2260,13 @@ pre.code .f {
   border: 1.5px solid color-mix(in srgb, var(--c) 75%, transparent);
   background: color-mix(in srgb, var(--c) 14%, var(--surface));
   color: var(--c);
-  font: 600 12px / 1 var(--mono);
+  font: 500 var(--text-small) / 1 var(--mono);
 }
 @container (min-width: 560px) {
   .ask-flow ol {
     grid-auto-flow: column;
     grid-auto-columns: minmax(150px, 1fr);
-    gap: 18px;
+    gap: 16px;
     overflow-x: auto;
   }
   .ask-flow li {
@@ -1821,7 +2274,7 @@ pre.code .f {
     align-content: start;
     gap: 8px;
     padding: 12px;
-    border-radius: 12px;
+    border-radius: 8px;
     border: 1px solid color-mix(in srgb, var(--c) 30%, var(--line));
     border-top: 3px solid var(--c);
     background: color-mix(in srgb, var(--c) 6%, var(--surface));
@@ -1829,10 +2282,10 @@ pre.code .f {
   .ask-flow li:last-child {
     padding-bottom: 12px;
   }
-  /* the arrow to the next step, in the gap between the cards */
+  /* the arrow to the next step, in the gap between the blocks */
   .ask-flow li:not(:last-child)::before {
     left: auto;
-    right: -13px;
+    right: -12px;
     top: 22px;
     bottom: auto;
     width: 7px;
@@ -1844,25 +2297,25 @@ pre.code .f {
     transform: rotate(45deg);
   }
 }
-/* the catalog's other drawings (web/src/drawing.tsx), each on the flow's soft panel */
+/* the catalog's other drawings (web/src/drawing.tsx), each on the flow's inner block */
 .d-tree,
 .d-timeline,
 .d-chart {
   display: grid;
   gap: 10px;
   margin: 0;
-  padding: 14px 16px;
-  border-radius: 14px;
+  padding: 12px 14px;
+  border-radius: 8px;
   background: var(--surface-2);
 }
-/* a whole and its parts: the whole as a pill, a line down to its parts, each a card in its colour */
+/* a whole and its parts: the whole as a pill, a line down to its parts, each a block in its colour */
 .d-tree-root {
   justify-self: center;
-  padding: 6px 14px;
+  padding: 4px 12px;
   border-radius: 999px;
   border: 1.5px solid var(--strong);
   color: var(--strong);
-  font: 700 15px / 1.3 var(--cond);
+  font: 600 var(--text-body) / var(--text-body--line-height) var(--cond);
 }
 .d-tree ul {
   position: relative;
@@ -1888,17 +2341,17 @@ pre.code .f {
   display: grid;
   align-content: start;
   gap: 4px;
-  padding: 10px 12px;
-  border-radius: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--c) 30%, var(--line));
   border-top: 3px solid var(--c);
   background: color-mix(in srgb, var(--c) 6%, var(--surface));
-  font-size: 14px;
-  line-height: 1.45;
+  font-size: var(--text-detail);
+  line-height: var(--text-detail--line-height);
 }
 .d-tree li b {
   color: var(--c);
-  font: 700 15px / 1.3 var(--cond);
+  font: 600 var(--text-body) / var(--text-body--line-height) var(--cond);
 }
 .d-tree li span {
   color: var(--text);
@@ -1919,12 +2372,11 @@ pre.code .f {
   display: grid;
   grid-column: 1 / -1;
   grid-template-columns: subgrid;
-  line-height: 1.5;
 }
 .d-when {
   min-width: 52px;
   color: var(--c);
-  font: 600 12.5px / 1.9 var(--mono);
+  font: 500 var(--text-small) / var(--text-body--line-height) var(--mono);
   text-align: right;
 }
 /* the dot in the event's colour, and the line down to the next one */
@@ -1935,7 +2387,7 @@ pre.code .f {
   content: "";
   position: absolute;
   left: 1px;
-  top: 7px;
+  top: 6px;
   width: 10px;
   height: 10px;
   border-radius: 999px;
@@ -1956,7 +2408,8 @@ pre.code .f {
   grid-template-columns: minmax(70px, 30%) minmax(0, 1fr) max-content;
   align-items: center;
   gap: 10px;
-  font-size: 13.5px;
+  font-size: var(--text-detail);
+  line-height: var(--text-detail--line-height);
 }
 .d-track {
   height: 12px;
@@ -1976,10 +2429,9 @@ pre.code .f {
   display: grid;
   gap: 4px;
   padding: 12px 14px;
-  border-radius: 12px;
+  border-radius: 8px;
   border-left: 3px solid var(--green);
   background: color-mix(in srgb, var(--green) 8%, var(--surface));
-  line-height: 1.55;
 }
 .d-callout .eyebrow {
   color: var(--green);
@@ -1996,15 +2448,14 @@ pre.code .f {
   display: grid;
   gap: 8px;
   padding: 12px 14px;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px dashed color-mix(in srgb, var(--purple) 55%, var(--line));
   background: color-mix(in srgb, var(--purple) 6%, var(--surface));
-  line-height: 1.55;
 }
 .d-check-label {
   color: var(--purple);
 }
-/* options side by side, each a column of point tiles under its name; stacked when narrow */
+/* options side by side, each a column of point blocks under its name; stacked when narrow */
 .ask-compare {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -2015,22 +2466,22 @@ pre.code .f {
   align-content: start;
   gap: 6px;
   padding: 12px;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid var(--line);
   background: var(--surface);
 }
 .ask-compare h5 {
   margin: 0 0 2px;
-  font: 700 16px / 1.25 var(--cond);
+  font: 600 var(--text-head) / var(--text-head--line-height) var(--cond);
   color: var(--strong);
 }
 .ask-compare p {
   margin: 0;
   padding: 8px 10px;
-  border-radius: 9px;
+  border-radius: 6px;
   background: var(--surface-2);
-  font-size: 14.5px;
-  line-height: 1.5;
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
 }
 /* a change the model proposed: what it would do, and the button that does it; done, it says what happened */
 .ask-card {
@@ -2038,11 +2489,11 @@ pre.code .f {
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
   background: color-mix(in srgb, var(--accent) 6%, var(--surface));
-  font-size: 14.5px;
-  line-height: 1.4;
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
 }
 .ask-card.done {
   border-color: color-mix(in srgb, var(--green) 40%, var(--line));
@@ -2053,20 +2504,12 @@ pre.code .f {
   border-color: color-mix(in srgb, var(--red) 40%, var(--line));
   background: color-mix(in srgb, var(--red) 6%, var(--surface));
 }
-/* on a phone, the head that opens Ask and its Start over take a thumb's size, without making the head taller */
+/* on a phone, the head that opens Ask takes a thumb's height, without making the row taller (Start over is a
+   btn-icon, with its own touch area) */
 @media (pointer: coarse) {
   .ask-toggle {
-    min-height: 44px;
-    margin-block: -8px;
-  }
-  .ask-icon {
-    position: relative;
-  }
-  .ask-icon::after {
-    content: "";
-    position: absolute;
-    inset: -7px;
-    border-radius: 999px;
+    min-height: var(--h-hit);
+    margin-block: -10px;
   }
 }
 .ask-starters {
@@ -2074,64 +2517,9 @@ pre.code .f {
   flex-wrap: wrap;
   gap: 8px;
 }
-/* the line to ask: one box, the text growing as I write, the round send button inside at its foot */
-.ask-compose {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  padding: 5px 5px 5px 14px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--surface-2);
-  transition: border-color 0.15s;
-}
-.ask-compose:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
-}
-.ask-input {
-  flex: 1;
-  min-width: 0;
-  max-height: 40vh;
-  padding: 8px 0;
-  border: 0;
-  outline: none;
-  resize: none;
-  background: transparent;
-  color: var(--text);
-  font: 400 15px / 1.5 var(--sans);
-  field-sizing: content;
-}
-.ask-input::placeholder {
-  color: var(--muted);
-}
-.ask-send {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  flex: none;
-  border: 0;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--bg);
-  cursor: pointer;
-}
-/* nothing to send yet: a grey round, never a dimmed blue */
-.ask-send[disabled] {
-  cursor: default;
-  background: var(--line);
-  color: var(--muted);
-}
-@container (max-width: 420px) {
-  .ask-answer {
-    font-size: 15px;
-  }
-  .ask-lead {
-    font-size: 15px;
-    padding: 10px 12px;
-  }
-  .ask-points li {
-    padding: 8px 10px;
+@media (pointer: coarse) {
+  .ask-starters {
+    row-gap: 12px;
   }
 }
 .md-link {
@@ -2147,7 +2535,7 @@ pre.code .f {
   display: block;
   width: 9px;
   height: 17px;
-  border-radius: 2px;
+  border-radius: 0;
   background: var(--accent);
   animation: caret-blink 1s steps(2, start) infinite;
 }
@@ -2156,18 +2544,13 @@ pre.code .f {
     visibility: hidden;
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .caret {
-    animation: none;
-  }
-}
 /* a document, rendered (ui/markdown.tsx): VS Code's Markdown preview, made calm. Room between blocks, a line no longer
    than the eye follows, headings in the palette's colours, lists with real bullets and numbers, code on its own
    ground, quotes with an edge, tables that scroll in their own frame on a phone, links in the accent. A PDF's text
    keeps its lines. */
 .reader {
-  font-size: 16.5px;
-  line-height: 1.75;
+  font-size: var(--text-read);
+  line-height: var(--text-read--line-height);
   color: var(--strong);
 }
 .md {
@@ -2185,33 +2568,37 @@ pre.code .f {
 .md :where(p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote) {
   max-width: 72ch;
 }
+/* headings on the type steps, in the condensed 600: h1 the lead, h2 a section (purple), h3 a card's head (cyan), h4 the
+   body in bold sans, h5 and h6 a label; 28 above each and 8 below */
 .md-h {
-  margin: 34px 0 10px;
+  margin: 28px 0 8px;
   font-family: var(--cond);
-  font-weight: 700;
-  line-height: 1.25;
+  font-weight: 600;
   scroll-margin-top: 16px;
 }
 .md-h1 {
-  font-size: 28px;
+  font-size: var(--text-lead);
+  line-height: var(--text-lead--line-height);
   color: var(--strong);
 }
 .md-h2 {
-  font-size: 22px;
+  font-size: var(--text-section);
+  line-height: var(--text-section--line-height);
   color: var(--purple);
 }
 .md-h3 {
-  font-size: 18.5px;
+  font-size: var(--text-head);
+  line-height: var(--text-head--line-height);
   color: var(--cyan);
 }
 .md-h4 {
-  font: 600 16.5px / 1.4 var(--sans);
+  font: 600 var(--text-body) / var(--text-body--line-height) var(--sans);
   color: var(--strong);
 }
 .md-h5,
 .md-h6 {
-  font: 500 11.5px / 1.4 var(--mono);
-  letter-spacing: 0.14em;
+  font: 500 var(--text-label) / var(--text-label--line-height) var(--mono);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
 }
@@ -2265,7 +2652,7 @@ li.md-task {
   width: 15px;
   height: 15px;
   border: 1.5px solid var(--muted);
-  border-radius: 4px;
+  border-radius: 4px; /* design-ok: a tick box keeps a tick box's corner */
 }
 .md-check[data-done] {
   border-color: var(--accent);
@@ -2294,7 +2681,7 @@ li.md-task {
   font: 0.85em var(--mono);
   padding: 1px 5px;
   border: 1px solid var(--line);
-  border-radius: 5px;
+  border-radius: 6px;
   background: var(--surface-2);
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
@@ -2302,10 +2689,10 @@ li.md-task {
 .md-pre {
   padding: 12px 16px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--surface-2);
   color: var(--text);
-  font: 13.5px / 1.6 var(--mono);
+  font: var(--text-detail) / var(--text-detail--line-height) var(--mono);
   white-space: pre;
   overflow-x: auto;
   tab-size: 4;
@@ -2320,7 +2707,7 @@ li.md-task {
 .md-table {
   overflow-x: auto;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
 }
 /* each column as wide as its words (a long cell wraps at a comfortable width), the frame filled when they are
    narrower; when they are wider, the frame scrolls */
@@ -2328,8 +2715,8 @@ li.md-task {
   width: max-content;
   min-width: 100%;
   border-collapse: collapse;
-  font-size: 14.5px;
-  line-height: 1.5;
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
 }
 .md-table th,
 .md-table td {
@@ -2361,7 +2748,7 @@ li.md-task {
    the note */
 .doc-mark {
   padding: 0;
-  border-radius: 2px;
+  border-radius: 0;
   background: var(--pink-soft);
   box-shadow: inset 0 -2px var(--pink);
   color: inherit;
@@ -2398,21 +2785,13 @@ a .doc-mark {
   margin-left: auto;
 }
 .doc-status {
-  font: 500 12.5px / 1.35 var(--sans);
+  font: 500 var(--text-small) / var(--text-small--line-height) var(--sans);
   color: var(--muted);
 }
 /* on a phone the editing head stays one row: Save's own state says whether there are changes */
 @media (max-width: 479px) {
   .doc-bar-editing .doc-status {
     display: none;
-  }
-}
-@media (pointer: coarse) {
-  .doc-modes button,
-  .doc-tools .btn,
-  .doc-why .btn,
-  .doc-kept .btn {
-    min-height: 44px;
   }
 }
 .doc-menu-button {
@@ -2440,9 +2819,9 @@ a .doc-mark {
   gap: 2px;
   width: 100%;
   min-height: 44px;
-  padding: 9px 12px;
+  padding: 8px 12px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   background: none;
   color: inherit;
   font: inherit;
@@ -2462,11 +2841,11 @@ a .doc-mark {
   background: var(--surface-2);
 }
 .doc-menu-what {
-  font: 600 14.5px / 1.3 var(--sans);
+  font: 600 var(--text-body) / var(--text-body--line-height) var(--sans);
   color: var(--strong);
 }
 .doc-menu-why {
-  font: 400 12.5px / 1.35 var(--sans);
+  font: 400 var(--text-small) / var(--text-small--line-height) var(--sans);
   color: var(--muted);
 }
 .doc-why,
@@ -2478,8 +2857,9 @@ a .doc-mark {
   margin-bottom: 12px;
   padding: 10px 14px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  font-size: 14px;
+  border-radius: 8px;
+  font-size: var(--text-detail);
+  line-height: var(--text-detail--line-height);
 }
 .doc-why {
   background: var(--warn-soft);
@@ -2494,7 +2874,7 @@ a .doc-mark {
 .doc-read {
   padding: 20px;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--surface);
 }
 @media (min-width: 768px) {
@@ -2508,12 +2888,12 @@ a .doc-mark {
   width: 100%;
   min-height: 60vh;
   field-sizing: content;
-  padding: 18px 20px;
+  padding: 16px 20px;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--surface);
   color: var(--strong);
-  font: 400 14px / 1.7 var(--mono);
+  font: 400 var(--text-body) / 1.7 var(--mono);
   tab-size: 4;
   resize: none;
   caret-color: var(--accent);
@@ -2521,13 +2901,12 @@ a .doc-mark {
 @media (pointer: coarse) {
   .doc-src {
     padding: 14px;
-    font-size: 16px;
   }
 }
 /* the keys that save and leave, for a keyboard: a phone has neither */
 .doc-hint {
   margin: 8px 2px 0;
-  font: 400 12px / 1.5 var(--mono);
+  font: 400 var(--text-small) / var(--text-small--line-height) var(--mono);
   color: var(--muted);
 }
 @media (pointer: coarse) {
@@ -2552,7 +2931,7 @@ a .doc-mark {
   overflow: auto;
   padding: 24px 28px;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--surface);
 }
 /* Save as PDF: the print page (notes/print.tsx), a white page in black ink whatever the theme; print gives it its
@@ -2591,7 +2970,7 @@ body:has(.paper-view) {
   margin: 0 auto;
   padding: 14px 20px;
   border-bottom: 1px solid var(--line);
-  font: 400 14px / 1.45 var(--sans);
+  font: 400 var(--text-detail) / var(--text-detail--line-height) var(--sans);
   color: var(--muted);
 }
 .paper-back {
@@ -2613,8 +2992,8 @@ body:has(.paper-view) {
   max-width: 760px;
   margin: 0 auto;
   padding: 36px 20px 64px;
-  font-size: 16px;
-  line-height: 1.65;
+  font-size: var(--text-read);
+  line-height: var(--text-read--line-height);
   color: var(--text);
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
@@ -2679,15 +3058,9 @@ body:has(.paper-view) {
   border-radius: 999px;
   background: var(--accent);
   color: var(--bg);
-  font: 600 14px / 1 var(--sans);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+  font: 600 var(--text-detail) / 1 var(--sans);
+  box-shadow: 0 8px 22px var(--shade-dock);
   cursor: pointer;
-}
-/* Careful or Fast, beside the button that asks for an edit: the buttons' own size, so the two sit on one row on a
-   phone (the 44 px floor still holds on touch) */
-.note-speed button {
-  padding: 6px 12px;
-  font-size: 13.5px;
 }
 /* the reader on a short screen (a phone on its side): the bar, the title one step down (a long file name keeps to one
    line) and the document's own bar, nothing else above it, so the document's first lines show on the first screen.
@@ -2730,10 +3103,10 @@ body:has(.paper-view) {
 /* a research answer's source, inline: the site's name, a small link that opens the page */
 .cite {
   display: inline-block;
-  margin-left: 5px;
+  margin-left: 4px;
   padding: 0 7px;
   border-radius: 999px;
-  font: 500 11.5px / 18px var(--sans);
+  font: 500 var(--text-small) / 18px var(--sans);
   white-space: nowrap;
   vertical-align: 1px;
   text-decoration: none;
@@ -2802,32 +3175,20 @@ body:has(.paper-view) {
 }
 .busy {
   opacity: 0.55;
-  transition: opacity 0.15s;
+  transition: opacity var(--t-fast);
 }
+/* the dot of something at work: a ring grows from it and fades, every 2 s, only while it works */
 @keyframes kestrel-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 55%, transparent);
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--tone, var(--green)) 55%, transparent);
   }
-  50% {
-    box-shadow: 0 0 0 6px color-mix(in srgb, var(--green) 0%, transparent);
+  70%,
+  100% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone, var(--green)) 0%, transparent);
   }
 }
 .pulse {
-  animation: kestrel-pulse 1.6s ease-in-out infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .pulse {
-    animation: none;
-  }
-  .loading-bar::after,
-  .skeleton,
-  .spin {
-    animation-duration: 3s;
-  }
-  .card-link:hover {
-    transform: none;
-  }
+  animation: kestrel-pulse 2s ease-out infinite;
 }
 /* a word too long for its line breaks at the edge instead of pushing the page sideways (sizes stay as they were:
    break-word, unlike anywhere, leaves min-content alone) */
@@ -2836,8 +3197,8 @@ body {
   background: radial-gradient(120% 50% at 50% -10%, var(--glow), transparent 70%) var(--bg);
   color: var(--text);
   font-family: var(--sans);
-  font-size: 15.5px;
-  line-height: 1.6;
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
   overflow-wrap: break-word;
   -webkit-font-smoothing: antialiased;
 }
@@ -2852,7 +3213,8 @@ body {
 ::selection {
   background: var(--accent-soft);
 }
-/* the keyboard's ring: visible, but quiet; a box that opens takes the focus without a ring around it */
+/* the keyboard's ring: visible, but quiet; a box that opens takes the focus without a ring around it; inside a list
+   that clips its rows, the ring sits inside the row */
 :focus-visible {
   outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
   outline-offset: 2px;
@@ -2860,45 +3222,33 @@ body {
 dialog:focus-visible {
   outline: none;
 }
-/* ── The phone's floor: every control the thumb taps stands 44 px tall (Apple's minimum), and every text box writes
-   at 16 px or more, the size under which iOS zooms the whole page into the box ── */
+/* ── Touch: every target the thumb taps is at least 44 tall (Apple's minimum). A control drawn smaller (a .btn at 36,
+   a pill or a seg's option at 32, the ✕ at 28, a send button at 36) takes the rest as a transparent area around it,
+   above and below (round ones on every side): exactly 44, whatever its drawn height. Rows of controls keep their
+   areas apart by their gaps (8 between rows of buttons, 12 between rows of pills), so two never overlap. ── */
 @media (pointer: coarse) {
-  button.btn,
-  a.btn,
-  .input,
-  .pill,
-  .seg button,
-  .disclosure {
-    min-height: 44px;
-  }
-  /* a link dressed as a button centres its words in the taller box, as a button does by itself */
-  a.btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-  /* the ✕ keeps its small round look; the area that takes the tap grows around it */
-  .card-remove::after {
+  :is(.btn:not(.btn-icon), .pill, .seg button)::after {
     content: "";
     position: absolute;
-    inset: -9px;
-    border-radius: 999px;
+    inset: calc(50% - var(--h-hit) / 2) 0;
   }
-  .ask-send,
-  .field-send {
-    width: 44px;
-    height: 44px;
+  /* square, though the button is round: the corners count too, and a tap takes the shape of its area */
+  :is(.btn-icon, .card-remove, .field-send, .ask-send)::after {
+    content: "";
+    position: absolute;
+    inset: calc(50% - var(--h-hit) / 2);
   }
 }
-/* The text boxes' floor is a hard one: even a page's own !text-[15px] must not undo it. An !important in the base
-   layer outranks every other !important but an inline one (the cascade turns the layers round for them). */
+/* The text boxes' floor is a hard one: every text box writes at 16 px or more on touch, the size under which iOS zooms
+   the whole page into the box, and even a page's own !text-[15px] must not undo it. An !important in the base layer
+   outranks every other !important but an inline one (the cascade turns the layers round for them). */
 @layer base {
   @media (pointer: coarse) {
     input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]),
     textarea,
     select {
       /* biome-ignore lint/complexity/noImportantStyles: the one floor a page's own !text-[15px] must not undo */
-      font-size: max(16px, 1em) !important;
+      font-size: max(16px, 1em) !important; /* design-ok: the touch floor, not a size of the look */
     }
   }
 }
@@ -2913,4 +3263,131 @@ input:focus,
 textarea:focus,
 select:focus {
   border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
+}
+/* ── The motion (the tokens on :root): a press answers at once, a hover changes only a ground, a colour or an edge,
+   a box eases in and out, a page arrives softly. Nothing lifts or scales on hover, nothing bounces, nothing slides in
+   a list that updates live. ── */
+/* a press: the control gives a little (80 ms in, back in --t-fast); a row or a card that opens deepens its ground
+   instead; the tab and dock items change colour only. On touch the press is the only feedback (no grey flash) */
+:is(.btn, .pill, .seg button, .tile, .pip) {
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--t-fast),
+    border-color var(--t-fast),
+    color var(--t-fast),
+    box-shadow var(--t-fast),
+    transform var(--t-fast) var(--ease-out);
+}
+:is(.btn, .pill, .seg button, .tile, .pip):active:not([disabled]) {
+  transform: scale(0.97);
+  transition-duration: 80ms;
+}
+:is(.card-link, .list-row, .card-remove, .tabbar-item, .dock-item, .field-box, .ask-compose, .input) {
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--t-fast),
+    border-color var(--t-fast),
+    color var(--t-fast),
+    opacity var(--t-fast);
+}
+/* the dock slides in from the edge and out again, a touch quicker out */
+.dock {
+  transition:
+    transform var(--t-mid) var(--ease-in),
+    opacity var(--t-mid) var(--ease-in);
+}
+.dock-shown {
+  transition-duration: var(--t-slow);
+  transition-timing-function: var(--ease-out);
+}
+/* a page arrives once, when it mounts (a route changing), never on a refresh of its data: the same element stays. No
+   fill: nothing transformed lingers after it, so what is fixed inside stays fixed */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+.page {
+  animation: page-in var(--t-mid) var(--ease-out);
+}
+/* what arrives after the first paint (a card, a row) fades in where it lands; a skeleton keeps the place till then */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+.card:not(.skeleton),
+.list-row {
+  animation: fade-in var(--t-fast) var(--ease-out);
+}
+/* a box rises a hair as it fades in, over its dim */
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+.dialog[open] {
+  animation: dialog-in var(--t-mid) var(--ease-out);
+}
+.dialog[open]::backdrop {
+  animation: fade-in var(--t-mid) var(--ease-out);
+}
+/* and sinks a hair as it fades out, where the browser keeps a closing box on top until then (WebKit can't, so there
+   it closes at once). A closing box never takes a tap */
+@supports (overlay: auto) {
+  .dialog,
+  .dialog::backdrop {
+    transition:
+      opacity var(--t-fast) var(--ease-in),
+      transform var(--t-fast) var(--ease-in),
+      overlay var(--t-fast) var(--ease-in) allow-discrete,
+      display var(--t-fast) var(--ease-in) allow-discrete;
+  }
+  .dialog:not([open]) {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  .dialog:not([open]),
+  .dialog:not([open])::backdrop {
+    pointer-events: none;
+  }
+  .dialog:not([open])::backdrop {
+    opacity: 0;
+  }
+}
+/* The system asks for less motion: nothing moves (no press, no page or box rising, the dock fades in place), every
+   fade lasts 100 ms at most, a working dot stays still, and the loading marks slow down. One block, at the end, so
+   it wins */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-fast: 100ms;
+    --t-mid: 100ms;
+    --t-slow: 100ms;
+    --t-move: 0s;
+  }
+  :is(.btn, .pill, .seg button, .tile, .pip):active:not([disabled]) {
+    transform: none;
+  }
+  .page,
+  .dialog[open] {
+    animation-name: fade-in;
+  }
+  .dialog:not([open]) {
+    transform: none;
+  }
+  .dock,
+  .dock-shown {
+    transform: translate(0, -50%);
+  }
+  .pulse,
+  .caret {
+    animation: none;
+  }
+  .loading-bar::after,
+  .skeleton,
+  .spin {
+    animation-duration: 3s;
+  }
 }

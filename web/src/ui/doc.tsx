@@ -270,10 +270,10 @@ export function Doc({
             <span className="doc-status">
               {busy ? "Saving…" : dirty ? "Not saved yet · kept on this device" : "No changes"}
             </span>
-            <button type="button" className="btn btn-primary btn-head" disabled={!dirty || busy} onClick={() => save()}>
+            <button type="button" className="btn btn-primary" disabled={!dirty || busy} onClick={() => save()}>
               Save
             </button>
-            <button type="button" className="btn btn-quiet btn-head" onClick={leave}>
+            <button type="button" className="btn btn-quiet" onClick={leave}>
               Cancel
             </button>
           </div>
@@ -371,7 +371,7 @@ function Downloads({ name, text, kind, printHref }: { name: string; text: string
   const close = () => menu.current?.hidePopover();
   return (
     <>
-      <button ref={trigger} type="button" className="btn btn-head doc-menu-button" popoverTarget={menuId}>
+      <button ref={trigger} type="button" className="btn doc-menu-button" popoverTarget={menuId}>
         Download
         <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
           <path d="M3 4.5 6 7.5l3-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />

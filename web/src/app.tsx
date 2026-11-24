@@ -1,9 +1,12 @@
-// The frame every screen sits in: the bar with the app's name and the health chip, and the asleep banner when the
-// computer doesn't answer (the service worker then serves the last copies). The places: the bottom bar on a touch
-// screen, the dock at the right edge under a mouse (styles.css chooses by the pointer, never by the width).
+// The frame every screen sits in, with no bar on top: each page starts at its own title. The places: the tab bar on a
+// touch screen, the dock at the right edge under a mouse (styles.css chooses by the pointer, never by the width); the
+// wolf is Home in both, their first item. What runs and what waits shows where the eye goes for it: the Live tab's
+// badge on touch, the Live item's in the dock, and under a mouse a small pip in the bottom-right corner, only while
+// something works, waits for me or the computer sleeps (never on Live itself, which it opens). When the computer
+// doesn't answer, the asleep strip leads every page (the service worker then serves the last copies).
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink, Outlet } from "react-router";
+import { Link, NavLink, Outlet, useLocation } from "react-router";
 import { useChatLink } from "./chats.tsx";
 import { useEvents } from "./events.ts";
 import { ICONS, STROKE } from "./home.tsx";
@@ -22,7 +25,7 @@ function useHealth() {
       try {
         localStorage.setItem(LAST_SEEN, new Date().toISOString());
       } catch {
-        // storage can be off; the banner then has no time to show
+        // storage can be off; the strip then has no time to show
       }
       return (await res.json()) as { ok: boolean };
     },
@@ -41,7 +44,7 @@ function asleepSince(): string {
   }
 }
 
-// how much works right now: the header's dot glows while anything runs, and opens Live
+// how much works right now and how much waits for me, from Live's own data
 function useBusy() {
   const queryClient = useQueryClient();
   const live = useQuery({
@@ -63,6 +66,33 @@ function useBusy() {
   };
 }
 
+// The one status, by priority: the computer asleep, then what needs me, then what works; up is all well and shows
+// nothing. One colour per meaning: asleep orange, needs me pink, at work green.
+export type Status =
+  | { kind: "up" }
+  | { kind: "asleep" }
+  | { kind: "needs"; n: number }
+  | { kind: "working"; n: number };
+
+function useStatus(): Status {
+  const health = useHealth();
+  const busy = useBusy();
+  if (health.isError) return { kind: "asleep" };
+  if (busy.waiting > 0) return { kind: "needs", n: busy.waiting };
+  if (busy.working > 0) return { kind: "working", n: busy.working };
+  return { kind: "up" };
+}
+
+export const words = (s: Status): string =>
+  s.kind === "asleep"
+    ? "asleep"
+    : s.kind === "needs"
+      ? `${s.n} need${s.n === 1 ? "s" : ""} me`
+      : s.kind === "working"
+        ? `live · ${s.n} working`
+        : "up";
+export const TONE = { asleep: "tone-orange", needs: "tone-pink", working: "tone-green", up: "" } as const;
+
 // one Confirm for every page: any screen asks with useConfirm, the box itself lives here
 export function App() {
   return (
@@ -72,59 +102,64 @@ export function App() {
   );
 }
 
-// a dot on Live's icon while anything works (green, glowing) or waits for me (pink, the one colour of needs me)
-function LiveBadge({ live }: { live: { working: number; waiting: number } }) {
-  if (live.working === 0 && live.waiting === 0) return null;
+// Live's badge, on its tab and its dock item: a dot when asleep or at work (pulsing), the count of what needs me
+export function LiveBadge({ status }: { status: Status }) {
+  if (status.kind === "up") return null;
+  if (status.kind === "needs")
+    return (
+      <span aria-hidden="true" className="nav-badge nav-count tone-pink">
+        {status.n > 9 ? "9+" : status.n}
+      </span>
+    );
   return (
-    <span
-      aria-hidden="true"
-      className={cx("dot nav-badge", live.waiting ? "tone-pink" : "tone-green", live.working > 0 && "pulse")}
-    />
+    <span aria-hidden="true" className={cx("nav-badge", TONE[status.kind], status.kind === "working" && "pulse")} />
+  );
+}
+
+// the status, read out after the place's name, since the badge is only seen
+function StatusWords({ status }: { status: Status }) {
+  return status.kind === "up" ? null : <span className="sr-only">, {words(status)}</span>;
+}
+
+// under a mouse, the status in the corner while it says something; Live itself shows it all, so not there
+function Pip({ status }: { status: Status }) {
+  const where = useLocation();
+  if (status.kind === "up" || where.pathname === "/live") return null;
+  return (
+    <Link to="/live" className="pip" title="Open Live">
+      <span aria-hidden="true" className={cx("dot", TONE[status.kind], status.kind === "working" && "pulse")} />
+      {words(status)}
+    </Link>
   );
 }
 
 function Shell() {
-  const health = useHealth();
-  const busy = useBusy();
-  const lit = busy.working > 0 || busy.waiting > 0;
-  // one colour per meaning: asleep is a warning, waiting for me is pink, all well is green
-  const tone = health.isError ? "tone-orange" : busy.waiting ? "tone-pink" : "tone-green";
+  const status = useStatus();
   return (
     <div className="shell">
-      <header className="shell-head">
-        <Link to="/" className="head-home" aria-label="Home">
-          <Mark size={26} />
-          kestrel
-        </Link>
-        <Link to="/live" className="head-live" aria-label="Live: what runs now">
-          <span className={cx("head-chip", lit && "head-chip-on")}>
-            <span aria-hidden="true" className={cx("dot", tone, busy.working > 0 && !health.isError && "pulse")} />
-            {health.isError
-              ? "asleep"
-              : busy.working
-                ? `live · ${busy.working} working`
-                : busy.waiting
-                  ? `${busy.waiting} need${busy.waiting === 1 ? "s" : ""} me`
-                  : "up"}
+      {status.kind === "asleep" && (
+        <p className="asleep" role="status">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+            <path d="M20.4 14.6A8.6 8.6 0 0 1 9.4 3.6a8.6 8.6 0 1 0 11 11Z" />
+          </svg>
+          <span>
+            Computer asleep since {asleepSince()}. You are reading the last copies; nothing can be saved right now.
           </span>
-        </Link>
-      </header>
-      {health.isError && (
-        <p className="mb-4 rounded-xl border border-line bg-warn-soft px-4 py-3 text-detail text-ink">
-          Computer asleep since {asleepSince()}. You are reading the last copies; nothing can be saved right now.
         </p>
       )}
       <Outlet />
-      <Dock live={busy} />
-      {/* on a touch screen, the main places one tap away under the thumb: Home is always the first */}
+      <Dock status={status} />
+      <Pip status={status} />
+      {/* on a touch screen, the main places one tap away under the thumb: Home, the wolf, is always the first */}
       <nav className="tabbar" aria-label="The main places">
         {BAR.map((b) => (
           <NavLink key={b.to} to={b.to} end={b.to === "/"} className="tabbar-item">
-            <span className="relative">
+            <span className="nav-icon">
               {b.icon}
-              {b.to === "/live" && <LiveBadge live={busy} />}
+              {b.to === "/live" && <LiveBadge status={status} />}
             </span>
             {b.label}
+            {b.to === "/live" && <StatusWords status={status} />}
           </NavLink>
         ))}
       </nav>
@@ -132,35 +167,26 @@ function Shell() {
   );
 }
 
+export const LIVE_ICON = (
+  <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
+    <path d="M3 12h4l2.5-6 4 12 2.5-6H21" />
+  </svg>
+);
+
 const BAR = [
-  {
-    to: "/",
-    label: "Home",
-    icon: (
-      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-        <path d="M4 11.5 12 5l8 6.5" />
-        <path d="M6.5 10v9h11v-9" />
-      </svg>
-    ),
-  },
+  // the wolf a little smaller than its box, so it weighs what the line icons weigh
+  { to: "/", label: "Home", icon: <Mark size={20} fill="currentColor" /> },
   { to: "/searches", label: "Searches", icon: ICONS.Searches },
   { to: "/chats", label: "Chat", icon: ICONS.Chat },
   { to: "/learn", label: "Learn", icon: ICONS.Learn },
-  {
-    to: "/live",
-    label: "Live",
-    icon: (
-      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-        <path d="M3 12h4l2.5-6 4 12 2.5-6H21" />
-      </svg>
-    ),
-  },
+  { to: "/live", label: "Live", icon: LIVE_ICON },
 ];
 
 // under a mouse or a trackpad, every app at the screen's right edge, the old pages' dock: the pointer at the edge
-// slides it in, a click goes there, leaving lets it slide away. Touch screens keep the bottom bar.
+// slides it in, a click goes there, leaving lets it slide away. The wolf first, as Home; Live last, with its badge.
+// Touch screens keep the tab bar.
 const DOCK: { to: string; label: string; icon: React.ReactNode }[] = [
-  { to: "/", label: "Home", icon: null },
+  { to: "/", label: "Home", icon: <Mark size={22} fill="currentColor" /> },
   { to: "/searches", label: "Searches", icon: ICONS.Searches },
   { to: "/chats", label: "Chat", icon: ICONS.Chat },
   { to: "/learn", label: "Learn", icon: ICONS.Learn },
@@ -171,10 +197,10 @@ const DOCK: { to: string; label: string; icon: React.ReactNode }[] = [
   { to: "/applications", label: "Applications", icon: ICONS.Applications },
   { to: "/writing", label: "Writing", icon: ICONS.Writing },
   { to: "/interview", label: "Interview prep", icon: ICONS["Interview prep"] },
-  { to: "/live", label: "Live", icon: null },
+  { to: "/live", label: "Live", icon: LIVE_ICON },
 ];
 
-function Dock({ live }: { live: { working: number; waiting: number } }) {
+function Dock({ status }: { status: Status }) {
   const chat = useChatLink();
   const [shown, setShown] = useState(false);
   const leave = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -219,11 +245,12 @@ function Dock({ live }: { live: { working: number; waiting: number } }) {
               onClick={() => setShown(false)}
               title={d.label}
             >
-              <span className="relative grid place-items-center">
-                {d.to === "/" ? BAR[0].icon : d.to === "/live" ? BAR[4].icon : d.icon}
-                {d.to === "/live" && <LiveBadge live={live} />}
+              <span className="nav-icon">
+                {d.icon}
+                {d.to === "/live" && <LiveBadge status={status} />}
               </span>
               <span className="dock-label">{d.label}</span>
+              {d.to === "/live" && <StatusWords status={status} />}
             </NavLink>
           ),
         )}

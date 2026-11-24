@@ -189,7 +189,7 @@ export function Applications() {
 
       <section className="grid gap-3">
         <div className="grid gap-1">
-          <h2 className="font-cond m-0 text-head font-bold">
+          <h2 className="font-cond m-0 text-head">
             {shown?.title} <span className="font-mono text-small text-muted">{rows.length}</span>
           </h2>
           {shown && <p className="m-0 text-small text-muted">{shown.what}</p>}

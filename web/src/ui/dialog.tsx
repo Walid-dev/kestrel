@@ -108,7 +108,14 @@ export function Dialog({
           </h2>
         </div>
         {!alert && (
-          <button type="button" className="dialog-x" aria-label="Close" disabled={busy} onClick={close}>
+          <button
+            type="button"
+            className="btn btn-icon btn-quiet dialog-x"
+            aria-label="Close"
+            title="Close"
+            disabled={busy}
+            onClick={close}
+          >
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
               <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             </svg>

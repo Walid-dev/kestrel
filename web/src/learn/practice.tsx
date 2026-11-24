@@ -80,7 +80,7 @@ export function LearnPractice() {
               <span className="eyebrow min-w-0">{next.title}</span>
               {state && <span className={`chip chip-caps tone-${state.tone} ml-auto`}>{state.label}</span>}
             </div>
-            <p className="font-cond m-0 text-head font-bold text-strong">{next.body.check[0].q}</p>
+            <p className="font-cond m-0 text-head text-strong">{next.body.check[0].q}</p>
             {shown ? (
               <>
                 <p className="m-0">{next.body.check[0].a}</p>
