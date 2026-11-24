@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { liveModels, loadSettings, MODEL_DEFAULTS } from "./config.ts";
+import { DEAD_DOOR, liveModels, loadSettings, MODEL_DEFAULTS } from "./config.ts";
 
 test("a missing settings file stops kestrel with a filled example", () => {
   const dir = mkdtempSync(join(tmpdir(), "kestrel-cfg-"));
@@ -17,9 +17,20 @@ test("a wrong settings file says which field, with the example", () => {
   assert.throws(() => loadSettings(dir), /tailscaleLogin.*example/is);
 });
 
-test("a good settings file answers the settings, defaults filled", () => {
+// the deployed app: launchd's setting names the data folder (a made-up one here, read through the dir argument)
+const deployed = (t: { after: (fn: () => void) => void }) => {
+  const before = process.env.KESTREL_DATA_DIR;
+  t.after(() => {
+    if (before === undefined) delete process.env.KESTREL_DATA_DIR;
+    else process.env.KESTREL_DATA_DIR = before;
+  });
+  process.env.KESTREL_DATA_DIR = join(tmpdir(), "kestrel-made-up-real");
+};
+
+test("a good settings file answers the settings, defaults filled", (t) => {
   const dir = mkdtempSync(join(tmpdir(), "kestrel-cfg-"));
   writeFileSync(join(dir, "settings.json"), JSON.stringify({ tailscaleLogin: "made-up-login" }));
+  deployed(t);
   assert.deepEqual(loadSettings(dir), {
     tailscaleLogin: "made-up-login",
     notes: { folders: [] },
@@ -30,6 +41,27 @@ test("a good settings file answers the settings, defaults filled", () => {
     links: [],
     apply: { folder: "", skill: "", pdf: "", check: "" },
   });
+});
+
+test("outside the deployed app, a settings file without doors gets dead ones; a door it names stays", () => {
+  delete process.env.KESTREL_DATA_DIR;
+  const dir = mkdtempSync(join(tmpdir(), "kestrel-cfg-"));
+  // a made-up folder seeded before the seed had dead doors: it must not reach my models
+  writeFileSync(
+    join(dir, "settings.json"),
+    JSON.stringify({ tailscaleLogin: "made-up-login", models: { fast: "made-up-fast" }, voice: { name: "x" } }),
+  );
+  const old = loadSettings(dir);
+  assert.deepEqual(old.models, { ...MODEL_DEFAULTS, url: `${DEAD_DOOR}/v1`, fast: "made-up-fast" });
+  assert.deepEqual(old.voice, { url: DEAD_DOOR, name: "x" });
+  writeFileSync(join(dir, "settings.json"), JSON.stringify({ tailscaleLogin: "made-up-login" }));
+  assert.equal(loadSettings(dir).models.url, `${DEAD_DOOR}/v1`);
+  assert.equal(loadSettings(dir).voice.url, DEAD_DOOR);
+  writeFileSync(
+    join(dir, "settings.json"),
+    JSON.stringify({ tailscaleLogin: "made-up-login", models: { url: "http://127.0.0.1:8004/v1" } }),
+  );
+  assert.equal(loadSettings(dir).models.url, "http://127.0.0.1:8004/v1");
 });
 
 test("a voice door off this computer is refused: sound never leaves", () => {

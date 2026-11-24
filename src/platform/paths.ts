@@ -2,7 +2,8 @@
 // launchd's file sets KESTREL_DATA_DIR to the real folder. Every other run (development, tests, evals, the builder's
 // checks) gets a made-up folder under the system's temp dir, seeded from scripts/dev-data, so nothing real is ever
 // read, shown or written. Its model and voice doors are dead (port 9, where nothing answers), so a development run
-// never asks my models: it fails fast instead (the evals' --live asks the real door on purpose: liveModels).
+// never asks my models: it fails fast instead. A folder seeded before that gets the dead doors from loadSettings
+// (DEAD_DOOR); the evals' --live asks the real door on purpose (liveModels).
 import { cpSync, existsSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
