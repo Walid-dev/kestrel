@@ -5,7 +5,7 @@
 // words; write again and compare the tries.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Ask } from "./ask.tsx";
 import { Card } from "./ui/card.tsx";
@@ -178,7 +178,23 @@ export function Writing() {
     setParams({});
     setPicking(false);
     setQ("");
+    refocus.current = "change";
   };
+  const change = () => {
+    setPicking(true);
+    refocus.current = "search";
+  };
+  // the picker folds and opens by swapping what is on screen, so the focus goes where the hand goes next: the search
+  // box on Change, the Change button after a pick (never on its own, when the page opens folded): asked for by the
+  // press, done once the swap is on screen
+  const picker = useRef<HTMLDivElement>(null);
+  const refocus = useRef<"change" | "search" | null>(null);
+  useEffect(() => {
+    const to = refocus.current;
+    if (!to) return;
+    refocus.current = null;
+    picker.current?.querySelector<HTMLElement>(to === "search" ? "input" : ".writing-change")?.focus();
+  });
 
   return (
     <Page
@@ -187,13 +203,13 @@ export function Writing() {
       actions={files.data?.ready && <YourFiles />}
     >
       {files.data && !files.data.ready && (
-        // what is missing, once, in one row: the setting itself in mono; what Writing reads waits in the title
-        <p
-          className="callout m-0 flex flex-wrap items-center gap-x-3 gap-y-1"
-          title="Writing reads the applications' folder (your voice, your stories, your profile) and follows the apply skill's letter step"
-        >
+        // what is missing, once, in one row in the chip's tone: the setting itself in mono, at most two lines, all of
+        // it in its title
+        <p className="read-box tone-orange m-0 flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="chip chip-caps tone-orange">Not set up</span>
-          <code className="font-mono text-small break-words text-ink">{files.data.why}</code>
+          <code className="line-clamp-2 min-w-0 font-mono text-small break-words text-ink" title={files.data.why}>
+            {files.data.why}
+          </code>
         </p>
       )}
 
@@ -202,29 +218,32 @@ export function Writing() {
         {/* the job, what to write, and the job's tries */}
         <section className="grid content-start gap-(--page-gap)">
           <Card>
-            <div className="flex items-center gap-2">
-              <h2 className="eyebrow m-0">The job</h2>
-              {folded && (
-                <button type="button" className="btn btn-sm ml-auto" onClick={() => setPicking(true)}>
-                  Change
-                </button>
+            {/* the job's part of the card, a box of no layout of its own: only to find what takes the focus */}
+            <div ref={picker} className="contents">
+              <div className="flex items-center gap-2">
+                <h2 className="eyebrow m-0">The job</h2>
+                {folded && (
+                  <button type="button" className="btn btn-sm writing-change ml-auto" onClick={change}>
+                    Change
+                  </button>
+                )}
+              </div>
+              {!folded && <Field label="Search your applications" value={q} onChange={setQ} />}
+              {folded && picked ? (
+                <JobTile j={picked} on onClick={change} />
+              ) : jobs.data && list.length === 0 ? (
+                <p className="m-0 text-detail text-muted">
+                  {q.trim() ? "No application has those words." : "No jobs yet: apply for one, or mark it Interested."}
+                </p>
+              ) : (
+                // at most half the screen, so a phone turned sideways still scrolls the page around it
+                <div className="grid max-h-[min(440px,50vh)] gap-2 overflow-y-auto">
+                  {list.map((j) => (
+                    <JobTile key={j.id} j={j} on={job === j.id} onClick={() => pick(j.id)} />
+                  ))}
+                </div>
               )}
             </div>
-            {!folded && <Field label="Search your applications" value={q} onChange={setQ} />}
-            {folded && picked ? (
-              <JobTile j={picked} on onClick={() => setPicking(true)} />
-            ) : jobs.data && list.length === 0 ? (
-              <p className="m-0 text-detail text-muted">
-                {q.trim() ? "No application has those words." : "No jobs yet: apply for one, or mark it Interested."}
-              </p>
-            ) : (
-              // at most half the screen, so a phone turned sideways still scrolls the page around it
-              <div className="grid max-h-[min(440px,50vh)] gap-2 overflow-y-auto">
-                {list.map((j) => (
-                  <JobTile key={j.id} j={j} on={job === j.id} onClick={() => pick(j.id)} />
-                ))}
-              </div>
-            )}
             <h2 className="eyebrow m-0">What to write</h2>
             <Seg
               label="What to write"
@@ -274,19 +293,27 @@ export function Writing() {
                 {tries.data?.map((x) => (
                   <Row
                     key={x.id}
-                    // a letter is named by its job, an answer or a text by what was asked; the open one is marked
+                    // a letter is named by its job, an answer or a text by what was asked; the open one is marked, and
+                    // one being deleted dims while it waits
                     title={
-                      <span className={cx("line-clamp-2", shown === x.id && "writing-open")}>
+                      <span
+                        className={cx(
+                          "line-clamp-2",
+                          shown === x.id && "writing-open",
+                          forget.isPending && forget.variables === x.id && "writing-busy",
+                        )}
+                      >
                         {x.ask || x.title}
                         {shown === x.id && <span className="sr-only">, open</span>}
                       </span>
                     }
-                    // a failed try says so first, in red: a word, not a chip, so the line keeps its date whole
+                    // the date first, so the dates line up down the list; a failed try says so last, in red: a word,
+                    // not a chip, so the line stays one line in the side column
                     line={
                       <>
-                        {x.state === "failed" && <span className="text-red">Failed · </span>}
-                        {KIND_NAME[x.kind] ?? "Letter"} ·{" "}
-                        <span className="font-mono whitespace-nowrap">{when(x.started)}</span>
+                        <span className="font-mono whitespace-nowrap tabular-nums">{when(x.started)}</span> ·{" "}
+                        {KIND_NAME[x.kind] ?? "Letter"}
+                        {x.state === "failed" && <span className="text-red"> · Failed</span>}
                       </>
                     }
                     onOpen={() => {
@@ -386,7 +413,8 @@ function JobTile({ j, on, onClick }: { j: Job; on: boolean; onClick: () => void 
   );
 }
 
-// the try's chips: what it is, then what the applications' check said, in the chips' one voice
+// the try's chips: what it is, then what the applications' check said, in the chips' one voice (why a chip says so
+// is a line of the card's, under its facts)
 function Chips({ t }: { t: Try }) {
   return (
     <>
@@ -398,15 +426,12 @@ function Chips({ t }: { t: Try }) {
       ) : t.state === "failed" ? (
         <span className="chip chip-caps tone-red">Failed</span>
       ) : t.notes.checked === false ? (
-        <span className="chip chip-caps tone-muted" title="The applications' check isn't set up in kestrel's settings">
-          Not checked
-        </span>
+        <span className="chip chip-caps tone-muted">Not checked</span>
       ) : t.notes.findings ? (
         <span className="chip chip-caps tone-orange">Check: to fix</span>
       ) : (
         <span className="chip chip-caps tone-green">Check passed</span>
       )}
-      {t.notes.stepFound === false && <span className="chip chip-caps tone-red">No letter step</span>}
     </>
   );
 }
@@ -423,12 +448,6 @@ function TryView({ t }: { t: Try }) {
   const fixed = n.fixed?.length ?? 0;
   const needs = n.needs ?? [];
   const facts: ReactNode[] = [];
-  if (n.review && "failed" in n.review)
-    facts.push(
-      <>
-        Review <b className="text-ink">didn't run</b>
-      </>,
-    );
   if (r)
     facts.push(
       <>
@@ -449,6 +468,15 @@ function TryView({ t }: { t: Try }) {
     );
   if (n.model) facts.push(<span className="font-mono whitespace-nowrap">{n.model}</span>);
   const off = r ? !r.match.company || !r.match.job : false;
+  // what went wrong or was left out, each said once, in a line of its own that I can act on from a phone: at most two
+  // lines on screen, all of it in the title
+  const warns: [string, string][] = [];
+  if (n.stepFound === false) warns.push(["text-red", "The skill's letter step wasn't found."]);
+  if (n.checked === false) warns.push(["text-muted", "The applications' check isn't set up in kestrel's settings."]);
+  if (n.review && "failed" in n.review) warns.push(["text-muted", `The review didn't run: ${n.review.failed}`]);
+  if (r?.held) warns.push(["text-warn", `The check said of the review's version: ${r.held}`]);
+  if (t.kind === "letter" && !n.pdf) warns.push(["text-warn", `No PDF: ${n.pdfNote || "the PDF tool made none"}`]);
+  if (n.pdf && n.pdfNote) warns.push(["text-warn", `The PDF tool said: ${n.pdfNote}`]);
   return (
     <>
       <Card>
@@ -495,29 +523,26 @@ function TryView({ t }: { t: Try }) {
             </span>
           </div>
         )}
-        {n.review && "failed" in n.review && (
-          <p className="m-0 text-small text-muted">The review didn't run: {n.review.failed}</p>
+        {t.state === "done" && warns.length > 0 && (
+          <ul className="m-0 grid list-none gap-1 p-0">
+            {warns.map(([tone, said]) => (
+              <li key={said} className={`line-clamp-2 text-small ${tone}`} title={said}>
+                {said}
+              </li>
+            ))}
+          </ul>
         )}
         {t.state === "done" && <Folds t={t} r={r} needs={needs} />}
       </Card>
       {t.state === "done" && (
         <div className={cx("grid gap-3", t.kind === "letter" && n.pdf && "xl:grid-cols-2")}>
-          {/* the text as a document: read, copied or downloaded; it is written again, never edited here. A letter
-              that made no PDF says so in the document's head, why in its title */}
+          {/* the text as a document: read, copied or downloaded; it is written again, never edited here */}
           <div className="try-text min-w-0">
             <Doc
               id={`writing:${t.id}`}
               name={`${t.title} ${KIND_NAME[t.kind].toLowerCase()}.txt`}
               text={t.text}
               rev=""
-              tools={
-                t.kind === "letter" &&
-                !n.pdf && (
-                  <span className="chip chip-caps tone-muted" title={sentence(n.pdfNote || "the PDF tool made none")}>
-                    No PDF
-                  </span>
-                )
-              }
             />
           </div>
           {t.kind === "letter" && n.pdf && (
@@ -541,27 +566,23 @@ function TryView({ t }: { t: Try }) {
           )}
         </div>
       )}
-      {t.state === "done" && n.pdf && n.pdfNote && (
-        <p className="m-0 text-small text-warn">The PDF tool said: {n.pdfNote}</p>
-      )}
     </>
   );
 }
 
-// what waits behind a tap, each fold with its count: the review's changes, what the text answered, what the check
-// said, the first draft
+// what waits behind a tap, a fold with its count where there is one: the review's changes, what the text answered,
+// what the check said (each fix and what is still named), the first draft
 function Folds({ t, r, needs }: { t: Try; r: Exclude<Review, { failed: string }> | null; needs: string[] }) {
-  const check = [
+  const said = [
     ...(t.notes.fixed ?? []).map((f, i) => `Before fix ${i + 1}:\n${f}`),
     t.notes.findings ? `Still:\n${t.notes.findings}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-  const any = (r && (r.issues.length > 0 || r.held || r.before)) || needs.length > 0 || check;
+  ].filter(Boolean);
+  const check = said.join("\n\n");
+  const any = (r && (r.issues.length > 0 || r.before)) || needs.length > 0 || check;
   if (!any) return null;
   return (
     <div className="grid">
-      {r && (r.issues.length > 0 || r.held) && (
+      {r && r.issues.length > 0 && (
         <details>
           <summary className="disclosure">
             The review's changes <span className="font-mono tabular-nums">{r.issues.length}</span>
@@ -575,11 +596,6 @@ function Folds({ t, r, needs }: { t: Try; r: Exclude<Review, { failed: string }>
               </li>
             ))}
           </ol>
-          {r.held && (
-            <p className="m-0 mb-3 text-small text-warn">
-              The check said of the review's version: {r.held.slice(0, 300)}
-            </p>
-          )}
         </details>
       )}
       {needs.length > 0 && (
@@ -599,7 +615,9 @@ function Folds({ t, r, needs }: { t: Try; r: Exclude<Review, { failed: string }>
       )}
       {check && (
         <details>
-          <summary className="disclosure">What the check said</summary>
+          <summary className="disclosure">
+            What the check said <span className="font-mono tabular-nums">{said.length}</span>
+          </summary>
           <pre className="mt-1 mb-3 whitespace-pre-wrap font-mono text-small text-muted">{check}</pre>
         </details>
       )}

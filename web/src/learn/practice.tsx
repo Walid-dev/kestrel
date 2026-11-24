@@ -89,13 +89,10 @@ export function LearnPractice() {
       line={
         due.data &&
         left > 0 && (
-          // what is left, the numbers bold
+          // what is left to ask, the numbers bold (a lesson only due to read again is never asked here: the empty
+          // state sends it to Learn)
           <span className="tabular-nums">
-            {[
-              due.data.due > 0 && ["due", due.data.due],
-              due.data.new > 0 && ["new", due.data.new],
-              reread > 0 && ["to read again", reread],
-            ]
+            {[due.data.due > 0 && ["due", due.data.due], due.data.new > 0 && ["new", due.data.new]]
               .filter((x): x is [string, number] => Boolean(x))
               .map(([what, n], i) => (
                 <span key={what}>
@@ -124,16 +121,22 @@ export function LearnPractice() {
       ) : (
         next &&
         q && (
-          // the card: the lesson's state on the left and the lesson itself on the right, the question, then the
-          // answer once shown, and the grades
+          // the card: the lesson's state on the left and the lesson itself on the right, on one line (a long name
+          // cut, all of it in the title; "The lesson" where the name is the question, as in interview packs), the
+          // question on the section step under the page's title, then the answer once shown, and the grades
           <Card>
-            <div className="flex flex-wrap items-center gap-2">
-              {state && <span className={`chip chip-caps tone-${state.tone}`}>{state.label}</span>}
-              <Link to={`/learn/lesson/${encodeURIComponent(next.id)}`} className="btn btn-sm ml-auto">
-                {next.title} →
+            <div className="flex min-w-0 items-center gap-2">
+              {state && <span className={`chip chip-caps shrink-0 tone-${state.tone}`}>{state.label}</span>}
+              <Link
+                to={`/learn/lesson/${encodeURIComponent(next.id)}`}
+                className="btn btn-sm ml-auto min-w-0"
+                title={next.title}
+              >
+                <span className="min-w-0 truncate">{next.title.trim() === q.q.trim() ? "The lesson" : next.title}</span>{" "}
+                →
               </Link>
             </div>
-            <h2 className="font-cond m-0 text-lead">{q.q}</h2>
+            <h2 className="font-cond m-0 text-section">{q.q}</h2>
             {shown ? (
               <>
                 <div className="inner grid gap-1">
