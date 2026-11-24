@@ -24,7 +24,8 @@ I stop each part when its new home has carried it for two quiet weeks.
 
 ## What the mirror carries meanwhile
 
-The nightly mirror (`mirror-v1.json`) keeps kestrel's listings — jobs and deals — matched to the old database, which
+The mirror (`mirror-v1.json`) brings the old setup's finds about five minutes after each of its rounds, and everything
+at least once a day; it keeps kestrel's listings — jobs and deals — matched to the old database, which
 stays the authority for statuses until each cutover. The mirror's last word shows on the Searches page.
 
 ## What waits for me

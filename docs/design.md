@@ -99,7 +99,8 @@ reading width is 720.
   their hairlines start at the text.
 - Chips are mono, 20 tall, in the caps voice (`chip chip-caps`), one colour per meaning: needs me pink; review today
   cyan; learning, Ask and deep work purple; done and at work green; new muted. `.money` is the pay or price pill
-  (Mono 500 12, 22 tall) in the money scale's tone.
+  (Mono 500 12, 22 tall) in the money scale's tone. A listing the rules set aside leads its card's head with its
+  reason, in the Left out stage's grey ("Left out · US only"), until a stage is pressed. A filter's All comes first.
 - `Dialog` (`web/src/ui/dialog.tsx`) — every box: a native dialog opened with `showModal`, 440 wide (900 with `wide`),
   radius 14, its title on the section step. Props: `open`, `onClose`, `title`, `eyebrow`, `children`, `actions` (the
   main action last), `wide`, `busy`, `alert`. Esc, Back, a tap outside and ✕ close it; typed words stay; focus returns

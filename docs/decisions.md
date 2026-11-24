@@ -5,6 +5,17 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-24 · All shows every card; the old setup's finds arrive after each of its rounds.**
+  All is every listing of a hunt, jobs and deals, the set-aside ones included, and comes first among the stages. Not
+  applied yet narrows only the review views (To review, Priority, Possible, Left out) and shows only there. A card
+  the rules set aside leads its head with its reason in the Left out grey ("Left out · US only"), from the query's own
+  rule; the chip and the automatic Priority star drop once a stage is pressed. Ask's find keeps the set-aside listings
+  out of all and gets them with leftout. The mirror runs once the old setup's run mark (its newest job or deal run,
+  one read-only query a minute) has moved and then stayed still for 5 minutes: one mirror per round, not one per deal
+  search; `everyMinutes` stays the daily fallback. The converter splits must-haves on commas, semicolons, line breaks
+  and "or", never into letters. Why: a job found by the search could be hidden from All, and the old setup's finds
+  reached kestrel up to a day late. Rejected: mirroring at every move of the mark (about 20 a round); reading the old
+  setup's lock file (ties kestrel to its files).
 - **2026-11-24 · News is its own app; Ask on each story.**
   Every brief is kept and browsable on All days (`/news/days`), a hundred days at a time with Show older, by month. A
   find matches every word in a story's headline or text across the brief each day shows, in JavaScript (SQLite's
