@@ -89,20 +89,15 @@ function ChatFrame({ link }: { link: Link }) {
   const fitted = height === undefined ? undefined : ({ "--frame-h": `${height}px` } as CSSProperties);
   return (
     // the frame takes the page's side gutters and its room for the bottom bar, which it fills itself; the head keeps
-    // them, so the title starts where every page's does
-    <main className="-mx-4 -mb-28 grid md:-mx-6 md:-mb-16">
-      <div className="grid gap-2 px-4 pb-3 md:px-6">
+    // them, so the title starts where every page's does (styles.css, .chat-page)
+    <main className="chat-page">
+      <div className="chat-page-head">
         {/* the window link sits beside the title, as a phone app's bar has it, not on a row of its own: on an upright
             phone every row the head takes comes off the chats. PageHead puts a top page's buttons under the title on
-            a phone, so this page lays the row out itself. The link's tap area grows to 44 px without taking room */}
+            a phone, so this page lays the row out itself, with a plain .btn as a head's buttons are */}
         <div className="flex items-center justify-between gap-3">
           <PageHead title="Chat" />
-          <a
-            href={link.phone ?? frame}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="relative shrink-0 text-detail font-medium text-accent after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']"
-          >
+          <a href={link.phone ?? frame} target="_blank" rel="noopener noreferrer" className="btn shrink-0">
             Open in its own window ↗
           </a>
         </div>

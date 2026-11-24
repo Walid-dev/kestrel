@@ -13,6 +13,7 @@ import { Card } from "./ui/card.tsx";
 import { EmptyState } from "./ui/empty.tsx";
 import { Page } from "./ui/page.tsx";
 import { Pills, type Tone } from "./ui/pills.tsx";
+import { Seg } from "./ui/seg.tsx";
 
 type Item = {
   id: string;
@@ -80,7 +81,7 @@ function AgentSteps({ chat }: { chat: AgentChat }) {
   return (
     <div className="grid gap-1">
       {chat.steps.length > SHOWN && !all && (
-        <button type="button" className="btn btn-quiet justify-self-start" onClick={() => setAll(true)}>
+        <button type="button" className="btn btn-sm btn-quiet justify-self-start" onClick={() => setAll(true)}>
           Show the {chat.steps.length - SHOWN} steps before
         </button>
       )}
@@ -95,7 +96,7 @@ function AgentSteps({ chat }: { chat: AgentChat }) {
               key={i}
               className="grid grid-cols-[18px_minmax(0,1fr)] items-baseline gap-2 text-detail"
             >
-              <span className={`text-center font-bold ${colour}`} aria-hidden="true">
+              <span className={`text-center font-semibold ${colour}`} aria-hidden="true">
                 {turning ? <span className="spin inline-block" /> : mark}
               </span>
               <span className={WORDS[st.kind] ?? "text-ink"}>{st.kind === "you" ? `You: ${st.text}` : st.text}</span>
@@ -132,7 +133,7 @@ function ChatState({ chat, open }: { chat: AgentChat; open: (id: string) => void
       <span className="font-mono text-muted">
         {length(chat.started, chat.working || chat.waiting ? Date.now() : Date.parse(chat.updated))}
       </span>
-      <button type="button" className="btn btn-quiet ml-auto" onClick={() => open(chat.id)}>
+      <button type="button" className="btn btn-sm ml-auto" onClick={() => open(chat.id)}>
         Open the chat
       </button>
       {(chat.working || chat.waiting) && <StopChat chat={chat.id} applying={chat.applying} />}
@@ -331,15 +332,26 @@ export function LivePage() {
       title="Live"
       width="reading"
       line={d ? `What runs now, and the week's work. Updated ${clock(d.at)}.` : undefined}
+      // the view switch sits in the head's button place: beside the title under a mouse, under the line on touch
+      actions={
+        <Seg
+          label="Show"
+          value={view}
+          onChange={setView}
+          options={[
+            {
+              value: "now",
+              label: (
+                <span className="flex items-center gap-2">
+                  {busy > 0 && <span className="dot tone-green pulse" />}Now
+                </span>
+              ),
+            },
+            { value: "activity", label: "Activity" },
+          ]}
+        />
+      }
     >
-      <fieldset className="seg sm:w-80 sm:justify-self-start" aria-label="Show">
-        <button type="button" aria-pressed={view === "now"} onClick={() => setView("now")}>
-          <span className="flex items-center gap-2">{busy > 0 && <span className="dot tone-green pulse" />}Now</span>
-        </button>
-        <button type="button" aria-pressed={view === "activity"} onClick={() => setView("activity")}>
-          Activity
-        </button>
-      </fieldset>
       {[live, log].map((x) =>
         x.isError ? (
           <p key={String(x.error)} className="m-0 text-detail text-red">
@@ -349,7 +361,8 @@ export function LivePage() {
       )}
 
       {view === "now" && d && (
-        <>
+        // the cards 12 apart, as everywhere
+        <div className="grid gap-3">
           <QueueLine queued={d.apps.filter((a) => a.state === "queued").length} paused={d.paused} />
           {busy === 0 && d.apps.length === 0 && (
             <EmptyState
@@ -369,7 +382,7 @@ export function LivePage() {
                   <span className="dot tone-green pulse" />
                   <b className="text-green">Working</b>
                   {a.link && (
-                    <button type="button" className="btn btn-quiet ml-auto" onClick={() => go(a.link)}>
+                    <button type="button" className="btn btn-sm ml-auto" onClick={() => go(a.link)}>
                       Open
                     </button>
                   )}
@@ -404,11 +417,11 @@ export function LivePage() {
                   )}
                   <div className="flex flex-wrap gap-2">
                     {a.listing && (
-                      <button type="button" className="btn" onClick={() => a.listing && setOpen(a.listing)}>
+                      <button type="button" className="btn btn-sm" onClick={() => a.listing && setOpen(a.listing)}>
                         The listing
                       </button>
                     )}
-                    <a href={a.link} target="_blank" rel="noopener noreferrer" className="btn">
+                    <a href={a.link} target="_blank" rel="noopener noreferrer" className="btn btn-sm">
                       The page ↗
                     </a>
                   </div>
@@ -440,7 +453,7 @@ export function LivePage() {
             );
           })}
           {busy === 0 && last && (
-            <section className="grid gap-2">
+            <section className="mt-3 grid gap-3">
               <span className="eyebrow">Last finished</span>
               <Row a={last} go={go} />
               <button type="button" className="btn btn-quiet justify-self-start" onClick={() => setView("activity")}>
@@ -448,11 +461,11 @@ export function LivePage() {
               </button>
             </section>
           )}
-        </>
+        </div>
       )}
 
       {view === "activity" && (
-        <section className="grid gap-4">
+        <section className="grid gap-6">
           <Pills
             label="Which kind"
             options={FILTERS.map(([k, label]) => ({ value: k, label, tone: k === "all" ? undefined : KIND[k]?.[1] }))}
@@ -461,12 +474,14 @@ export function LivePage() {
           />
           {days.map(([name, items]) => (
             <div key={name} className="grid gap-2">
-              <h2 className="font-cond m-0 mt-2 text-head">
+              <h2 className="font-cond m-0 text-section">
                 {name} <span className="font-mono text-small text-muted">{items.length}</span>
               </h2>
-              {items.map((a) => (
-                <Row key={a.id} a={a} go={go} />
-              ))}
+              <div className="grid gap-3">
+                {items.map((a) => (
+                  <Row key={a.id} a={a} go={go} />
+                ))}
+              </div>
             </div>
           ))}
           {log.data && log.data.activity.length === 0 && (

@@ -37,7 +37,7 @@ export function StopChat({ chat, applying }: { chat: string; applying: boolean }
         {error}
         <button
           type="button"
-          className="btn btn-danger"
+          className="btn btn-sm btn-danger"
           disabled={stop.isPending}
           onClick={() => (applying ? setAsking(true) : stop.mutate({ chat }))}
         >
@@ -60,7 +60,11 @@ export function StopChat({ chat, applying }: { chat: string; applying: boolean }
         <b>This one and the queue</b>
         <span>Nothing new starts until you press Play.</span>
       </button>
-      <button type="button" className="btn btn-quiet justify-self-start" onClick={() => setAsking(false)}>
+      <button
+        type="button"
+        className="btn btn-sm btn-quiet col-span-full justify-self-start"
+        onClick={() => setAsking(false)}
+      >
         Keep it running
       </button>
       {error}

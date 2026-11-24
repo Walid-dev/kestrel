@@ -2,11 +2,11 @@
 // — what the same use would have cost in the cloud at my reference prices, and what it cost in electricity; then the
 // tokens of each of the last 30 days, a period with each model apart, and the prices with where they were seen.
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { type CSSProperties, useState } from "react";
+import { type CSSProperties, useLayoutEffect, useRef, useState } from "react";
 import { cx } from "./ui/cx.ts";
 import { EmptyState } from "./ui/empty.tsx";
 import { Page } from "./ui/page.tsx";
-import { Pills } from "./ui/pills.tsx";
+import { Seg } from "./ui/seg.tsx";
 
 type Cloud = { id: string; name: string; usd: number | null; unpriced: string[] };
 type Figures = {
@@ -70,11 +70,23 @@ const PERIODS = [
 class NotReady extends Error {}
 
 // one series, so no legend: the title names it. Thin bars from the baseline, 2px apart, the top day labelled, a
-// tooltip on each bar, and the same numbers as a table below
+// tooltip on each bar, and the same numbers as a table below. The drawing is as wide as its frame, one unit a pixel,
+// so its labels keep the label step's size on a phone instead of shrinking with the picture
 function Days({ daily }: { daily: Report["daily"] }) {
   const [hover, setHover] = useState<number | null>(null);
-  const W = 720;
-  const H = 170;
+  const frame = useRef<HTMLDivElement>(null);
+  const [W, setW] = useState(720);
+  useLayoutEffect(() => {
+    const el = frame.current;
+    if (!el) return;
+    const fit = () => setW(Math.max(300, Math.round(el.clientWidth)));
+    fit();
+    const watch = new ResizeObserver(fit);
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, []);
+  // a phone's frame gets a shorter drawing, so the page grows no taller for the labels' real size
+  const H = Math.round(Math.min(170, Math.max(96, W * 0.24)));
   const top = Math.max(1, ...daily.map((d) => d.tokens));
   const slot = W / daily.length;
   const bar = Math.max(4, slot - 2);
@@ -82,7 +94,7 @@ function Days({ daily }: { daily: Report["daily"] }) {
   const label = (day: string) =>
     new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" });
   return (
-    <div className="relative">
+    <div ref={frame} className="relative">
       <svg
         viewBox={`0 0 ${W} ${H + 22}`}
         className="block h-auto w-full"
@@ -124,7 +136,7 @@ function Days({ daily }: { daily: Report["daily"] }) {
       </svg>
       {hover !== null && daily[hover] && (
         <div
-          className="pointer-events-none absolute top-0 left-(--x) rounded-lg border border-line bg-surface-2 px-2.5 py-1.5 text-small text-ink"
+          className="pointer-events-none absolute top-0 left-(--x) rounded-md border border-line bg-surface-2 px-2 py-1 text-small text-ink"
           // where the pointer is: data, so it reaches the class as a variable
           style={{ "--x": `${Math.min(80, Math.max(0, ((hover + 0.5) / daily.length) * 100 - 10))}%` } as CSSProperties}
         >
@@ -240,11 +252,11 @@ function Counted({
     <>
       <section className="card grid gap-4">
         <p className="m-0 flex flex-wrap items-baseline gap-x-3">
-          <span className="font-cond text-title text-strong">{n(tokens)}</span>
-          <span className="text-read text-muted">tokens</span>
+          <span className="font-mono text-lead font-medium text-strong tabular-nums">{n(tokens)}</span>
+          <span className="text-body text-muted">tokens</span>
         </p>
         <p className="m-0 text-detail text-muted">{daysCounted} days of this computer's models, counted by oMLX</p>
-        <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-line md:grid-cols-5">
+        <div className="grid grid-cols-2 overflow-hidden rounded-lg border border-line md:grid-cols-5">
           {[
             ["Requests", n(t.requests)],
             ["Fresh in", n(t.fresh)],
@@ -254,7 +266,7 @@ function Counted({
           ].map(([k, v]) => (
             <div key={k} className="grid gap-1 bg-surface-2 px-3 py-2.5 outline outline-line">
               <span className="text-small text-muted">{k}</span>
-              <span className="font-cond text-head text-strong">{v}</span>
+              <span className="font-mono text-body font-medium text-strong tabular-nums">{v}</span>
             </div>
           ))}
         </div>
@@ -268,7 +280,15 @@ function Counted({
           {t.cloud.map((c) => (
             <div key={c.id} className="flex items-baseline gap-3 border-t border-line py-2.5">
               <span className="text-body">{c.name}</span>
-              <span className="font-cond ml-auto text-head text-strong">{usd(c.usd)}</span>
+              {/* a price is a number, in mono; its absence is words, quiet */}
+              <span
+                className={cx(
+                  "ml-auto",
+                  c.usd == null ? "text-detail text-muted" : "font-mono text-body font-medium text-strong tabular-nums",
+                )}
+              >
+                {usd(c.usd)}
+              </span>
             </div>
           ))}
           {t.electricity && (
@@ -297,7 +317,7 @@ function Counted({
               {r.daily.map((d) => (
                 <tr key={d.day} className="border-t border-line">
                   <td className="py-1">{d.day}</td>
-                  <td className="font-mono py-1 text-right">{n(d.tokens)}</td>
+                  <td className="font-mono py-1 text-right tabular-nums">{n(d.tokens)}</td>
                 </tr>
               ))}
             </tbody>
@@ -306,15 +326,17 @@ function Counted({
       </section>
 
       <section className="card grid gap-3">
-        <Pills label="Period" options={PERIODS} value={days} onChange={setDays} />
+        <Seg label="Period" options={PERIODS} value={days} onChange={setDays} />
         {/* the last period's figures, dimmed, until the new one lands */}
         <div className={cx("grid gap-3", loading && "busy")} aria-busy={loading}>
           <p className="m-0 text-body">
-            <b className="font-cond text-lead text-strong">{n(r.period.fresh + r.period.reused + r.period.out)}</b>{" "}
+            <b className="font-mono text-lead font-medium text-strong tabular-nums">
+              {n(r.period.fresh + r.period.reused + r.period.out)}
+            </b>{" "}
             tokens · {n(r.period.requests)} requests · {r.period.computeHours.toFixed(1)} h of compute
           </p>
           {r.models.map((m) => (
-            <div key={m.model} className="grid gap-1 rounded-xl bg-surface-2 px-3 py-2.5">
+            <div key={m.model} className="inner grid gap-1">
               <div className="flex flex-wrap items-baseline gap-2">
                 <span className="font-mono text-small text-strong">{m.model}</span>
                 <span className="ml-auto text-small text-muted">

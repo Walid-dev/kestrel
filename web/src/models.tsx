@@ -1,8 +1,11 @@
-// The Models screen: which model each use runs on. The door's models are the choices, as pills; one tap switches a use,
-// the settings file stays the fallback. Under them, the calls each made, with Cost a tap away for what they'd cost.
+// The Models screen: which model each use runs on, as one list of rows: the job, what it does, its fallback, and at the
+// row's end its model, which opens the picker: the door's models as pills, one tap switches the job (the settings file
+// stays the fallback). Under them, the calls each made, with Cost a tap away for what they'd cost.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "react-router";
-import { Card } from "./ui/card.tsx";
+import { Dialog } from "./ui/dialog.tsx";
+import { List, Row } from "./ui/list.tsx";
 import { Page } from "./ui/page.tsx";
 import { Pills } from "./ui/pills.tsx";
 
@@ -47,6 +50,7 @@ const purposeOf = (purpose: string) => {
 
 export function Models() {
   const queryClient = useQueryClient();
+  const [picking, setPicking] = useState<string | null>(null);
   const state = useQuery({
     queryKey: ["models"],
     queryFn: async () => {
@@ -89,6 +93,8 @@ export function Models() {
       </Page>
     );
   const { door, uses } = state.data;
+  // the job whose picker is open, read fresh from the data, so a switch shows at once
+  const pick = uses.find((u) => u.use === picking);
   const switchWhy = set.isError ? String((set.error as Error).message) : "";
   const calls = spent.data?.calls ?? [];
   return (
@@ -102,55 +108,96 @@ export function Models() {
       }
     >
       {switchWhy && <p className="m-0 text-detail text-red">The switch was refused: {switchWhy}</p>}
-      <div className="grid gap-3 md:grid-cols-2">
-        {uses.map((u) => (
-          <Card key={u.use} title={named(u.use)}>
-            <div className="grid gap-3">
-              <span>{u.what}</span>
-              <Pills
-                label={`The model for ${named(u.use)}`}
-                options={(door.length ? (door.includes(u.model) ? door : [u.model, ...door]) : [u.model]).map((m) => ({
-                  value: m,
-                  label: m,
-                }))}
-                value={u.model}
-                onChange={(m) => m !== u.model && !set.isPending && set.mutate({ use: u.use, model: m })}
-              />
-              <span className="font-mono text-small wrap-anywhere">Fallback: {u.fallback}</span>
-            </div>
-          </Card>
-        ))}
+      <div className="models-uses">
+        <List cols label="The jobs and their models">
+          {uses.map((u) => (
+            <Row
+              key={u.use}
+              title={named(u.use)}
+              line={
+                <>
+                  <span className="line-clamp-2">{u.what}</span>
+                  <span className="block font-mono wrap-anywhere">Fallback: {u.fallback}</span>
+                </>
+              }
+              end={
+                <button
+                  type="button"
+                  className="pill models-pick"
+                  aria-label={`${named(u.use)}: ${u.model}. Change the model`}
+                  title="Change the model"
+                  onClick={() => setPicking(u.use)}
+                >
+                  {u.model}
+                </button>
+              }
+            />
+          ))}
+        </List>
       </div>
-      {calls.length > 0 && (
-        <Card title="The calls they made">
+      <Dialog
+        open={pick !== undefined}
+        onClose={() => setPicking(null)}
+        eyebrow="The model for"
+        title={pick ? named(pick.use) : ""}
+        busy={set.isPending}
+      >
+        {pick && (
           <div className="grid gap-3">
-            <span>
-              Every recorded call, newest first. Local models charge time, nothing else;{" "}
-              <Link to="/cost" className="text-accent underline underline-offset-2">
-                Cost
-              </Link>{" "}
-              shows what the same use would cost in the cloud.
-            </span>
-            <ul className="m-0 grid list-none gap-2 p-0">
-              {calls.map((r) => {
-                const p = purposeOf(r.purpose);
-                return (
-                  <li key={`${r.purpose}:${r.model}`} className="grid gap-0.5">
-                    {/* the prompt's version tells two rows of one job apart */}
-                    <span className="flex items-baseline gap-2">
-                      <span className="font-semibold text-strong">{p.name}</span>
-                      {p.version && <span className="font-mono text-small text-muted">{p.version}</span>}
-                    </span>
-                    <span className="font-mono text-small wrap-anywhere">
+            <p className="m-0 text-detail text-muted">
+              {door.length
+                ? "The models the door offers right now. A tap switches this job; the settings file stays the fallback."
+                : "The door isn't answering, so only the current pick shows."}
+            </p>
+            <Pills
+              label={`The model for ${named(pick.use)}`}
+              options={(door.length ? (door.includes(pick.model) ? door : [pick.model, ...door]) : [pick.model]).map(
+                (m) => ({ value: m, label: m }),
+              )}
+              value={pick.model}
+              onChange={(m) => {
+                if (m !== pick.model && !set.isPending) set.mutate({ use: pick.use, model: m });
+                setPicking(null);
+              }}
+            />
+            <span className="font-mono text-small text-muted wrap-anywhere">Fallback: {pick.fallback}</span>
+          </div>
+        )}
+      </Dialog>
+      {calls.length > 0 && (
+        <section className="grid gap-2">
+          <h2 className="font-cond m-0 text-section">The calls they made</h2>
+          <p className="m-0 text-detail text-muted">
+            Every recorded call, newest first. Local models charge time, nothing else;{" "}
+            <Link to="/cost" className="text-accent underline underline-offset-2">
+              Cost
+            </Link>{" "}
+            shows what the same use would cost in the cloud.
+          </p>
+          <List cols label="The calls they made">
+            {calls.map((r) => {
+              const p = purposeOf(r.purpose);
+              return (
+                <Row
+                  key={`${r.purpose}:${r.model}`}
+                  // the prompt's version tells two rows of one job apart
+                  title={
+                    <>
+                      {p.name}
+                      {p.version && <span className="font-mono ml-2 text-small text-muted">{p.version}</span>}
+                    </>
+                  }
+                  line={
+                    <span className="font-mono wrap-anywhere">
                       {r.model} · {r.calls} call{r.calls === 1 ? "" : "s"} · {r.seconds} s each
                       {r.failed > 0 && <span className="text-orange"> · {r.failed} failed</span>}
                     </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </Card>
+                  }
+                />
+              );
+            })}
+          </List>
+        </section>
       )}
     </Page>
   );
