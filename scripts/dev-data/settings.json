@@ -1,4 +1,6 @@
 {
   "tailscaleLogin": "made-up-login",
-  "notes": { "folders": [] }
+  "notes": { "folders": [] },
+  "models": { "url": "http://127.0.0.1:9/v1" },
+  "voice": { "url": "http://127.0.0.1:9" }
 }

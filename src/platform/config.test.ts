@@ -3,7 +3,8 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { loadSettings, MODEL_DEFAULTS } from "./config.ts";
+import { fileURLToPath } from "node:url";
+import { liveModels, loadSettings, MODEL_DEFAULTS } from "./config.ts";
 
 test("a missing settings file stops kestrel with a filled example", () => {
   const dir = mkdtempSync(join(tmpdir(), "kestrel-cfg-"));
@@ -69,4 +70,26 @@ test("a settings error never carries the folder's path: the service log must sta
   } catch (e) {
     assert.ok(!(e as Error).message.includes(dir));
   }
+});
+
+test("development's made-up doors are dead; the evals' --live asks the real door on purpose", (t) => {
+  // the made-up seed: every model and voice door is a dead address on this computer, never the real ones
+  const seed = loadSettings(fileURLToPath(new URL("../../scripts/dev-data/", import.meta.url)));
+  for (const url of [seed.models.url, seed.voice.url]) {
+    assert.match(url, /^http:\/\/127\.0\.0\.1:9(\/|$)/);
+    assert.doesNotMatch(url, /:8000|:8798/);
+  }
+  // --live: the real default door, or one given by the flag or KESTREL_MODEL_URL, on this computer only
+  const before = process.env.KESTREL_MODEL_URL;
+  t.after(() => {
+    if (before === undefined) delete process.env.KESTREL_MODEL_URL;
+    else process.env.KESTREL_MODEL_URL = before;
+  });
+  delete process.env.KESTREL_MODEL_URL;
+  assert.deepEqual(liveModels(), MODEL_DEFAULTS);
+  assert.equal(liveModels("http://localhost:8001/v1").url, "http://localhost:8001/v1");
+  process.env.KESTREL_MODEL_URL = "http://127.0.0.1:8002/v1";
+  assert.equal(liveModels().url, "http://127.0.0.1:8002/v1");
+  assert.equal(liveModels("http://127.0.0.1:8003/v1").url, "http://127.0.0.1:8003/v1"); // the flag wins
+  assert.throws(() => liveModels("https://models.example.com/v1"), /must stay on this computer/);
 });

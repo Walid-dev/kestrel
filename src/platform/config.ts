@@ -106,6 +106,18 @@ export const Settings = z.object({
 });
 export type Settings = z.infer<typeof Settings>;
 
+// The evals' --live mode and the model probe ask the real door on purpose, with made-up text. They never take it from
+// the made-up data folder: its doors are dead on purpose, so a development run fails fast instead of asking my models
+// (scripts/dev-data/settings.json). The real door is the default above; --url or KESTREL_MODEL_URL picks another,
+// which must stay on this computer too.
+export function liveModels(given?: string): Settings["models"] {
+  const url = given?.trim() || process.env.KESTREL_MODEL_URL?.trim() || MODEL_DEFAULTS.url;
+  const parsed = Settings.shape.models.safeParse({ url });
+  if (!parsed.success)
+    throw new Error(`the live door is wrong: ${parsed.error.issues.map((i) => i.message).join("; ")}`);
+  return parsed.data;
+}
+
 export function loadSettings(dir: string = dataDir()): Settings {
   const file = join(dir, "settings.json");
   const example = JSON.stringify(

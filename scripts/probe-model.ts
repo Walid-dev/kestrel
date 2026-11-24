@@ -2,9 +2,10 @@
 // queue. Run: node scripts/probe-model.ts
 import { z } from "zod";
 import { callModel } from "../src/ai/client.ts";
-import { loadSettings } from "../src/platform/config.ts";
+import { liveModels } from "../src/platform/config.ts";
 
-const settings = loadSettings().models;
+// the real door on purpose (KESTREL_MODEL_URL for another), never the made-up data folder's dead one
+const settings = liveModels();
 const Shape = z.object({ ok: z.boolean() });
 for (const model of [settings.careful, settings.fast]) {
   const got = await callModel(

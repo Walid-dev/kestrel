@@ -6,13 +6,14 @@ import { askMessages } from "../../src/ai/ask/prompt.ts";
 import { chatModel, type ModelSettings } from "../../src/ai/client.ts";
 import { startStandIn } from "../../src/ai/stand-in.ts";
 import { lessonAskPage } from "../../src/domain/learn/ask.ts";
-import { loadSettings } from "../../src/platform/config.ts";
+import { liveModels } from "../../src/platform/config.ts";
 import { type Case, score } from "./score.ts";
 
 const cases = JSON.parse(readFileSync(new URL("./cases.json", import.meta.url), "utf8")) as Case[];
 const { values } = parseArgs({
   options: {
     live: { type: "boolean", default: false },
+    url: { type: "string" },
     model: { type: "string", default: "fast" },
     runs: { type: "string", default: "1" },
     md: { type: "boolean", default: false },
@@ -39,7 +40,7 @@ async function runCase(c: Case, settings: ModelSettings, model: string, run: num
 
 const results: { name: string; model: string; run: number; pass: boolean; why: string; ms: number }[] = [];
 if (values.live) {
-  const settings = loadSettings().models;
+  const settings = liveModels(values.url); // the real door on purpose, never the made-up folder's dead one
   const models =
     values.model === "both"
       ? [settings.careful, settings.fast]
