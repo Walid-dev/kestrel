@@ -13,7 +13,7 @@ import { EmptyState } from "../ui/empty.tsx";
 import { Field } from "../ui/field.tsx";
 import { Page } from "../ui/page.tsx";
 import { Pills, type Tone } from "../ui/pills.tsx";
-import { ago, DEAL, DealCard, JobCard, type Listing, MATCH, Swipe, sourceName } from "./cards.tsx";
+import { ago, DEAL, DealCard, JobCard, type Listing, MATCH, Swipe, sourceName, stageTone } from "./cards.tsx";
 import { ListingSheet } from "./sheet.tsx";
 
 type Run = { started: string; found: number; kept: number; problem: string } | null;
@@ -198,20 +198,6 @@ function Part({
   );
 }
 
-const STAGE_TONE: Record<string, Tone> = {
-  review: "accent",
-  possible: "yellow",
-  interested: "green",
-  maybe: "yellow",
-  applied: "accent",
-  interviewing: "orange",
-  rejected: "red",
-  fake: "red",
-  passed: "muted",
-  new: "accent",
-  closed: "muted",
-  leftout: "muted",
-};
 const toneClass = (t: Tone | undefined) => (t ? `tone-${t}` : "");
 const SORTS: Record<"jobs" | "deals", [string, string][]> = {
   jobs: [
@@ -762,7 +748,7 @@ export function Searches() {
                     options={STAGE_LIST[kind].map(([s, label]) => ({
                       value: s,
                       label,
-                      tone: STAGE_TONE[s],
+                      tone: stageTone(kind, s),
                       count: c?.stages[s] ?? 0,
                     }))}
                     value={stage}
@@ -866,11 +852,11 @@ export function Searches() {
             <div className="flex flex-wrap gap-1.5">
               <button
                 type="button"
-                className={cx("pill", toneClass(STAGE_TONE[stage]))}
+                className={cx("pill", toneClass(stageTone(kind, stage)))}
                 aria-pressed
                 onClick={() => fold(true)}
               >
-                {STAGE_TONE[stage] && <span className="dot" />} {stageName} <b>{c?.stages[stage] ?? 0}</b>
+                {stageTone(kind, stage) && <span className="dot" />} {stageName} <b>{c?.stages[stage] ?? 0}</b>
               </button>
               {match && (
                 <button

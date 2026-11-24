@@ -26,14 +26,14 @@ type Task = {
   edited: string | null;
 };
 
-// whom a task is for, each in its own colour
+// whom a task is for, each in its own colour; a who kestrel doesn't know is muted (pink means needs me, nothing else)
 const WHO: [string, string, Tone][] = [
   ["any", "any agent", "accent"],
   ["claude", "Claude Code", "purple"],
   ["dsh", "dsh", "cyan"],
   ["me", "me", "green"],
 ];
-const whoOf = (w: string): [string, string, Tone] => WHO.find(([k]) => k === (w || "any")) ?? [w, w, "pink"];
+const whoOf = (w: string): [string, string, Tone] => WHO.find(([k]) => k === (w || "any")) ?? [w, w, "muted"];
 const when = (iso: string) =>
   new Date(iso).toLocaleString(undefined, {
     weekday: "short",
@@ -228,7 +228,7 @@ function Row({ t, act, busy }: { t: Task; act: Act; busy: boolean }) {
           <button
             type="button"
             className={cx(
-              "chip relative after:absolute after:-inset-x-1 after:-top-1.5 after:-bottom-5",
+              "chip chip-caps relative after:absolute after:-inset-x-1 after:-top-1.5 after:-bottom-5",
               `tone-${t.done ? "muted" : tone}`,
             )}
             title="Tap to change whom it is for"

@@ -49,6 +49,12 @@ export const STAGES: Record<"jobs" | "deals", { status: string; label: string; t
 };
 export const stageOf = (kind: "jobs" | "deals", status: string) =>
   STAGES[kind].find((s) => s.status === status) ?? { status, label: status, tone: "muted" };
+// a stage filter's dot: its status's own tone from STAGES, so a stage has one colour on the filter bar, the card and
+// the sheet. To review, Possible and Left out are all new listings (by match, or set aside by the rules); Priority
+// and All span the stages, so they take no dot
+const NEW_SLICES = new Set(["review", "possible", "leftout"]);
+export const stageTone = (kind: "jobs" | "deals", stage: string): Tone | undefined =>
+  stage === "priority" || stage === "all" ? undefined : stageOf(kind, NEW_SLICES.has(stage) ? "new" : stage).tone;
 
 export const MATCH: Record<string, { label: string; tone: Tone }> = {
   great: { label: "Great match", tone: "great" },

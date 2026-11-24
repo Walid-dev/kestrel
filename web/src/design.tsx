@@ -383,9 +383,9 @@ export function Design() {
             showLabel
             multiple
             options={[
-              { value: "review", label: "To review", count: 12, tone: "accent" },
+              { value: "review", label: "To review", count: 12, tone: "muted" },
               { value: "interested", label: "Interested", count: 4, tone: "green" },
-              { value: "applied", label: "Applied", count: 2, tone: "purple" },
+              { value: "applied", label: "Applied", count: 2, tone: "accent" },
               { value: "no", label: "Not for me", count: 30, tone: "muted" },
             ]}
             value={many}
