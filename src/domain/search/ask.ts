@@ -85,8 +85,8 @@ function tools(kind: Kind): string {
       : '{"words": "remastered", "priceAtMost": 600, "stage": "all", "limit": 20}',
     "```",
     "  Every field is optional. words: all of them must appear. remote: true for remote ones. payAtLeast: a job's top",
-    "  pay in a year. priceAtMost: a deal's price. stage: review, possible, priority, leftout (set aside), all, or a",
-    "  status (interested, maybe, applied, passed…). match: a list of great, good, weak, poor.",
+    "  pay in a year. priceAtMost: a deal's price. stage: review, possible, priority, leftout (set aside), all (every",
+    "  one but the set-aside), or a status (interested, maybe, applied, passed…). match: a list of great, good, weak, poor.",
     "- You can't change anything yourself. To change something, propose it: kestrel shows a card, and I make it with a",
     '  tap. Write one short line that says what the card does ("Tap to mark it as not for me."), then one block per',
     "  change. Never say a change is made or that you will make it, and never explain the block:",
@@ -162,19 +162,20 @@ export function findListings(db: DatabaseSync, ref: string, query: unknown): str
   if (!read.success) return "That look wasn't readable: write it as one JSON object.";
   const q = read.data;
   const words = q.words.toLowerCase().split(/\s+/).filter(Boolean);
-  const rows = listListings(db, { kind: r.kind, hunt: r.key, stage: q.stage || "all", sort: "best" }, 5000).filter(
-    (l) => {
-      const d = l.data;
-      const hay =
-        `${str(d.title)} ${str(d.org)} ${str(d.company)} ${str(d.location)} ${str(d.workMode)} ${str(d.excerpt)}`.toLowerCase();
-      if (words.some((w) => !hay.includes(w))) return false;
-      if (q.remote && !`${str(d.location)} ${str(d.workMode)}`.toLowerCase().includes("remote")) return false;
-      if (q.payAtLeast !== undefined && (pay(d).top ?? 0) < q.payAtLeast) return false;
-      if (q.priceAtMost !== undefined && (num(d.price) ?? Number.POSITIVE_INFINITY) > q.priceAtMost) return false;
-      if (q.match?.length && !q.match.includes(l.match)) return false;
-      return true;
-    },
-  );
+  const stage = q.stage || "all";
+  const rows = listListings(db, { kind: r.kind, hunt: r.key, stage, sort: "best" }, 5000).filter((l) => {
+    // the page's All holds the set-aside ones too; a find asks for them on purpose (leftout), never by default
+    if (stage === "all" && l.leftOut) return false;
+    const d = l.data;
+    const hay =
+      `${str(d.title)} ${str(d.org)} ${str(d.company)} ${str(d.location)} ${str(d.workMode)} ${str(d.excerpt)}`.toLowerCase();
+    if (words.some((w) => !hay.includes(w))) return false;
+    if (q.remote && !`${str(d.location)} ${str(d.workMode)}`.toLowerCase().includes("remote")) return false;
+    if (q.payAtLeast !== undefined && (pay(d).top ?? 0) < q.payAtLeast) return false;
+    if (q.priceAtMost !== undefined && (num(d.price) ?? Number.POSITIVE_INFINITY) > q.priceAtMost) return false;
+    if (q.match?.length && !q.match.includes(l.match)) return false;
+    return true;
+  });
   if (!rows.length) return "No listing matches.";
   const shown = rows.slice(0, q.limit);
   return [

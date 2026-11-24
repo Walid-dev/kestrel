@@ -235,7 +235,8 @@ export function ApplyButton({
 // kestrel's rules and the old setup's write, cut to what tells them apart; any other reason as it is
 const SHORT: [RegExp, string][] = [
   [/^not open in ([^:]+): the posting says .*$/i, "not open in $1"],
-  [/^not open in [^:]+: (.+)$/i, "$1"], // US only, or the place it is open in
+  [/^not open in [^:]+: (US only)$/i, "$1"],
+  [/^not open in [^:]+: (.+)$/i, "only $1"], // the place it is open in: the chip says why, not only where
   [/^in (.+), outside your area$/i, "in $1"],
   [/^remote, but not open to (.+)$/i, "not open to $1"],
   [/^pay well below .*$/i, "low pay"],
@@ -258,8 +259,10 @@ function Head({ l }: { l: Listing }) {
   const stage = stageOf(l.kind, l.status);
   const app = l.app && l.status === "new" ? APP_CHIP[l.app.state] : null;
   const group = str(l.data.family) || str(l.data.category);
-  // set aside by the rules: why takes the stage's place, in the Left out stage's colour (an application says so first)
-  const out = app ? null : l.leftOut;
+  // set aside by the rules: why takes the stage's place, in the Left out stage's colour (an application says so first).
+  // The rules hold only while it waits for me (LEFT): a stage pressed a moment ago drops the chip before the reload
+  const setAside = l.status === "new" ? l.leftOut : null;
+  const out = app ? null : setAside;
   return (
     // its one-line words never widen the card: the row takes the card's width, and the group and the source shorten
     // with an ellipsis first, the reason last (contain-inline-size: the row's own width doesn't count toward the card's)
@@ -278,7 +281,7 @@ function Head({ l }: { l: Listing }) {
       )}
       {group && <span className="min-w-0 truncate">{group}</span>}
       <span className="ml-auto min-w-0 truncate">{sourceName(l.source)}</span>
-      {(l.starred === 1 || (l.kind === "jobs" && l.priority)) && (
+      {(l.starred === 1 || (l.kind === "jobs" && l.priority && !setAside)) && (
         <span className="text-yellow" title="Starred">
           ★
         </span>
