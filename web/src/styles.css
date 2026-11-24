@@ -1634,6 +1634,78 @@ details[open] > .disclosure::before {
   width: var(--part);
   background: var(--tone);
 }
+/* Learn's figures (web/src/learn/packs.tsx): the four numbers, then the one action (Start the review, or Next and
+   Continue) at the row's right, the bar under both; a narrow window wraps the action under the numbers, and on touch
+   the bar comes before the action, so the numbers and their bar stay together */
+.learn-sum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 32px;
+}
+.learn-sum > .meter {
+  flex: 1 0 100%;
+  order: 3;
+}
+/* each figure as wide as its name; the four fit a 393 phone's card in one row and wrap on a narrower one */
+.learn-figs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  margin: 0;
+}
+.learn-figs-action {
+  order: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  min-width: 0;
+  margin-left: auto;
+}
+@media (pointer: coarse) {
+  .learn-figs {
+    column-gap: 20px;
+  }
+  .learn-sum > .meter {
+    order: 1;
+  }
+  .learn-figs-action {
+    justify-content: flex-start;
+    margin-left: 0;
+  }
+}
+/* Learn's filter rows and a pack's settings: under a mouse a legend column (a parent's pill, or an eyebrow) as wide
+   as the widest, up to 10rem, the pills wrapping beside it; on touch the legend over its pills (as Searches' filters),
+   rows 12 apart, so the pills' touch areas never overlap */
+.learn-rows {
+  display: grid;
+  grid-template-columns: fit-content(10rem) minmax(0, 1fr);
+  align-items: start;
+  gap: 8px 12px;
+}
+.learn-rows > .eyebrow {
+  display: flex;
+  align-items: center;
+  min-height: var(--h-choice);
+}
+.learn-under {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+@media (pointer: coarse) {
+  .learn-rows {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .learn-rows,
+  .learn-under {
+    row-gap: 12px;
+  }
+}
 /* /design: the swatches of the tokens */
 .swatch {
   display: grid;
