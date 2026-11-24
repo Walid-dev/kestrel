@@ -143,6 +143,7 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
       const own = specs.filter((s) => h.searches.includes(s.id) || (s.hunt && s.hunt === h.key));
       const first = own[0] ?? byId.get(h.key);
       const runs = own.map((s) => lastRun(db, s.id)).filter((r) => r !== null);
+      const old = oldHunt(h, onSearches(specs, h.kind, h.key, h.searches)) !== null;
       return {
         key: h.key,
         kind: h.kind,
@@ -152,8 +153,9 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
         searches: h.searches,
         specs: own.map(brief),
         lastRun: runs.sort((a, b) => b.started.localeCompare(a.started))[0] ?? null,
-        mirrored: own.length === 0,
-        oldSearchNow: oldHunt(h, onSearches(specs, h.kind, h.key, h.searches)) !== null,
+        // fed by the mirror: no spec here, or the old setup searches it (its spec here, if any, is off)
+        mirrored: own.length === 0 || old,
+        oldSearchNow: old,
         running: busy(own.map((s) => s.id)),
         ...state(own, h.searches),
       };
@@ -325,7 +327,10 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings) {
           const why = code === "waiting" ? (/\(([^()]{1,160})\)\W*$/.exec(error)?.[1] ?? "") : "";
           return c.json({ old: code, at: at ?? null, why }, 409);
         }
-        // anything else failed: a server that didn't answer says so (toOldSetup's 502), the door in its own words
+        // anything else failed: a hunt it no longer has, plainly; a server that didn't answer says so (toOldSetup's
+        // 502); the door's other failures in its own words
+        if (got.code === 404)
+          return c.json({ error: "the old setup has no such hunt any more: its old finds stay here" }, 502);
         const said = Said.safeParse(got.body);
         const words = said.success ? said.data.error.slice(0, 300) : `it answered ${got.code}`;
         return c.json({ error: got.code === 502 ? words : `the old setup's Search now failed: ${words}` }, 502);

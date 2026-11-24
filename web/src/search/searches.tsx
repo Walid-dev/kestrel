@@ -162,7 +162,7 @@ function StatusLine({
       ) : (
         <span>No search yet</span>
       )}
-      {hunt.mode === "paused" ? (
+      {hunt.oldSearchNow ? null : hunt.mode === "paused" ? (
         <span title="Paused: it searches only when you press Search now">
           Next <b className="text-ink">when I press Search now</b>
         </span>
@@ -683,7 +683,8 @@ export function Searches() {
               </svg>
               <span className="hunt-add-words">New search</span>
             </Link>
-            {hunt.mode && (
+            {/* a hunt the old setup searches has its switch there; a spec of its own that is off stays off */}
+            {hunt.mode && !hunt.oldSearchNow && (
               <fieldset className="seg seg-modes" aria-label="This hunt's switch">
                 {(["on", "quiet", "paused"] as const).map((m) => (
                   <button
@@ -1026,7 +1027,7 @@ export function Searches() {
         </section>
       )}
 
-      {failed && <p className="m-0 text-detail text-red">{String((failed.error as Error).message)}</p>}
+      {failed && <p className="m-0 text-detail text-red">{sentence(String((failed.error as Error).message))}</p>}
       {(hunts.data?.problems ?? []).map((p) => (
         <p key={p} className="m-0 rounded-xl bg-warn-soft px-4 py-3 text-detail">
           a search file can't be read — {p}

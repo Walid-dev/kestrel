@@ -16,8 +16,9 @@ import { lastRun, pendingSearches } from "../domain/search/runs.ts";
 import type { Settings } from "../platform/config.ts";
 import { mountSearch } from "./search.ts";
 
-// a made-up data folder: a job hunt carried from the old setup (its listings' search is the old hunt's id), a deal
-// hunt carried too, and a job hunt with a search of its own whose collector prints one made-up job
+// a made-up data folder: a job hunt carried from the old setup (its listings' search is the old hunt's id) with a
+// spec here that is off, a deal hunt carried too, and a job hunt with a search of its own whose collector prints one
+// made-up job
 async function setup(t: TestContext) {
   const base = mkdtempSync(join(tmpdir(), "kestrel-searchnow-"));
   const before = process.env.KESTREL_DATA_DIR;
@@ -47,6 +48,11 @@ async function setup(t: TestContext) {
     JSON.stringify({ name: "Own hunt", kind: "jobs", collector, scoring: { title: { want: ["keeper"] } } }),
   );
 
+  writeFileSync(
+    join(base, "searches", "made-up-hunt-off.json"),
+    JSON.stringify({ name: "Off", kind: "jobs", hunt: "made-up-hunt", collector, enabled: false, scoring: {} }),
+  );
+
   // the stand-in for the old server: it answers what `next` holds and keeps each request
   const asked: { url: string; body: string; origin?: string; type?: string }[] = [];
   let next: { status: number; body: unknown } = { status: 202, body: { started: true } };
@@ -70,8 +76,11 @@ async function setup(t: TestContext) {
     mountSearch(app, db, settings as Settings);
     return {
       hunts: async () =>
-        ((await (await app.request("/api/search")).json()) as { hunts: { key: string; oldSearchNow: boolean }[] })
-          .hunts,
+        (
+          (await (await app.request("/api/search")).json()) as {
+            hunts: { key: string; oldSearchNow: boolean; mirrored: boolean }[];
+          }
+        ).hunts,
       run: async (kind: string, key: string) => {
         const res = await app.request("/api/search/hunts/run", {
           method: "POST",
@@ -91,13 +100,14 @@ async function setup(t: TestContext) {
 test("Search now on a job hunt the old setup runs asks the old setup's own, and passes on each answer", async (t) => {
   const { oldLive, asked, answer, mount } = await setup(t);
   const kestrel = mount({ oldLive });
-  // only the carried job hunt offers it: a deal hunt's searches stay the old setup's, a hunt of its own runs here
+  // only the carried job hunt offers it, and reads as mirrored though its spec here is off: a deal hunt's searches
+  // stay the old setup's, a hunt of its own runs here
   assert.deepEqual(
-    (await kestrel.hunts()).map((h) => [h.key, h.oldSearchNow]),
+    (await kestrel.hunts()).map((h) => [h.key, h.oldSearchNow, h.mirrored]),
     [
-      ["Made-up chair", false],
-      ["made-up-hunt", true],
-      ["own-hunt", false],
+      ["Made-up chair", false, true],
+      ["made-up-hunt", true, true],
+      ["own-hunt", false, false],
     ],
   );
 
@@ -131,7 +141,7 @@ test("Search now on a job hunt the old setup runs asks the old setup's own, and 
   answer(404, { code: "not_found", error: "no hunt made-up-hunt" });
   assert.deepEqual(await kestrel.run("jobs", "made-up-hunt"), {
     status: 502,
-    body: { error: "the old setup's Search now failed: no hunt made-up-hunt" },
+    body: { error: "the old setup has no such hunt any more: its old finds stay here" },
   });
   assert.equal(asked.length, 5);
 

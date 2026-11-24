@@ -11,7 +11,9 @@ technical; the plan and the runbook carry the detail.
   searched US Indeed, since it set no country. No setting fixed all three. Until the cutover a job hunt's finds come
   only from the old setup, mirrored a few minutes after each of its rounds, and Search now starts the old setup's own
   (the entry below). kestrel's own job searching waits for the cutover, which needs real collectors in the data
-  folder. Rejected: keeping Indeed alone, set to Canada (still the private app API). Replaces: the 2026-11-21 entry's
+  folder. A job spec there that points at the wrapper is switched off or removed before the deploy: one that is on
+  fails at each interval and takes its hunt's Search now. The Settings page drops the wrapper's three named settings
+  (search words, place, hours); a spec's `env` shows under its own names. Rejected: keeping Indeed alone, set to Canada (still the private app API). Replaces: the 2026-11-21 entry's
   "generic jobspy wrapper until cutover".
 - **2026-11-24 · Search now on a job hunt the old setup runs starts the old setup's own.**
   A job hunt with no search of its own here that is on (one mirrored from the old setup) shows Search now. kestrel
@@ -19,8 +21,9 @@ technical; the plan and the runbook carry the detail.
   `settings.oldLive`, through `toOldSetup` (JSON, no Origin header). The old hunt's id is the hunt's key: the import
   keeps it as its listings' search. The old setup's rules hold: one search at a time, a paused hunt refused, and its
   wait after a search (an hour when it read an account of mine). Its answers lead the hunt's line: started (green,
-  until a mirror lands after it with the new jobs), busy, waiting until a time, paused (yellow); any other answer,
-  and a server that doesn't answer, is an error. With no `oldLive` nothing changes, and a hunt with a search of its
+  until a mirror lands after it with the new jobs), busy, waiting until a time, paused (yellow); a hunt it no longer
+  has, any other answer, and a server that doesn't answer, is an error. Such a hunt shows no On/Quiet/Paused switch
+  and no "Next when I press Search now": its own spec, if off, stays off. With no `oldLive` nothing changes, and a hunt with a search of its
   own here still runs it. Why: the old setup's Search now was only on its own page. Rejected: a second address for
   the door in `mirror-v1.json` (settings already name the old server); reading the old setup's lock or runs to know
   when its search ends (ties kestrel to its files).
