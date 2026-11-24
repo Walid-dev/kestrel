@@ -26,6 +26,7 @@ import {
   explainAnswer,
   getQuiz,
   listQuizzes,
+  ModelDown,
   makeQuizQuestion,
   moveQuiz,
   quizLessons,
@@ -42,7 +43,9 @@ const MAX_SOUND_BYTES = 2_000_000; // the ears take 2 MB at most: about a minute
 const area = (v: string | undefined): Area | undefined => (v === "learn" || v === "interview" ? v : undefined);
 
 export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
-  const refusing = (c: { json: (o: unknown, s: 400 | 500) => Response }, e: unknown) => {
+  // a refusal is the request's fault (400); a model door that is down is the server's, for a while (503)
+  const refusing = (c: { json: (o: unknown, s: 400 | 503) => Response }, e: unknown) => {
+    if (e instanceof ModelDown) return c.json({ error: e.message }, 503);
     if (e instanceof Refused) return c.json({ error: e.message }, 400);
     throw e;
   };
