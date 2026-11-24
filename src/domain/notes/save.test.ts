@@ -1,5 +1,5 @@
 // Save writes the file with its old clothes back on (BOM, CRLF, final newline), refuses a file changed since the
-// draft, keeps one previous version for Undo, and moves the answered notes to Done.
+// draft, keeps one previous version for Undo, and moves the answered notes to Done (and Undo opens them again).
 import assert from "node:assert/strict";
 import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -81,13 +81,18 @@ test("a file changed after the draft is refused with 'changed since'", async () 
   assert.match(readFileSync(file, "utf8"), /another tool/); // nothing was written
 });
 
-test("undo brings the previous text back, once", async () => {
+test("undo brings the previous text back, once, and opens the note it had answered", async () => {
   const { db, doc, file, draftId } = await draftOn(Buffer.from("The plan has three parts.\n"));
   saveDraft(db, draftId, doc.id);
   assert.equal(readFileSync(file, "utf8"), "The plan has two parts.\n");
   const undone = undoSave(db, doc.id);
   assert.equal(undone.where, file);
   assert.equal(readFileSync(file, "utf8"), "The plan has three parts.\n");
+  // the change is gone, so its note waits for the next Apply again
+  assert.deepEqual(
+    listNotes(db, doc.id).map((n) => n.state),
+    ["open"],
+  );
   assert.throws(() => undoSave(db, doc.id), /nothing to undo/);
 });
 

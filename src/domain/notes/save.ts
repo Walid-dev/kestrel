@@ -1,12 +1,14 @@
 // Save writes the real file, but only if its bytes haven't changed since the draft was made: another tool may have
 // touched it. It writes a sibling file and swaps it in, keeping the permissions, the encoding (BOM), the line endings
 // and the final newline. The previous version is kept once for Undo, and the notes the saved changes answered move to
-// Done. The review can drop some of the changes: only the kept ones are written, and only their notes go to Done. An upload has no file: its kept text is the original, saved in place. My own edit, typed in the editor, saves
-// the same way (saveText).
+// Done. The review can drop some of the changes: only the kept ones are written, and a note goes to Done only when
+// every change that answers it was written. Undo opens those notes again. An upload has no file: its kept text is the
+// original, saved in place. My own edit, typed in the editor, saves the same way (saveText).
 import { createHash, randomUUID } from "node:crypto";
 import { chmodSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
+import { z } from "zod";
 import { MAX_BYTES, Refused } from "./documents.ts";
 import { getDraft } from "./drafts.ts";
 import { apply } from "./place.ts";
@@ -22,6 +24,7 @@ type DocRow = {
   final_newline: number;
   sha256: string;
   previous_text: string | null;
+  previous_done: string | null;
 };
 
 const hash = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
@@ -87,14 +90,21 @@ export function saveDraft(
     newSha = hash(Buffer.from(newText, "utf8"));
     where = "the upload, kept in kestrel";
   }
+  // a note is answered when every change that names it was written: one dropped in the review, or one the code
+  // couldn't place, leaves it open
+  const unwritten = new Set(
+    [...result.placed.filter((p) => !kept.includes(p)), ...result.leftOut].flatMap((p) => p.change.notes),
+  );
+  const answered = [...new Set(kept.flatMap((p) => p.change.notes))].filter((id) => !unwritten.has(id));
   keepVersion(db, documentId, doc.text);
-  db.prepare("UPDATE documents SET previous_text = ?, text = ?, sha256 = ? WHERE id = ?").run(
+  // the notes this save closes are kept beside the previous text, so Undo opens them again
+  db.prepare("UPDATE documents SET previous_text = ?, previous_done = ?, text = ?, sha256 = ? WHERE id = ?").run(
     doc.text,
+    JSON.stringify(answered),
     newText,
     newSha,
     documentId,
   );
-  const answered = new Set(kept.flatMap((p) => p.change.notes));
   for (const id of answered)
     db.prepare("UPDATE notes SET state = 'done' WHERE id = ? AND document_id = ?").run(id, documentId);
   // this document is saved; the draft goes once every document in it is
@@ -127,11 +137,17 @@ export function undoSave(db: DatabaseSync, documentId: string): { where: string 
     where = doc.path;
   }
   keepVersion(db, documentId, doc.text);
-  db.prepare("UPDATE documents SET text = ?, previous_text = NULL, sha256 = ? WHERE id = ?").run(
+  db.prepare("UPDATE documents SET text = ?, previous_text = NULL, previous_done = NULL, sha256 = ? WHERE id = ?").run(
     doc.previous_text,
     sha,
     documentId,
   );
+  // the notes the undone save had answered wait again for Apply
+  for (const id of z
+    .array(z.string())
+    .catch([])
+    .parse(JSON.parse(doc.previous_done ?? "[]")))
+    db.prepare("UPDATE notes SET state = 'open' WHERE id = ? AND document_id = ?").run(id, documentId);
   return { where };
 }
 
@@ -177,7 +193,7 @@ export function saveText(
     sha = hash(out);
   }
   keepVersion(db, documentId, doc.text);
-  db.prepare("UPDATE documents SET previous_text = ?, text = ?, sha256 = ? WHERE id = ?").run(
+  db.prepare("UPDATE documents SET previous_text = ?, previous_done = NULL, text = ?, sha256 = ? WHERE id = ?").run(
     doc.text,
     text,
     sha,
@@ -233,7 +249,7 @@ export function restoreVersion(db: DatabaseSync, documentId: string, versionId: 
     where = doc.path;
   }
   keepVersion(db, documentId, doc.text);
-  db.prepare("UPDATE documents SET previous_text = ?, text = ?, sha256 = ? WHERE id = ?").run(
+  db.prepare("UPDATE documents SET previous_text = ?, previous_done = NULL, text = ?, sha256 = ? WHERE id = ?").run(
     doc.text,
     v.text,
     sha,

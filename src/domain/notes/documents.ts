@@ -203,7 +203,7 @@ export function addUpload(
     `INSERT INTO documents (id, source, name, path, text, bom, eol, final_newline, sha256, added_at)
      VALUES (?, 'upload', ?, NULL, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (id) DO UPDATE SET text = excluded.text, bom = excluded.bom, eol = excluded.eol,
-       final_newline = excluded.final_newline, sha256 = excluded.sha256, previous_text = NULL`,
+       final_newline = excluded.final_newline, sha256 = excluded.sha256, previous_text = NULL, previous_done = NULL`,
   ).run(
     id,
     clean,
