@@ -184,9 +184,7 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
                 ? "Researching… the next question can go once this answer is written"
                 : first.isPending
                   ? "Thinking of a few questions first…"
-                  : askMe
-                    ? `Enter sends · ${ASK_ME.toLowerCase()}`
-                    : undefined
+                  : "Enter sends · Shift+Enter for a new line · Ask me first: up to three questions when the answer depends on you"
           }
           tall
         />
@@ -441,7 +439,7 @@ function ReportView({ id, onBack }: { id: string; onBack: () => void }) {
               // a list of the pages it read: each row opens the page in a tab of its own, its site under its title
               <section className="grid gap-2">
                 <h2 className="font-cond m-0 text-head">Sources</h2>
-                <List label="Sources">
+                <List>
                   {used.map((s) => (
                     <ListRow
                       key={s.n}
@@ -501,21 +499,31 @@ function AboutMe({ context }: { context: Context | undefined }) {
     onSuccess: (id) => navigate(`/notes/${id}`),
   });
   const files = context?.files.length ?? 0;
-  // one row: what About me is, and its one action at the end
+  // one row: About me and its context files, what it is under it (a phone keeps the short half, so the line stays
+  // one line beside the button), and its one action at the end
   return (
-    <List label="About me">
+    <List>
       <ListRow
         title={
           <>
             About me
-            <span className="font-normal text-muted">
-              {" "}
-              · read before every answer, never put into a web search
-              {files ? ` · ${files} context file${files === 1 ? "" : "s"}` : ""}
-            </span>
+            {files > 0 && (
+              <span className="font-normal text-muted">
+                {" "}
+                · {files} context file{files === 1 ? "" : "s"}
+              </span>
+            )}
           </>
         }
-        line={open.isError ? <span className="text-red">{sentence((open.error as Error).message)}</span> : undefined}
+        line={
+          open.isError ? (
+            <span className="text-red">{sentence((open.error as Error).message)}</span>
+          ) : (
+            <>
+              Read before every answer<span className="pointer-coarse:hidden">, never put into a web search</span>
+            </>
+          )
+        }
         end={
           <button type="button" className="btn btn-sm" disabled={open.isPending} onClick={() => open.mutate()}>
             {open.isPending ? "Opening…" : "Edit in Notes →"}

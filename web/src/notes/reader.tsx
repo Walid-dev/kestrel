@@ -434,7 +434,7 @@ export function Reader() {
           )
         }
       />
-      <div className="note-main grid min-w-0 gap-3">
+      <div className="grid min-w-0 gap-3">
         {reading && (askWhy || current?.status === "failed") && (
           <p role="alert" className="m-0 rounded-lg border border-line bg-warn-soft px-3 py-2 text-detail">
             {sentence(askWhy || current?.error || "")}

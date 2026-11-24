@@ -536,7 +536,7 @@ function YourFiles() {
         Every application writes from these two files. Rework them in Notes: select words, say what should change, and
         turn your notes into an edit you check before it is saved. Every save keeps the previous version.
       </p>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         {(
           [
             ["voice", "Rework my voice"],

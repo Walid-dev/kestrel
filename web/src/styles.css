@@ -3099,7 +3099,8 @@ body:has(.paper-view) {
   }
 }
 /* the Note button by the picked words: where they are is known only at run time (--x, --y, set by the reader). It
-   floats, so it takes a shadow; it is not filled, since the edit's button is the screen's one filled button */
+   floats above the text, so it takes the accent's soft ground (made solid, so the words under it don't show
+   through), an accent edge and a shadow; it is not filled, since the edit's button is the screen's one filled button */
 .note-pick {
   position: fixed;
   left: var(--x);
@@ -3112,12 +3113,14 @@ body:has(.paper-view) {
   padding: 0 14px;
   transform: translateX(-50%);
   white-space: nowrap;
-  border: 1px solid var(--line-strong);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--surface));
   border-radius: 999px;
-  background: var(--surface);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
   color: var(--strong);
   font: 500 var(--text-detail) / var(--text-detail--line-height) var(--sans);
-  box-shadow: 0 8px 24px -8px var(--shade-dock);
+  box-shadow:
+    0 1px 2px var(--shade-dock),
+    0 10px 28px -6px var(--shade-dock);
   cursor: pointer;
 }
 .note-pick-mark {
@@ -3125,7 +3128,7 @@ body:has(.paper-view) {
 }
 @media (hover: hover) {
   .note-pick:hover {
-    background: var(--surface-hover);
+    background: color-mix(in srgb, var(--accent) 22%, var(--surface));
   }
 }
 @media (pointer: coarse) {
@@ -3162,6 +3165,10 @@ body:has(.paper-view) {
   .note-reader .doc-bar:not(.doc-bar-editing) .note-tools {
     order: 2;
     flex-basis: 100%;
+  }
+  /* "Saved…" would take a row of its own here; Undo the last save, on the second row, already says it */
+  .note-reader .doc-bar:not(.doc-bar-editing) .doc-status {
+    display: none;
   }
 }
 /* Earlier versions: a fold-out in the notes' column, its versions as inner blocks under it */

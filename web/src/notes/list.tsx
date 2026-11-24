@@ -12,7 +12,12 @@ import { sentence } from "./parts.tsx";
 import { LAST_DOC } from "./reader.tsx";
 
 // when a document came in, short: "Nov 24"
-const added = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+// the day it came in, with the year when it isn't this one
+const added = (iso: string) => {
+  const d = new Date(iso);
+  const year = d.getFullYear() === new Date().getFullYear() ? undefined : "numeric";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year });
+};
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -199,7 +204,13 @@ export function NotesList() {
               <Row
                 key={f.path}
                 title={f.name}
-                line={<span className="font-mono break-all">{f.path}</span>}
+                line={
+                  open.isPending && open.variables?.payload.path === f.path ? (
+                    "Opening…"
+                  ) : (
+                    <span className="font-mono break-all">{f.path}</span>
+                  )
+                }
                 onOpen={() => {
                   if (!open.isPending) open.mutate({ kind: "open", payload: { path: f.path } });
                 }}
