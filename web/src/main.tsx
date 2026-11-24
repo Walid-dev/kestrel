@@ -19,6 +19,7 @@ import {
   LearnPractice,
   LivePage,
   Models,
+  News,
   NotesList,
   NotesPrint,
   NotesSet,
@@ -68,6 +69,7 @@ if (rootEl)
                 <Route path="design" element={<Design />} />
                 <Route path="chats" element={<Chats />} />
                 <Route path="research" element={<Research />} />
+                <Route path="news" element={<News />} />
                 <Route path="quiz" element={<Quiz />} />
                 <Route path="quiz/:id" element={<QuizRun />} />
                 <Route path="writing" element={<Writing />} />

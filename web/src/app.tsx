@@ -11,6 +11,7 @@ import { useChatLink } from "./chats.tsx";
 import { useEvents } from "./events.ts";
 import { ICONS, STROKE } from "./home.tsx";
 import { Mark } from "./mark.tsx";
+import { NEWS_ICON } from "./news/card.tsx";
 import { ConfirmProvider } from "./ui/confirm.tsx";
 import { cx } from "./ui/cx.ts";
 
@@ -210,6 +211,7 @@ const DOCK: { to: string; label: string; icon: React.ReactNode }[] = [
   { to: "/notes", label: "Notes", icon: ICONS.Notes },
   { to: "/tasks", label: "Tasks", icon: ICONS.Tasks },
   { to: "/research", label: "Research", icon: ICONS.Research },
+  { to: "/news", label: "News", icon: NEWS_ICON },
   { to: "/quiz", label: "Quiz", icon: ICONS.Quiz },
   { to: "/applications", label: "Applications", icon: ICONS.Applications },
   { to: "/writing", label: "Writing", icon: ICONS.Writing },
