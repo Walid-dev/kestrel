@@ -5,6 +5,14 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-23 · A last audit of the merged app, and its fixes.**
+  One read-only pass over every page at a phone's width, sideways and a computer's found nothing broken and 17 places
+  where pages disagreed or read rough; all fixed. One stage map gives Searches' colours (To review muted everywhere);
+  chips keep their meanings (pink only for needs me). A plain text box is `.input`, never `.btn`; head buttons have one
+  size, set by PageHead; fold-out headings are `.disclosure`, 44 px on touch. The listing sheet keeps only its title
+  and ✕ in view. On a phone turned sideways the Notes reader shows the document's first lines. A quiz model whose door
+  is down answers 503, not 400.
+
 - **2026-11-23 · Every page on the shared parts (v0.9 step 3).**
   Searches, Writing, Research, Home, Live, Chat, Applications, the quiz, Tasks, Models, Cost and Ask's box moved onto
   Page, Card, EmptyState, Field, Pills, Dialog and the token classes, each to zero one-off inline values, each checked

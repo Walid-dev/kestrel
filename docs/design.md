@@ -59,6 +59,15 @@ The role variables stay on `:root` (dark by default, light with the system) and 
 - `EmptyState` (`web/src/ui/empty.tsx`) — nothing here yet, in one voice: `title`, `line`, `action`, `detail`.
 - `Field` (`web/src/ui/field.tsx`) — a box where Enter sends (Shift+Enter makes a line), its round send button inside,
   a hint under it, 16 px; a long word or a pasted link breaks inside it. Without `onSend` it is a search box.
+- `.input` — a plain text box where a form's button sends, not Enter alone (a setting, a short answer): Field's box
+  without the round button, one line, 16 px, 44 px tall. Never `.btn` on a text box.
+- Head buttons: PageHead's buttons take the head size by themselves (15 px, 9×14 padding, radius 10). `.btn-head` is
+  that size for a row of head buttons outside PageHead (Searches' controls, a document's bar). `titleAs="div"` keeps
+  PageHead's look without an h1, for an example inside another page.
+- `.btn-big` — a page's one big action (Write it, Start, Continue): 16 px, 13×18 padding, radius 12. `.tile` — a big
+  choice, its name over what it holds (a topic, a job); picked, it takes the accent edge and a ✓.
+- `.disclosure` — every fold-out heading (a details' summary): the heading voice, a ▶ that turns when open, the whole
+  row the target.
 - `cx()` (`web/src/ui/cx.ts`) joins class names.
 - An action pill: a Pills option with `onPress` (Show all) is a plain button among the choices, in the accent, never
   part of the value. A toggle beside a group (Not applied yet, Star) sits in `.pills-inline`, so it wraps in line.
@@ -66,7 +75,8 @@ The role variables stay on `:root` (dark by default, light with the system) and 
   switch (Live's Now and Activity, Applications' period) is `.seg`; a page with more than three head buttons puts
   them in a wrapping row under the head; a read-only document is Doc without `onSave`; a page whose item is gone says
   so in plain words and doesn't retry. Pay and price pills are `.money` in the money scale's tone (dark ink on a tint
-  in light, for contrast); the listing sheet is the wide Dialog, its head and actions kept in view on tall screens.
+  in light, for contrast); the listing sheet is the wide Dialog, its title and ✕ kept in view on tall screens (the company, pay and match
+  scroll), Apply at its foot. A stage's colour comes from one map (`STAGES`); To review is new, so muted.
 - Chips speak in the mono caps voice (`chip chip-caps`), one colour per meaning: needs me pink; review today cyan;
   learning, Ask and deep work purple; done and at work green; new muted.
 - `/design` shows every shared part in its states; a new part is reviewed there before a page uses it.
@@ -79,7 +89,7 @@ The role variables stay on `:root` (dark by default, light with the system) and 
 - **Navigation follows the pointer**, never the width: the bottom bar on touch (a phone upright or turned, a tablet),
   the dock under a mouse.
 - **The phone's floor:** on touch, `.btn`, `.pill`, `.seg` buttons, `.ask-send`, `.field-send` and a card's ✕ are at
-  least 44 px; every text box is at least 16 px, so iOS never zooms.
+  least 44 px, and so are `.input` and `.disclosure`; every text box is at least 16 px, so iOS never zooms.
 - **No one-off inline value:** a colour, size or spacing in `style` outside `web/src/ui/` is counted by
   `scripts/check-design.ts` (inside the check), per file, against `scripts/design-baseline.json`; a count that rises
   fails, with the class to use. A value that truly changes at run time goes in a CSS variable. A deliberate exception
