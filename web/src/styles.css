@@ -1634,6 +1634,88 @@ details[open] > .disclosure::before {
   width: var(--part);
   background: var(--tone);
 }
+/* Learn's figures (web/src/learn/packs.tsx): the four numbers with their bar under them in one column, then the one
+   action (Start the review, or Next and Continue) at the row's right; a narrow window or a phone wraps the action under
+   the bar, so the numbers and their bar always stay together */
+.learn-sum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 32px;
+}
+.learn-sum-main {
+  flex: 1 1 auto;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+/* each figure as wide as its name; the four fit a 393 phone's card in one row and wrap on a narrower one */
+.learn-figs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  margin: 0;
+}
+.learn-figs-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  min-width: 0;
+  margin-left: auto;
+}
+@media (pointer: coarse) {
+  .learn-figs {
+    column-gap: 20px;
+  }
+  .learn-figs-action {
+    justify-content: flex-start;
+    margin-left: 0;
+  }
+}
+/* Learn's filter rows and a pack's settings: each row a .learn-group (a legend, a parent's pill or an eyebrow, then
+   its pills). Under a mouse the legends make a column as wide as the widest, up to 10rem, the pills wrapping beside
+   them; on touch each legend sits over its pills, 12 apart inside a group and 24 between groups, so one parent's
+   packs never run into the next */
+.learn-rows {
+  display: grid;
+  grid-template-columns: fit-content(10rem) minmax(0, 1fr);
+  align-items: start;
+  gap: 8px 12px;
+}
+.learn-group {
+  display: contents;
+}
+.learn-rows .eyebrow {
+  display: flex;
+  align-items: center;
+  min-height: var(--h-choice);
+}
+.learn-under {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+@media (pointer: coarse) {
+  .learn-rows {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 24px;
+  }
+  .learn-group {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+  }
+  .learn-rows .eyebrow {
+    min-height: 0;
+  }
+  .learn-under {
+    row-gap: 12px;
+  }
+}
 /* /design: the swatches of the tokens */
 .swatch {
   display: grid;
