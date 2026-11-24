@@ -31,6 +31,7 @@ const rows: ListingRow[] = listings.map(({ id, score: s, match, ...data }) => ({
   data,
   kind: "jobs",
   priority: false,
+  leftOut: null,
 }));
 const page = searchAskPage(
   { kind: "jobs", key: "beekeeping", name: "Beekeeping roles", count: 40 },

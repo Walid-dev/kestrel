@@ -159,7 +159,7 @@ test("status and star on a listing that isn't there are refused in words (sweep)
   assert.throws(() => setListingStar(db, "nope", 1), /no such listing/);
 });
 
-test("the old page's stages: review takes good matches, possible the weaker ones, left out stays apart until marked", () => {
+test("the stages: review takes good matches, possible the weaker ones, left out stays apart until marked, All has every one", () => {
   const db = setup();
   const put = db.prepare(
     `INSERT INTO listings (id, search, source, link, dedupe, status, starred, found, updated, score, match, data, kind)
@@ -180,13 +180,20 @@ test("the old page's stages: review takes good matches, possible the weaker ones
   assert.deepEqual(ids("review"), ["good", "great"]);
   assert.deepEqual(ids("possible"), ["fair", "noted"]);
   assert.deepEqual(ids("leftout"), ["out"]);
-  assert.deepEqual(ids("all"), ["fair", "good", "great", "noted", "seen"]);
+  assert.deepEqual(ids("all"), ["fair", "good", "great", "noted", "out", "seen"]); // the left out one too
   assert.deepEqual(ids("interested"), ["seen"]);
+  // only the card still set aside says why: a note or a stage takes it back into my list
+  assert.deepEqual(
+    listListings(db, { stage: "all" })
+      .filter((r) => r.leftOut)
+      .map((r) => [r.id, r.leftOut]),
+    [["out", "weak match"]],
+  );
   const c = listingCounts(db, {});
   assert.equal(c.stages.review, 2);
   assert.equal(c.stages.possible, 2);
   assert.equal(c.stages.leftout, 1);
-  assert.equal(c.stages.all, 5);
+  assert.equal(c.stages.all, 6);
 });
 
 test("new scoring rules rescore what the search already found; the old setup's own scores stay", () => {
@@ -204,7 +211,7 @@ test("new scoring rules rescore what the search already found; the old setup's o
   assert.equal(listListings(db).find((r) => r.id === "old")?.score, 61);
 });
 
-test("left to do: a review view hides a job with an application of any state; a status view still shows its own", () => {
+test("left to do: a review view hides a job with an application of any state; All and a status view show their own", () => {
   const base = mkdtempSync(join(tmpdir(), "kestrel-todo-"));
   const db = new DatabaseSync(join(base, "t.db"));
   migrate(db, join(base, "t.db"));
@@ -228,6 +235,9 @@ test("left to do: a review view hides a job with an application of any state; a 
     ["https://example.com/job/1"],
   );
   assert.equal(listingCounts(db, { stage: "review", todo: true }).stages.review, 1);
+  // Not applied yet never narrows All, its list or its count
+  assert.equal(listListings(db, { stage: "all", todo: true }).length, 2);
+  assert.equal(listingCounts(db, { stage: "all", todo: true }).stages.all, 2);
   setListingStatus(db, tried.id, "interested");
   assert.equal(listListings(db, { stage: "interested", todo: true }).length, 1); // its own status view keeps it
 });
