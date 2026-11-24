@@ -1,7 +1,10 @@
 // Practice: what is due, one check at a time — say your answer, show the real one, grade yourself honestly. The head
-// counts this page's own queue (the lessons it can ask), so its number never names a lesson the page won't show.
+// counts this page's own queue (the lessons it can ask), so its number never names a lesson the page won't show; the
+// eyebrow says how far this sitting is, as a quiz's run does.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { type CSSProperties, useState } from "react";
+import { Link } from "react-router";
+import { Card } from "../ui/card.tsx";
 import { EmptyState } from "../ui/empty.tsx";
 import { Page } from "../ui/page.tsx";
 import { STATE } from "./lesson.tsx";
@@ -9,9 +12,8 @@ import { STATE } from "./lesson.tsx";
 type Lesson = { id: string; title: string; body: { check: { q: string; a: string }[] } };
 type Overview = { lessons: { id: string; state: string }[] };
 
-// what Practice can ask: the due lessons and the new ones that have a question (guides due are read again on Learn)
-const toAsk = (dueN: number, newN: number) =>
-  `${[dueN && `${dueN} due`, newN && `${newN} new`].filter(Boolean).join(" and ")} to ask`;
+// how far this sitting is, as a share of the bar (the numbers are data, so they reach it as a variable)
+const share = (n: number, total: number) => ({ "--part": `${total ? (n / total) * 100 : 0}%` }) as CSSProperties;
 
 export function LearnPractice() {
   const queryClient = useQueryClient();
@@ -53,25 +55,52 @@ export function LearnPractice() {
   const state = STATE[overview.data?.lessons.find((l) => l.id === next?.id)?.state ?? ""];
   const failed = due.error ?? grade.error;
   const reread = due.data?.reread ?? 0;
-  const asking = due.data && due.data.due + due.data.new > 0 ? `${toAsk(due.data.due, due.data.new)}.` : false;
+  const left = due.data ? due.data.due + due.data.new : 0;
+  // how far this sitting is: what was left when the page opened, against what is left now. Both come from the list
+  // itself, so the place moves with the next question, never before it
+  const [start, setStart] = useState<number | null>(null);
+  if (due.data && due.isFetchedAfterMount && start === null) setStart(left);
+  const total = Math.max(start ?? left, left);
+  const done = total - left;
   const home = area === "interview" ? "Interview prep" : "Learn";
   const q = next?.body.check[0];
+  const asking = Boolean(q && !failed);
   return (
-    // a question page: the back row, the place in the eyebrow, the question itself as the title
+    // a question page, as a quiz's run is: the back row, the place in the eyebrow with how far this sitting is under
+    // it, what is left in the line, then the question in a card
     <Page
       width="reading"
       back={{ to: area === "interview" ? "/interview" : "/learn", label: home }}
-      eyebrow={`Practice · ${home}`}
-      title={q && !failed ? q.q : "Practice"}
-      line={
-        q && !failed ? (
-          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span>{next?.title}</span>
-            {state && <span className={`chip chip-caps tone-${state.tone}`}>{state.label}</span>}
-            {asking && <span>· {asking}</span>}
+      eyebrow={
+        asking ? (
+          <span className="quiz-place">
+            <span className="tabular-nums">
+              Question {done + 1} of {total} · {home}
+            </span>
+            <span className="meter" aria-hidden="true">
+              <span className="tone-good" style={share(done, total)} />
+            </span>
           </span>
         ) : (
-          asking
+          home
+        )
+      }
+      title="Practice"
+      line={
+        due.data &&
+        left > 0 && (
+          // what is left to ask, the numbers bold (a lesson only due to read again is never asked here: the empty
+          // state sends it to Learn)
+          <span className="tabular-nums">
+            {[due.data.due > 0 && ["due", due.data.due], due.data.new > 0 && ["new", due.data.new]]
+              .filter((x): x is [string, number] => Boolean(x))
+              .map(([what, n], i) => (
+                <span key={what}>
+                  {i > 0 && " · "}
+                  <b className="text-ink">{n}</b> {what}
+                </span>
+              ))}
+          </span>
         )
       }
     >
@@ -80,45 +109,70 @@ export function LearnPractice() {
       ) : due.data && !next ? (
         reread > 0 ? (
           <EmptyState
-            title="No questions due."
+            title={done > 0 ? `${done} done. No questions left.` : "No questions due."}
             line={`${reread} ${reread === 1 ? "lesson is" : "lessons are"} due to read again: open ${reread === 1 ? "it" : "them"} on Learn.`}
           />
         ) : (
-          <EmptyState title="Nothing due." line="Come back tomorrow: a lesson shows here on the day it is due." />
+          <EmptyState
+            title={done > 0 ? `${done} done. Nothing left.` : "Nothing due."}
+            line="Come back tomorrow: a lesson shows here on the day it is due."
+          />
         )
       ) : (
         next &&
-        q &&
-        (shown ? (
-          <div className="grid gap-3">
-            <div className="read-box text-body">
-              <p className="m-0">{q.a}</p>
-            </div>
-            {/* two plain buttons: an honest grade, with no nudge toward either */}
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="btn"
-                disabled={grade.isPending}
-                onClick={() => grade.mutate({ lesson: next.id, grade: "again" })}
+        q && (
+          // the card: the lesson's state on the left and the lesson itself on the right, on one line (a long name
+          // cut, all of it in the title; "The lesson" where the name is the question, as in interview packs), the
+          // question on the section step under the page's title, then the answer once shown, and the grades
+          <Card>
+            <div className="flex min-w-0 items-center gap-2">
+              {state && <span className={`chip chip-caps shrink-0 tone-${state.tone}`}>{state.label}</span>}
+              <Link
+                to={`/learn/lesson/${encodeURIComponent(next.id)}`}
+                className="btn btn-sm ml-auto min-w-0"
+                title={next.title}
               >
-                Again tomorrow
-              </button>
-              <button
-                type="button"
-                className="btn"
-                disabled={grade.isPending}
-                onClick={() => grade.mutate({ lesson: next.id, grade: "good" })}
-              >
-                I had it
-              </button>
+                <span className="min-w-0 truncate">{next.title.trim() === q.q.trim() ? "The lesson" : next.title}</span>{" "}
+                →
+              </Link>
             </div>
-          </div>
-        ) : (
-          <button type="button" className="btn justify-self-start" onClick={() => setShown(true)}>
-            Show the answer
-          </button>
-        ))
+            <h2 className="font-cond m-0 text-section">{q.q}</h2>
+            {shown ? (
+              <>
+                <div className="inner grid gap-1">
+                  <span className="eyebrow tone-accent">The answer</span>
+                  <p className="m-0 text-body text-strong">{q.a}</p>
+                </div>
+                {/* two plain buttons: an honest grade, with no nudge toward either */}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={grade.isPending}
+                    title="It comes back tomorrow"
+                    onClick={() => grade.mutate({ lesson: next.id, grade: "again" })}
+                  >
+                    Again tomorrow
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={grade.isPending}
+                    title="It comes back later, a longer gap each time"
+                    onClick={() => grade.mutate({ lesson: next.id, grade: "good" })}
+                  >
+                    I had it
+                  </button>
+                </div>
+              </>
+            ) : (
+              // the one main action until the answer shows: say it first, then look
+              <button type="button" className="btn btn-primary justify-self-start" onClick={() => setShown(true)}>
+                Show the answer
+              </button>
+            )}
+          </Card>
+        )
       )}
     </Page>
   );
