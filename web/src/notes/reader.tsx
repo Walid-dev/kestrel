@@ -452,9 +452,7 @@ export function Reader() {
         />
         {(versions.data?.versions.length ?? 0) > 0 && (
           <details className="card card-stack">
-            <summary className="font-cond cursor-pointer text-head font-bold text-strong">
-              Earlier versions · {versions.data?.versions.length}
-            </summary>
+            <summary className="disclosure">Earlier versions · {versions.data?.versions.length}</summary>
             <p className="m-0 text-small text-muted">
               The text as it was before each save, here in kestrel. Restore brings one back.
             </p>

@@ -2,7 +2,8 @@
 // one size and one case, the line under it, the page's own buttons. The frame: one of two widths, wide for lists and
 // grids, reading for text; both start at the shell's left edge, under the name kestrel, so a title never jumps
 // between pages. A page with a parent works like a phone's navigation bar: the back link on the left, its buttons on
-// the right, the title below; a top page has its buttons beside the title.
+// the right, the title below; a top page has its buttons beside the title. Its buttons take the head's size up from
+// the others (styles.css, .page-actions .btn), so a page never sets it.
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { cx } from "./cx.ts";
@@ -19,9 +20,12 @@ export type HeadProps = {
   back?: { to: string; label: string };
   // the bar stays on top while the page scrolls, its buttons in reach (a lesson's Listen)
   sticky?: boolean;
+  // the title's element: the page's one h1 unless the head is an example inside a page (/design shows two), which
+  // keeps the look and leaves the page a single h1
+  titleAs?: "h1" | "div";
 };
 
-export function PageHead({ title, eyebrow, line, actions, back, sticky = false }: HeadProps) {
+export function PageHead({ title, eyebrow, line, actions, back, sticky = false, titleAs: Title = "h1" }: HeadProps) {
   const bar = Boolean(back) || sticky;
   return (
     <>
@@ -55,7 +59,7 @@ export function PageHead({ title, eyebrow, line, actions, back, sticky = false }
         {/* read in this order (title, line, buttons), as a phone shows it; a wider screen moves the buttons up beside
             the title (styles.css) */}
         <div className="page-title-row">
-          <h1 className="page-title">{title}</h1>
+          <Title className="page-title">{title}</Title>
           {line && <p className="page-line">{line}</p>}
           {actions && !bar && <div className="page-actions">{actions}</div>}
         </div>

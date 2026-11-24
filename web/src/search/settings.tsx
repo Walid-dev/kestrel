@@ -177,7 +177,7 @@ export function SearchSettings() {
           <div className="grid gap-3 md:grid-cols-2">
             <Labeled label="Name">
               <input
-                className="btn"
+                className="input"
                 value={String(raw.name ?? "")}
                 onChange={(e) => {
                   put({ name: e.target.value });
@@ -188,11 +188,15 @@ export function SearchSettings() {
             </Labeled>
             {!editing && (
               <Labeled label="Its file name" hint="lowercase words and dashes">
-                <input className="btn font-mono" value={id} onChange={(e) => setId(slug(e.target.value))} />
+                <input className="input font-mono" value={id} onChange={(e) => setId(slug(e.target.value))} />
               </Labeled>
             )}
             <Labeled label="What it looks for" hint="one line, shown under the search's name">
-              <input className="btn" value={String(raw.about ?? "")} onChange={(e) => put({ about: e.target.value })} />
+              <input
+                className="input"
+                value={String(raw.about ?? "")}
+                onChange={(e) => put({ about: e.target.value })}
+              />
             </Labeled>
             <Labeled
               label="How often"
@@ -200,7 +204,7 @@ export function SearchSettings() {
             >
               <div className="flex gap-2">
                 <input
-                  className="btn min-w-0 flex-1"
+                  className="input flex-1"
                   type="number"
                   min={1}
                   disabled={raw.auto === false}
@@ -269,13 +273,13 @@ export function SearchSettings() {
           <div className="grid gap-3 md:grid-cols-3">
             {KNOBS.map(([k, label, hint]) => (
               <Labeled key={k} label={label} hint={hint}>
-                <input className="btn" value={env[k] ?? ""} onChange={(e) => putEnv(k, e.target.value)} />
+                <input className="input" value={env[k] ?? ""} onChange={(e) => putEnv(k, e.target.value)} />
               </Labeled>
             ))}
           </div>
           {others.map(([k, v]) => (
             <Labeled key={k} label={k}>
-              <input className="btn font-mono" value={v} onChange={(e) => putEnv(k, e.target.value)} />
+              <input className="input font-mono" value={v} onChange={(e) => putEnv(k, e.target.value)} />
             </Labeled>
           ))}
         </section>
@@ -285,14 +289,14 @@ export function SearchSettings() {
           <div className="grid gap-3 md:grid-cols-2">
             <Labeled label="Titles to look for" hint="commas between them">
               <input
-                className="btn"
+                className="input"
                 value={list(title.want)}
                 onChange={(e) => putScore({ title: { ...title, want: split(e.target.value) } })}
               />
             </Labeled>
             <Labeled label="Titles to avoid">
               <input
-                className="btn"
+                className="input"
                 value={list(title.avoid)}
                 onChange={(e) => putScore({ title: { ...title, avoid: split(e.target.value) } })}
               />
@@ -301,14 +305,14 @@ export function SearchSettings() {
               <>
                 <Labeled label="Skills" hint="each one named in a posting adds to its score">
                   <input
-                    className="btn"
+                    className="input"
                     value={list(scoring.skills)}
                     onChange={(e) => putScore({ skills: split(e.target.value) })}
                   />
                 </Labeled>
                 <Labeled label="Lowest pay, a year" hint="hourly and monthly pay are turned into a year first">
                   <input
-                    className="btn"
+                    className="input"
                     type="number"
                     min={0}
                     value={pay.floor ?? 0}
@@ -317,14 +321,14 @@ export function SearchSettings() {
                 </Labeled>
                 <Labeled label="Levels to look for">
                   <input
-                    className="btn"
+                    className="input"
                     value={list(level.want)}
                     onChange={(e) => putScore({ level: { ...level, want: split(e.target.value) } })}
                   />
                 </Labeled>
                 <Labeled label="Levels to avoid">
                   <input
-                    className="btn"
+                    className="input"
                     value={list(level.avoid)}
                     onChange={(e) => putScore({ level: { ...level, avoid: split(e.target.value) } })}
                   />
@@ -333,7 +337,7 @@ export function SearchSettings() {
             ) : (
               <Labeled label="Price cap" hint="an ad over it is set aside">
                 <input
-                  className="btn"
+                  className="input"
                   type="number"
                   min={0}
                   value={price.cap ?? 0}
@@ -343,7 +347,7 @@ export function SearchSettings() {
             )}
             <Labeled label="Places" hint="a place named in the listing scores as near">
               <input
-                className="btn"
+                className="input"
                 value={list(places.words)}
                 onChange={(e) => putScore({ places: { ...places, words: split(e.target.value) } })}
               />
@@ -351,7 +355,7 @@ export function SearchSettings() {
             {kind === "jobs" && (
               <Labeled label="Open only in" hint="a job open only elsewhere is set aside; the first word names it">
                 <input
-                  className="btn"
+                  className="input"
                   value={list(places.within)}
                   onChange={(e) => putScore({ places: { ...places, within: split(e.target.value) } })}
                 />
@@ -360,7 +364,7 @@ export function SearchSettings() {
             {kind === "jobs" && (
               <Labeled label="Not open when the posting says" hint="words that keep people elsewhere out">
                 <input
-                  className="btn"
+                  className="input"
                   value={list(places.closed)}
                   onChange={(e) => putScore({ places: { ...places, closed: split(e.target.value) } })}
                 />
@@ -368,7 +372,7 @@ export function SearchSettings() {
             )}
             <Labeled label="Fresh within (days)">
               <input
-                className="btn"
+                className="input"
                 type="number"
                 min={1}
                 value={Number(scoring.freshDays ?? 7)}

@@ -124,7 +124,7 @@ export function Tasks() {
 
       {done.length > 0 && (
         <details>
-          <summary className="cursor-pointer py-3 text-detail text-muted">Done · {done.length}</summary>
+          <summary className="disclosure">Done · {done.length}</summary>
           <ol className="m-0 mt-2 grid list-none gap-2 p-0">
             {done.map((t) => (
               <Row key={t.id} t={t} act={act.mutate} busy={act.isPending && act.variables?.id === t.id} />

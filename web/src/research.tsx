@@ -220,7 +220,7 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
               <label key={q} className="grid gap-1.5">
                 <span className="text-body text-strong">{q}</span>
                 <input
-                  className="btn w-full"
+                  className="input w-full"
                   value={answers[i] ?? ""}
                   placeholder="Your answer, or leave it empty"
                   enterKeyHint="send"

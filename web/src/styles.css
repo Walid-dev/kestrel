@@ -765,7 +765,8 @@ h3 {
   gap: 6px;
   min-width: 0;
 }
-/* one row when the back link keeps room for its name (14em, about twenty letters): past that its name ends in …;
+/* one row when the back link keeps room for its name (13em, about twenty letters, so a guide's Listen and Slow at the
+   head's size still sit beside it on a phone): past that its name ends in …;
    with less, the buttons drop to a row of their own, on the right, so the back link always says where it goes. On a
    page it sits close over the head it belongs to (the page's gap is 20 px, the head's own 6) */
 .page-bar {
@@ -809,7 +810,7 @@ h3 {
 }
 .page-back {
   display: inline-flex;
-  flex: 1 1 14em;
+  flex: 1 1 13em;
   align-items: center;
   gap: 6px;
   max-width: max-content;
@@ -1043,6 +1044,50 @@ textarea.field-input {
   line-height: 1.45;
   color: var(--muted);
 }
+/* a plain text box, where a form's button (Save, Research) sends and not Enter alone: a search's settings, a short
+   answer, a pack's parent. Field's box without its round button, one line, 44 px tall and 16 px, so a phone never
+   zooms; the focus shows on its border (the text boxes' rule at the end) */
+.input {
+  min-width: 0;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: var(--strong);
+  font: 400 16px / 1.5 var(--sans);
+  transition: border-color 0.15s;
+}
+.input::placeholder {
+  color: var(--muted);
+}
+.input[disabled] {
+  cursor: default;
+  color: var(--muted);
+}
+/* a fold-out's heading (a details' summary): the heading voice with a ▶ that turns when it opens, the whole row the
+   tap's target, 44 px tall on touch (the phone's floor) */
+.disclosure {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+  font: 700 19px / 1.25 var(--cond);
+  color: var(--strong);
+  cursor: pointer;
+}
+.disclosure::-webkit-details-marker {
+  display: none;
+}
+.disclosure::before {
+  content: "▶" / "";
+  flex: none;
+  font: 11px / 1 var(--sans);
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+details[open] > .disclosure::before {
+  transform: rotate(90deg);
+}
 /* a bar of parts, each as long as its share (--part, set by the page from the data) in its tone: Learn's progress */
 .meter {
   display: flex;
@@ -1079,8 +1124,12 @@ textarea.field-input {
   font: 12px var(--mono);
   color: var(--muted);
 }
-/* the buttons on a page's title line: a size up from the others */
-.btn-head {
+/* a page's head buttons: a size up from the others. PageHead's own buttons (its actions, beside the title or on the
+   back link's bar) take it by themselves; a row of head buttons outside it (Searches' controls, a document's bar)
+   names it with btn-head */
+.btn-head,
+.page-actions .btn,
+.page-tools .btn {
   font-size: 15px;
   padding: 9px 14px;
   border-radius: 10px;
@@ -2782,10 +2831,10 @@ dialog:focus-visible {
 @media (pointer: coarse) {
   button.btn,
   a.btn,
-  input.btn,
-  select.btn,
+  .input,
   .pill,
-  .seg button {
+  .seg button,
+  .disclosure {
     min-height: 44px;
   }
   /* a link dressed as a button centres its words in the taller box, as a button does by itself */

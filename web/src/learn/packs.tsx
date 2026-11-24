@@ -92,12 +92,12 @@ function GuideContents({ rows }: { rows: Row[] }) {
       </div>
       {parts.map((p) =>
         p.name ? (
-          <details key={p.name} className="group" open={p.rows.some((r) => r.id === next?.id)}>
-            <summary className="flex cursor-pointer list-none items-baseline gap-3 border-b border-line py-2.5">
-              <span className="text-label text-muted transition-transform group-open:rotate-90">▶</span>
-              <span className="eyebrow">{p.name.split(" · ")[0]}</span>
-              <span className="font-cond text-head font-bold text-strong">
-                {p.name.split(" · ").slice(1).join(" · ")}
+          <details key={p.name} open={p.rows.some((r) => r.id === next?.id)}>
+            <summary className="disclosure border-b border-line py-2.5">
+              {/* the part's number and its name on one baseline; the ▶ (the fold-out's own) centred beside them */}
+              <span className="flex min-w-0 items-baseline gap-3">
+                <span className="eyebrow">{p.name.split(" · ")[0]}</span>
+                <span>{p.name.split(" · ").slice(1).join(" · ")}</span>
               </span>
               <span className="font-mono ml-auto text-small text-muted">
                 {p.rows.filter(done).length}/{p.rows.length}
@@ -233,7 +233,7 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
             <label className="flex items-center gap-2 text-small text-muted">
               Under
               <input
-                className="btn w-36"
+                className="input w-36"
                 list="learn-groups"
                 defaultValue={chosen.group}
                 key={chosen.id}
@@ -299,7 +299,7 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
             </div>
           </Card>
           <details className="card">
-            <summary className="font-cond cursor-pointer text-head font-bold text-strong">How to learn here</summary>
+            <summary className="disclosure">How to learn here</summary>
             <ol className="mt-2 mb-0 grid gap-1.5 pl-5 text-detail">
               <li>Read the lesson once, slowly.</li>
               <li>
@@ -378,7 +378,7 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
               .map((g) =>
                 g.st === "known" ? (
                   <details key={g.st}>
-                    <summary className="font-cond cursor-pointer text-head font-bold text-strong">
+                    <summary className="disclosure">
                       Known <span className="font-mono text-small text-green">{g.rows.length}</span>
                     </summary>
                     <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">

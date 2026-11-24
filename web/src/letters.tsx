@@ -439,7 +439,7 @@ function TryView({ t }: { t: Try }) {
       )}
       {(t.notes.findings || fixed > 0) && (
         <details className="card">
-          <summary className="cursor-pointer text-detail font-semibold">What the check said</summary>
+          <summary className="disclosure">What the check said</summary>
           <pre className="mt-2 mb-0 whitespace-pre-wrap font-mono text-small text-muted">
             {[
               ...(t.notes.fixed ?? []).map((f, i) => `Before fix ${i + 1}:\n${f}`),
@@ -496,7 +496,7 @@ function ReviewBox({ r }: { r: Review }) {
       )}
       {r.before && (
         <details>
-          <summary className="cursor-pointer text-detail font-semibold">The first draft</summary>
+          <summary className="disclosure">The first draft</summary>
           <p className="m-0 mt-2 whitespace-pre-wrap text-detail text-muted">{r.before}</p>
         </details>
       )}
