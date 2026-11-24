@@ -1,10 +1,15 @@
 // Learn's front page, and Interview prep's: what to review today and what is new, the way to learn here, a search,
-// the packs as chips; a guide pack opens as its contents, parts folded, each topic ticked when done. A pack moves
+// the packs as pills; a guide pack opens as its contents, parts folded, each topic ticked when done. A pack moves
 // between Learn and Interview prep with one tap, so nothing has to be decided for good.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { type CSSProperties, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { STATE_CHIP } from "./lesson.tsx";
+import { Card } from "../ui/card.tsx";
+import { EmptyState } from "../ui/empty.tsx";
+import { Field } from "../ui/field.tsx";
+import { Page } from "../ui/page.tsx";
+import { Pills, type Tone } from "../ui/pills.tsx";
+import { STATE } from "./lesson.tsx";
 
 type Pack = {
   id: string;
@@ -33,35 +38,34 @@ type Overview = {
 };
 
 export const titled = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+const lessonPath = (id: string) => `/learn/lesson/${encodeURIComponent(id)}`;
+// a part of the progress bar: its length is data, so it reaches the class as a variable
+const share = (n: number, total: number) => ({ "--part": `${(n / total) * 100}%` }) as CSSProperties;
+
+function StateChip({ state }: { state: string }) {
+  const s = STATE[state] ?? STATE.new;
+  return <span className={`chip chip-caps tone-${s.tone}`}>{s.label}</span>;
+}
 
 function LessonCard({ l }: { l: Row }) {
-  const [chip, tone] = STATE_CHIP[l.state] ?? STATE_CHIP.new;
   return (
-    <Link to={`/learn/lesson/${encodeURIComponent(l.id)}`} className="card card-link grid content-start gap-2">
-      <span className={`chip ${tone} justify-self-start`}>{chip}</span>
-      <span className="text-[16.5px] font-semibold leading-snug" style={{ color: "var(--strong)" }}>
-        {l.title}
-      </span>
-      {l.short && (
-        <span className="line-clamp-3 text-[14px] leading-relaxed" style={{ color: "var(--muted)" }}>
-          {l.short}
-        </span>
-      )}
-    </Link>
+    <Card title={l.title} to={lessonPath(l.id)} meta={<StateChip state={l.state} />}>
+      {l.short && <span className="line-clamp-3">{l.short}</span>}
+    </Card>
   );
 }
 
 function TopicRow({ r, mark }: { r: Row; mark: string }) {
   const done = r.state === "known" || r.state === "learning";
   return (
-    <Link to={`/learn/lesson/${encodeURIComponent(r.id)}`} className="card card-link flex items-center gap-4 !py-3">
-      <span className="font-cond w-10 text-[17px] font-bold" style={{ color: "var(--muted)" }}>
-        {mark}
+    <Card to={lessonPath(r.id)}>
+      <span className="flex items-center gap-4">
+        <span className="font-cond w-10 shrink-0 text-head font-bold text-muted">{mark}</span>
+        <span className="min-w-0 flex-1">{r.title}</span>
+        {r.state === "due" && <StateChip state="due" />}
+        {done && <span className="text-green">✓</span>}
       </span>
-      <span className="flex-1">{r.title}</span>
-      {r.state === "due" && <span className="chip tone-cyan">Review today</span>}
-      {done && <span style={{ color: "var(--green)" }}>✓</span>}
-    </Link>
+    </Card>
   );
 }
 
@@ -79,7 +83,7 @@ function GuideContents({ rows }: { rows: Row[] }) {
     <div className="grid gap-3">
       <div className="flex flex-wrap items-center gap-2">
         {next && (
-          <Link to={`/learn/lesson/${encodeURIComponent(next.id)}`} className="btn btn-primary">
+          <Link to={lessonPath(next.id)} className="btn btn-primary">
             Continue: {next.title}
           </Link>
         )}
@@ -90,18 +94,13 @@ function GuideContents({ rows }: { rows: Row[] }) {
       {parts.map((p) =>
         p.name ? (
           <details key={p.name} className="group" open={p.rows.some((r) => r.id === next?.id)}>
-            <summary
-              className="flex cursor-pointer list-none items-baseline gap-3 py-2.5"
-              style={{ borderBottom: "1px solid var(--line)" }}
-            >
-              <span className="text-[10px] transition-transform group-open:rotate-90" style={{ color: "var(--muted)" }}>
-                ▶
-              </span>
+            <summary className="flex cursor-pointer list-none items-baseline gap-3 border-b border-line py-2.5">
+              <span className="text-label text-muted transition-transform group-open:rotate-90">▶</span>
               <span className="eyebrow">{p.name.split(" · ")[0]}</span>
-              <span className="font-cond text-[19px] font-bold" style={{ color: "var(--strong)" }}>
+              <span className="font-cond text-head font-bold text-strong">
                 {p.name.split(" · ").slice(1).join(" · ")}
               </span>
-              <span className="font-mono ml-auto text-xs" style={{ color: "var(--muted)" }}>
+              <span className="font-mono ml-auto text-small text-muted">
                 {p.rows.filter(done).length}/{p.rows.length}
               </span>
             </summary>
@@ -123,9 +122,9 @@ function GuideContents({ rows }: { rows: Row[] }) {
   );
 }
 
-// each parent's own colour, so the sidebar reads at a glance: the personal packs green, AI purple, the platform blue
-const GROUP_TONE: Record<string, string> = { Personal: "tone-green", AI: "tone-purple", Platform: "tone-accent" };
-const groupTone = (g: string) => GROUP_TONE[g] ?? (g ? "tone-cyan" : "tone-muted");
+// each parent's own colour, so the packs read at a glance: the personal packs green, AI purple, the platform blue
+const GROUP_TONE: Record<string, Tone> = { Personal: "green", AI: "purple", Platform: "accent" };
+const groupTone = (g: string): Tone => GROUP_TONE[g] ?? (g ? "cyan" : "muted");
 
 export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" }) {
   const queryClient = useQueryClient();
@@ -211,231 +210,219 @@ export function LearnPacks({ area = "learn" }: { area?: "learn" | "interview" })
   const groups = ["due", "new", "learning", "known"].map((st) => ({ st, rows: rows.filter((r) => r.state === st) }));
   const other = area === "learn" ? "interview" : "learn";
   const stateOf = new Map((o?.lessons ?? []).map((l) => [l.id, l.state]));
+  // a pack's count means what the summary means: its lessons to review today, never the new ones
+  const dueIn = (pack: string) => (o?.lessons ?? []).filter((l) => l.pack === pack && l.state === "due").length;
+  // the pick, one value across the rows of pills: everything, a parent, or a pack
+  const picked = pick ? `pack:${pick}` : pickGroup ? `group:${pickGroup}` : "all";
+  const choose = (v: string) =>
+    setParams(v === "all" ? {} : v.startsWith("group:") ? { group: v.slice(6) } : { pack: v.slice(5) });
+  const home = area === "learn" ? "Learn" : "Interview prep";
 
   return (
-    <main className="grid gap-6 lg:grid-cols-[330px_minmax(0,1fr)]">
-      <aside className="grid content-start gap-4">
-        <section className="card grid gap-3">
-          <p className="m-0 text-[17px]" style={{ color: "var(--strong)" }}>
-            <b className="font-cond text-2xl">{s.due}</b> to review today, and <b>{s.new}</b> new.
-          </p>
-          <Link to={`/learn/practice?area=${area}`} className="btn btn-primary justify-self-start">
-            Start the review
-          </Link>
-          <div className="flex h-1.5 overflow-hidden rounded-full" style={{ background: "var(--surface-2)" }}>
-            <span style={{ width: `${(s.known / total) * 100}%`, background: "var(--green)" }} />
-            <span style={{ width: `${((s.learning + s.due) / total) * 100}%`, background: "var(--accent)" }} />
-          </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px]" style={{ color: "var(--muted)" }}>
-            <span className="flex items-center gap-1.5">
-              <span className="dot tone-green" /> {s.known} known
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="dot tone-accent" /> {s.learning + s.due} learning
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="dot tone-muted" /> {s.new} new
-            </span>
-          </div>
-        </section>
-        <details className="card">
-          <summary className="font-cond cursor-pointer text-lg font-bold">How to learn here</summary>
-          <ol className="mt-2 mb-0 grid gap-1.5 pl-5 text-[14.5px] leading-relaxed">
-            <li>Read the lesson once, slowly.</li>
-            <li>
-              Tap <b>Listen</b>. Then say each sentence with the voice.
-            </li>
-            <li>
-              Tap <b>Record me</b>, say it alone, then play it back and compare.
-            </li>
-            <li>Answer the question before you look at the answer.</li>
-            <li>
-              Come back when a lesson says <b>Review today</b>. Short and often works best.
-            </li>
-          </ol>
-        </details>
-        {/* the search and All on one line; each parent with its packs on one line; the packs fold away */}
-        <div className="flex gap-2">
-          <input
-            type="search"
-            className="btn min-w-0 flex-1"
-            placeholder="Search the lessons"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          <button
-            type="button"
-            className="pill shrink-0"
-            aria-pressed={!pick && !pickGroup}
-            onClick={() => setParams({})}
-          >
-            All
-          </button>
-          <button
-            type="button"
-            className="btn shrink-0"
-            aria-expanded={showPacks}
-            onClick={() => foldPacks(!showPacks)}
-          >
-            {showPacks ? "Hide" : "Packs"}
-          </button>
-        </div>
-        {showPacks && (
-          <div className="grid gap-2">
-            {parents.map(([g, list]) => (
-              <div key={g || "none"} className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  className={`eyebrow mr-1 ${groupTone(g)}`}
-                  style={{
-                    color: "var(--tone)",
-                    textDecoration: pickGroup === g && !pick && g ? "underline" : undefined,
-                    textUnderlineOffset: 4,
-                    cursor: g ? "pointer" : "default",
-                  }}
-                  onClick={() => g && setParams({ group: g })}
-                >
-                  {g || "Not grouped"}
-                </button>
-                {list.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    className="pill"
-                    aria-pressed={pick === p.id}
-                    onClick={() => setParams({ pack: p.id })}
-                  >
-                    <span className={`dot ${groupTone(g)}`} />
-                    {titled(p.name)}
-                    {p.due > 0 && <b title={`${p.due} to review today`}>{p.due}</b>}
-                  </button>
+    <Page
+      title={chosen ? titled(chosen.name) : pickGroup || home}
+      line={
+        chosen
+          ? `${chosen.lessons} lessons · ${chosen.known} known`
+          : pickGroup
+            ? `${inGroup.size} pack${inGroup.size === 1 ? "" : "s"} under ${pickGroup}`
+            : undefined
+      }
+      actions={
+        chosen && (
+          <>
+            <label className="flex items-center gap-2 text-small text-muted">
+              Under
+              <input
+                className="btn w-36"
+                list="learn-groups"
+                defaultValue={chosen.group}
+                key={chosen.id}
+                placeholder="a parent"
+                onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+                onBlur={(e) =>
+                  e.target.value.trim() !== chosen.group && regroup.mutate({ id: chosen.id, group: e.target.value })
+                }
+              />
+              <datalist id="learn-groups">
+                {known.map((g) => (
+                  <option key={g} value={g} />
                 ))}
-              </div>
-            ))}
-          </div>
-        )}
-        {area === "learn" ? (
-          <Link to="/interview" className="card card-link grid gap-1">
-            <span className="font-cond text-lg font-bold">Interview prep →</span>
-            <span className="text-sm" style={{ color: "var(--muted)" }}>
-              Answers to say for a job or a project, and the helper that finds them while you're asked.
-            </span>
-          </Link>
-        ) : (
-          <Link to="/interview/helper" className="card card-link grid gap-1">
-            <span className="font-cond text-lg font-bold">The interview helper →</span>
-            <span className="text-sm" style={{ color: "var(--muted)" }}>
-              Hold while the question is asked; the nearest prepared answer shows large.
-            </span>
-          </Link>
-        )}
-      </aside>
-
-      <section className="grid content-start gap-4">
-        <div className="flex flex-wrap items-baseline gap-3">
-          <h2 className="font-cond m-0 text-[26px] font-bold">
-            {chosen ? titled(chosen.name) : pickGroup || (area === "learn" ? "Learn" : "Interview prep")}
-          </h2>
-          {chosen && (
-            <>
-              <span className="font-mono text-xs" style={{ color: "var(--muted)" }}>
-                {chosen.lessons} lessons · {chosen.known} known
+              </datalist>
+            </label>
+            <button
+              type="button"
+              className="btn btn-quiet"
+              disabled={move.isPending}
+              onClick={() => move.mutate({ id: chosen.id, to: other })}
+            >
+              Move to {other === "learn" ? "Learn" : "Interview prep"}
+            </button>
+          </>
+        )
+      }
+    >
+      {[overview, move, regroup].map((x) =>
+        x.isError ? (
+          <p key={String(x.error)} className="m-0 text-detail text-red">
+            {String((x.error as Error).message)}
+          </p>
+        ) : null,
+      )}
+      <div className="grid gap-6 lg:grid-cols-[330px_minmax(0,1fr)]">
+        <aside className="grid content-start gap-4">
+          <Card>
+            <p className="m-0 text-read text-strong">
+              <b className="font-cond text-lead">{s.due}</b> to review today, and <b>{s.new}</b> new.
+            </p>
+            <Link to={`/learn/practice?area=${area}`} className="btn btn-primary justify-self-start">
+              Start the review
+            </Link>
+            {/* where the lessons stand, each state in its one colour, the same as on its chips */}
+            <div className="meter" aria-hidden="true">
+              <span className="tone-green" style={share(s.known, total)} />
+              <span className="tone-purple" style={share(s.learning, total)} />
+              <span className="tone-cyan" style={share(s.due, total)} />
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-small text-muted">
+              <span className="flex items-center gap-1.5">
+                <span className="dot tone-green" /> {s.known} known
               </span>
-              <label className="ml-auto flex items-center gap-2 text-[13px]" style={{ color: "var(--muted)" }}>
-                Under
-                <input
-                  className="btn w-36"
-                  list="learn-groups"
-                  defaultValue={chosen.group}
-                  key={chosen.id}
-                  placeholder="a parent"
-                  onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-                  onBlur={(e) =>
-                    e.target.value.trim() !== chosen.group && regroup.mutate({ id: chosen.id, group: e.target.value })
-                  }
-                />
-                <datalist id="learn-groups">
-                  {known.map((g) => (
-                    <option key={g} value={g} />
-                  ))}
-                </datalist>
-              </label>
+              <span className="flex items-center gap-1.5">
+                <span className="dot tone-purple" /> {s.learning} learning
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="dot tone-cyan" /> {s.due} to review
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="dot tone-muted" /> {s.new} new
+              </span>
+            </div>
+          </Card>
+          <details className="card">
+            <summary className="font-cond cursor-pointer text-head font-bold text-strong">How to learn here</summary>
+            <ol className="mt-2 mb-0 grid gap-1.5 pl-5 text-detail">
+              <li>Read the lesson once, slowly.</li>
+              <li>
+                Tap <b>Listen</b>. Then say each sentence with the voice.
+              </li>
+              <li>
+                Tap <b>Record me</b>, say it alone, then play it back and compare.
+              </li>
+              <li>Answer the question before you look at the answer.</li>
+              <li>
+                Come back when a lesson says <b>Review today</b>. Short and often works best.
+              </li>
+            </ol>
+          </details>
+          <Field label="Search the lessons" value={q} onChange={setQ} />
+          {/* everything, then each parent with its packs; the packs fold away */}
+          <div className="grid gap-2">
+            <div className="flex items-start gap-2">
+              <Pills label="Every lesson" options={[{ value: "all", label: "All" }]} value={picked} onChange={choose} />
               <button
                 type="button"
-                className="btn btn-quiet"
-                disabled={move.isPending}
-                onClick={() => move.mutate({ id: chosen.id, to: other })}
+                className="btn btn-quiet ml-auto shrink-0"
+                aria-expanded={showPacks}
+                onClick={() => foldPacks(!showPacks)}
               >
-                Move to {other === "learn" ? "Learn" : "Interview prep"}
+                {showPacks ? "Hide the packs" : "Show the packs"}
               </button>
-            </>
-          )}
-        </div>
-        {[overview, move, regroup].map((x) =>
-          x.isError ? (
-            <p key={String(x.error)} className="m-0 text-sm" style={{ color: "var(--red)" }}>
-              {String((x.error as Error).message)}
-            </p>
-          ) : null,
-        )}
-        {q.trim().length > 1 ? (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {(found.data?.lessons ?? []).map((l) => (
-              <LessonCard key={l.id} l={{ ...l, state: stateOf.get(l.id) ?? "new" }} />
-            ))}
-            {found.data && found.data.lessons.length === 0 && (
-              <p className="m-0 text-sm" style={{ color: "var(--muted)" }}>
-                No lesson has those words.
-              </p>
-            )}
+            </div>
+            {showPacks &&
+              parents.map(([g, list]) => (
+                <Pills
+                  key={g || "none"}
+                  label={g || "Not grouped"}
+                  showLabel={!g}
+                  options={[
+                    ...(g ? [{ value: `group:${g}`, label: g }] : []),
+                    ...list.map((p) => ({
+                      value: `pack:${p.id}`,
+                      label: titled(p.name),
+                      tone: groupTone(g),
+                      count: dueIn(p.id) || undefined,
+                    })),
+                  ]}
+                  value={picked}
+                  onChange={choose}
+                />
+              ))}
           </div>
-        ) : isGuide && chosen ? (
-          <GuideContents rows={[...rows].sort((a, b) => a.position - b.position)} />
-        ) : (
-          groups
-            .filter((g) => g.rows.length > 0)
-            .map((g) =>
-              g.st === "known" ? (
-                <details key={g.st}>
-                  <summary className="font-cond cursor-pointer text-xl font-bold">
-                    Known{" "}
-                    <span className="font-mono text-sm" style={{ color: "var(--green)" }}>
-                      {g.rows.length}
-                    </span>
-                  </summary>
-                  <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {g.rows.map((l) => (
-                      <LessonCard key={l.id} l={l} />
-                    ))}
-                  </div>
-                </details>
-              ) : (
-                <div key={g.st} className="grid gap-3">
-                  <h3 className="font-cond m-0 text-xl font-bold">
-                    {STATE_CHIP[g.st][0]}{" "}
-                    <span
-                      className="font-mono text-sm"
-                      style={{ color: g.st === "due" ? "var(--cyan)" : "var(--muted)" }}
-                    >
-                      {g.rows.length}
-                    </span>
-                  </h3>
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {g.rows.map((l) => (
-                      <LessonCard key={l.id} l={l} />
-                    ))}
-                  </div>
-                </div>
-              ),
+          {area === "learn" ? (
+            <Card title="Interview prep →" to="/interview">
+              Answers to say for a job or a project, and the helper that finds them while you're asked.
+            </Card>
+          ) : (
+            <Card title="The interview helper →" to="/interview/helper">
+              Hold while the question is asked; the nearest prepared answer shows large.
+            </Card>
+          )}
+        </aside>
+
+        <section className="grid content-start gap-4">
+          {q.trim().length > 1 ? (
+            found.data && found.data.lessons.length === 0 ? (
+              <EmptyState title="No lesson has those words." line="Try another word, or fewer of them." />
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {(found.data?.lessons ?? []).map((l) => (
+                  <LessonCard key={l.id} l={{ ...l, state: stateOf.get(l.id) ?? "new" }} />
+                ))}
+              </div>
             )
-        )}
-        {o && rows.length === 0 && (
-          <p className="m-0 text-sm" style={{ color: "var(--muted)" }}>
-            {area === "learn" ? "No lessons here yet." : "Nothing in Interview prep yet: move a pack here from Learn."}
-          </p>
-        )}
-      </section>
-    </main>
+          ) : isGuide && chosen ? (
+            <GuideContents rows={[...rows].sort((a, b) => a.position - b.position)} />
+          ) : (
+            groups
+              .filter((g) => g.rows.length > 0)
+              .map((g) =>
+                g.st === "known" ? (
+                  <details key={g.st}>
+                    <summary className="font-cond cursor-pointer text-head font-bold text-strong">
+                      Known <span className="font-mono text-small text-green">{g.rows.length}</span>
+                    </summary>
+                    <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {g.rows.map((l) => (
+                        <LessonCard key={l.id} l={l} />
+                      ))}
+                    </div>
+                  </details>
+                ) : (
+                  <div key={g.st} className="grid gap-3">
+                    <h2 className="font-cond m-0 text-head font-bold">
+                      {STATE[g.st].label}{" "}
+                      <span className={`font-mono text-small ${g.st === "due" ? "text-cyan" : "text-muted"}`}>
+                        {g.rows.length}
+                      </span>
+                    </h2>
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {g.rows.map((l) => (
+                        <LessonCard key={l.id} l={l} />
+                      ))}
+                    </div>
+                  </div>
+                ),
+              )
+          )}
+          {o &&
+            rows.length === 0 &&
+            (area === "learn" ? (
+              <EmptyState title="No lessons here yet." line="A pack's lessons show here once it is added." />
+            ) : (
+              <EmptyState
+                title="Nothing in Interview prep yet."
+                line="Open a pack in Learn, then Move to Interview prep."
+                action={
+                  <Link to="/learn" className="btn">
+                    Open Learn
+                  </Link>
+                }
+              />
+            ))}
+        </section>
+      </div>
+    </Page>
   );
 }
 

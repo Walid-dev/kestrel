@@ -2,10 +2,12 @@
 // entries with their example, diagram and check, callouts, tables, rules, code with its parts coloured, and the
 // hand-placed diagrams. Every line meant to be heard registers with `say`, so Listen reads the page in order and
 // lights the line it is on.
-import { type CSSProperties, createContext, type ReactNode, useContext } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 import { Link, useLocation } from "react-router";
 import { readDrawing } from "../../../src/shared/blocks.ts";
 import { Drawing } from "../drawing.tsx";
+import { cx } from "../ui/cx.ts";
+import type { Tone } from "../ui/pills.tsx";
 
 export type Say = {
   add: (text: string, opts?: { pause?: number }) => number;
@@ -93,7 +95,7 @@ export function Inline({ text }: { text: string }) {
           {m[1]}
         </code>
       ) : m[2] !== undefined ? (
-        <strong key={m.index} style={{ color: "var(--strong)" }}>
+        <strong key={m.index} className="text-strong">
           {m[2]}
         </strong>
       ) : m[5]?.startsWith("lesson:") ? (
@@ -186,10 +188,10 @@ export function lines(list: unknown, say: Say, firstPause?: number): ReactNode {
   return <div className="grid gap-1">{arr(list).map((v, i) => line(v, say, i, i === 0 ? firstPause : undefined))}</div>;
 }
 // a heading or a label that is also heard
-export function heard(text: string, say: Say, style?: CSSProperties): ReactNode {
+export function heard(text: string, say: Say): ReactNode {
   const i = say.add(plain(text));
   return (
-    <span className={say.spoken === i ? "reading" : ""} style={style}>
+    <span className={say.spoken === i ? "reading" : undefined}>
       <Inline text={text} />
     </span>
   );
@@ -204,21 +206,14 @@ function check(q: string, a: unknown, say: Say): ReactNode {
   const answer = lines(a, say);
   const open = say.isOpen(key) || say.spoken >= before;
   return (
-    <div key={key} className="grid gap-1.5 pt-3" style={{ borderTop: "1px dashed var(--line)" }}>
-      <span className="eyebrow" style={{ color: "var(--accent)" }}>
-        {head}
-      </span>
+    <div key={key} className="grid gap-1.5 border-t border-dashed border-line pt-3">
+      <span className="eyebrow tone-accent">{head}</span>
       {qLines}
       <div className="example" hidden={!open}>
         {answer}
       </div>
       {!open && (
-        <button
-          type="button"
-          className="justify-self-start text-[13.5px]"
-          style={{ color: "var(--accent)", cursor: "pointer" }}
-          onClick={() => say.open(key)}
-        >
+        <button type="button" className="btn justify-self-start" onClick={() => say.open(key)}>
           Show the answer
         </button>
       )}
@@ -227,13 +222,15 @@ function check(q: string, a: unknown, say: Say): ReactNode {
 }
 
 // ---- the diagrams: nodes, groups, edges and notes placed by hand in the guide, coloured by tone ----
-const TONE: Record<string, string> = {
-  accent: "var(--accent)",
-  low: "var(--green)",
-  med: "var(--yellow)",
-  high: "var(--red)",
-  muted: "var(--muted)",
+// the guide's words for its colours, as the app's tones: what a part's colour means is set once, in styles.css
+const TONE: Record<string, Tone> = {
+  accent: "accent",
+  low: "green",
+  med: "yellow",
+  high: "red",
+  muted: "muted",
 };
+const toneOf = (t: string | undefined) => (t && TONE[t] ? `tone-${TONE[t]}` : "");
 const ROLE: Record<string, string> = { term: "accent", data: "low", security: "med", failure: "high" };
 type Node = {
   x: number;
@@ -353,15 +350,12 @@ export function diagram(spec: Block, say: Say, key?: string | number): ReactNode
   const mark = `m-${Math.round((d.w ?? 0) * 7 + (d.h ?? 0) * 13 + (d.nodes?.length ?? 0))}`;
   return (
     <figure key={key} className={`m-0 grid gap-2 ${say.spoken === i ? "reading" : ""}`}>
-      <div
-        className="overflow-x-auto rounded-xl border p-3"
-        style={{ borderColor: "var(--line)", background: "var(--surface)" }}
-      >
+      <div className="overflow-x-auto rounded-xl border border-line bg-surface p-3">
         <svg
           viewBox={`0 0 ${d.w} ${d.h}`}
           role="img"
           aria-label={d.label ?? "a diagram"}
-          style={{ display: "block", width: "100%", minWidth: 560, height: "auto", color: "var(--text)" }}
+          className="block h-auto w-full min-w-[560px] text-ink"
         >
           <defs>
             {["", ...Object.keys(TONE)].map((t) => (
@@ -375,15 +369,15 @@ export function diagram(spec: Block, say: Say, key?: string | number): ReactNode
                 markerHeight="7"
                 orient="auto-start-reverse"
               >
-                <path d="M0,0 L10,5 L0,10 z" style={{ fill: t ? TONE[t] : "currentColor" }} />
+                <path d="M0,0 L10,5 L0,10 z" className={t ? `${toneOf(t)} fill-tone` : "fill-current"} />
               </marker>
             ))}
           </defs>
-          <g fontFamily="var(--sans)" fontSize="12.5" fill="currentColor">
+          <g className="font-sans" fontSize="12.5" fill="currentColor">
             {keyed(arr(d.groups) as Block[], "g1-").map(({ v: g, key }) => {
-              const tone = TONE[str(g.tone)];
+              const tone = toneOf(str(g.tone));
               return (
-                <g key={key}>
+                <g key={key} className={tone || undefined}>
                   <rect
                     x={Number(g.x)}
                     y={Number(g.y)}
@@ -392,15 +386,14 @@ export function diagram(spec: Block, say: Say, key?: string | number): ReactNode
                     rx="10"
                     fill="none"
                     strokeDasharray="6 5"
-                    style={{ stroke: tone ?? "currentColor" }}
+                    className={tone ? "stroke-tone" : "stroke-current"}
                     strokeOpacity={tone ? 0.8 : 0.45}
                   />
                   <text
                     x={Number(g.x) + 16}
                     y={Number(g.y) + 20}
                     fontSize="11.5"
-                    fontFamily="var(--mono)"
-                    style={{ fill: tone ?? "var(--muted)" }}
+                    className={cx("font-mono", tone ? "fill-tone" : "fill-muted")}
                   >
                     {str(g.label)}
                   </text>
@@ -408,15 +401,15 @@ export function diagram(spec: Block, say: Say, key?: string | number): ReactNode
               );
             })}
             {keyed(d.edges ?? [], "g2-").map(({ v: e, key }) => {
-              const tone = e.tone ? TONE[e.tone] : undefined;
+              const tone = toneOf(e.tone);
               const arrow = e.arrow ?? "end";
-              const marker = `url(#${mark}${e.tone && TONE[e.tone] ? e.tone : ""})`;
+              const marker = `url(#${mark}${tone ? e.tone : ""})`;
               return (
-                <g key={key}>
+                <g key={key} className={tone || undefined}>
                   <polyline
                     points={e.p.map((pt) => pt.join(",")).join(" ")}
                     fill="none"
-                    style={{ stroke: tone ?? "currentColor" }}
+                    className={tone ? "stroke-tone" : "stroke-current"}
                     strokeWidth={e.tone === "muted" ? 1.2 : 1.6}
                     strokeDasharray={e.dash ? "4 4" : undefined}
                     markerEnd={arrow === "none" ? undefined : marker}
@@ -428,8 +421,7 @@ export function diagram(spec: Block, say: Say, key?: string | number): ReactNode
                       y={e.ly ?? e.p[0][1] - 8}
                       textAnchor={(e.anchor ?? "middle") as "start" | "middle" | "end"}
                       fontSize="11"
-                      fontFamily={e.mono ? "var(--mono)" : undefined}
-                      style={{ fill: tone && e.tone !== "muted" ? tone : "var(--muted)" }}
+                      className={cx(tone && e.tone !== "muted" ? "fill-tone" : "fill-muted", e.mono && "font-mono")}
                     >
                       {e.label}
                     </text>
@@ -438,11 +430,11 @@ export function diagram(spec: Block, say: Say, key?: string | number): ReactNode
               );
             })}
             {keyed(d.nodes ?? [], "node-").map(({ v: n, key: nodeKey }) => {
-              const tone = n.tone ? TONE[n.tone] : undefined;
+              const tone = toneOf(n.tone);
               const t = arr(n.t).map(str);
               const s = arr(n.s).map(str);
               const y0 = n.y + n.h / 2 - (t.length * 16 + s.length * 15) / 2 + 12;
-              const cx = n.x + n.w / 2;
+              const mid = n.x + n.w / 2;
               return (
                 <g key={nodeKey}>
                   <rect
@@ -452,22 +444,18 @@ export function diagram(spec: Block, say: Say, key?: string | number): ReactNode
                     height={n.h}
                     rx="8"
                     strokeDasharray={n.dash ? "4 3" : undefined}
-                    style={
-                      tone
-                        ? { fill: `color-mix(in srgb, ${tone} 14%, var(--surface))`, stroke: tone }
-                        : { fill: "var(--surface-2)", stroke: "currentColor" }
-                    }
+                    className={tone ? `${tone} dia-node` : "dia-plain"}
                     strokeWidth={tone ? 1.5 : 1}
                     strokeOpacity={tone ? 1 : 0.5}
                   />
                   {keyed(t, "text3-").map(({ v: line, i: j, key }) => (
                     <text
                       key={key}
-                      x={cx}
+                      x={mid}
                       y={y0 + j * 16}
                       textAnchor="middle"
                       fontWeight="600"
-                      style={{ fill: "var(--strong)" }}
+                      className="fill-strong"
                     >
                       {line}
                     </text>
@@ -475,12 +463,11 @@ export function diagram(spec: Block, say: Say, key?: string | number): ReactNode
                   {keyed(s, "text4-").map(({ v: line, i: j, key }) => (
                     <text
                       key={key}
-                      x={cx}
+                      x={mid}
                       y={y0 + t.length * 16 + 1 + j * 15}
                       textAnchor="middle"
                       fontSize="11"
-                      fontFamily={n.mono ? "var(--mono)" : undefined}
-                      style={{ fill: "var(--muted)" }}
+                      className={cx("fill-muted", n.mono && "font-mono")}
                     >
                       {line}
                     </text>
@@ -495,8 +482,7 @@ export function diagram(spec: Block, say: Say, key?: string | number): ReactNode
                 y={Number(t.y)}
                 textAnchor={(str(t.anchor) || "start") as "start"}
                 fontSize="11.5"
-                fontFamily="var(--mono)"
-                style={{ fill: "var(--muted)" }}
+                className="font-mono fill-muted"
               >
                 {str(t.t)}
               </text>
@@ -504,11 +490,7 @@ export function diagram(spec: Block, say: Say, key?: string | number): ReactNode
           </g>
         </svg>
       </div>
-      {d.caption != null && (
-        <figcaption className="text-sm" style={{ color: "var(--muted)" }}>
-          {lines(d.caption, say)}
-        </figcaption>
-      )}
+      {d.caption != null && <figcaption className="text-detail text-muted">{lines(d.caption, say)}</figcaption>}
     </figure>
   );
 }
@@ -519,7 +501,7 @@ export function block(b: Block, say: Say, key: string | number): ReactNode {
       return <div key={key}>{lines(b.lines, say)}</div>;
     case "subhead":
       return (
-        <h3 key={key} className="font-cond mt-3 text-lg font-bold">
+        <h3 key={key} className="font-cond mt-3 text-head font-bold">
           {heard(str(b.text), say)}
         </h3>
       );
@@ -528,9 +510,7 @@ export function block(b: Block, say: Say, key: string | number): ReactNode {
     case "callout":
       return (
         <div key={key} className="callout grid gap-2">
-          <span className="eyebrow" style={{ color: "var(--accent)" }}>
-            {heard(str(b.title), say)}
-          </span>
+          <span className="eyebrow tone-accent">{heard(str(b.title), say)}</span>
           {lines(b.text, say)}
         </div>
       );
@@ -539,20 +519,12 @@ export function block(b: Block, say: Say, key: string | number): ReactNode {
     case "table": {
       const head = arr(b.head).map(str);
       return (
-        <div
-          key={key}
-          className="overflow-x-auto rounded-xl border"
-          style={{ borderColor: "var(--line)", background: "var(--surface)" }}
-        >
-          <table className="w-full border-collapse text-[13.5px]">
+        <div key={key} className="overflow-x-auto rounded-xl border border-line bg-surface">
+          <table className="w-full border-collapse text-detail">
             <thead>
               <tr>
                 {head.map((h) => (
-                  <th
-                    key={h}
-                    className="px-3 py-2 text-left font-semibold"
-                    style={{ borderBottom: "1px solid var(--line)", color: "var(--strong)" }}
-                  >
+                  <th key={h} className="border-b border-line px-3 py-2 text-left font-semibold text-strong">
                     {h}
                   </th>
                 ))}
@@ -565,15 +537,17 @@ export function block(b: Block, say: Say, key: string | number): ReactNode {
                 return (
                   <tr
                     key={rowKey}
-                    className="say-tap"
-                    style={say.spoken === i ? { background: "var(--accent-soft)" } : undefined}
+                    className={cx("say-tap", say.spoken === i && "bg-accent-soft")}
                     onClick={() => say.from(i)}
                   >
                     {keyed(cells, "td6-").map(({ v: c, i: j, key }) => (
                       <td
                         key={key}
-                        className={`px-3 py-2 align-top ${j === 0 ? "whitespace-nowrap font-semibold" : ""}`}
-                        style={{ borderTop: k ? "1px solid var(--line)" : undefined }}
+                        className={cx(
+                          "px-3 py-2 align-top",
+                          j === 0 && "whitespace-nowrap font-semibold",
+                          k > 0 && "border-t border-line",
+                        )}
                       >
                         <Inline text={c} />
                       </td>
@@ -601,7 +575,7 @@ export function block(b: Block, say: Say, key: string | number): ReactNode {
                   if (e.key === "Enter") say.from(i);
                 }}
               >
-                <strong style={{ color: "var(--strong)" }}>
+                <strong className="text-strong">
                   <Inline text={parts[0] ?? ""} />
                 </strong>
                 {keyed(parts.slice(1), "p7-").map(({ v: l, key }) => (
@@ -640,7 +614,7 @@ export function block(b: Block, say: Say, key: string | number): ReactNode {
         <ul key={key} className="m-0 grid list-none gap-2 p-0">
           {(arr(b.items) as Block[]).map((l) => (
             <li key={str(l.url)}>
-              <a href={str(l.url)} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>
+              <a href={str(l.url)} target="_blank" rel="noopener noreferrer" className="text-accent">
                 {str(l.title)} ↗
               </a>
             </li>
@@ -651,39 +625,32 @@ export function block(b: Block, say: Say, key: string | number): ReactNode {
       const c = b.check && typeof b.check === "object" ? (b.check as Block) : null;
       const term = heard(str(b.term), say);
       const explain = lines(b.explain, say);
-      const exHead = arr(b.example).length ? heard("Example", say, { color: "var(--green)" }) : null;
+      const exHead = arr(b.example).length ? heard("Example", say) : null;
       const example = arr(b.example).length ? lines(b.example, say) : null;
       const pic = b.diagram && typeof b.diagram === "object" ? diagram(b.diagram as Block, say) : null;
       const quiz = c ? check(str(c.q), c.a, say) : null;
       return (
         <div key={key} className="grid gap-2.5 pt-2">
-          <h3 className="font-cond m-0 text-lg font-bold">
+          <h3 className="font-cond m-0 text-head font-bold">
             {term}
-            {str(b.full) && (
-              <span
-                className="ml-2 text-[14.5px] font-normal"
-                style={{ color: "var(--muted)", fontFamily: "var(--sans)" }}
-              >
-                {str(b.full)}
-              </span>
-            )}
+            {str(b.full) && <span className="ml-2 font-sans text-detail font-normal text-muted">{str(b.full)}</span>}
           </h3>
           {explain}
           {example && (
             <div className="example grid gap-2">
-              <span className="eyebrow">{exHead}</span>
+              <span className="eyebrow tone-green">{exHead}</span>
               {example}
             </div>
           )}
           {pic}
           {quiz}
           {arr(b.sources).length > 0 && (
-            <p className="m-0 text-xs" style={{ color: "var(--muted)" }}>
+            <p className="m-0 text-small text-muted">
               Sources:{" "}
               {(arr(b.sources) as Block[]).map((s, k) => (
                 <span key={str(s.url)}>
                   {k > 0 && " · "}
-                  <a href={str(s.url)} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>
+                  <a href={str(s.url)} target="_blank" rel="noopener noreferrer" className="text-accent">
                     {str(s.url).replace(/^https?:\/\//, "")}
                   </a>
                 </span>

@@ -1,11 +1,16 @@
 // One lesson per page, built to learn fast. A guide topic reads like the guides: its part and topic, the title, the
 // lede, then the blocks — entries, examples, diagrams, checks. A lesson to say follows the old Learn's method: review
 // from memory first when it is due, then "Say it" (tap a line to hear it, Listen, Slow, Record me), what it means,
-// the example and the words, and an honest grade at the end. Listen reads the whole page in the computer's voice.
+// the example and the words, and an honest grade at the end. Listen reads the whole page in the computer's voice, and
+// its bar stays on top while the page scrolls.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { Ask } from "../ask.tsx";
+import { Card } from "../ui/card.tsx";
+import { cx } from "../ui/cx.ts";
+import { Page } from "../ui/page.tsx";
+import type { Tone } from "../ui/pills.tsx";
 import { block, heard, lines, type Say } from "./blocks.tsx";
 import { type Spoken, useReader } from "./voice.ts";
 
@@ -29,11 +34,13 @@ type Lesson = {
   packName: string;
   area: "learn" | "interview";
 };
-export const STATE_CHIP: Record<string, [string, string]> = {
-  due: ["Review today", "tone-cyan"],
-  new: ["New", "tone-accent"],
-  learning: ["Learning", "tone-purple"],
-  known: ["Known", "tone-green"],
+// a lesson's four states, each with its name and its one colour, the same on every chip and in the progress bar:
+// the one to act on today stands out, a new one stays quiet
+export const STATE: Record<string, { label: string; tone: Tone }> = {
+  due: { label: "Review today", tone: "cyan" },
+  new: { label: "New", tone: "muted" },
+  learning: { label: "Learning", tone: "purple" },
+  known: { label: "Known", tone: "green" },
 };
 
 function Recorder() {
@@ -72,24 +79,38 @@ function Recorder() {
   };
   return (
     <>
-      <button
-        type="button"
-        className="btn"
-        onClick={toggle}
-        style={on ? { borderColor: "var(--red)", color: "var(--red)" } : undefined}
-      >
+      {/* recording, it stays pressed in red */}
+      <button type="button" className={cx("btn", on && "tone-red")} aria-pressed={on} onClick={toggle}>
         {on ? "■ Stop recording" : "Record me"}
       </button>
       {url && !on && (
         // biome-ignore lint/a11y/useMediaCaption: my own voice, played back to compare
         <audio src={url} controls className="h-8 max-w-[220px]" />
       )}
-      {why && (
-        <span className="text-xs" style={{ color: "var(--red)" }}>
-          {why}
-        </span>
-      )}
+      {why && <span className="text-small text-red">{why}</span>}
     </>
+  );
+}
+
+// a question to answer before looking: the answer folded under a button, the same control everywhere. A function
+// called while the page is built, not a component, so its lines join Listen's list in the page's order
+function check(k: string, q: string, a: string, say: Say, review = false): React.ReactNode {
+  const qLines = lines([q], say);
+  const aLines = lines([a], say, 3500);
+  const open = say.isOpen(k);
+  return (
+    <div key={k} className={review ? "grid gap-2" : "grid gap-1.5 border-t border-dashed border-line pt-3"}>
+      {!review && <span className="eyebrow tone-accent">Check yourself</span>}
+      <div className={review ? "font-semibold text-strong" : undefined}>{qLines}</div>
+      <div className="example" hidden={!open}>
+        {aLines}
+      </div>
+      {!open && (
+        <button type="button" className="btn justify-self-start" onClick={() => say.open(k)}>
+          Show the answer
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -143,14 +164,9 @@ export function LearnLesson() {
   });
   if (lesson.isError)
     return (
-      <main className="grid gap-3">
-        <p className="text-sm" style={{ color: "var(--red)" }}>
-          {String((lesson.error as Error).message)}
-        </p>
-        <Link to="/learn" className="btn justify-self-start">
-          ← Learn
-        </Link>
-      </main>
+      <Page width="reading" back={{ to: "/learn", label: "Learn" }} title="Lesson">
+        <p className="m-0 text-detail text-red">{String((lesson.error as Error).message)}</p>
+      </Page>
     );
   if (!lesson.data) return null;
   const L = lesson.data;
@@ -167,44 +183,27 @@ export function LearnLesson() {
     isOpen: (k) => opened.has(k),
     open: (k) => setOpened((s) => new Set(s).add(k)),
   };
-  const back = L.area === "interview" ? "/interview" : `/learn?pack=${encodeURIComponent(L.pack)}`;
+  const back =
+    L.area === "interview"
+      ? { to: "/interview", label: "Interview prep" }
+      : { to: `/learn?pack=${encodeURIComponent(L.pack)}`, label: L.packName || "Learn" };
   const sibs = siblings.data?.lessons ?? [];
   const at = sibs.findIndex((l) => l.id === id);
-  const [chip, tone] = STATE_CHIP[L.state] ?? STATE_CHIP.new;
+  const state = STATE[L.state] ?? STATE.new;
 
   // the page's parts, built in reading order so Listen follows the page
   const title = heard(L.title, say);
   const lede = b.short ? heard(b.short, say) : null;
   let body: React.ReactNode;
   if (guide) {
-    body = <div className="grid gap-4 text-[16px] leading-[1.7]">{b.blocks.map((x, k) => block(x, say, k))}</div>;
+    body = <div className="grid gap-4 text-read">{b.blocks.map((x, k) => block(x, say, k))}</div>;
   } else {
     const due = (L.state === "due" || L.state === "learning") && b.check.length > 0;
     const review = due ? (
-      <section className="card grid gap-3" style={{ borderColor: "color-mix(in srgb, var(--cyan) 45%, var(--line))" }}>
-        <h3 className="font-cond m-0 text-lg font-bold">{heard("Review first: answer from memory", say)}</h3>
-        {b.check.map((c) => {
-          const k = `review:${c.q}`;
-          const q = lines([c.q], say);
-          const a = lines([c.a], say, 3500);
-          const open = opened.has(k);
-          return (
-            <div key={k} className="grid gap-2">
-              <div className="font-semibold" style={{ color: "var(--strong)" }}>
-                {q}
-              </div>
-              <div className="example" hidden={!open}>
-                {a}
-              </div>
-              {!open && (
-                <button type="button" className="btn justify-self-start" onClick={() => say.open(k)}>
-                  Show the answer
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </section>
+      <Card tone="cyan">
+        <h2 className="font-cond m-0 text-head font-bold">{heard("Review first: answer from memory", say)}</h2>
+        {b.check.map((c) => check(`review:${c.q}`, c.q, c.a, say, true))}
+      </Card>
     ) : null;
     const sayHead = b.say.length ? heard("Say it", say) : null;
     let sayFrom = -1;
@@ -217,20 +216,14 @@ export function LearnLesson() {
         <button
           key={s}
           type="button"
-          className="flex w-full cursor-pointer items-start gap-3 rounded-xl px-3 py-2.5 text-left text-[16.5px] leading-relaxed"
-          style={{
-            background: reader.at === i ? "var(--accent-soft)" : "var(--surface-2)",
-            boxShadow: reader.at === i ? "0 0 0 1px var(--accent)" : undefined,
-          }}
+          className="say-row"
+          data-reading={reader.at === i ? "" : undefined}
           onClick={() => reader.play(list.current, i, i)}
         >
-          <span
-            className="mt-1 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[9px]"
-            style={{ background: "var(--surface)", color: "var(--accent)" }}
-          >
+          <span className="say-play" aria-hidden="true">
             ▶
           </span>
-          <span style={{ color: "var(--strong)" }}>{s}</span>
+          <span>{s}</span>
         </button>
       );
     });
@@ -242,57 +235,21 @@ export function LearnLesson() {
     const words = b.words.map((w) => {
       const i = say.add(`${w.w}: ${w.m}`);
       return (
-        <p key={w.w} className={`m-0 ${reader.at === i ? "reading" : ""}`}>
-          <span
-            className="font-semibold"
-            style={{ color: "var(--strong)", textDecoration: "underline dotted", textUnderlineOffset: 4 }}
-          >
-            {w.w}
-          </span>
-          <span className="ml-3" style={{ color: "var(--muted)" }}>
-            {w.m}
-          </span>
+        <p key={w.w} className={cx("m-0", reader.at === i && "reading")}>
+          <span className="term">{w.w}</span>
+          <span className="ml-3 text-muted">{w.m}</span>
         </p>
       );
     });
-    const checks =
-      !due && b.check.length > 0
-        ? b.check.map((c) => {
-            const k = `check:${c.q}`;
-            const q = lines([c.q], say);
-            const a = lines([c.a], say, 3500);
-            const open = opened.has(k);
-            return (
-              <div key={k} className="grid gap-1.5 pt-3" style={{ borderTop: "1px dashed var(--line)" }}>
-                <span className="eyebrow" style={{ color: "var(--accent)" }}>
-                  Check yourself
-                </span>
-                {q}
-                <div className="example" hidden={!open}>
-                  {a}
-                </div>
-                {!open && (
-                  <button
-                    type="button"
-                    className="justify-self-start text-[13.5px]"
-                    style={{ color: "var(--accent)", cursor: "pointer" }}
-                    onClick={() => say.open(k)}
-                  >
-                    Show the answer
-                  </button>
-                )}
-              </div>
-            );
-          })
-        : null;
+    const checks = !due ? b.check.map((c) => check(`check:${c.q}`, c.q, c.a, say)) : null;
     body = (
       <>
         {review}
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           {b.say.length > 0 && (
-            <section className="card grid content-start gap-3">
-              <h3 className="font-cond m-0 text-lg font-bold">{sayHead}</h3>
-              <p className="m-0 text-sm" style={{ color: "var(--muted)" }}>
+            <Card>
+              <h2 className="font-cond m-0 text-head font-bold">{sayHead}</h2>
+              <p className="m-0 text-detail text-muted">
                 Tap a sentence to hear it. Listen, then say it with the voice.
               </p>
               <div className="grid gap-2">{sayRows}</div>
@@ -308,33 +265,30 @@ export function LearnLesson() {
                   type="button"
                   className="btn"
                   aria-pressed={reader.speed < 1}
-                  style={reader.speed < 1 ? { borderColor: "var(--accent)", color: "var(--accent)" } : undefined}
                   onClick={() => reader.setSpeed((s) => (s < 1 ? 1 : 0.8))}
                 >
                   Slow
                 </button>
                 <Recorder />
               </div>
-            </section>
+            </Card>
           )}
-          <section className="grid content-start gap-4 text-[16px] leading-[1.7]">
+          <section className="grid content-start gap-4 text-read">
             {b.explain.length > 0 && (
               <div className="grid gap-2">
-                <h3 className="font-cond m-0 text-lg font-bold">{meansHead}</h3>
+                <h2 className="font-cond m-0 text-head font-bold">{meansHead}</h2>
                 {means}
               </div>
             )}
             {example && (
               <div className="read-box grid gap-1.5">
-                <span className="eyebrow" style={{ color: "var(--accent)" }}>
-                  {exHead}
-                </span>
+                <span className="eyebrow tone-accent">{exHead}</span>
                 {example}
               </div>
             )}
             {b.words.length > 0 && (
               <div className="grid gap-2">
-                <h3 className="font-cond m-0 text-lg font-bold">{wordsHead}</h3>
+                <h2 className="font-cond m-0 text-head font-bold">{wordsHead}</h2>
                 {words}
               </div>
             )}
@@ -346,78 +300,68 @@ export function LearnLesson() {
   }
 
   return (
-    <main className={`mx-auto grid w-full gap-5 ${guide ? "max-w-3xl" : "max-w-6xl"}`}>
-      <div
-        className="sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-2 px-1 py-2"
-        style={{ background: "color-mix(in srgb, var(--bg) 88%, transparent)", backdropFilter: "blur(8px)" }}
-      >
-        <Link to={back} className="text-sm font-medium" style={{ color: "var(--accent)" }}>
-          ← {L.area === "interview" ? "Interview prep" : L.packName || "Learn"}
-        </Link>
-        <span className={`chip ${tone} ml-auto`}>{chip}</span>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={() => (reader.reading ? reader.stop() : reader.play(list.current))}
-        >
-          {reader.reading ? "■ Stop" : "▶ Listen"}
-        </button>
-        {guide && (
+    <Page
+      width={guide ? "reading" : "wide"}
+      back={back}
+      sticky
+      actions={
+        <>
+          <span className={`chip chip-caps tone-${state.tone}`}>{state.label}</span>
           <button
             type="button"
-            className="btn"
-            aria-pressed={reader.speed < 1}
-            style={reader.speed < 1 ? { borderColor: "var(--accent)", color: "var(--accent)" } : undefined}
-            onClick={() => reader.setSpeed((s) => (s < 1 ? 1 : 0.8))}
+            className="btn btn-primary"
+            onClick={() => (reader.reading ? reader.stop() : reader.play(list.current))}
           >
-            Slow
+            {reader.reading ? "■ Stop" : "▶ Listen"}
           </button>
-        )}
-      </div>
-      <header className="grid gap-2">
-        {b.part && <span className="eyebrow">{b.part}</span>}
-        {b.eyebrow && (
-          <span className="eyebrow" style={{ color: guide ? "var(--muted)" : "var(--accent)" }}>
-            {b.eyebrow}
-          </span>
-        )}
-        <h2 className={`font-cond m-0 font-bold leading-tight ${guide ? "text-[28px]" : "text-[34px]"}`}>{title}</h2>
-        {lede && (
-          <p className="m-0 text-[17px] leading-relaxed" style={{ color: "var(--text)" }}>
-            {lede}
-          </p>
-        )}
-      </header>
-      {body}
-      {(b.check.length > 0 || guide) && (
-        <section className="card flex flex-wrap items-center gap-3">
-          <span className="font-cond text-lg font-bold">{guide ? "Done with this topic?" : "How did it go?"}</span>
-          <span className="text-sm" style={{ color: "var(--muted)" }}>
-            {grade.data
-              ? `Next review in ${grade.data.intervalDays} day${grade.data.intervalDays === 1 ? "" : "s"}.`
-              : guide
-                ? "It comes back to review on the ladder: 1, 3, 7, 16, 35 days."
-                : "Be honest: a lesson you knew climbs; one you missed comes back tomorrow."}
-          </span>
-          <span className="ml-auto flex gap-2">
-            <button type="button" className="btn" disabled={grade.isPending} onClick={() => grade.mutate("again")}>
-              Again
-            </button>
+          {guide && (
             <button
               type="button"
-              className="btn btn-primary"
-              disabled={grade.isPending}
-              onClick={() => grade.mutate("good")}
+              className="btn"
+              aria-pressed={reader.speed < 1}
+              onClick={() => reader.setSpeed((s) => (s < 1 ? 1 : 0.8))}
             >
-              {guide ? "✓ Done" : "✓ I knew it"}
+              Slow
             </button>
-          </span>
-          {grade.isError && (
-            <span className="w-full text-sm" style={{ color: "var(--red)" }}>
-              {String((grade.error as Error).message)}
-            </span>
           )}
-        </section>
+        </>
+      }
+      eyebrow={[b.part, b.eyebrow].filter(Boolean).join(" · ") || undefined}
+      title={title}
+    >
+      {lede && <p className="m-0 text-read text-ink">{lede}</p>}
+      {body}
+      {(b.check.length > 0 || guide) && (
+        <Card>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="font-cond text-head font-bold text-strong">
+              {guide ? "Done with this topic?" : "How did it go?"}
+            </span>
+            <span className="text-detail text-muted">
+              {grade.data
+                ? `Next review in ${grade.data.intervalDays} day${grade.data.intervalDays === 1 ? "" : "s"}.`
+                : guide
+                  ? "It comes back to review on the ladder: 1, 3, 7, 16, 35 days."
+                  : "Be honest: a lesson you knew climbs; one you missed comes back tomorrow."}
+            </span>
+            <span className="ml-auto flex gap-2">
+              <button type="button" className="btn" disabled={grade.isPending} onClick={() => grade.mutate("again")}>
+                Again
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={grade.isPending}
+                onClick={() => grade.mutate("good")}
+              >
+                {guide ? "✓ Done" : "✓ I knew it"}
+              </button>
+            </span>
+            {grade.isError && (
+              <span className="w-full text-detail text-red">{String((grade.error as Error).message)}</span>
+            )}
+          </div>
+        </Card>
       )}
       {/* Ask: a conversation about this lesson with the computer's model, kept with the lesson */}
       <Ask
@@ -431,24 +375,21 @@ export function LearnLesson() {
           "What do people often get wrong here?",
         ]}
       />
-      <nav className="flex gap-2">
+      <nav className="flex gap-2" aria-label="The pack's lessons">
         {at > 0 && (
-          <Link
-            to={`/learn/lesson/${encodeURIComponent(sibs[at - 1].id)}`}
-            className="btn btn-quiet max-w-[48%] truncate"
-          >
-            ← {sibs[at - 1].title}
+          <Link to={`/learn/lesson/${encodeURIComponent(sibs[at - 1].id)}`} className="btn btn-quiet max-w-[48%]">
+            <span className="block min-w-0 truncate">← {sibs[at - 1].title}</span>
           </Link>
         )}
         {at >= 0 && at < sibs.length - 1 && (
           <Link
             to={`/learn/lesson/${encodeURIComponent(sibs[at + 1].id)}`}
-            className="btn btn-quiet ml-auto max-w-[48%] truncate"
+            className="btn btn-quiet ml-auto max-w-[48%]"
           >
-            {sibs[at + 1].title} →
+            <span className="block min-w-0 truncate">{sibs[at + 1].title} →</span>
           </Link>
         )}
       </nav>
-    </main>
+    </Page>
   );
 }
