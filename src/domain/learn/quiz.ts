@@ -4,7 +4,8 @@
 // the last two weeks comes back first, then what is due for review, then the rest at random. After each question, an
 // explanation: a small lesson written once by the local model (its own pick, the fast one unless I change it) and kept.
 // A quiz is kept as I take it — its questions, my answers and marks, the question I'm on — so leaving loses nothing,
-// and Ask on a question sees all of it.
+// and Ask on a question sees all of it. A quiz draws from a topic, or from the packs or lessons I pick in it; one I
+// no longer use is archived (off the list, kept) or deleted.
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import type { AskPage } from "../../ai/ask/prompt.ts";
@@ -13,31 +14,50 @@ import { EXPLAIN_VERSION, explainPrompt, gradePrompt, makePrompt, QUIZ_VERSION, 
 import { Explained, Grade, Made } from "../../ai/quiz/shape.ts";
 import { record } from "../../platform/activity.ts";
 import type { Settings } from "../../platform/config.ts";
+import { clampCount, type QuizLesson, questionsFrom } from "../../shared/quiz.ts";
 import { recordCall } from "../calls.ts";
 import { modelFor } from "../models.ts";
 import { Refused } from "../notes/documents.ts";
 import { type Area, getLesson, LessonBody, lessonText } from "./lessons.ts";
+import { lessonStates } from "./review.ts";
 
 export type QuizItem = { lesson: string; title: string; packName: string; q: string | null; a: string | null };
 
+// what a quiz draws from: an area, narrowed to a group (a topic), then to picked packs, then to picked lessons
+export type QuizFrom = { area: Area; group?: string; packs?: string[]; lessons?: string[] };
+
+// the packs picked must be in the area and the topic: an id from another area, or one deleted since the page loaded,
+// is refused with words, never quietly dropped (the quiz would then draw from more than I picked)
+function checkPacks(db: DatabaseSync, from: QuizFrom): void {
+  for (const id of new Set(from.packs ?? [])) {
+    const p = db.prepare("SELECT area, grp FROM packs WHERE id = ?").get(id) as
+      | { area: string; grp: string }
+      | undefined;
+    if (!p || p.area !== from.area || (from.group && p.grp !== from.group))
+      throw new Refused("A picked pack isn't in this topic any more. Pick again.");
+  }
+}
+
 export function pickQuiz(
   db: DatabaseSync,
-  opts: { area: Area; pack?: string; group?: string; count: number; fresh?: boolean },
+  opts: QuizFrom & { count: number; fresh?: boolean },
   now: Date,
   random: () => number = Math.random,
 ): QuizItem[] {
+  checkPacks(db, opts);
   const where = ["p.area = ?"];
   const args: string[] = [opts.area];
-  if (opts.pack) {
-    where.push("p.id = ?");
-    args.push(opts.pack);
-  }
   if (opts.group) {
     where.push("p.grp = ?");
     args.push(opts.group);
   }
+  const packs = [...new Set(opts.packs ?? [])];
+  if (packs.length) {
+    where.push(`p.id IN (${packs.map(() => "?").join(", ")})`);
+    args.push(...packs);
+  }
   const since = new Date(now.getTime() - 14 * 86_400_000).toISOString();
-  const rows = db
+  let rows = db
     .prepare(
       `SELECT l.id, l.title, l.body, p.name AS packName,
               (SELECT count(*) FROM quiz_answers q WHERE q.lesson = l.id AND q.verdict != 'right' AND q.at >= ?) AS missed,
@@ -52,6 +72,14 @@ export function pickQuiz(
     missed: number;
     due: string | null;
   }[];
+  const picked = new Set(opts.lessons ?? []);
+  if (picked.size) {
+    // every picked lesson must be among what the area, topic and packs hold: same reason as the packs
+    const there = new Set(rows.map((r) => r.id));
+    if ([...picked].some((id) => !there.has(id)))
+      throw new Refused("A picked lesson isn't in this topic any more. Pick again.");
+    rows = rows.filter((r) => picked.has(r.id));
+  }
   const nowIso = now.toISOString();
   const ranked = rows
     .map((r) => {
@@ -61,12 +89,66 @@ export function pickQuiz(
       const tier = (checks.length || opts.fresh ? 0 : 3) + (r.missed > 0 ? 0 : r.due && r.due <= nowIso ? 1 : 2);
       return { r, checks, rank: tier + random() * 0.9 };
     })
-    .sort((a, b) => a.rank - b.rank)
-    .slice(0, Math.max(1, Math.min(30, opts.count)));
-  return ranked.map(({ r, checks }) => {
-    const c = checks.length && !opts.fresh ? checks[Math.floor(random() * checks.length)] : null;
-    return { lesson: r.id, title: r.title, packName: r.packName, q: c?.q ?? null, a: c?.a ?? null };
+    .sort((a, b) => a.rank - b.rank);
+  // each lesson's questions, in turn: its own checks in a random order (null: one the model writes). Only a quiz on
+  // picked lessons goes round them again with their next question, so two picked lessons can still make a round of
+  // six; a topic or a pack asks each lesson once, as it always has.
+  const round = picked.size > 0;
+  const turns = ranked.map(({ r, checks }) => {
+    const own = opts.fresh ? [] : shuffled(checks, random);
+    const slots: ({ q: string; a: string } | null)[] = own.length
+      ? own
+      : Array(questionsFrom(checks.length, Boolean(opts.fresh), true)).fill(null);
+    return { r, slots: slots.slice(0, questionsFrom(checks.length, Boolean(opts.fresh), round)) };
   });
+  const items: QuizItem[] = [];
+  const want = clampCount(opts.count);
+  for (let round = 0; items.length < want; round++) {
+    const at = turns.filter((t) => round < t.slots.length);
+    if (!at.length) break;
+    for (const { r, slots } of at) {
+      if (items.length >= want) break;
+      const c = slots[round];
+      items.push({ lesson: r.id, title: r.title, packName: r.packName, q: c?.q ?? null, a: c?.a ?? null });
+    }
+  }
+  return items;
+}
+
+function shuffled<T>(list: T[], random: () => number): T[] {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+// the lessons the quiz's start shows as pills: each with its pack, whether it is due (Learn's own lesson state, so a
+// pill says what the lesson's row in Learn says) and how many checks of its own it has (what the start's count needs)
+export function quizLessons(db: DatabaseSync, area: Area, now: Date = new Date()): QuizLesson[] {
+  const checks = new Map(
+    (
+      db.prepare("SELECT l.id, l.body FROM lessons l JOIN packs p ON p.id = l.pack WHERE p.area = ?").all(area) as {
+        id: string;
+        body: string;
+      }[]
+    ).map((r) => {
+      try {
+        const c = (JSON.parse(r.body) as { check?: unknown }).check;
+        return [r.id, Array.isArray(c) ? c.length : 0] as const;
+      } catch {
+        return [r.id, 0] as const; // a body that can't be read gives a question the model writes
+      }
+    }),
+  );
+  return lessonStates(db, area, now).map((l) => ({
+    id: l.id,
+    title: l.title,
+    pack: l.pack,
+    due: l.state === "due",
+    checks: checks.get(l.id) ?? 0,
+  }));
 }
 
 const textOf = (body: LessonBody) => lessonText(body).filter(Boolean).join("\n");
@@ -85,6 +167,8 @@ export async function makeQuestion(
   db: DatabaseSync,
   settings: Settings,
   lessonId: string,
+  // the questions this quiz already asks on the lesson: a second turn on it asks something else
+  asked: string[] = [],
 ): Promise<{ q: string; a: string }> {
   const lesson = getLesson(db, lessonId);
   if (!lesson) throw new Refused("no such lesson");
@@ -94,12 +178,9 @@ export async function makeQuestion(
     {
       model,
       system: SYSTEM,
-      prompt: makePrompt(
-        lesson.title,
-        textOf(lesson.body),
-        mineOf(db, lesson.pack),
-        (lesson.body.check ?? []).map((c) => c.q),
-      ),
+      prompt: makePrompt(lesson.title, textOf(lesson.body), mineOf(db, lesson.pack), [
+        ...new Set([...(lesson.body.check ?? []).map((c) => c.q), ...asked]),
+      ]),
       maxTokens: 800,
       thinking: true,
     },
@@ -221,13 +302,14 @@ export type QuizAnswer = {
 export type Quiz = {
   id: string;
   area: Area;
-  scope: string; // what it was drawn from, in words: Everything, a group, a pack
+  scope: string; // what it was drawn from, in words: Everything, a group, a pack, a lesson, "AI · 3 lessons"
   items: QuizItem[];
   answers: (QuizAnswer | null)[];
   place: number; // the question I'm on; items.length once it ended
   started: string;
   updated: string;
   finished: string | null;
+  archived: string | null; // when I archived it: off the list, kept; null while on the list
 };
 export type QuizSummary = Omit<Quiz, "items" | "answers"> & {
   total: number;
@@ -246,6 +328,7 @@ const readQuiz = (r: Record<string, unknown>): Quiz => ({
   started: String(r.started),
   updated: String(r.updated),
   finished: r.finished == null ? null : String(r.finished),
+  archived: r.archived == null ? null : String(r.archived),
 });
 
 export function getQuiz(db: DatabaseSync, id: string): Quiz | null {
@@ -262,32 +345,51 @@ const save = (db: DatabaseSync, id: string, what: "items" | "answers", value: un
     .prepare(`UPDATE quizzes SET ${what} = ?, updated = ? WHERE id = ?`)
     .run(JSON.stringify(value), new Date().toISOString(), id);
 
+// what a quiz is drawn from, in words, for its card: one or two lessons' titles, one or two packs' names, or the topic
+// with how many it picked ("AI · 3 lessons"). Two quizzes on different pairs of lessons must not share a name: the
+// list, Archived and the delete question would show two cards I can't tell apart.
+function scopeOf(db: DatabaseSync, from: QuizFrom): string {
+  const topic = from.group || "Everything";
+  const name = (table: "packs" | "lessons", col: "name" | "title", id: string) =>
+    (db.prepare(`SELECT ${col} AS n FROM ${table} WHERE id = ?`).get(id) as { n: string } | undefined)?.n ?? "";
+  const packs = [...new Set(from.packs ?? [])].map((id) => name("packs", "name", id));
+  const lessons = [...new Set(from.lessons ?? [])];
+  if (lessons.length === 1 || lessons.length === 2)
+    return lessons.map((id) => name("lessons", "title", id)).join(" + ");
+  if (lessons.length) return `${packs.length === 1 ? packs[0] : topic} · ${lessons.length} lessons`;
+  if (packs.length === 1 || packs.length === 2) return packs.join(" + ");
+  if (packs.length) return `${topic} · ${packs.length} packs`;
+  return topic;
+}
+
 // a new quiz from the lessons: picked as pickQuiz picks, kept at once
 export function startQuiz(
   db: DatabaseSync,
-  opts: { area: Area; pack?: string; group?: string; count: number; fresh?: boolean },
+  opts: QuizFrom & { count: number; fresh?: boolean },
   now: Date = new Date(),
   random: () => number = Math.random,
 ): Quiz {
   const items = pickQuiz(db, opts, now, random);
   if (!items.length) throw new Refused("No lessons there yet.");
-  const pack = opts.pack
-    ? (db.prepare("SELECT name FROM packs WHERE id = ?").get(opts.pack) as { name: string } | undefined)?.name
-    : undefined;
-  const scope = pack ?? opts.group ?? "Everything";
   const id = randomUUID();
   const at = now.toISOString();
   db.prepare(
     "INSERT INTO quizzes (id, area, scope, items, answers, place, started, updated) VALUES (?, ?, ?, ?, ?, 0, ?, ?)",
-  ).run(id, opts.area, scope, JSON.stringify(items), JSON.stringify(items.map(() => null)), at, at);
+  ).run(id, opts.area, scopeOf(db, opts), JSON.stringify(items), JSON.stringify(items.map(() => null)), at, at);
   return mustQuiz(db, id);
 }
 
-// the quizzes, the started ones first (the last touched on top), then the ended ones
-export function listQuizzes(db: DatabaseSync, limit = 12): QuizSummary[] {
+// the quizzes on the page: every one I haven't archived, the started ones first (the last touched on top), then the
+// ended ones. No cap: a quiz leaves the list only when I archive or delete it, never by being the thirteenth.
+// archived: the archived ones instead, the last archived on top.
+export function listQuizzes(db: DatabaseSync, opts: { archived?: boolean } = {}): QuizSummary[] {
   const rows = db
-    .prepare("SELECT * FROM quizzes ORDER BY finished IS NOT NULL, updated DESC LIMIT ?")
-    .all(limit) as Record<string, unknown>[];
+    .prepare(
+      opts.archived
+        ? "SELECT * FROM quizzes WHERE archived IS NOT NULL ORDER BY archived DESC"
+        : "SELECT * FROM quizzes WHERE archived IS NULL ORDER BY finished IS NOT NULL, updated DESC",
+    )
+    .all() as Record<string, unknown>[];
   return rows.map(readQuiz).map(({ items, answers, ...q }) => ({
     ...q,
     total: items.length,
@@ -295,6 +397,20 @@ export function listQuizzes(db: DatabaseSync, limit = 12): QuizSummary[] {
     right: answers.filter((a) => a?.verdict === "right").length,
     partly: answers.filter((a) => a?.verdict === "partly").length,
   }));
+}
+
+// off the list, kept as it is: its questions, my answers and its Ask talks wait for Restore
+export function archiveQuiz(db: DatabaseSync, id: string, now: Date = new Date()): Quiz {
+  const quiz = mustQuiz(db, id);
+  if (!quiz.archived) db.prepare("UPDATE quizzes SET archived = ? WHERE id = ?").run(now.toISOString(), id);
+  return mustQuiz(db, id);
+}
+
+// back on the list, where it was: its place, its answers and its last touch unchanged
+export function restoreQuiz(db: DatabaseSync, id: string): Quiz {
+  mustQuiz(db, id);
+  db.prepare("UPDATE quizzes SET archived = NULL WHERE id = ?").run(id);
+  return mustQuiz(db, id);
 }
 
 const itemAt = (quiz: Quiz, index: number): QuizItem => {
@@ -305,9 +421,11 @@ const itemAt = (quiz: Quiz, index: number): QuizItem => {
 
 // a lesson without its own check gets a question written for it, once: kept in the quiz, so coming back finds it
 export async function makeQuizQuestion(db: DatabaseSync, settings: Settings, id: string, index: number): Promise<Quiz> {
-  const item = itemAt(mustQuiz(db, id), index);
-  if (item.q && item.a) return mustQuiz(db, id);
-  const made = await makeQuestion(db, settings, item.lesson);
+  const quiz = mustQuiz(db, id);
+  const item = itemAt(quiz, index);
+  if (item.q && item.a) return quiz;
+  const asked = quiz.items.filter((it, i) => i !== index && it.lesson === item.lesson && it.q).map((it) => it.q ?? "");
+  const made = await makeQuestion(db, settings, item.lesson, asked);
   const fresh = mustQuiz(db, id); // read again: the model took seconds
   if (!fresh.items[index].q) {
     fresh.items[index] = { ...fresh.items[index], q: made.q, a: made.a };
@@ -374,7 +492,9 @@ export function moveQuiz(db: DatabaseSync, id: string, place: number): Quiz {
   return mustQuiz(db, id);
 }
 
-export function dropQuiz(db: DatabaseSync, id: string): void {
+// gone for good: the quiz and its Ask talks. My answers stay in quiz_answers, by lesson, so what I missed in it still
+// comes back first for two weeks (pickQuiz), and the kept explanations stay for the next quiz that asks the same.
+export function deleteQuiz(db: DatabaseSync, id: string): void {
   mustQuiz(db, id);
   db.prepare("DELETE FROM quizzes WHERE id = ?").run(id);
   db.prepare("DELETE FROM ask_messages WHERE app = 'quiz' AND ref LIKE ?").run(`${id}:%`);

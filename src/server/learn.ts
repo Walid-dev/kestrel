@@ -21,12 +21,15 @@ import {
 import { bestAnswer } from "../domain/learn/match.ts";
 import {
   answerQuiz,
-  dropQuiz,
+  archiveQuiz,
+  deleteQuiz,
   explainAnswer,
   getQuiz,
   listQuizzes,
   makeQuizQuestion,
   moveQuiz,
+  quizLessons,
+  restoreQuiz,
   skipQuiz,
   startQuiz,
 } from "../domain/learn/quiz.ts";
@@ -101,16 +104,20 @@ export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
       })),
     }),
   );
-  // the quiz, kept as I take it: start one, list them (started first), open one, and on a question: write it (a lesson
-  // without its own check), answer it, skip it; move to a question; drop the quiz
+  // the quiz, kept as I take it: start one (on a topic, or the packs or lessons picked in it), list them (started
+  // first; or the archived ones), open one, and on a question: write it (a lesson without its own check), answer it,
+  // skip it; move to a question; archive, restore or delete the quiz
+  const ids = z.array(z.string().min(1).max(200)).max(1000);
   const quizBody = z.object({
     area: z.enum(["learn", "interview"]).default("learn"),
-    pack: z.string().optional(),
-    group: z.string().optional(),
+    group: z.string().max(40).optional(),
+    packs: ids.optional(),
+    lessons: ids.optional(),
     count: z.number().int().min(1).max(30).default(10),
     fresh: z.boolean().default(false), // new questions, each written by the model
   });
   const index = z.object({ index: z.number().int().min(0) });
+  const quizId = z.object({ id: z.string().min(1).max(64) });
   const quizRoute = async (c: Context, run: () => unknown) => {
     try {
       return c.json({ quiz: await run() });
@@ -118,12 +125,24 @@ export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
       return refusing(c, e);
     }
   };
-  app.get("/api/learn/quizzes", (c) => c.json({ quizzes: listQuizzes(db) }));
+  app.get("/api/learn/quizzes", zValidator("query", z.object({ archived: z.enum(["0", "1"]).optional() })), (c) =>
+    c.json({ quizzes: listQuizzes(db, { archived: c.req.valid("query").archived === "1" }) }),
+  );
+  // the lessons a quiz can be narrowed to, with what is due and how many checks each has
+  app.get("/api/learn/quiz/lessons", zValidator("query", z.object({ area: z.enum(["learn", "interview"]) })), (c) =>
+    c.json({ lessons: quizLessons(db, c.req.valid("query").area) }),
+  );
   app.post("/api/learn/quizzes", zValidator("json", quizBody), (c) =>
     quizRoute(c, () => {
-      const { area: a, pack, group, count, fresh } = c.req.valid("json");
-      return startQuiz(db, { area: a, pack: pack || undefined, group: group || undefined, count, fresh });
+      const { area: a, group, packs, lessons, count, fresh } = c.req.valid("json");
+      return startQuiz(db, { area: a, group: group || undefined, packs, lessons, count, fresh });
     }),
+  );
+  app.post("/api/learn/quizzes/:id/archive", zValidator("param", quizId), (c) =>
+    quizRoute(c, () => archiveQuiz(db, c.req.valid("param").id)),
+  );
+  app.post("/api/learn/quizzes/:id/restore", zValidator("param", quizId), (c) =>
+    quizRoute(c, () => restoreQuiz(db, c.req.valid("param").id)),
   );
   app.get("/api/learn/quizzes/:id", (c) => {
     const quiz = getQuiz(db, c.req.param("id"));
@@ -147,9 +166,9 @@ export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
   app.post("/api/learn/quizzes/:id/place", zValidator("json", z.object({ place: z.number().int().min(0) })), (c) =>
     quizRoute(c, () => moveQuiz(db, c.req.param("id"), c.req.valid("json").place)),
   );
-  app.delete("/api/learn/quizzes/:id", (c) => {
+  app.delete("/api/learn/quizzes/:id", zValidator("param", quizId), (c) => {
     try {
-      dropQuiz(db, c.req.param("id"));
+      deleteQuiz(db, c.req.valid("param").id);
       return c.json({ ok: true });
     } catch (e) {
       return refusing(c, e);

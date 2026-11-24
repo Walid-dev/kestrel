@@ -6,10 +6,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { type QuizLesson, questionsIn } from "../../src/shared/quiz.ts";
 import { Ask } from "./ask.tsx";
 import { enterSends } from "./keys.ts";
 import { block, Code, Inline, type Say } from "./learn/blocks.tsx";
 import { type Spoken, useReader } from "./learn/voice.ts";
+import { useConfirm } from "./ui/confirm.tsx";
+import { Pills } from "./ui/pills.tsx";
 
 type Area = "learn" | "interview";
 type Item = { lesson: string; title: string; packName: string; q: string | null; a: string | null };
@@ -25,6 +28,7 @@ type QuizData = {
   started: string;
   updated: string;
   finished: string | null;
+  archived: string | null;
 };
 type Summary = Omit<QuizData, "items" | "answers"> & { total: number; answered: number; right: number; partly: number };
 type Explained = { blocks: Record<string, unknown>[]; remember: string; kept: boolean };
@@ -55,6 +59,8 @@ const when = (iso: string) =>
     hour: "numeric",
     minute: "2-digit",
   });
+// a row's short date: room for the quiz's name beside its Archive and ✕ on a phone
+const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 const named = (q: { area: Area; scope: string }) => `${q.area === "interview" ? "Interview prep · " : ""}${q.scope}`;
 // a score's colour on the money scale: most right is great, few is poor
 const scoreTone = (right: number, total: number) => {
@@ -63,25 +69,50 @@ const scoreTone = (right: number, total: number) => {
 };
 
 // the start (my ask, 2026-11-23: "simple, but polished and modern"): the quiz I started, large, to continue; a new
-// one in three choices — where from, on what (each topic with its lessons and what is due), how many — and one button
-// that says what it starts; the ones I ended with their score. A computer shows the new quiz beside the rest.
+// one in three choices — where from, on what (each topic with its lessons and what is due, then its packs and lessons
+// as pills to narrow it), how many — and one button that says what it starts; the ones I ended with their score. A
+// quiz I no longer use is archived (Archived shows it again, to restore) or deleted. A computer shows the new quiz
+// beside the rest.
 export function Quiz() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const sure = useConfirm();
   const [area, setArea] = useState<Area>("learn");
-  const [from, setFrom] = useState(""); // "" everything, "group:<name>" or "pack:<id>"
+  const [from, setFrom] = useState(""); // "" everything, or "group:<name>"
+  const [packsPicked, setPacksPicked] = useState<string[]>([]);
+  const [lessonsPicked, setLessonsPicked] = useState<string[]>([]);
+  const [allLessons, setAllLessons] = useState(false); // a long list starts with the due and the picked ones
   const [count, setCount] = useState(10);
   const [fresh, setFresh] = useState(false); // new questions, each written by the model
+  const [allStarted, setAllStarted] = useState(false);
+  const [allDone, setAllDone] = useState(false);
+  const [archivedOpen, setArchivedOpen] = useState(false);
+  // "Show all" and "Show fewer" leave the pills; the lesson pill to focus next, so the keyboard stays in the list
+  const lessonPills = useRef<HTMLDivElement>(null);
+  const focusPill = useRef<number | null>(null);
+  useEffect(() => {
+    if (focusPill.current === null) return;
+    lessonPills.current?.querySelectorAll<HTMLButtonElement>("button.pill")[focusPill.current]?.focus();
+    focusPill.current = null;
+  });
 
   const packs = useQuery({
     queryKey: ["learn-packs", area],
     queryFn: () => call<{ packs: Pack[] }>(`/api/learn/packs?area=${area}`),
   });
-  const all = packs.data?.packs ?? [];
-  const sum = (ps: Pack[]) => ({
-    lessons: ps.reduce((n, p) => n + (p.lessons ?? 0), 0),
-    due: ps.reduce((n, p) => n + (p.due ?? 0), 0),
+  const lessonList = useQuery({
+    queryKey: ["quiz-lessons", area],
+    queryFn: () => call<{ lessons: QuizLesson[] }>(`/api/learn/quiz/lessons?area=${area}`),
   });
+  const all = packs.data?.packs ?? [];
+  const lessonsOf = lessonList.data?.lessons ?? [];
+  // a topic's lessons and what is due, counted from the lessons the pills show: the tile, the header and the pills
+  // then say the same (Learn's own lesson state, and what the quiz draws first)
+  const sum = (ps: Pack[]) => {
+    const ids = new Set(ps.map((p) => p.id));
+    const ls = lessonsOf.filter((l) => ids.has(l.pack));
+    return { lessons: ls.length, due: ls.filter((l) => l.due).length };
+  };
   const topics = [
     { key: "", name: "Everything", ...sum(all) },
     ...[...new Set(all.map((p) => p.group).filter(Boolean))].map((g) => ({
@@ -90,14 +121,55 @@ export function Quiz() {
       ...sum(all.filter((p) => p.group === g)),
     })),
   ];
-  const picked = from.startsWith("pack:")
-    ? all.find((p) => `pack:${p.id}` === from)?.name
-    : from
-      ? topics.find((t) => t.key === from)?.name
-      : "";
+  const group = from.startsWith("group:") ? from.slice(6) : "";
+  const topic = topics.find((t) => t.key === from);
+  // the topic's packs, then the lessons in the packs picked (all the topic's when none is), then the lessons picked
+  const topicPacks = group ? all.filter((p) => p.group === group) : all;
+  const packIds = new Set(packsPicked.length ? packsPicked : topicPacks.map((p) => p.id));
+  const shown = lessonsOf.filter((l) => packIds.has(l.pack));
+  const pool = lessonsPicked.length ? shown.filter((l) => lessonsPicked.includes(l.id)) : shown;
+  const questions = lessonList.data ? questionsIn(pool, count, fresh, lessonsPicked.length > 0) : count;
+  const longList = shown.length > LONG_LIST;
+  const short = shown.filter((l) => l.due || lessonsPicked.includes(l.id));
+  const listed = longList && !allLessons ? short : shown;
+  const packName = (id: string) => all.find((p) => p.id === id)?.name ?? "";
+  // what the quiz draws from, in a few words: the line under the pills and the start button's end
+  const drawn = lessonsPicked.length
+    ? plural(lessonsPicked.length, "lesson")
+    : packsPicked.length
+      ? `All ${plural(shown.length, "lesson")} in ${packsPicked.length === 1 ? packName(packsPicked[0]) : plural(packsPicked.length, "pack")}`
+      : `All ${plural(shown.length, "lesson")}`;
+  const on =
+    lessonsPicked.length === 1 || lessonsPicked.length === 2
+      ? lessonsPicked.map((id) => shown.find((l) => l.id === id)?.title).join(" + ")
+      : lessonsPicked.length
+        ? plural(lessonsPicked.length, "lesson")
+        : packsPicked.length === 1
+          ? packName(packsPicked[0])
+          : packsPicked.length
+            ? plural(packsPicked.length, "pack")
+            : group;
+  const pickTopic = (key: string) => {
+    setFrom(key);
+    setPacksPicked([]);
+    setLessonsPicked([]);
+    setAllLessons(false);
+  };
+  const pickPacks = (next: string[]) => {
+    setPacksPicked(next);
+    // a lesson stays picked only while its pack is still in sight
+    const keep = new Set(next.length ? next : topicPacks.map((p) => p.id));
+    const inPack = new Map((lessonList.data?.lessons ?? []).map((l) => [l.id, l.pack]));
+    setLessonsPicked((ls) => ls.filter((id) => keep.has(inPack.get(id) ?? "")));
+  };
+
   const quizzes = useQuery({
     queryKey: ["quizzes"],
     queryFn: () => call<{ quizzes: Summary[] }>("/api/learn/quizzes"),
+  });
+  const archivedList = useQuery({
+    queryKey: ["quizzes", "archived"],
+    queryFn: () => call<{ quizzes: Summary[] }>("/api/learn/quizzes?archived=1"),
   });
   const start = useMutation({
     mutationFn: () =>
@@ -105,8 +177,9 @@ export function Quiz() {
         area,
         count,
         fresh,
-        ...(from.startsWith("group:") ? { group: from.slice(6) } : {}),
-        ...(from.startsWith("pack:") ? { pack: from.slice(5) } : {}),
+        ...(group ? { group } : {}),
+        ...(packsPicked.length ? { packs: packsPicked } : {}),
+        ...(lessonsPicked.length ? { lessons: lessonsPicked } : {}),
       }),
     onSuccess: (got) => {
       queryClient.setQueryData(["quiz", got.quiz.id], got);
@@ -114,17 +187,42 @@ export function Quiz() {
       navigate(`/quiz/${got.quiz.id}`);
     },
   });
-  const drop = useMutation({
-    mutationFn: (id: string) => call(`/api/learn/quizzes/${id}`, "DELETE"),
+  // archive, restore, delete: each refreshes both lists (the key ["quizzes"] covers the archived one too). It knows
+  // the list it came from and the quiz's name, so a failure shows beside that list, naming the quiz.
+  type Change = { id: string; to: "archive" | "restore" | "delete"; list: List; name: string };
+  const change = useMutation({
+    mutationFn: ({ id, to }: Change) =>
+      to === "delete" ? call(`/api/learn/quizzes/${id}`, "DELETE") : call(`/api/learn/quizzes/${id}/${to}`, "POST"),
+    onSuccess: (_, { id, to }) => {
+      if (to === "delete") queryClient.removeQueries({ queryKey: ["quiz", id] });
+    },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["quizzes"] }),
   });
-  const failing = [start, drop, quizzes].find((x) => x.isError);
+  const busy = (id: string) => (change.isPending && change.variables?.id === id ? { opacity: 0.5 } : undefined);
+  const act = (q: Summary, to: Change["to"], list: List) => change.mutate({ id: q.id, to, list, name: named(q) });
+  const failedIn = (list: List) =>
+    change.isError && change.variables?.list === list
+      ? `Couldn't ${change.variables.to} “${change.variables.name}”: ${(change.error as Error).message}`
+      : null;
+  const remove = async (q: Summary, list: List) => {
+    const yes = await sure({
+      title: "Delete this quiz?",
+      body: `“${named(q)}” and what you asked about it are deleted for good. What you missed in it still comes first in new quizzes, for two weeks after you answered.`,
+      yes: "Delete",
+      danger: true,
+    });
+    if (yes) act(q, "delete", list);
+  };
+  // the start's own trouble under its button: the start itself, or the topics and lessons it needs
+  const failing = [start, packs, lessonList].find((x) => x.isError);
   const started = (quizzes.data?.quizzes ?? []).filter((q) => !q.finished);
   const ended = (quizzes.data?.quizzes ?? []).filter((q) => q.finished);
+  const archived = archivedList.data?.quizzes ?? [];
   const due = topics[0].due;
+  const startedShown = allStarted ? started : started.slice(0, STARTED_SHOWN);
 
   return (
-    <main className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-start lg:gap-x-8">
+    <main className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:grid-rows-[auto_auto_auto_1fr] lg:items-start lg:gap-x-8">
       <header className="grid gap-2 lg:col-span-2">
         <h2 className="font-cond m-0 text-[40px] font-bold uppercase leading-none tracking-tight">Quiz</h2>
         <p className="m-0 max-w-2xl text-[16px] leading-relaxed" style={{ color: "var(--muted)" }}>
@@ -139,31 +237,43 @@ export function Quiz() {
         </p>
       </header>
 
-      {started.length > 0 && (
+      {(started.length > 0 || failedIn("started") || quizzes.isError) && (
         <section className="grid content-start gap-3 lg:col-start-2 lg:row-start-2">
           <span className="eyebrow">Pick up where you left off</span>
-          {started.map((q) => (
-            <article key={q.id} className="card grid gap-4 !p-5">
-              <Link to={`/quiz/${q.id}`} className="flex items-center gap-4">
-                <Ring part={q.total ? q.answered / q.total : 0}>
-                  {q.answered}/{q.total}
-                </Ring>
-                <span className="grid min-w-0 flex-1 gap-1">
-                  <span
-                    className="font-cond truncate text-[22px] font-bold leading-tight"
-                    style={{ color: "var(--strong)" }}
-                  >
-                    {named(q)}
+          <Failed message={quizzes.isError ? (quizzes.error as Error).message : failedIn("started")} />
+          {startedShown.map((q) => (
+            <article key={q.id} className="card quiz-list grid gap-4 !p-5" style={busy(q.id)}>
+              <div className="flex items-start gap-2">
+                <Link to={`/quiz/${q.id}`} className="flex min-w-0 flex-1 items-center gap-4">
+                  <Ring part={q.total ? q.answered / q.total : 0}>
+                    {q.answered}/{q.total}
+                  </Ring>
+                  <span className="grid min-w-0 flex-1 gap-1">
+                    <span
+                      className="font-cond truncate text-[22px] font-bold leading-tight"
+                      style={{ color: "var(--strong)" }}
+                    >
+                      {named(q)}
+                    </span>
+                    <span className="text-[14px]" style={{ color: "var(--text)" }}>
+                      Question {Math.min(q.place + 1, q.total)} of {q.total} · {q.right} right
+                      {q.partly ? ` · ${q.partly} partly` : ""}
+                    </span>
+                    <span className="text-[13px]" style={{ color: "var(--muted)" }}>
+                      {when(q.updated)}
+                    </span>
                   </span>
-                  <span className="text-[14px]" style={{ color: "var(--text)" }}>
-                    Question {Math.min(q.place + 1, q.total)} of {q.total} · {q.right} right
-                    {q.partly ? ` · ${q.partly} partly` : ""}
-                  </span>
-                  <span className="text-[13px]" style={{ color: "var(--muted)" }}>
-                    {when(q.updated)}
-                  </span>
-                </span>
-              </Link>
+                </Link>
+                <button
+                  type="button"
+                  className="card-remove"
+                  aria-label={`Delete "${named(q)}"`}
+                  title="Delete"
+                  onClick={() => remove(q, "started")}
+                >
+                  ✕
+                </button>
+              </div>
               <div className="flex items-center gap-2">
                 <Link to={`/quiz/${q.id}`} className="btn btn-primary btn-big flex-1 text-center">
                   Continue
@@ -171,20 +281,23 @@ export function Quiz() {
                 <button
                   type="button"
                   className="btn btn-quiet btn-big"
-                  onClick={() => {
-                    if (confirm("Drop this quiz? What you answered still counts for what comes back first."))
-                      drop.mutate(q.id);
-                  }}
+                  aria-label={`Archive "${named(q)}"`}
+                  onClick={() => act(q, "archive", "started")}
                 >
-                  Drop
+                  Archive
                 </button>
               </div>
             </article>
           ))}
+          {started.length > STARTED_SHOWN && (
+            <button type="button" className="btn btn-quiet min-h-11 py-3" onClick={() => setAllStarted(!allStarted)}>
+              {allStarted ? "Show fewer" : `Show all ${started.length}`}
+            </button>
+          )}
         </section>
       )}
 
-      <section className="card grid content-start gap-6 !p-5 md:!p-6 lg:col-start-1 lg:row-span-2 lg:row-start-2">
+      <section className="card grid content-start gap-6 !p-5 md:!p-6 lg:col-start-1 lg:row-span-3 lg:row-start-2">
         <h3 className="font-cond m-0 text-[26px] font-bold leading-none" style={{ color: "var(--strong)" }}>
           {started.length ? "A new quiz" : "Start a quiz"}
         </h3>
@@ -203,7 +316,7 @@ export function Quiz() {
                 aria-pressed={area === k}
                 onClick={() => {
                   setArea(k);
-                  setFrom("");
+                  pickTopic("");
                 }}
               >
                 {label}
@@ -220,7 +333,7 @@ export function Quiz() {
                 type="button"
                 className="tile"
                 aria-pressed={from === t.key}
-                onClick={() => setFrom(t.key)}
+                onClick={() => pickTopic(t.key)}
               >
                 <b>{t.name}</b>
                 <span>
@@ -230,20 +343,61 @@ export function Quiz() {
               </button>
             ))}
           </div>
-          <select
-            className="btn w-full !rounded-xl !px-4 !py-3 !text-[15px]"
-            value={from.startsWith("pack:") ? from : ""}
-            onChange={(e) => setFrom(e.target.value)}
-            aria-label="Or one pack"
-          >
-            <option value="">Or one pack…</option>
-            {all.map((p) => (
-              <option key={p.id} value={`pack:${p.id}`}>
-                {p.name}
-              </option>
-            ))}
-          </select>
         </div>
+        {topic && topic.lessons > 0 && (
+          <div className="grid gap-4">
+            {topicPacks.length > 1 && (
+              <Pills
+                label="Packs"
+                showLabel
+                multiple
+                options={topicPacks.map((p) => ({ value: p.id, label: p.name, count: p.lessons ?? 0 }))}
+                value={packsPicked}
+                onChange={pickPacks}
+              />
+            )}
+            {shown.length > 0 && (
+              <div ref={lessonPills}>
+                <Pills
+                  label="Lessons"
+                  showLabel
+                  multiple
+                  describedBy="quiz-drawn"
+                  options={[
+                    ...listed.map((l) => ({
+                      value: l.id,
+                      label: l.title,
+                      ...(l.due ? { tone: "cyan" as const, hint: "due" } : {}),
+                    })),
+                    // the rest of a long list, one tap away, and back: a pill among the pills, so it wraps with them
+                    ...(longList
+                      ? [{ value: SHOW_MORE, label: allLessons ? "Show fewer" : `Show all ${shown.length}` }]
+                      : []),
+                  ]}
+                  value={lessonsPicked}
+                  onChange={(next) => {
+                    if (next.includes(SHOW_MORE)) {
+                      // the pill tapped leaves: focus the first lesson that came into sight, or, folding, the pill
+                      // that brings them back (the last one of the short list)
+                      focusPill.current = allLessons
+                        ? short.length
+                        : Math.max(
+                            0,
+                            shown.findIndex((l) => !short.includes(l)),
+                          );
+                      setAllLessons(!allLessons);
+                    }
+                    setLessonsPicked(next.filter((v) => v !== SHOW_MORE));
+                  }}
+                />
+              </div>
+            )}
+            <p id="quiz-drawn" className="m-0 text-[14px]" style={{ color: "var(--muted)" }}>
+              {drawn}
+              {lessonsPicked.length || packsPicked.length ? "" : ". Pick some to narrow the quiz."}
+            </p>
+          </div>
+        )}
         <div className="grid gap-2.5">
           <span className="eyebrow">How many</span>
           <fieldset className="seg" aria-label="How many">
@@ -277,45 +431,174 @@ export function Quiz() {
         <button
           type="button"
           className="btn btn-primary btn-big inline-flex w-full items-center justify-center gap-2"
-          disabled={start.isPending}
+          disabled={start.isPending || questions === 0}
           onClick={() => start.mutate()}
         >
           {start.isPending && <span className="spin" />}
-          {start.isPending ? "Picking the questions" : `Start ${count} questions${picked ? ` on ${picked}` : ""}`}
+          {start.isPending
+            ? "Picking the questions"
+            : questions === 0
+              ? "No lessons here yet"
+              : `Start ${plural(questions, "question")}${on ? ` on ${on}` : ""}`}
         </button>
-        {failing && (
-          <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-            {(failing.error as Error).message}
-          </p>
-        )}
+        <Failed message={failing ? (failing.error as Error).message : null} />
       </section>
 
-      {ended.length > 0 && (
+      {(ended.length > 0 || failedIn("done")) && (
         <section className="grid content-start gap-3 lg:col-start-2">
           <span className="eyebrow">Done</span>
-          <div className="card grid overflow-hidden !p-0">
-            {ended.map((q, i) => (
-              <Link
+          <Failed message={failedIn("done")} />
+          <div className="card quiz-list grid overflow-hidden !p-0">
+            {(allDone ? ended : ended.slice(0, DONE_SHOWN)).map((q, i) => (
+              <div
                 key={q.id}
-                to={`/quiz/${q.id}`}
-                className="quiz-done flex items-center gap-3 px-4 py-3.5"
-                style={{ borderTop: i ? "1px solid var(--line)" : undefined }}
+                className="quiz-done relative flex items-center gap-3 px-4 py-3.5"
+                style={{ borderTop: i ? "1px solid var(--line)" : undefined, ...busy(q.id) }}
               >
                 <span className={`chip ${scoreTone(q.right, q.total)} !px-2.5 !py-1.5 !text-[13px]`}>
                   {q.right}/{q.total}
                 </span>
-                <span className="truncate text-[15px] font-semibold" style={{ color: "var(--strong)" }}>
+                <Link
+                  to={`/quiz/${q.id}`}
+                  className="card-open min-w-0 flex-1 truncate text-[15px] font-semibold"
+                  style={{ color: "var(--strong)" }}
+                >
                   {named(q)}
+                </Link>
+                <span
+                  className="shrink-0 text-[13px]"
+                  style={{ color: "var(--muted)" }}
+                  title={when(q.finished ?? q.updated)}
+                >
+                  {day(q.finished ?? q.updated)}
                 </span>
-                <span className="ml-auto shrink-0 text-[13px]" style={{ color: "var(--muted)" }}>
-                  {when(q.finished ?? q.updated)}
+                <span className="flex shrink-0 items-center">
+                  <button
+                    type="button"
+                    className="card-remove quiz-keep"
+                    aria-label={`Archive "${named(q)}"`}
+                    title="Archive"
+                    onClick={() => act(q, "archive", "done")}
+                  >
+                    <ArchiveIcon />
+                  </button>
+                  <button
+                    type="button"
+                    className="card-remove"
+                    aria-label={`Delete "${named(q)}"`}
+                    title="Delete"
+                    onClick={() => remove(q, "done")}
+                  >
+                    ✕
+                  </button>
                 </span>
-              </Link>
+              </div>
             ))}
+            {ended.length > DONE_SHOWN && (
+              <button
+                type="button"
+                className="btn btn-quiet !rounded-none !border-0 !border-t py-3"
+                style={{ borderTop: "1px solid var(--line)" }}
+                onClick={() => setAllDone(!allDone)}
+              >
+                {allDone ? "Show fewer" : `Show all ${ended.length}`}
+              </button>
+            )}
           </div>
         </section>
       )}
+
+      {(archived.length > 0 || failedIn("archived") || archivedList.isError) && (
+        <section className="grid content-start gap-3 lg:col-start-2">
+          <Pills
+            label="Archived quizzes"
+            multiple
+            options={[{ value: "archived", label: "Archived", count: archived.length }]}
+            value={archivedOpen ? ["archived"] : []}
+            onChange={(v) => setArchivedOpen(v.length > 0)}
+          />
+          <Failed message={archivedList.isError ? (archivedList.error as Error).message : failedIn("archived")} />
+          {archivedOpen && archived.length > 0 && (
+            <div className="card quiz-list grid overflow-hidden !p-0">
+              {archived.map((q, i) => (
+                <div
+                  key={q.id}
+                  className="quiz-done relative flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3.5"
+                  style={{ borderTop: i ? "1px solid var(--line)" : undefined, ...busy(q.id) }}
+                >
+                  <span
+                    className={`chip ${q.finished ? scoreTone(q.right, q.total) : "tone-muted"} !px-2.5 !py-1.5 !text-[13px]`}
+                  >
+                    {q.finished ? q.right : q.answered}/{q.total}
+                  </span>
+                  <Link
+                    to={`/quiz/${q.id}`}
+                    className="card-open min-w-[9rem] flex-1 truncate text-[15px] font-semibold"
+                    style={{ color: "var(--strong)" }}
+                  >
+                    {named(q)}
+                  </Link>
+                  <span className="relative z-[1] ml-auto flex shrink-0 gap-2">
+                    <button
+                      type="button"
+                      className="btn"
+                      aria-label={`Restore "${named(q)}"`}
+                      onClick={() => act(q, "restore", "archived")}
+                    >
+                      Restore
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-danger"
+                      aria-label={`Delete "${named(q)}"`}
+                      onClick={() => remove(q, "archived")}
+                    >
+                      Delete
+                    </button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </main>
+  );
+}
+
+const LONG_LIST = 12; // past this many lessons, the pills start with the due and the picked ones
+const SHOW_MORE = "\u0000more"; // the "Show all" / "Show fewer" pill's value: no lesson id can be it
+const STARTED_SHOWN = 3; // started quizzes shown before "Show all": the new quiz's form stays near the top
+const DONE_SHOWN = 8; // ended quizzes shown before "Show all"
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+type List = "started" | "done" | "archived"; // where an archive, restore or delete was asked from
+
+// what went wrong, in red, where it went wrong
+function Failed({ message }: { message: string | null }) {
+  return message ? (
+    <p className="m-0 text-sm" role="alert" style={{ color: "var(--red)" }}>
+      {message}
+    </p>
+  ) : null;
+}
+
+// Archive's mark: a box with its lid, the slot on its front
+function ArchiveIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="15"
+      height="15"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="4" width="18" height="5" rx="1" />
+      <path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4" />
+    </svg>
   );
 }
 
@@ -486,6 +769,7 @@ export function QuizRun() {
           }}
         />
       </div>
+      <ArchivedNote quiz={quiz} />
       <section className="card grid gap-3">
         <Link
           to={`/learn/lesson/${encodeURIComponent(item.lesson)}`}
@@ -641,6 +925,34 @@ export function QuizRun() {
   );
 }
 
+// an archived quiz opened from Archived says so, with Restore one tap away: answering it here doesn't bring it back to
+// the list, so I'd otherwise finish a quiz that then shows nowhere but Archived
+function ArchivedNote({ quiz }: { quiz: QuizData }) {
+  const queryClient = useQueryClient();
+  const restore = useMutation({
+    mutationFn: () => call<{ quiz: QuizData }>(`/api/learn/quizzes/${quiz.id}/restore`, "POST"),
+    onSuccess: (got) => {
+      queryClient.setQueryData(["quiz", quiz.id], got);
+      queryClient.invalidateQueries({ queryKey: ["quizzes"] });
+    },
+  });
+  if (!quiz.archived) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px]" style={{ color: "var(--muted)" }}>
+      <span>This quiz is archived.</span>
+      <button
+        type="button"
+        className="btn btn-quiet quiz-restore"
+        disabled={restore.isPending}
+        onClick={() => restore.mutate()}
+      >
+        Restore
+      </button>
+      <Failed message={restore.isError ? (restore.error as Error).message : null} />
+    </div>
+  );
+}
+
 // the end: the score, and every question a tap away to read again (and ask about)
 function QuizEnd({ quiz }: { quiz: QuizData }) {
   const right = quiz.answers.filter((m) => m?.verdict === "right").length;
@@ -653,6 +965,7 @@ function QuizEnd({ quiz }: { quiz: QuizData }) {
         </Link>
         <span className="eyebrow truncate">{named(quiz)}</span>
       </div>
+      <ArchivedNote quiz={quiz} />
       <section className="card grid gap-1">
         <span className="font-cond text-[44px] font-bold leading-none" style={{ color: "var(--strong)" }}>
           {right} of {quiz.items.length}

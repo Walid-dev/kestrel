@@ -1010,6 +1010,27 @@ pre.code .f {
   background: color-mix(in srgb, var(--accent) 9%, var(--surface));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
 }
+/* a quiz's Archive beside its ✕: the same quiet round button, lit in the accent rather than red, since it keeps */
+.card-remove.quiz-keep:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+/* on a phone, a quiz card's ✕ and Archive take a thumb's size without making the row taller */
+@media (pointer: coarse) {
+  .quiz-list .card-remove {
+    width: 44px;
+    height: 44px;
+    margin: -10px 0;
+  }
+  .quiz-list .card-remove:last-child {
+    margin-right: -10px;
+  }
+  /* the text buttons in a quiz list (Restore, Delete, Show all) and an archived quiz's Restore, a thumb's height too */
+  .quiz-list .btn,
+  .quiz-restore {
+    min-height: 44px;
+  }
+}
 /* a flow the model drew: steps side by side, each a card in its own colour with an arrow to the next; where the room
    is narrow (a phone), a vertical stepper on one soft panel, each step's number in a ring on a thin line */
 .ask-flow {
