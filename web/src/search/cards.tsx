@@ -161,7 +161,8 @@ export function PriceBar({ price, deal }: { price: number; deal: NonNullable<Lis
   );
 }
 
-// a box for a model's words (its read of a listing): an eyebrow in its tone, a chip beside it, the words under
+// a block for a model's words (its read of a listing), inside a card or the sheet, so an inner block, not a box with
+// an edge: an eyebrow in its tone, a chip beside it, the words under
 export function ReadBox({
   label,
   chip,
@@ -176,7 +177,7 @@ export function ReadBox({
   children: ReactNode;
 }) {
   return (
-    <div className={`read-box tone-${tone} grid gap-1.5`}>
+    <div className="inner grid gap-1">
       <div className="flex items-center gap-2">
         <span className={`eyebrow tone-${tone}`}>{label}</span>
         {chip && <span className={`chip tone-${chipTone ?? tone}`}>{chip}</span>}
@@ -200,8 +201,19 @@ export const sourceName = (s: string) => {
   return words.charAt(0).toUpperCase() + words.slice(1);
 };
 
-// the Apply button, or what became of it once pressed: queued, applying, waiting on me, sent; one not sent can go again
-export function ApplyButton({ state, onQueue, pending }: { state?: string; onQueue: () => void; pending: boolean }) {
+// the Apply button, or what became of it once pressed: queued, applying, waiting on me, sent; one not sent can go again.
+// Filled only where it is the screen's main action (the sheet's foot); on a card in the grid it is a plain button
+export function ApplyButton({
+  state,
+  onQueue,
+  pending,
+  primary = false,
+}: {
+  state?: string;
+  onQueue: () => void;
+  pending: boolean;
+  primary?: boolean;
+}) {
   const chip = state && state !== "not-sent" ? APP_CHIP[state] : null;
   if (chip && !pending)
     return (
@@ -211,12 +223,7 @@ export function ApplyButton({ state, onQueue, pending }: { state?: string; onQue
       </span>
     );
   return (
-    <button
-      type="button"
-      className="btn btn-primary ml-auto inline-flex items-center justify-center gap-2"
-      disabled={pending}
-      onClick={onQueue}
-    >
+    <button type="button" className={cx("btn ml-auto", primary && "btn-primary")} disabled={pending} onClick={onQueue}>
       {pending && <span className="spin" />}
       {pending ? "Queuing…" : state === "not-sent" ? "Apply again" : "Apply"}
     </button>
@@ -242,8 +249,7 @@ function Head({ l }: { l: Listing }) {
 }
 
 // the model's read stays on the card, words and all: it is short. The deep check shows only its verdict, as a chip in
-// the verdict's colour — the report waits in the open listing — or, with none yet, the quiet button that starts one
-// (Apply is the card's one main button)
+// the verdict's colour — the report waits in the open listing — or, with none yet, the small button that starts one
 function Results({ l, onDeep, busy }: { l: Listing; onDeep: () => void; busy?: string }) {
   let verdict = "";
   try {
@@ -266,7 +272,7 @@ function Results({ l, onDeep, busy }: { l: Listing; onDeep: () => void; busy?: s
           {why}
         </ReadBox>
       )}
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
         {!why && fit != null && <span className={`chip tone-${fitTone(fit)}`}>Model's read {fit}/10</span>}
         {v && !running ? (
           <span className={`chip tone-${v.tone}`}>
@@ -275,7 +281,7 @@ function Results({ l, onDeep, busy }: { l: Listing; onDeep: () => void; busy?: s
         ) : (
           <button
             type="button"
-            className="btn inline-flex items-center gap-2"
+            className="btn btn-sm"
             disabled={running || busy === "deep"}
             onClick={(e) => {
               e.stopPropagation();
@@ -327,7 +333,7 @@ function Stages({
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: the wrapper only stops the card's own tap
     <div
-      className="pills-inline flex flex-wrap items-center gap-2 pt-1"
+      className="pills-inline flex flex-wrap items-center gap-2"
       onClick={(e) => e.stopPropagation()}
       onKeyDown={undefined}
     >
@@ -367,7 +373,7 @@ function OpenKey({ title }: { title: string }) {
 // the title opens the posting or the ad itself; the rest of the card opens the whole listing
 function Title({ l, text }: { l: Listing; text: string }) {
   return (
-    <h3 className="font-cond m-0 text-head">
+    <h3 className="font-cond m-0 line-clamp-2 text-head" title={text}>
       <a
         href={l.link}
         target="_blank"
@@ -534,11 +540,11 @@ export function JobCard({
             )}
           </p>
         </div>
-        {pay && <span className={cx("money text-body", moneyTone(l.match))}>{pay}</span>}
+        {pay && <span className={cx("money", moneyTone(l.match))}>{pay}</span>}
       </div>
       <When l={l} />
       {(str(d.seniority) || str(d.employment)) && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-2">
           {str(d.seniority) && <span className="chip tone-muted">{str(d.seniority)}</span>}
           {str(d.workMode).toLowerCase().includes("remote") && <span className="chip tone-cyan">Remote</span>}
           {str(d.employment) && !/full/i.test(str(d.employment)) && (
@@ -590,9 +596,7 @@ export function DealCard({
           <Title l={l} text={str(d.title)} />
           <p className="m-0 mt-1 text-detail text-muted">{str(d.location)}</p>
         </div>
-        {price != null && (
-          <span className={cx("money text-head", deal && moneyTone(deal.tier))}>${Math.round(price)}</span>
-        )}
+        {price != null && <span className={cx("money", deal && moneyTone(deal.tier))}>${Math.round(price)}</span>}
       </div>
       <When l={l} />
       {deal && t && price != null && (

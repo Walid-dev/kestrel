@@ -7,6 +7,7 @@ import { useEffect, useId, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { Page } from "../ui/page.tsx";
 import { Pills } from "../ui/pills.tsx";
+import { Seg } from "../ui/seg.tsx";
 
 type Raw = Record<string, unknown>;
 type Words = { want?: unknown; avoid?: unknown };
@@ -42,8 +43,8 @@ function Labeled({ label, hint, children }: { label: string; hint?: string; chil
   );
 }
 
-// a choice of two, as one bar: its name over it (read out as the group's name)
-function Seg<V extends string>({
+// a choice of two, as the shared bar: its name over it (read out as the group's name)
+function Choice<V extends string>({
   label,
   options,
   value,
@@ -59,13 +60,12 @@ function Seg<V extends string>({
       <span className="text-small font-semibold text-strong" aria-hidden="true">
         {label}
       </span>
-      <fieldset className="seg" aria-label={label}>
-        {options.map(([v, name]) => (
-          <button key={v} type="button" aria-pressed={value === v} onClick={() => onChange(v)}>
-            {name}
-          </button>
-        ))}
-      </fieldset>
+      <Seg
+        label={label}
+        options={options.map(([v, name]) => ({ value: v, label: name }))}
+        value={value}
+        onChange={onChange}
+      />
     </div>
   );
 }
@@ -166,7 +166,7 @@ export function SearchSettings() {
       width="reading"
     >
       <form
-        className="grid gap-4"
+        className="grid gap-3"
         onSubmit={(e) => {
           e.preventDefault();
           if (!save.isPending) save.mutate();
@@ -202,7 +202,7 @@ export function SearchSettings() {
               label="How often"
               hint={raw.auto === false ? "only when you press Search now" : "hours between searches"}
             >
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                 <input
                   className="input flex-1"
                   type="number"
@@ -224,7 +224,7 @@ export function SearchSettings() {
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             {!editing && (
-              <Seg
+              <Choice
                 label="What it finds"
                 options={[
                   ["jobs", "Jobs"],
@@ -234,7 +234,7 @@ export function SearchSettings() {
                 onChange={(k) => navigate(`/searches/settings?new=${k}`, { replace: true })}
               />
             )}
-            <Seg
+            <Choice
               label="State"
               options={[
                 ["on", "On"],
@@ -395,8 +395,8 @@ export function SearchSettings() {
         </section>
 
         {save.isError && <p className="m-0 text-detail text-red">{String((save.error as Error).message)}</p>}
-        <div className="flex gap-2">
-          <button type="submit" className="btn btn-primary" disabled={save.isPending || (!editing && !id)}>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="submit" className="btn btn-primary btn-big" disabled={save.isPending || (!editing && !id)}>
             {save.isPending ? "Saving…" : editing ? "Save" : "Make the search"}
           </button>
           <Link to="/searches" className="btn btn-quiet">

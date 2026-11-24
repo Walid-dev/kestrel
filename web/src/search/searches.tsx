@@ -1,7 +1,7 @@
-// Searches, the old hunt pages' layout: the hunts as tabs (jobs and deals); the masthead with the hunt's name, Search
-// now and what it looks for; one filter panel — the search box on top with the round Reset, then the stage, the match,
-// the role or model, the source and the order as pills, each part folding on its own and the whole panel too; then the
-// cards. The page opens on To review, best first. A card swipes right for Interested and left for Not for me, has the
+// Searches, the old hunt pages' layout: the head with the hunt's name (a button: it opens the other hunts and + New
+// hunt), its switch, Search now and its settings; one filter panel — the search box on top with the round Reset, then
+// the stage, the match, the role or model, the source and the order as pills, each part folding on its own and the
+// whole panel too; then the cards. The page opens on To review, best first. A card swipes right for Interested and left for Not for me, has the
 // same buttons under it, starts a deep check, and opens the whole listing on a tap.
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useState } from "react";
@@ -89,7 +89,7 @@ function StatusLine({ hunt, mirror }: { hunt: Hunt; mirror?: Run }) {
   if (hunt.running > 0)
     bits.push(
       <b key="now" className="text-green">
-        Searching now
+        Searching now{hunt.running > 1 ? `, ${hunt.running} to go` : ""}
       </b>,
     );
   if (hunt.mode === "paused")
@@ -179,21 +179,17 @@ function Part({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid gap-1.5">
-      {/* the thumb's height on a phone: the whole row folds the part */}
-      <button
-        type="button"
-        className="flex items-center gap-2 text-left pointer-coarse:min-h-11"
-        onClick={() => toggle(name)}
-        aria-expanded={open}
-      >
+    // under a mouse one row: the legend in its own column, the pills beside it; on touch the legend over its pills
+    // (styles.css, .search-part)
+    <div className={cx("search-part", !open && "search-part-folded")}>
+      <button type="button" className="search-part-toggle" onClick={() => toggle(name)} aria-expanded={open}>
         <span className={cx("text-label text-muted transition-transform", open && "rotate-90")} aria-hidden="true">
           ▶
         </span>
         <span className="eyebrow">{label}</span>
         {!open && <span className="text-small text-ink">{value}</span>}
       </button>
-      {open && <div className="flex flex-wrap items-start gap-2">{children}</div>}
+      {open && <div className="flex min-w-0 flex-wrap items-start gap-2">{children}</div>}
     </div>
   );
 }
@@ -214,6 +210,7 @@ const SORTS: Record<"jobs" | "deals", [string, string][]> = {
 const PARTS = "kestrel-search-parts";
 const LAST = "kestrel-last-opened";
 const TODO = "kestrel-search-todo";
+const SWIPED = "kestrel-search-swiped";
 // the listing opened last, kept in this browser (a private window keeps nothing: the mark lasts the visit)
 const remember = (id: string) => {
   try {
@@ -233,14 +230,6 @@ export function Searches() {
     const id = params.get("open");
     if (id) setOpen(id);
   }, [params]);
-  // Ask's box under the title: open or closed as I left it (the same place every Ask keeps it)
-  const [asking, setAsking] = useState(() => {
-    try {
-      return localStorage.getItem("kestrel-ask:searches") === "open";
-    } catch {
-      return false;
-    }
-  });
   // not applied yet (on unless I turn it off): the review views hide a job with an application or applied already
   const [todo, setTodo] = useState(() => {
     try {
@@ -274,6 +263,14 @@ export function Searches() {
     setLast(open);
     remember(open);
   }, [open]);
+  // a card swiped once on this device: the swipe's hint then shows only with the filters open
+  const [swiped, setSwiped] = useState(() => {
+    try {
+      return localStorage.getItem(SWIPED) === "yes";
+    } catch {
+      return false;
+    }
+  });
   const [limit, setLimit] = useState(PAGE);
   const [moreGroups, setMoreGroups] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -296,12 +293,15 @@ export function Searches() {
       }
       return next;
     });
+  // the panel as I left it; the first time, open under a mouse and folded on touch, where the cards come first
   const [shown, setShown] = useState(() => {
+    let kept: string | null = null;
     try {
-      return localStorage.getItem(FOLD) !== "folded";
+      kept = localStorage.getItem(FOLD);
     } catch {
-      return true;
+      // storage off: the pointer decides each visit
     }
+    return kept ? kept !== "folded" : !matchMedia("(pointer: coarse)").matches;
   });
   const fold = (v: boolean) => {
     setShown(v);
@@ -487,6 +487,16 @@ export function Searches() {
     setMarked((m) => ({ ...m, [l.id]: s }));
     act.mutate({ id: l.id, body: { status: s } });
   };
+  const swipe = (l: Listing, s: string) => {
+    status(l, s);
+    if (swiped) return;
+    setSwiped(true);
+    try {
+      localStorage.setItem(SWIPED, "yes");
+    } catch {
+      // storage off: the hint shows again next visit
+    }
+  };
 
   const matchOf = (m: string) => (kind === "jobs" ? MATCH[m] : DEAL[m]);
   const sortName = SORTS[kind].find(([k]) => k === sort)?.[1] ?? sort;
@@ -503,7 +513,28 @@ export function Searches() {
           </span>
         )
       }
-      title={hunt?.name ?? "Searches"}
+      // the title is the hunt switcher: the hunt's name, a button that opens the other hunts and + New hunt
+      title={
+        hunt ? (
+          <button type="button" className="hunt-switch" aria-haspopup="dialog" onClick={() => setSwitching(true)}>
+            <span>
+              {hunt.name}
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path
+                  d="m7 10 5 5 5-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+          </button>
+        ) : (
+          "Searches"
+        )
+      }
       line={
         hunt && (
           <>
@@ -518,116 +549,80 @@ export function Searches() {
           </>
         )
       }
-    >
-      {/* the hunt's controls, a row of their own under the head: beside the title (the head's actions) six of them
-          would squeeze the title to a letter a line on a phone turned sideways; here they wrap */}
-      {hunt && (
-        <div className="-mt-2 flex flex-wrap items-center gap-2">
-          {hunt.mode && (
-            <fieldset className="seg seg-modes" aria-label="This hunt's switch">
-              {(["on", "quiet", "paused"] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  data-mode={m}
-                  aria-pressed={hunt.mode === m}
-                  title={MODES[m][1]}
-                  disabled={setMode.isPending}
-                  onClick={() => setMode.mutate({ kind: hunt.kind, key: hunt.key, mode: m })}
-                >
-                  {MODES[m][0]}
-                </button>
-              ))}
-            </fieldset>
-          )}
-          {spec && (
-            <button
-              type="button"
-              className="btn"
-              disabled={runNow.isPending || hunt.running > 0}
-              onClick={() => runNow.mutate(hunt)}
-            >
-              {hunt.running > 1
-                ? `Searching… ${hunt.running} to go`
-                : hunt.running === 1 || runNow.isPending
-                  ? "Searching…"
-                  : "Search now"}
-            </button>
-          )}
-          <Link to={`/searches/settings?new=${kind}`} className="btn">
-            + New hunt
-          </Link>
-          <Link
-            to={
-              hunt.specs[0]
-                ? `/searches/settings?spec=${encodeURIComponent(hunt.specs[0].id)}`
-                : `/searches/settings?new=${kind}`
-            }
-            className="btn inline-flex items-center gap-2"
-            title={
-              hunt.specs[0] ? "This search's settings" : "This hunt runs in the old setup: make its kestrel search"
-            }
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              aria-hidden="true"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </svg>
-            Settings
-          </Link>
-          {/* on, it takes Ask's purple, the way every pressed button takes its tone */}
-          <button
-            type="button"
-            className="btn tone-purple inline-flex items-center gap-1.5"
-            aria-pressed={asking}
-            onClick={() => {
-              setAsking(!asking);
-              try {
-                localStorage.setItem("kestrel-ask:searches", asking ? "closed" : "open");
-              } catch {
-                // storage off: it stays as it is for this visit
+      // the hunt's controls: its switch, Search now and its settings, one row of 36 on a phone
+      actions={
+        hunt && (
+          <>
+            {hunt.mode && (
+              <fieldset className="seg seg-modes" aria-label="This hunt's switch">
+                {(["on", "quiet", "paused"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    data-mode={m}
+                    aria-pressed={hunt.mode === m}
+                    title={MODES[m][1]}
+                    disabled={setMode.isPending}
+                    onClick={() => setMode.mutate({ kind: hunt.kind, key: hunt.key, mode: m })}
+                  >
+                    {MODES[m][0]}
+                  </button>
+                ))}
+              </fieldset>
+            )}
+            {spec && (
+              // its words stay while it searches, a spinner over them, so the row never changes width; the line
+              // under the title says Searching now and how many are left
+              <button
+                type="button"
+                className="btn"
+                disabled={runNow.isPending || hunt.running > 0}
+                aria-busy={runNow.isPending || hunt.running > 0}
+                onClick={() => runNow.mutate(hunt)}
+              >
+                <span className={cx((runNow.isPending || hunt.running > 0) && "opacity-0")}>Search now</span>
+                {(runNow.isPending || hunt.running > 0) && <span className="spin absolute inset-0 m-auto" />}
+              </button>
+            )}
+            <Link
+              to={
+                hunt.specs[0]
+                  ? `/searches/settings?spec=${encodeURIComponent(hunt.specs[0].id)}`
+                  : `/searches/settings?new=${kind}`
               }
-            }}
-          >
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
-              <path d="M12 2.5c.6 4.6 2.9 6.9 7.5 7.5-4.6.6-6.9 2.9-7.5 7.5-.6-4.6-2.9-6.9-7.5-7.5 4.6-.6 6.9-2.9 7.5-7.5Z" />
-            </svg>
-            Ask
-          </button>
-          {/* the other hunts: a button in the corner, not a row of tabs over the title; it opens them as pills */}
-          {all.length > 1 && (
-            <button
-              type="button"
-              className="btn ml-auto inline-flex items-center gap-1.5"
-              aria-haspopup="dialog"
-              onClick={() => setSwitching(true)}
+              className="btn btn-icon"
+              aria-label="Settings"
+              title={hunt.specs[0] ? "Settings" : "Settings: this hunt runs in the old setup, so this makes its search"}
             >
-              Switch hunt
-              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-                <path
-                  d="m7 10 5 5 5-5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
               </svg>
-            </button>
-          )}
-        </div>
-      )}
+            </Link>
+          </>
+        )
+      }
+    >
+      {/* the hunts, from the title: each as a pill, then a new one */}
       {hunt && (
-        <Dialog open={switching} onClose={() => setSwitching(false)} title="Switch hunt">
+        <Dialog
+          open={switching}
+          onClose={() => setSwitching(false)}
+          title="The hunts"
+          actions={
+            <Link to={`/searches/settings?new=${kind}`} className="btn">
+              + New hunt
+            </Link>
+          }
+        >
           <Pills
             label="The hunts"
             options={all.map((h) => ({
@@ -644,12 +639,11 @@ export function Searches() {
           />
         </Dialog>
       )}
-      {/* the same Ask as every page, under the title: closed until I open it, here or with the Ask button */}
+      {/* the same Ask as every page, under the title: closed until I open it from its own head */}
       {hunt && (
         <Ask
-          open={asking}
-          onOpen={setAsking}
           app="searches"
+          defaultOpen={false}
           refId={`${hunt.kind}:${hunt.key}`}
           title={`Ask about ${hunt.name}`}
           placeholder={kind === "jobs" ? "Find, compare, mark or apply in words" : "Find, compare or mark in words"}
@@ -683,7 +677,7 @@ export function Searches() {
       )}
 
       {!none && (
-        <section className="card relative grid gap-2.5 overflow-hidden !p-3">
+        <section className="card search-filters relative grid gap-3 overflow-hidden">
           {refilling && <div className="loading-bar absolute inset-x-0 bottom-0 !rounded-none" aria-hidden="true" />}
           <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1">
@@ -698,7 +692,7 @@ export function Searches() {
             {/* the round Reset: always there, lit when a filter differs from how the page opens */}
             <button
               type="button"
-              className={cx("btn btn-icon shrink-0", changed && "!text-accent")}
+              className="btn btn-icon search-reset shrink-0"
               disabled={!changed}
               onClick={reset}
               aria-label="Reset the filters"
@@ -706,8 +700,6 @@ export function Searches() {
             >
               <svg
                 viewBox="0 0 24 24"
-                width="17"
-                height="17"
                 aria-hidden="true"
                 fill="none"
                 stroke="currentColor"
@@ -719,17 +711,12 @@ export function Searches() {
                 <path d="M3 4v5h5" />
               </svg>
             </button>
-            <button
-              type="button"
-              className="btn min-h-9.5 shrink-0 pointer-coarse:min-h-11"
-              aria-expanded={shown}
-              onClick={() => fold(!shown)}
-            >
+            <button type="button" className="btn shrink-0" aria-expanded={shown} onClick={() => fold(!shown)}>
               {shown ? "Hide filters" : `Filters${active ? ` · ${active}` : ""}`}
             </button>
           </div>
           {shown && (
-            <div className="grid gap-2">
+            <div className="search-parts">
               <Part
                 name="stage"
                 label="Stage"
@@ -845,7 +832,7 @@ export function Searches() {
           )}
           {/* folded, the panel still says what is picked: each a pill that opens the filters again */}
           {!shown && (
-            <div className="flex flex-wrap gap-1.5 pointer-coarse:gap-y-3">
+            <div className="flex flex-wrap gap-2 pointer-coarse:gap-y-3">
               <button
                 type="button"
                 className={cx("pill", toneClass(stageTone(kind, stage)))}
@@ -879,13 +866,23 @@ export function Searches() {
                   <span className="dot" /> Not applied yet
                 </button>
               )}
-              <button type="button" className="pill" aria-pressed onClick={() => fold(true)}>
-                {sortName}
-              </button>
+              {/* the order only when it isn't the one the page opens with, as the Filters count reckons it */}
+              {sort !== "best" && (
+                <button type="button" className="pill" aria-pressed onClick={() => fold(true)}>
+                  {sortName}
+                </button>
+              )}
             </div>
           )}
-          {/* the swipe is a touch screen's: under a mouse the card's buttons say it */}
-          <p className={cx("m-0 text-small text-muted", stage !== "leftout" && "hidden pointer-coarse:block")}>
+          {/* the swipe is a touch screen's: under a mouse the card's buttons say it. It shows until the first swipe on
+              this device, then only with the filters open, so a folded panel keeps to two rows */}
+          <p
+            className={cx(
+              "m-0 text-small text-muted",
+              stage !== "leftout" && "hidden",
+              stage !== "leftout" && (shown || !swiped) && "pointer-coarse:block",
+            )}
+          >
             {stage === "leftout"
               ? "The rules set these aside: a weak match, pay far below the floor, a removed search, an old ad."
               : `Swipe a card right for Interested, left for ${kind === "jobs" ? "Not for me" : "Not interested"}.`}
@@ -901,7 +898,7 @@ export function Searches() {
       ))}
 
       <section
-        className={cx("grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4", refilling && "busy")}
+        className={cx("grid gap-3 md:grid-cols-2 lg:grid-cols-3", refilling && "busy")}
         aria-busy={refilling || listings.isLoading}
       >
         {/* the first load: the shape of the cards to come */}
@@ -912,8 +909,8 @@ export function Searches() {
           return (
             <Swipe
               key={l.id}
-              onRight={() => status(l, "interested")}
-              onLeft={() => status(l, "passed")}
+              onRight={() => swipe(l, "interested")}
+              onLeft={() => swipe(l, "passed")}
               leftLabel={kind === "jobs" ? "Not for me" : "Not interested"}
             >
               <div

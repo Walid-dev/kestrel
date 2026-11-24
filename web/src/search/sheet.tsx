@@ -200,14 +200,25 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
       // the listing's title alone is the head, kept on top with the ✕ while the sheet scrolls (listing-head,
       // styles.css): on a phone held upright a head with the company, the pay and the match took a third of the sheet
       title={<span className="listing-head">{str(d.title)}</span>}
-      // the sheet's own actions at its foot, the main one last: the posting itself, and Apply
+      // the sheet's own actions at its foot, the main one last: the posting itself (a ghost beside Apply, a plain
+      // button alone on an ad), and Apply, the sheet's one filled button
       actions={
         <>
-          <a href={l.link} target="_blank" rel="noopener noreferrer" className="btn">
+          <a
+            href={l.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cx("btn", l.kind === "jobs" && "btn-quiet")}
+          >
             Open {l.kind === "deals" ? "the ad" : "the posting"} ↗
           </a>
           {l.kind === "jobs" && (
-            <ApplyButton state={l.applications[0]?.state} onQueue={() => queue.mutate()} pending={queue.isPending} />
+            <ApplyButton
+              state={l.applications[0]?.state}
+              onQueue={() => queue.mutate()}
+              pending={queue.isPending}
+              primary
+            />
           )}
         </>
       }
@@ -228,9 +239,9 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
             </p>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            {pay && <span className={cx("money text-body", moneyTone(l.match))}>{pay}</span>}
+            {pay && <span className={cx("money", moneyTone(l.match))}>{pay}</span>}
             {l.kind === "deals" && typeof d.price === "number" && (
-              <span className={cx("money text-head", l.deal && moneyTone(l.deal.tier))}>${Math.round(d.price)}</span>
+              <span className={cx("money", l.deal && moneyTone(l.deal.tier))}>${Math.round(d.price)}</span>
             )}
             {l.kind === "jobs" && MATCH[l.match] && (
               <span className={`chip tone-${MATCH[l.match].tone}`}>
@@ -264,13 +275,14 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
           </ReadBox>
         )}
 
-        <section className="card card-stack">
+        {/* the deep check: its eyebrow and button on one row, what it found on an inner block under them */}
+        <section className="grid gap-2">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-cond m-0 text-head">Deep check</h3>
+            <span className="eyebrow">Deep check</span>
             {l.deep?.finished && <span className="text-small text-muted">{day(l.deep.finished)}</span>}
             <button
               type="button"
-              className="btn ml-auto inline-flex items-center gap-2"
+              className="btn btn-sm ml-auto"
               disabled={running || deep.isPending}
               onClick={() => deep.mutate()}
             >
@@ -278,31 +290,35 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
               {running ? "Checking…" : l.deep ? "Check again" : "Run a deep check"}
             </button>
           </div>
-          {running && (
-            <p className="m-0 flex items-center gap-2 text-detail text-accent">
-              <span className="dot tone-green pulse" /> {l.deep?.step || "Starting"}… the local model reads the posting,
-              searches the web, then writes.
-            </p>
-          )}
-          {l.deep?.state === "failed" && <p className="m-0 text-detail text-red">{l.deep.error}</p>}
-          {l.deep?.state === "done" && l.deep.report && <Report r={l.deep.report} kind={l.kind} />}
-          {!l.deep && !running && (
-            <p className="m-0 text-detail text-muted">
-              The local model reads {l.kind === "deals" ? "the ad" : "the posting"}, searches the web from this
-              computer, and writes what it finds
-              {l.kind === "deals"
-                ? ": a fair price, what to check, what to ask."
-                : ": where you fit, the gaps, the pay, the company, what to ask."}
-            </p>
-          )}
+          <div className="inner grid gap-3">
+            {running && (
+              <p className="m-0 flex items-center gap-2 text-detail text-accent">
+                <span className="dot tone-green pulse" /> {l.deep?.step || "Starting"}… the local model reads the
+                posting, searches the web, then writes.
+              </p>
+            )}
+            {l.deep?.state === "failed" && <p className="m-0 text-detail text-red">{l.deep.error}</p>}
+            {l.deep?.state === "done" && l.deep.report && <Report r={l.deep.report} kind={l.kind} />}
+            {!l.deep && !running && (
+              <p className="m-0 text-detail text-muted">
+                The local model reads {l.kind === "deals" ? "the ad" : "the posting"}, searches the web from this
+                computer, and writes what it finds
+                {l.kind === "deals"
+                  ? ": a fair price, what to check, what to ask."
+                  : ": where you fit, the gaps, the pay, the company, what to ask."}
+              </p>
+            )}
+          </div>
         </section>
 
-        {/* the note saves when I leave the box, so it is the shared box's look without its Enter-sends rule */}
-        <label className="field field-tall">
+        {/* the note saves when I leave the box, so it is the shared box's look without its Enter-sends rule; one line
+            to start, growing with the words */}
+        <label className="field">
           <span className="eyebrow">My note</span>
           <span className="field-box">
             <textarea
               className="field-input"
+              rows={1}
               placeholder="Add a note…"
               value={note ?? str(d.note)}
               onChange={(e) => setNote(e.target.value)}
