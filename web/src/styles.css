@@ -458,8 +458,9 @@ h3 {
   font: 11px / 1.2 var(--mono);
   color: var(--muted);
 }
-/* the listing sheet, a wide Dialog: its head (the ✕ in it) and its foot (Apply) stay in reach while a long listing
-   scrolls between them, when the screen is tall enough to spare the room; a phone turned sideways scrolls them away */
+/* the listing sheet, a wide Dialog: its head (the title and the ✕; the company, pay and match scroll under it) and its
+   foot (Apply) stay in reach while a long listing scrolls between them, when the screen is tall enough to spare the
+   room; a phone turned sideways scrolls them away */
 @media (min-height: 560px) {
   .dialog:has(.listing-head) > .dialog-head {
     position: sticky;
@@ -944,6 +945,7 @@ h3 {
 /* EmptyState: nothing here yet, said once and plainly, with the next step; the setting it needs, if any, small */
 .empty {
   display: grid;
+  align-content: start;
   justify-items: start;
   gap: 6px;
   padding: 20px;
@@ -1236,8 +1238,10 @@ figure {
   border-radius: 10px;
   padding: 14px 16px;
 }
+/* a box of words to read in a tone (the quiz's verdict): its edge in the tone, its ground a faint mix of the same,
+   so a red verdict never sits on a blue ground */
 .read-box {
-  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  background: color-mix(in srgb, var(--tone, var(--accent)) 7%, var(--surface));
   border: 1px solid var(--line);
   border-left: 3px solid var(--tone, var(--accent));
   border-radius: 10px;

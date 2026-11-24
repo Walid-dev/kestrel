@@ -888,7 +888,8 @@ export function Searches() {
               </button>
             </div>
           )}
-          <p className="m-0 text-small text-muted">
+          {/* the swipe is a touch screen's: under a mouse the card's buttons say it */}
+          <p className={cx("m-0 text-small text-muted", stage !== "leftout" && "hidden pointer-coarse:block")}>
             {stage === "leftout"
               ? "The rules set these aside: a weak match, pay far below the floor, a removed search, an old ad."
               : `Swipe a card right for Interested, left for ${kind === "jobs" ? "Not for me" : "Not interested"}.`}

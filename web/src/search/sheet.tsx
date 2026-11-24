@@ -197,39 +197,9 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
       onClose={onClose}
       wide
       eyebrow={[str(d.family) || str(d.category), sourceName(l.source)].filter(Boolean).join(" · ")}
-      // the listing's head: its title, the company and where, then the pay or price and the match (listing-head keeps
-      // the head on top while the sheet scrolls, styles.css). The {" "} between its parts change nothing on screen
-      // (a grid and a flex row drop them) but keep the words apart when the title is read out, as the box's name
-      title={
-        <span className="listing-head grid gap-1">
-          <span>{str(d.title)}</span>{" "}
-          <span className="font-sans text-body font-normal text-ink">
-            {str(d.org)}
-            {where.length > 0 && (
-              <span className="text-muted">
-                {str(d.org) && " · "}
-                {where.join(" · ")}
-              </span>
-            )}
-          </span>{" "}
-          <span className="flex flex-wrap items-center gap-2 pt-1 font-sans font-normal">
-            {pay && <span className={cx("money text-body", moneyTone(l.match))}>{pay}</span>}
-            {l.kind === "deals" && typeof d.price === "number" && (
-              <span className={cx("money text-head", l.deal && moneyTone(l.deal.tier))}>${Math.round(d.price)}</span>
-            )}{" "}
-            {l.kind === "jobs" && MATCH[l.match] && (
-              <span className={`chip tone-${MATCH[l.match].tone}`}>
-                {MATCH[l.match].label} · {l.score}
-              </span>
-            )}
-            {l.kind === "deals" && l.deal && (
-              <span className={`chip tone-${DEAL[l.deal.tier].tone}`}>
-                {DEAL[l.deal.tier].label} · {l.deal.pct}% of usual
-              </span>
-            )}
-          </span>
-        </span>
-      }
+      // the listing's title alone is the head, kept on top with the ✕ while the sheet scrolls (listing-head,
+      // styles.css): on a phone held upright a head with the company, the pay and the match took a third of the sheet
+      title={<span className="listing-head">{str(d.title)}</span>}
       // the sheet's own actions at its foot, the main one last: the posting itself, and Apply
       actions={
         <>
@@ -243,6 +213,37 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
       }
     >
       <div className="grid gap-3 pb-1">
+        {/* the company and where, then the pay or price and the match: the first lines under the title, scrolling
+            with the listing */}
+        <div className="grid gap-2">
+          {(str(d.org) || where.length > 0) && (
+            <p className="text-body text-ink">
+              {str(d.org)}
+              {where.length > 0 && (
+                <span className="text-muted">
+                  {str(d.org) && " · "}
+                  {where.join(" · ")}
+                </span>
+              )}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {pay && <span className={cx("money text-body", moneyTone(l.match))}>{pay}</span>}
+            {l.kind === "deals" && typeof d.price === "number" && (
+              <span className={cx("money text-head", l.deal && moneyTone(l.deal.tier))}>${Math.round(d.price)}</span>
+            )}
+            {l.kind === "jobs" && MATCH[l.match] && (
+              <span className={`chip tone-${MATCH[l.match].tone}`}>
+                {MATCH[l.match].label} · {l.score}
+              </span>
+            )}
+            {l.kind === "deals" && l.deal && (
+              <span className={`chip tone-${DEAL[l.deal.tier].tone}`}>
+                {DEAL[l.deal.tier].label} · {l.deal.pct}% of usual
+              </span>
+            )}
+          </div>
+        </div>
         {str(d.posted) && (
           <p className="text-small text-muted">
             Posted {ago(str(d.posted))} · {day(str(d.posted))} · Found {day(l.found)}

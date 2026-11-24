@@ -226,6 +226,8 @@ export function Quiz() {
   const archived = archivedList.data?.quizzes ?? [];
   const due = topics[0].due;
   const startedShown = allStarted ? started : started.slice(0, STARTED_SHOWN);
+  // the quiz I started, or why that list failed: it comes first
+  const resume = started.length > 0 || failedIn("started") !== null || quizzes.isError;
 
   return (
     <Page
@@ -243,212 +245,220 @@ export function Quiz() {
         </>
       }
     >
-      {/* the new quiz on the left; on a computer the rest share one column on the right, so no gap opens between
-          them. On a phone that column dissolves (contents) and the quiz I started comes first, to continue */}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-start lg:gap-x-8">
-        <Card>
-          <div className="grid gap-6">
-            <h2 className="font-cond m-0 text-head font-bold">{started.length ? "A new quiz" : "Start a quiz"}</h2>
-            <div className="grid gap-2.5">
-              <span className="eyebrow">From</span>
-              <fieldset className="seg" aria-label="From">
-                {(
-                  [
-                    ["learn", "Lessons"],
-                    ["interview", "Interview prep"],
-                  ] as [Area, string][]
-                ).map(([k, label]) => (
+      {/* the quiz I started comes first, to continue: first on a phone and first for the keyboard and a screen
+          reader. On a computer the new quiz takes the left column, the rows of the right one beside it: the quiz I
+          started on top, the rest under it; the last row takes what the new quiz needs past them, so no gap opens */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-8">
+        {resume && (
+          <section className="grid content-start gap-3 lg:col-start-2 lg:row-start-1">
+            <h2 className="eyebrow m-0">Pick up where you left off</h2>
+            <Failed message={quizzes.isError ? (quizzes.error as Error).message : failedIn("started")} />
+            {startedShown.map((q) => (
+              <Card key={q.id} busy={isBusy(q.id)}>
+                <div className="flex items-start gap-2">
+                  <Link to={`/quiz/${q.id}`} className="flex min-w-0 flex-1 items-center gap-4">
+                    <Ring part={q.total ? q.answered / q.total : 0}>
+                      {q.answered}/{q.total}
+                    </Ring>
+                    <span className="grid min-w-0 flex-1 gap-1">
+                      <span className="font-cond truncate text-head font-bold text-strong">{named(q)}</span>
+                      <span className="text-detail text-ink">
+                        Question {Math.min(q.place + 1, q.total)} of {q.total} · {q.right} right
+                        {q.partly ? ` · ${q.partly} partly` : ""}
+                      </span>
+                      <span className="text-small text-muted">{when(q.updated)}</span>
+                    </span>
+                  </Link>
                   <button
-                    key={k}
                     type="button"
-                    aria-pressed={area === k}
-                    onClick={() => {
-                      setArea(k);
-                      pickTopic("");
-                    }}
+                    className="card-remove"
+                    aria-label={`Delete "${named(q)}"`}
+                    title="Delete"
+                    onClick={() => remove(q, "started")}
                   >
-                    {label}
+                    ✕
                   </button>
-                ))}
-              </fieldset>
-            </div>
-            <div className="grid gap-2.5">
-              <span className="eyebrow">On</span>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2.5">
-                {topics.map((t) => (
+                </div>
+                <div className="flex items-center gap-2">
+                  <Link to={`/quiz/${q.id}`} className="btn btn-primary btn-big flex-1 text-center">
+                    Continue
+                  </Link>
                   <button
-                    key={t.key}
                     type="button"
-                    className="tile"
-                    aria-pressed={from === t.key}
-                    onClick={() => pickTopic(t.key)}
+                    className="btn btn-quiet btn-big"
+                    aria-label={`Archive "${named(q)}"`}
+                    onClick={() => act(q, "archive", "started")}
                   >
-                    <b>{t.name}</b>
-                    <span>{plural(t.lessons, "lesson")}</span>
-                    {t.due > 0 && <span>{t.due} to review</span>}
+                    Archive
                   </button>
-                ))}
+                </div>
+              </Card>
+            ))}
+            {started.length > STARTED_SHOWN && (
+              <button type="button" className="btn btn-quiet min-h-11" onClick={() => setAllStarted(!allStarted)}>
+                {allStarted ? "Show fewer" : `Show all ${started.length}`}
+              </button>
+            )}
+          </section>
+        )}
+        <div className="lg:col-start-1 lg:row-span-2 lg:row-start-1">
+          <Card>
+            <div className="grid gap-6">
+              <h2 className="font-cond m-0 text-head font-bold">{started.length ? "A new quiz" : "Start a quiz"}</h2>
+              <div className="grid gap-2.5">
+                <span className="eyebrow">From</span>
+                <fieldset className="seg" aria-label="From">
+                  {(
+                    [
+                      ["learn", "Lessons"],
+                      ["interview", "Interview prep"],
+                    ] as [Area, string][]
+                  ).map(([k, label]) => (
+                    <button
+                      key={k}
+                      type="button"
+                      aria-pressed={area === k}
+                      onClick={() => {
+                        setArea(k);
+                        pickTopic("");
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </fieldset>
               </div>
-            </div>
-            {topic && topic.lessons > 0 && (
-              <div className="grid gap-4">
-                {topicPacks.length > 1 && (
-                  <Pills
-                    label="Packs"
-                    showLabel
-                    multiple
-                    options={topicPacks.map((p) => ({ value: p.id, label: p.name, count: p.lessons ?? 0 }))}
-                    value={packsPicked}
-                    onChange={pickPacks}
-                  />
-                )}
-                {shown.length > 0 && (
-                  <div ref={lessonPills}>
+              <div className="grid gap-2.5">
+                <span className="eyebrow">On</span>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2.5">
+                  {topics.map((t) => (
+                    <button
+                      key={t.key}
+                      type="button"
+                      className="tile"
+                      aria-pressed={from === t.key}
+                      onClick={() => pickTopic(t.key)}
+                    >
+                      <b>{t.name}</b>
+                      <span>{plural(t.lessons, "lesson")}</span>
+                      {t.due > 0 && <span>{t.due} to review</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {topic && topic.lessons > 0 && (
+                <div className="grid gap-4">
+                  {topicPacks.length > 1 && (
                     <Pills
-                      label="Lessons"
+                      label="Packs"
                       showLabel
                       multiple
-                      describedBy="quiz-drawn"
-                      options={[
-                        ...listed.map((l) => ({
-                          value: l.id,
-                          label: l.title,
-                          ...(l.due ? { tone: "cyan" as const, hint: "to review" } : {}),
-                        })),
-                        // the rest of a long list, one tap away, and back: an action among the pills, so it wraps
-                        // with them
-                        ...(longList
-                          ? [
-                              {
-                                value: SHOW_MORE,
-                                label: allLessons ? "Show fewer" : `Show all ${shown.length}`,
-                                onPress: () => {
-                                  // the pill tapped leaves: focus the first lesson that came into sight, or, folding,
-                                  // the pill that brings them back (the last one of the short list)
-                                  focusPill.current = allLessons
-                                    ? short.length
-                                    : Math.max(
-                                        0,
-                                        shown.findIndex((l) => !short.includes(l)),
-                                      );
-                                  setAllLessons(!allLessons);
-                                },
-                              },
-                            ]
-                          : []),
-                      ]}
-                      value={lessonsPicked}
-                      onChange={setLessonsPicked}
+                      options={topicPacks.map((p) => ({ value: p.id, label: p.name, count: p.lessons ?? 0 }))}
+                      value={packsPicked}
+                      onChange={pickPacks}
                     />
-                  </div>
-                )}
-                <p id="quiz-drawn" className="m-0 text-detail text-muted">
-                  {drawn}
-                  {lessonsPicked.length || packsPicked.length ? "" : ". Pick some to narrow the quiz."}
-                </p>
-              </div>
-            )}
-            <div className="grid gap-2.5">
-              <span className="eyebrow">How many</span>
-              <fieldset className="seg" aria-label="How many">
-                {(
-                  [
-                    [5, "quick"],
-                    [10, "a round"],
-                    [20, "a long one"],
-                  ] as const
-                ).map(([n, size]) => (
-                  <button key={n} type="button" aria-pressed={count === n} onClick={() => setCount(n)}>
-                    {n}
-                    <small>{size}</small>
-                  </button>
-                ))}
-              </fieldset>
-            </div>
-            <div className="grid gap-2.5">
-              <span className="eyebrow">Questions</span>
-              <fieldset className="seg" aria-label="Questions">
-                <button type="button" aria-pressed={!fresh} onClick={() => setFresh(false)}>
-                  The lessons' own
-                  <small>ready at once</small>
-                </button>
-                <button type="button" aria-pressed={fresh} onClick={() => setFresh(true)}>
-                  New ones
-                  <small>the model writes each</small>
-                </button>
-              </fieldset>
-            </div>
-            <button
-              type="button"
-              className="btn btn-primary btn-big inline-flex w-full items-center justify-center gap-2"
-              disabled={start.isPending || questions === 0}
-              onClick={() => start.mutate()}
-            >
-              {start.isPending && <span className="spin" />}
-              {start.isPending
-                ? "Picking the questions"
-                : questions === 0
-                  ? "No lessons here yet"
-                  : `Start ${plural(questions, "question")}${on ? ` on ${on}` : ""}`}
-            </button>
-            <Failed message={failing ? (failing.error as Error).message : null} />
-          </div>
-        </Card>
-
-        <div className="contents lg:grid lg:content-start lg:gap-6">
-          {(started.length > 0 || failedIn("started") || quizzes.isError) && (
-            <section className="-order-1 grid content-start gap-3 lg:order-none">
-              <h2 className="eyebrow m-0">Pick up where you left off</h2>
-              <Failed message={quizzes.isError ? (quizzes.error as Error).message : failedIn("started")} />
-              {startedShown.map((q) => (
-                <Card key={q.id} busy={isBusy(q.id)}>
-                  <div className="flex items-start gap-2">
-                    <Link to={`/quiz/${q.id}`} className="flex min-w-0 flex-1 items-center gap-4">
-                      <Ring part={q.total ? q.answered / q.total : 0}>
-                        {q.answered}/{q.total}
-                      </Ring>
-                      <span className="grid min-w-0 flex-1 gap-1">
-                        <span className="font-cond truncate text-head font-bold text-strong">{named(q)}</span>
-                        <span className="text-detail text-ink">
-                          Question {Math.min(q.place + 1, q.total)} of {q.total} · {q.right} right
-                          {q.partly ? ` · ${q.partly} partly` : ""}
-                        </span>
-                        <span className="text-small text-muted">{when(q.updated)}</span>
-                      </span>
-                    </Link>
-                    <button
-                      type="button"
-                      className="card-remove"
-                      aria-label={`Delete "${named(q)}"`}
-                      title="Delete"
-                      onClick={() => remove(q, "started")}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Link to={`/quiz/${q.id}`} className="btn btn-primary btn-big flex-1 text-center">
-                      Continue
-                    </Link>
-                    <button
-                      type="button"
-                      className="btn btn-quiet btn-big"
-                      aria-label={`Archive "${named(q)}"`}
-                      onClick={() => act(q, "archive", "started")}
-                    >
-                      Archive
-                    </button>
-                  </div>
-                </Card>
-              ))}
-              {started.length > STARTED_SHOWN && (
-                <button type="button" className="btn btn-quiet min-h-11" onClick={() => setAllStarted(!allStarted)}>
-                  {allStarted ? "Show fewer" : `Show all ${started.length}`}
-                </button>
+                  )}
+                  {shown.length > 0 && (
+                    <div ref={lessonPills}>
+                      <Pills
+                        label="Lessons"
+                        showLabel
+                        multiple
+                        describedBy="quiz-drawn"
+                        options={[
+                          ...listed.map((l) => ({
+                            value: l.id,
+                            label: l.title,
+                            ...(l.due ? { tone: "cyan" as const, hint: "to review" } : {}),
+                          })),
+                          // the rest of a long list, one tap away, and back: an action among the pills, so it wraps
+                          // with them
+                          ...(longList
+                            ? [
+                                {
+                                  value: SHOW_MORE,
+                                  label: allLessons ? "Show fewer" : `Show all ${shown.length}`,
+                                  onPress: () => {
+                                    // the pill tapped leaves: focus the first lesson that came into sight, or, folding,
+                                    // the pill that brings them back (the last one of the short list)
+                                    focusPill.current = allLessons
+                                      ? short.length
+                                      : Math.max(
+                                          0,
+                                          shown.findIndex((l) => !short.includes(l)),
+                                        );
+                                    setAllLessons(!allLessons);
+                                  },
+                                },
+                              ]
+                            : []),
+                        ]}
+                        value={lessonsPicked}
+                        onChange={setLessonsPicked}
+                      />
+                    </div>
+                  )}
+                  <p id="quiz-drawn" className="m-0 text-detail text-muted">
+                    {drawn}
+                    {lessonsPicked.length || packsPicked.length ? "" : ". Pick some to narrow the quiz."}
+                  </p>
+                </div>
               )}
-            </section>
-          )}
+              <div className="grid gap-2.5">
+                <span className="eyebrow">How many</span>
+                <fieldset className="seg" aria-label="How many">
+                  {(
+                    [
+                      [5, "quick"],
+                      [10, "a round"],
+                      [20, "a long one"],
+                    ] as const
+                  ).map(([n, size]) => (
+                    <button key={n} type="button" aria-pressed={count === n} onClick={() => setCount(n)}>
+                      {n}
+                      <small>{size}</small>
+                    </button>
+                  ))}
+                </fieldset>
+              </div>
+              <div className="grid gap-2.5">
+                <span className="eyebrow">Questions</span>
+                <fieldset className="seg" aria-label="Questions">
+                  <button type="button" aria-pressed={!fresh} onClick={() => setFresh(false)}>
+                    The lessons' own
+                    <small>ready at once</small>
+                  </button>
+                  <button type="button" aria-pressed={fresh} onClick={() => setFresh(true)}>
+                    New ones
+                    <small>the model writes each</small>
+                  </button>
+                </fieldset>
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary btn-big inline-flex w-full items-center justify-center gap-2"
+                disabled={start.isPending || questions === 0}
+                onClick={() => start.mutate()}
+              >
+                {start.isPending && <span className="spin" />}
+                {start.isPending
+                  ? "Picking the questions"
+                  : questions === 0
+                    ? "No lessons here yet"
+                    : `Start ${plural(questions, "question")}${on ? ` on ${on}` : ""}`}
+              </button>
+              <Failed message={failing ? (failing.error as Error).message : null} />
+            </div>
+          </Card>
+        </div>
 
+        {/* the rest of the right column; on a phone it dissolves (contents), under the new quiz */}
+        <div
+          className={cx(
+            "contents lg:col-start-2 lg:grid lg:content-start lg:gap-6",
+            resume ? "lg:row-start-2" : "lg:row-start-1",
+          )}
+        >
           {(ended.length > 0 || failedIn("done")) && (
             <section className="grid content-start gap-3">
               <h2 className="eyebrow m-0">Done</h2>
@@ -757,9 +767,10 @@ export function QuizRun() {
       </div>
       <ArchivedNote quiz={quiz} />
       <Card>
+        {/* the lesson the question comes from; its tap area grows past its small line, to 44 px on touch */}
         <Link
           to={`/learn/lesson/${encodeURIComponent(item.lesson)}`}
-          className="eyebrow tone-accent relative justify-self-start hover:underline after:absolute after:inset-x-0 after:-inset-y-2"
+          className="eyebrow tone-accent relative justify-self-start hover:underline after:absolute after:inset-x-0 after:-inset-y-2 pointer-coarse:after:-inset-y-3.75"
         >
           {item.packName} · {item.title}
         </Link>

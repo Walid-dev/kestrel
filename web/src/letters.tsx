@@ -30,9 +30,10 @@ type TryRow = {
   // the PDF's file name, when the try made one
   pdf?: string | null;
 };
-// each kind: its name on the choice, the box's name, and what to type in it
+// each kind: its name on the choice (short, so the three stay one line each on a phone; the page's line says cover
+// letter), the box's name, and what to type in it
 const KINDS: [Kind, string, string, string][] = [
-  ["letter", "Cover letter", "", ""],
+  ["letter", "A letter", "", ""],
   ["answer", "An answer", "The form's question", "Paste the form's question, like: Why do you want to work here?"],
   [
     "text",
