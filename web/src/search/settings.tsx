@@ -174,6 +174,18 @@ export function SearchSettings() {
       >
         <section className="card grid gap-3">
           <span className="eyebrow">This search</span>
+          {/* a new search starts with what it finds: a job hunt or a deal hunt */}
+          {!editing && (
+            <Choice
+              label="What it finds"
+              options={[
+                ["jobs", "Jobs"],
+                ["deals", "Deals"],
+              ]}
+              value={kind}
+              onChange={(k) => navigate(`/searches/settings?new=${k}`, { replace: true })}
+            />
+          )}
           <div className="grid gap-3 md:grid-cols-2">
             <Labeled label="Name">
               <input
@@ -223,17 +235,6 @@ export function SearchSettings() {
             </Labeled>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
-            {!editing && (
-              <Choice
-                label="What it finds"
-                options={[
-                  ["jobs", "Jobs"],
-                  ["deals", "Deals"],
-                ]}
-                value={kind}
-                onChange={(k) => navigate(`/searches/settings?new=${k}`, { replace: true })}
-              />
-            )}
             <Choice
               label="State"
               options={[
