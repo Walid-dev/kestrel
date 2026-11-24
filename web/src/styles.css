@@ -694,7 +694,6 @@ h3 {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
   max-width: 100%;
   margin-left: -6px;
   padding: 0 6px;
@@ -712,10 +711,14 @@ h3 {
 .hunt-switch > span {
   min-width: 0;
 }
-.hunt-switch > svg {
-  flex: none;
+/* the chevron is inline at the end of the words, so a long name that wraps keeps it after its last word; 1 px off
+   the baseline puts its middle on the words' */
+.hunt-switch svg {
+  display: inline;
   width: 16px;
   height: 16px;
+  margin-left: 4px;
+  vertical-align: 1px;
   color: var(--muted);
 }
 @media (hover: hover) {
@@ -731,13 +734,6 @@ h3 {
     content: "";
     position: absolute;
     inset: calc(50% - var(--h-hit) / 2) 0;
-  }
-}
-/* on a phone the hunt's switch, Search now and Settings fit one row of 36 at 393 when 6 apart (8 leaves them 3 px
-   short); their areas only reach up and down, the gear's 4 to each side, so none overlap */
-@media (pointer: coarse) {
-  .page-actions:has(> .seg-modes) {
-    column-gap: 6px;
   }
 }
 /* the round Reset, lit in the accent's words while a filter differs from how the page opens (else it is disabled) */
@@ -905,6 +901,14 @@ h3 {
 .seg-modes button {
   flex-direction: row;
   gap: 6px;
+}
+/* on a phone its options are as wide as their words, at least a finger's 44 (not 64 each), so the switch, Search now
+   and Settings stay one row of 36 at 393 whichever mode is picked (at 64 a Quiet or Paused hunt pushes the gear to a
+   second row) */
+@media (pointer: coarse) {
+  .seg-modes button {
+    min-width: var(--h-hit);
+  }
 }
 .seg-modes button[data-mode][aria-pressed="true"] {
   --mode: var(--great);

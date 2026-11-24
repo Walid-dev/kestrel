@@ -122,12 +122,17 @@ export function Applications() {
   return (
     <Page
       title="Applications"
-      // what happened after sending, and this week, in one quiet line
+      // what happened after sending, then this week, quiet: each sentence its own line where there is room, one flow
+      // on a phone; this week's words never part, so a wrap never leaves a word or two alone
       line={
         <span className="block text-small">
-          After sending: <Num n={s.interviewing} /> interviewing · <Num n={s.offer} /> offers · <Num n={s.rejected} />{" "}
-          rejected · <Num n={s.applied} /> waiting for an answer. This week: <Num n={sentWeek} /> sent,{" "}
-          <Num n={stoppedWeek} /> stopped.
+          <span className="md:block">
+            After sending: <Num n={s.interviewing} /> interviewing · <Num n={s.offer} /> offers · <Num n={s.rejected} />{" "}
+            rejected · <Num n={s.applied} /> waiting for an answer.
+          </span>{" "}
+          <span className="whitespace-nowrap">
+            This week: <Num n={sentWeek} /> sent, <Num n={stoppedWeek} /> stopped.
+          </span>
         </span>
       }
       actions={
@@ -262,11 +267,12 @@ export function Applications() {
         ]}
         onChange={() => queryClient.invalidateQueries({ queryKey: ["apply"] })}
       />
-      {/* the rare action, at the page's foot */}
+      {/* the rare action, at the page's foot: a ghost, its words on the page's edge (pulled back by its padding, 12,
+          or 14 on touch, and its 1 px edge) */}
       {!told && typeof Notification !== "undefined" && (
         <button
           type="button"
-          className="btn btn-quiet justify-self-start"
+          className="btn btn-quiet -ms-[13px] justify-self-start pointer-coarse:-ms-[15px]"
           onClick={async () => setTold((await Notification.requestPermission()) === "granted")}
         >
           Notify this phone

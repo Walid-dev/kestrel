@@ -89,7 +89,7 @@ function StatusLine({ hunt, mirror }: { hunt: Hunt; mirror?: Run }) {
   if (hunt.running > 0)
     bits.push(
       <b key="now" className="text-green">
-        Searching now
+        Searching now{hunt.running > 1 ? `, ${hunt.running} to go` : ""}
       </b>,
     );
   if (hunt.mode === "paused")
@@ -210,6 +210,7 @@ const SORTS: Record<"jobs" | "deals", [string, string][]> = {
 const PARTS = "kestrel-search-parts";
 const LAST = "kestrel-last-opened";
 const TODO = "kestrel-search-todo";
+const SWIPED = "kestrel-search-swiped";
 // the listing opened last, kept in this browser (a private window keeps nothing: the mark lasts the visit)
 const remember = (id: string) => {
   try {
@@ -262,6 +263,14 @@ export function Searches() {
     setLast(open);
     remember(open);
   }, [open]);
+  // a card swiped once on this device: the swipe's hint then shows only with the filters open
+  const [swiped, setSwiped] = useState(() => {
+    try {
+      return localStorage.getItem(SWIPED) === "yes";
+    } catch {
+      return false;
+    }
+  });
   const [limit, setLimit] = useState(PAGE);
   const [moreGroups, setMoreGroups] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -478,6 +487,16 @@ export function Searches() {
     setMarked((m) => ({ ...m, [l.id]: s }));
     act.mutate({ id: l.id, body: { status: s } });
   };
+  const swipe = (l: Listing, s: string) => {
+    status(l, s);
+    if (swiped) return;
+    setSwiped(true);
+    try {
+      localStorage.setItem(SWIPED, "yes");
+    } catch {
+      // storage off: the hint shows again next visit
+    }
+  };
 
   const matchOf = (m: string) => (kind === "jobs" ? MATCH[m] : DEAL[m]);
   const sortName = SORTS[kind].find(([k]) => k === sort)?.[1] ?? sort;
@@ -498,17 +517,19 @@ export function Searches() {
       title={
         hunt ? (
           <button type="button" className="hunt-switch" aria-haspopup="dialog" onClick={() => setSwitching(true)}>
-            <span>{hunt.name}</span>
-            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-              <path
-                d="m7 10 5 5 5-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <span>
+              {hunt.name}
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path
+                  d="m7 10 5 5 5-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
           </button>
         ) : (
           "Searches"
@@ -550,17 +571,17 @@ export function Searches() {
               </fieldset>
             )}
             {spec && (
+              // its words stay while it searches, a spinner over them, so the row never changes width; the line
+              // under the title says Searching now and how many are left
               <button
                 type="button"
                 className="btn"
                 disabled={runNow.isPending || hunt.running > 0}
+                aria-busy={runNow.isPending || hunt.running > 0}
                 onClick={() => runNow.mutate(hunt)}
               >
-                {hunt.running > 1
-                  ? `Searching… ${hunt.running} to go`
-                  : hunt.running === 1 || runNow.isPending
-                    ? "Searching…"
-                    : "Search now"}
+                <span className={cx((runNow.isPending || hunt.running > 0) && "opacity-0")}>Search now</span>
+                {(runNow.isPending || hunt.running > 0) && <span className="spin absolute inset-0 m-auto" />}
               </button>
             )}
             <Link
@@ -853,13 +874,13 @@ export function Searches() {
               )}
             </div>
           )}
-          {/* the swipe is a touch screen's: under a mouse the card's buttons say it. It shows with the filters open;
-              folded, the panel stays two rows, so the first card is in sight under the head */}
+          {/* the swipe is a touch screen's: under a mouse the card's buttons say it. It shows until the first swipe on
+              this device, then only with the filters open, so a folded panel keeps to two rows */}
           <p
             className={cx(
               "m-0 text-small text-muted",
               stage !== "leftout" && "hidden",
-              stage !== "leftout" && shown && "pointer-coarse:block",
+              stage !== "leftout" && (shown || !swiped) && "pointer-coarse:block",
             )}
           >
             {stage === "leftout"
@@ -888,8 +909,8 @@ export function Searches() {
           return (
             <Swipe
               key={l.id}
-              onRight={() => status(l, "interested")}
-              onLeft={() => status(l, "passed")}
+              onRight={() => swipe(l, "interested")}
+              onLeft={() => swipe(l, "passed")}
               leftLabel={kind === "jobs" ? "Not for me" : "Not interested"}
             >
               <div
