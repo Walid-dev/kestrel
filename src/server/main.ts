@@ -124,9 +124,26 @@ root.route("/", app);
 
 // the built app, served as plain files, with the page itself for any address that isn't the API (the router's)
 const dist = join(fileURLToPath(new URL("../../web/dist/", import.meta.url)), ".");
+// A file in /assets/ has its content's hash in its name, so a new version is a new name: the phone may keep it a year
+// without asking again. The page itself and the service worker are asked for every time, so a deploy shows at once. A
+// missing /assets/ file (an old name after a deploy) is a 404, never the page: a script answered with the page breaks.
 if (existsSync(join(dist, "index.html"))) {
-  root.use("*", serveStatic({ root: relative(process.cwd(), dist) }));
-  root.get("*", (c) => c.html(readFileSync(join(dist, "index.html"), "utf8")));
+  root.use(
+    "*",
+    serveStatic({
+      root: relative(process.cwd(), dist),
+      precompressed: true,
+      onFound: (path, c) => {
+        if (path.includes("/assets/")) c.header("cache-control", "public, max-age=31536000, immutable");
+        else if (path.endsWith(".html") || path.endsWith("/sw.js")) c.header("cache-control", "no-cache");
+      },
+    }),
+  );
+  root.get("/assets/*", (c) => c.text("no such file", 404));
+  root.get("*", (c) => {
+    c.header("cache-control", "no-cache");
+    return c.html(readFileSync(join(dist, "index.html"), "utf8"));
+  });
 } else {
   console.log("no web/dist yet: only the API answers (node --run build makes the app)");
 }
