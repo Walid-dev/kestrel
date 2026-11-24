@@ -58,3 +58,19 @@ test("not-sent and needs-me always say why; unlawful moves are refused; Retry re
   assert.equal(retried.state, "queued");
   assert.throws(() => reportApplication(db, q.id, "sent"), /cannot become/); // queued never jumps straight to sent
 });
+
+test("no job gets two, after a stop too: Retry and a picked-up chat wait while another is open (review)", () => {
+  const db = setup();
+  const link = "https://example.com/again";
+  const a = queueApplication(db, { link });
+  claimNext(db, "made-up-agent");
+  reportApplication(db, a.id, "not-sent", "the form closed");
+  const b = queueApplication(db, { link }); // the stopped one doesn't block a new one
+  assert.throws(() => retryApplication(db, a.id), /no job gets two/);
+  assert.throws(() => reportApplication(db, a.id, "applying"), /no job gets two/);
+  const open = db.prepare("SELECT id FROM applications WHERE link = ? AND state != 'not-sent'").all(link);
+  assert.deepEqual(
+    open.map((r) => r.id),
+    [b.id],
+  );
+});

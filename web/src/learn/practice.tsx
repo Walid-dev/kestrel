@@ -5,6 +5,10 @@ import { Link } from "react-router";
 
 type Lesson = { id: string; title: string; body: { check: { q: string; a: string }[] } };
 
+// what Practice can ask: the due lessons and the new ones that have a question (guides due are read again on Learn)
+const toAsk = (dueN: number, newN: number) =>
+  `${[dueN && `${dueN} due`, newN && `${newN} new`].filter(Boolean).join(" and ")} to ask`;
+
 export function LearnPractice() {
   const queryClient = useQueryClient();
   const [shown, setShown] = useState(false);
@@ -13,7 +17,7 @@ export function LearnPractice() {
     queryFn: async () => {
       const res = await fetch(`/api/learn/due?area=${new URLSearchParams(location.search).get("area") ?? "learn"}`);
       if (!res.ok) throw new Error(`the due list didn't load (${res.status})`);
-      return (await res.json()) as { lessons: Lesson[] };
+      return (await res.json()) as { lessons: Lesson[]; due: number; new: number; reread: number };
     },
   });
   const grade = useMutation({
@@ -48,7 +52,9 @@ export function LearnPractice() {
       <main className="grid gap-3">
         <h2 className="font-cond text-xl font-bold">Practice</h2>
         <p className="text-sm" style={{ color: "var(--muted)" }}>
-          Nothing due. Come back tomorrow.
+          {due.data.reread > 0
+            ? `No questions due. ${due.data.reread} ${due.data.reread === 1 ? "lesson is" : "lessons are"} due to read again: open ${due.data.reread === 1 ? "it" : "them"} on Learn.`
+            : "Nothing due. Come back tomorrow."}
         </p>
         <Link to="/learn" className="btn justify-self-start">
           ← Learn
@@ -62,7 +68,7 @@ export function LearnPractice() {
       <div className="flex items-center gap-3">
         <h2 className="font-cond text-xl font-bold">Practice</h2>
         <span className="font-mono ml-auto text-xs" style={{ color: "var(--muted)" }}>
-          {due.data?.lessons.length} due
+          {toAsk(due.data?.due ?? 0, due.data?.new ?? 0)}
         </span>
       </div>
       <section className="card grid gap-3">

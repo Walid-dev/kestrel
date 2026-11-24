@@ -23,23 +23,62 @@ export function gradeLesson(
   return { due, intervalDays: interval, level };
 }
 
-export function dueLessons(db: DatabaseSync, now: Date, limit = 20): string[] {
-  return (
-    db.prepare("SELECT lesson FROM reviews WHERE due <= ? ORDER BY due LIMIT ?").all(now.toISOString(), limit) as {
-      lesson: string;
-    }[]
-  ).map((r) => r.lesson);
+// "due", one meaning wherever it is shown (Learn's front page, the pack pills, the quiz, Practice, the brief): a lesson
+// I graded whose review date has come. One never graded is new, not due: unread is not "to review" (the brief,
+// 2026-11-21). In SQL, with the lesson's review row as r and the time as its argument:
+export const DUE = "(r.due IS NOT NULL AND r.due <= ?)";
+// a lesson Practice can ask has a check question; a guide (read, then marked Done) has none, so Practice skips it
+const HAS_CHECK = `l.body LIKE '%"check":[{%'`;
+const NEW_WITH_CHECK = `(r.lesson IS NULL AND ${HAS_CHECK})`;
+const FROM_AREA =
+  "FROM lessons l JOIN packs p ON p.id = l.pack LEFT JOIN reviews r ON r.lesson = l.id WHERE p.area = ?";
+
+export function stateOf(review: { due: string | null; level: number | null }, now: Date): LessonState {
+  if (review.due === null) return "new";
+  return review.due <= now.toISOString() ? "due" : (review.level ?? 0) >= KNOWN ? "known" : "learning";
 }
 
-// a lesson never graded is due the moment it has a check question
-export function neverGraded(db: DatabaseSync, limit = 20): string[] {
+export function countDue(db: DatabaseSync, area: "learn" | "interview", now: Date): number {
+  return (db.prepare(`SELECT COUNT(*) AS n ${FROM_AREA} AND ${DUE}`).get(area, now.toISOString()) as { n: number }).n;
+}
+
+// an area's due lessons Practice can ask, the longest waiting first (the area and the check filter before the limit,
+// so another area's many, or many due guides, never crowd them out)
+export function dueLessons(db: DatabaseSync, area: "learn" | "interview", now: Date, limit = 20): string[] {
   return (
     db
-      .prepare(
-        "SELECT l.id FROM lessons l LEFT JOIN reviews r ON r.lesson = l.id WHERE r.lesson IS NULL AND l.body LIKE '%\"check\":[{%' ORDER BY l.added_at LIMIT ?",
-      )
-      .all(limit) as { id: string }[]
+      .prepare(`SELECT l.id ${FROM_AREA} AND ${DUE} AND ${HAS_CHECK} ORDER BY r.due LIMIT ?`)
+      .all(area, now.toISOString(), limit) as { id: string }[]
   ).map((r) => r.id);
+}
+
+// an area's lessons never graded that have a check question: Practice asks them after the due ones
+export function neverGraded(db: DatabaseSync, area: "learn" | "interview", limit = 20): string[] {
+  return (
+    db.prepare(`SELECT l.id ${FROM_AREA} AND ${NEW_WITH_CHECK} ORDER BY l.added_at LIMIT ?`).all(area, limit) as {
+      id: string;
+    }[]
+  ).map((r) => r.id);
+}
+
+// Practice: the due lessons it can ask, then the new ones it can ask, and how many of each there are in all. The due
+// lessons without a question (reread) are the rest of countDue: due + reread is the one "due" every screen shows.
+export function practiceList(
+  db: DatabaseSync,
+  area: "learn" | "interview",
+  now: Date,
+  limit = 20,
+): { ids: string[]; due: number; fresh: number; reread: number } {
+  const ids = dueLessons(db, area, now, limit);
+  const count = (where: string, ...args: string[]) =>
+    (db.prepare(`SELECT COUNT(*) AS n ${FROM_AREA} AND ${where}`).get(area, ...args) as { n: number }).n;
+  const due = count(`${DUE} AND ${HAS_CHECK}`, now.toISOString());
+  return {
+    ids: [...ids, ...neverGraded(db, area, limit - ids.length)],
+    due,
+    fresh: count(NEW_WITH_CHECK),
+    reread: countDue(db, area, now) - due,
+  };
 }
 
 export type LessonState = "due" | "new" | "learning" | "known";
@@ -74,7 +113,6 @@ export function lessonStates(
     due: string | null;
     level: number | null;
   }[];
-  const iso = now.toISOString();
   return rows.map((r) => {
     let short = "";
     let part = "";
@@ -87,9 +125,16 @@ export function lessonStates(
     } catch {
       // a body that can't be read shows its title alone
     }
-    const state: LessonState =
-      r.due === null ? "new" : r.due <= iso ? "due" : (r.level ?? 0) >= KNOWN ? "known" : "learning";
-    return { id: r.id, title: r.title, pack: r.pack, short, part, eyebrow, state, position: r.position };
+    return {
+      id: r.id,
+      title: r.title,
+      pack: r.pack,
+      short,
+      part,
+      eyebrow,
+      state: stateOf(r, now),
+      position: r.position,
+    };
   });
 }
 

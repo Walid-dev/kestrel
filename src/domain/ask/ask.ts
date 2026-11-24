@@ -11,8 +11,9 @@ import { ASK_VERSION, type AskPage, askMessages } from "../../ai/ask/prompt.ts";
 import { chatModel, type Turn } from "../../ai/client.ts";
 import { begin } from "../../platform/activity.ts";
 import type { Settings } from "../../platform/config.ts";
+import { plainWords } from "../../platform/plain.ts";
 import { recordCall } from "../calls.ts";
-import { lessonPage } from "../learn/ask.ts";
+import { lessonPage, lessonTools, quizTools } from "../learn/ask.ts";
 import { quizPage } from "../learn/quiz.ts";
 import { modelFor } from "../models.ts";
 import { notesHelper } from "../notes/ask.ts";
@@ -36,13 +37,14 @@ type Helper = {
   };
   // the answer's words before they are kept (a link to something that isn't there becomes plain words)
   tidy?: (db: DatabaseSync, ref: string, words: string) => string;
-  // the shared read tools this page allows (tools.ts); read alone when unsaid: a page of my own gets no web tool
-  tools?: ToolName[];
+  // the shared read tools this page allows (tools.ts), for the app or per page; read alone when unsaid: a page of my
+  // own gets no web tool
+  tools?: ToolName[] | ((db: DatabaseSync, ref: string) => ToolName[]);
 };
 const WEB: ToolName[] = ["read", "web", "page"];
 const HELPERS: Record<string, Helper> = {
-  learn: { page: lessonPage, tools: WEB },
-  quiz: { page: quizPage, tools: WEB },
+  learn: { page: lessonPage, tools: lessonTools },
+  quiz: { page: quizPage, tools: quizTools },
   searches: { ...searchesHelper, tools: WEB },
   notes: notesHelper,
   tasks: tasksHelper,
@@ -99,7 +101,8 @@ export function blocksOf(text: string): {
     (_, kind: string, body: string) => {
       try {
         const parsed = JSON.parse(body.trim()) as unknown;
-        if (parsed && typeof parsed === "object") {
+        // an object only: a list or a bare value is no look or change any page can run
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
           if (kind === "action") actions.push(parsed);
           else looks.push({ tool: kind === "find" || isTool(kind) ? kind : "find", args: parsed });
         }
@@ -134,7 +137,8 @@ export function askPage(
   if (!question) throw new Refused("ask something");
   const shown = helper.page(db, input.ref);
   if (!shown) throw new Refused("that page isn't there any more");
-  const page = { ...shown, tools: [shown.tools, toolsText(helper.tools ?? ["read"])].filter(Boolean).join("\n\n") };
+  const tools = typeof helper.tools === "function" ? helper.tools(db, input.ref) : (helper.tools ?? ["read"]);
+  const page = { ...shown, tools: [shown.tools, toolsText(tools)].filter(Boolean).join("\n\n") };
   const before = conversation(db, input.app, input.ref);
   if (before.some((m) => m.state === "writing")) throw new Refused("the model is still answering: wait for it");
   // the turns so far, each answer with the cards it proposed and what became of them
@@ -162,6 +166,7 @@ export function askPage(
     settings,
     { id: answer, app: input.app, ref: input.ref, model },
     helper,
+    tools,
     page,
     history,
     question,
@@ -176,11 +181,38 @@ async function write(
   settings: Settings,
   row: { id: string; app: string; ref: string; model: string },
   helper: Helper,
+  tools: ToolName[],
   page: AskPage,
   history: Turn[],
   question: string,
 ): Promise<void> {
   const live = begin("model", `Ask: ${page.title}`.slice(0, 120), page.link);
+  try {
+    await answer(db, settings, row, helper, tools, page, history, question, live);
+  } catch (e) {
+    // anything that breaks while the answer is written (a page's find, its tidy, a record) ends it as failed: a row
+    // left writing would refuse every question and Start over until a restart. Live first: if the database itself
+    // closed under it, the write below throws too, and askPage's catch takes it. The log keeps what broke, pathless.
+    console.error(`an Ask answer failed: ${plainWords(e instanceof Error ? e.message : String(e))}`);
+    live.end("failed", "something went wrong while it answered");
+    db.prepare("UPDATE ask_messages SET state = 'failed', error = ? WHERE id = ? AND state = 'writing'").run(
+      "something went wrong while it answered: ask again",
+      row.id,
+    );
+  }
+}
+
+async function answer(
+  db: DatabaseSync,
+  settings: Settings,
+  row: { id: string; app: string; ref: string; model: string },
+  helper: Helper,
+  tools: ToolName[],
+  page: AskPage,
+  history: Turn[],
+  question: string,
+  live: ReturnType<typeof begin>,
+): Promise<void> {
   live.step(`${row.model} answers`);
   const { system, messages } = askMessages(page, history, question);
   const grow = db.prepare("UPDATE ask_messages SET text = ? WHERE id = ? AND state = 'writing'");
@@ -209,7 +241,7 @@ async function write(
     const { looks, actions, words } = blocksOf(got.value);
     // its looks (through the page's data, or with a shared tool the page allows): what they return goes back to the
     // model, which answers from it. A tool the page doesn't allow is not run.
-    const allowed = new Set<string>([...(helper.find ? ["find"] : []), ...(helper.tools ?? ["read"])]);
+    const allowed = new Set<string>([...(helper.find ? ["find"] : []), ...tools]);
     const runnable = looks.filter((l) => allowed.has(l.tool)).slice(0, LOOKS);
     if (runnable.length && round < FIND_ROUNDS) {
       const found: string[] = [];
@@ -219,7 +251,7 @@ async function write(
           found.push(helper.find?.(db, row.ref, l.args) ?? "");
         } else {
           live.step(TOOLS[l.tool].doing);
-          found.push(await runTool(db, settings, l.tool, l.args));
+          found.push(await runTool(db, settings, l.tool, l.args, tools));
         }
       }
       messages.push(

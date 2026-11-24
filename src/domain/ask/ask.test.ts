@@ -11,7 +11,8 @@ import { startStandIn } from "../../ai/stand-in.ts";
 import { migrate } from "../../db/migrate.ts";
 import type { Settings } from "../../platform/config.ts";
 import { claimNext, getApplication, queueApplication, reportApplication } from "../apply/apply.ts";
-import { addLesson, addPack } from "../learn/lessons.ts";
+import { addLesson, addPack, setPackGroup } from "../learn/lessons.ts";
+import { startQuiz } from "../learn/quiz.ts";
 import { addUpload, Refused } from "../notes/documents.ts";
 import { listNotes } from "../notes/notes.ts";
 import { findListings } from "../search/ask.ts";
@@ -284,4 +285,94 @@ test("on Applications Retry is a card only for one that stopped, and my tap queu
   );
   actOn(db, settings(s.url), { id: answer.id, card: 0 });
   assert.equal(getApplication(db, stopped.id)?.state, "queued");
+});
+
+test("an answer that breaks while it is written fails, so the page takes the next question (review: stuck writing)", async (t) => {
+  const db = setup();
+  const logged: string[] = [];
+  t.mock.method(console, "error", (line: string) => logged.push(line));
+  hunt(db);
+  // a find block whose JSON is a list, not an object: reading it used to throw inside the answer's work
+  let asked = 0;
+  const s = await startStandIn(() => ({
+    content: asked++ === 0 ? 'Let me look.\n```find\n[{"words": "keeper"}]\n```' : '```find\n{"words": "keeper"}\n```',
+  }));
+  try {
+    await askPage(db, settings(s.url), { app: "searches", ref: "jobs:beekeeping", text: "Which pays most?" }).done;
+    const answer = conversation(db, "searches", "jobs:beekeeping")[1];
+    assert.notEqual(answer.state, "writing");
+    assert.doesNotThrow(() => clearConversation(db, "searches", "jobs:beekeeping"));
+    // and a find that throws inside the page's own code ends the answer as failed, with a short reason
+    const broken = askPage(db, settings(s.url), { app: "searches", ref: "jobs:beekeeping", text: "Again?" });
+    db.exec("DROP TABLE listings"); // the page's find can't read the hunt now
+    await broken.done;
+    const failed = conversation(db, "searches", "jobs:beekeeping")[1];
+    assert.equal(failed.state, "failed");
+    assert.match(failed.error, /went wrong/);
+    // and the service log says what broke, in one plain line (review)
+    assert.deepEqual(logged, ["an Ask answer failed: no such table: listings"]);
+  } finally {
+    await s.close();
+  }
+});
+
+test("my own words never reach the web: Interview prep, the Personal group and interview quizzes get read alone (review)", async () => {
+  const db = setup();
+  const answers = addPack(db, "Made-up interview", "answer-pack");
+  addLesson(
+    db,
+    answers,
+    "Why did you leave Made-up Corp?",
+    { say: ["The team moved."], check: [{ q: "Why?", a: "Moved." }] },
+    0,
+    "why-leave",
+  );
+  const mine = addPack(db, "My made-up setup");
+  setPackGroup(db, mine, "Personal");
+  addLesson(db, mine, "My made-up shelf", { say: ["The shelf holds jars."] }, 0, "shelf");
+  const quiz = startQuiz(db, { area: "interview", count: 1 });
+  const doc = addUpload(db, "secret.md", "A made-up private line.\n");
+  const seen: { messages?: { content: string }[]; query?: string; url?: string }[] = [];
+  let web = true; // the web looks, or the read alone
+  const s = await startStandIn((body) => {
+    seen.push(body as never);
+    return {
+      content: [
+        "I will check.",
+        ...(web
+          ? [
+              '```web\n{"query": "Made-up Corp reorg"}\n```',
+              '```page\n{"url": "https://example.com/?q=Made-up+Corp"}\n```',
+            ]
+          : []),
+        `\`\`\`read\n{"ref": "document:${doc.id}"}\n\`\`\``,
+        ...(web ? [] : ['```read\n{"ref": "lesson:why-leave"}\n```', '```read\n{"ref": "lesson:shelf"}\n```']),
+      ].join("\n"),
+    };
+  });
+  try {
+    for (const [app, ref] of [
+      ["learn", "why-leave"],
+      ["learn", "shelf"],
+      ["quiz", `${quiz.id}:0`],
+    ]) {
+      seen.length = 0;
+      await askPage(db, settings(s.url), { app, ref, text: "Tell me more" }).done;
+      assert.doesNotMatch(seen[0].messages?.[0].content ?? "", /```web/, `${app} ${ref} offers the web`);
+      assert.deepEqual(
+        seen.filter((b) => b.query || b.url),
+        [],
+        `${app} ${ref} sent my words to the web`,
+      );
+    }
+    // a page that has the web can't pull a Notes document, my prepared answer or my own lesson into the conversation
+    seen.length = 0;
+    web = false;
+    await askPage(db, settings(s.url), { app: "learn", ref: "spout", text: "Tell me more" }).done;
+    const looked = seen.at(-1)?.messages?.at(-1)?.content ?? "";
+    assert.match(looked, /lesson:why-leave/); // the read ran, and said no
+    assert.doesNotMatch(looked, /private line|team moved|holds jars/);
+  } finally {
+    await s.close();
+  }
 });

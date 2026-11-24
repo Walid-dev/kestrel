@@ -64,3 +64,69 @@ test("Stop, Stop all and Pause reach the old setup in order; a bad chat id is re
     old.close();
   }
 });
+
+test("Stop and Pause take only their own shapes; the old setup's chats are read leniently, one by one (review)", async () => {
+  const asked: string[] = [];
+  const at = new Date().toISOString();
+  const old = createServer((req, res) => {
+    let body = "";
+    req.on("data", (b) => {
+      body += b;
+    });
+    req.on("end", () => {
+      res.setHeader("content-type", "application/json");
+      if (req.method !== "GET") {
+        asked.push(`${req.url} ${body}`);
+        return res.end("{}");
+      }
+      res.end(
+        JSON.stringify({
+          chats: [
+            { id: "c1", title: "Made-up chat without steps", working: true, started: at, updated: at },
+            {
+              id: "c2",
+              title: "Made-up chat",
+              working: true,
+              started: at,
+              updated: at,
+              steps: [{ at, kind: "say", text: "Hi" }],
+            },
+            "not a chat",
+          ],
+        }),
+      );
+    });
+  });
+  await new Promise<void>((ok) => old.listen(0, "127.0.0.1", ok));
+  try {
+    const base = mkdtempSync(join(tmpdir(), "kestrel-livezod-"));
+    const db = new DatabaseSync(join(base, "t.db"));
+    migrate(db, join(base, "t.db"));
+    const app = new Hono();
+    mountLive(app, db, `http://127.0.0.1:${(old.address() as AddressInfo).port}/api/live`);
+    const post = (path: string, body: unknown) =>
+      app.request(path, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    assert.equal((await post("/api/live/pause", { paused: "yes" })).status, 400);
+    assert.equal((await post("/api/live/stop", { chat: CHAT, all: "yes" })).status, 400);
+    assert.deepEqual(asked, []); // nothing reached the old setup
+    const live = (await (await app.request("/api/live")).json()) as { chats: { id: string; steps: unknown[] }[] };
+    assert.deepEqual(
+      live.chats.map((c) => [c.id, c.steps.length]),
+      [
+        ["c1", 0],
+        ["c2", 1],
+      ],
+    );
+    // another address that doesn't answer shows nothing, not the first address's chats (review)
+    const other = new Hono();
+    mountLive(other, db, "http://127.0.0.1:9/api/live");
+    const none = (await (await other.request("/api/live")).json()) as { chats: unknown[]; queuePaused?: unknown };
+    assert.deepEqual(none.chats, []);
+  } finally {
+    old.close();
+  }
+});

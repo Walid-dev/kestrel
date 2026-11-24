@@ -40,6 +40,18 @@ const row = (r: Record<string, unknown>): Application => ({
   updated: String(r.updated),
 });
 
+const OPEN: ApplyState[] = ["queued", "applying", "needs-me"];
+
+// one open application per link: another one still open for it (not this one) is refused
+function refuseSecond(db: DatabaseSync, link: string, self: string): void {
+  const open = db
+    .prepare(
+      "SELECT id, state FROM applications WHERE link = ? AND id != ? AND state IN ('queued', 'applying', 'needs-me')",
+    )
+    .get(link, self) as { id: string; state: string } | undefined;
+  if (open) throw new Refused(`this job already has an application ${open.state}: no job gets two`);
+}
+
 // queue a listing (by id) or a bare link; an application still open for that link is refused
 export function queueApplication(db: DatabaseSync, input: { listing?: string; link?: string }): Application {
   let listing: { id: string; link: string; title: string; org: string } | null = null;
@@ -53,10 +65,7 @@ export function queueApplication(db: DatabaseSync, input: { listing?: string; li
   }
   const link = listing?.link ?? input.link ?? "";
   if (!link) throw new Refused("queue takes a listing or a link");
-  const open = db
-    .prepare("SELECT id, state FROM applications WHERE link = ? AND state IN ('queued', 'applying', 'needs-me')")
-    .get(link) as { id: string; state: string } | undefined;
-  if (open) throw new Refused(`this job already has an application ${open.state}: no job gets two`);
+  refuseSecond(db, link, "");
   const now = new Date().toISOString();
   const id = randomUUID();
   db.prepare(
@@ -86,6 +95,8 @@ export function reportApplication(db: DatabaseSync, id: string, state: ApplyStat
     throw new Refused(`an application ${current.state} cannot become ${state}`);
   if ((state === "not-sent" || state === "needs-me") && reason.trim() === "")
     throw new Refused(`${state} always says why`);
+  // a stopped one opening again (Retry, or its chat picked up) while I queued the job anew would make two
+  if (!OPEN.includes(current.state) && OPEN.includes(state)) refuseSecond(db, current.link, id);
   db.prepare("UPDATE applications SET state = ?, reason = ?, updated = ? WHERE id = ?").run(
     state,
     state === "sent" ? "" : reason.trim(),

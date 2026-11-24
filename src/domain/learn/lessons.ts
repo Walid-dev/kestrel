@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { Refused } from "../notes/documents.ts";
+import { DUE } from "./review.ts";
 
 export const LessonBody = z.object({
   eyebrow: z.string().default(""), // the topic or the part, small above the title
@@ -27,7 +28,7 @@ export type Pack = {
   area: Area;
   group: string; // the parent it sits under in Learn (AI, Platform, My stack…); empty: none yet
   lessons: number;
-  due: number; // due today or never graded with a check
+  due: number; // its review date has come (review.ts says what due means)
   known: number;
 };
 
@@ -89,14 +90,11 @@ const row = (r: Record<string, unknown>): Lesson => ({
   body: LessonBody.parse(JSON.parse(String(r.body))),
 });
 
-// a lesson is due when its review date has come, or when it has a check and was never graded
-const DUE = `(r.lesson IS NOT NULL AND r.due <= ?) OR (r.lesson IS NULL AND l.body LIKE '%"check":[{%')`;
-
 export function listPacks(db: DatabaseSync, area?: Area, now: Date = new Date()): Pack[] {
   const rows = db
     .prepare(
       `SELECT p.id, p.name, p.kind, p.area, p.grp, COUNT(l.id) AS lessons,
-              SUM(CASE WHEN l.id IS NOT NULL AND (${DUE}) THEN 1 ELSE 0 END) AS due,
+              SUM(CASE WHEN ${DUE} THEN 1 ELSE 0 END) AS due,
               SUM(CASE WHEN r.level >= 3 THEN 1 ELSE 0 END) AS known
        FROM packs p LEFT JOIN lessons l ON l.pack = p.id LEFT JOIN reviews r ON r.lesson = l.id
        ${area ? "WHERE p.area = ?" : ""}

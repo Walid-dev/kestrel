@@ -11,6 +11,7 @@ import { importV1 } from "../domain/search/import-v1.ts";
 import { lastRun, type Run, runSearch } from "../domain/search/runs.ts";
 import { isDue, loadSpecs, type Spec } from "../domain/search/specs.ts";
 import { begin } from "../platform/activity.ts";
+import { plainWords } from "../platform/plain.ts";
 
 export type SchedulerDirs = {
   specsDir: string;
@@ -19,8 +20,10 @@ export type SchedulerDirs = {
   afterRun?: (spec: Spec, run: Run) => Promise<void>; // a hunt that is On pings my phone (server/alerts.ts)
 };
 
-// an error's words, with any path turned generic: the run rows and the service log never carry folders
-const plainWords = (msg: string): string => msg.replaceAll(/\/[^\s"']+/g, "(a path)").slice(0, 120);
+// a copy that failed (a full disk, a folder it can't write) tries again an hour later, not every minute: each try
+// is one failed entry in Live and one log line. In memory, by folder: a restart tries at once.
+const copyFailed = new Map<string, number>();
+const RETRY_COPY_MS = 3_600_000;
 
 let ticking = false; // one tick at a time: a slow collector must never stack duplicate runs behind itself
 
@@ -86,10 +89,20 @@ async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promis
       did.push("mirror:v1");
     }
   }
-  if (backupDue(dirs.backupsDir, now)) {
-    mkdirSync(dirs.backupsDir, { recursive: true });
+  const failedAt = copyFailed.get(dirs.backupsDir) ?? Number.NEGATIVE_INFINITY;
+  if (backupDue(dirs.backupsDir, now) && now.getTime() - failedAt >= RETRY_COPY_MS) {
     const copy = begin("backup", "The nightly copy of the database");
-    snapshot(db, join(dirs.backupsDir, `kestrel-${now.toISOString().slice(0, 10)}.db`));
+    try {
+      mkdirSync(dirs.backupsDir, { recursive: true });
+      // named to the minute: a copy is due 20 hours after the last, so two can fall on one date, and SQLite refuses
+      // to copy over a file that is there
+      snapshot(db, join(dirs.backupsDir, `kestrel-${now.toISOString().slice(0, 16).replace(":", "-")}.db`));
+    } catch (e) {
+      copyFailed.set(dirs.backupsDir, now.getTime());
+      copy.end("failed", plainWords((e as Error).message));
+      throw e;
+    }
+    copyFailed.delete(dirs.backupsDir);
     copy.end("done");
     const files = readdirSync(dirs.backupsDir)
       .filter((f) => f.startsWith("kestrel-"))
@@ -120,9 +133,12 @@ function backupDue(backupsDir: string, now: Date): boolean {
   }
 }
 
+// one tick whose failure is one plain line in the service log: an fs error names its folder, so the path goes
+export const runTick = (db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promise<unknown> =>
+  tick(db, dirs, now).catch((e) => console.error(`the scheduler's tick failed: ${plainWords((e as Error).message)}`));
+
 export function startScheduler(db: DatabaseSync, dirs: SchedulerDirs): void {
-  const run = () =>
-    tick(db, dirs, new Date()).catch((e) => console.error(`the scheduler's tick failed: ${(e as Error).message}`));
+  const run = () => runTick(db, dirs, new Date());
   run(); // catch up at start: a restart or a wake never skips the day
   setInterval(run, 60_000).unref();
 }

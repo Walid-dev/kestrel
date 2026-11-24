@@ -213,3 +213,10 @@ export function startDeepCheck(
   })();
   return id;
 }
+
+// kestrel restarted while a check ran: it can't finish now, so it says so, and its button works again
+export function sweepDeepChecks(db: DatabaseSync): void {
+  db.prepare(
+    "UPDATE deep_checks SET state = 'failed', step = '', finished = ?, error = 'kestrel restarted while it ran: check again' WHERE state = 'running'",
+  ).run(new Date().toISOString());
+}

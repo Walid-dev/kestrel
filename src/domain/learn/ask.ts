@@ -2,7 +2,9 @@
 // can link the lesson that covers it. The conversation itself is Ask's (src/domain/ask/ask.ts).
 import type { DatabaseSync } from "node:sqlite";
 import type { AskPage } from "../../ai/ask/prompt.ts";
+import type { ToolName } from "../ask/tools.ts";
 import { getLesson, lessonText, listLessons } from "./lessons.ts";
+import { getQuiz } from "./quiz.ts";
 
 const LESSON_CHARS = 24_000; // a long guide still leaves room for the conversation
 
@@ -43,4 +45,22 @@ export function lessonAskPage(
         .join("\n")}`,
     ].join("\n\n"),
   };
+}
+
+// the shared tools a lesson or a quiz question allows. My prepared answers (Interview prep), my own packs (the
+// Personal group) and an interview quiz carry my own words, so they get read alone: nothing of them can go into a web
+// search or a fetched address. Every other lesson teaches the field and may look on the web.
+const WEB: ToolName[] = ["read", "web", "page"];
+export const isMine = (db: DatabaseSync, lessonId: string): boolean => {
+  const p = db
+    .prepare("SELECT p.area, p.grp FROM lessons l JOIN packs p ON p.id = l.pack WHERE l.id = ?")
+    .get(lessonId) as { area: string; grp: string } | undefined;
+  return !p || p.area === "interview" || p.grp === "Personal";
+};
+export const lessonTools = (db: DatabaseSync, ref: string): ToolName[] => (isMine(db, ref) ? ["read"] : WEB);
+export function quizTools(db: DatabaseSync, ref: string): ToolName[] {
+  const cut = ref.lastIndexOf(":");
+  const quiz = cut > 0 ? getQuiz(db, ref.slice(0, cut)) : null;
+  const item = quiz?.items[Number(ref.slice(cut + 1))];
+  return !quiz || !item || quiz.area === "interview" || isMine(db, item.lesson) ? ["read"] : WEB;
 }

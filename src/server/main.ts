@@ -7,8 +7,10 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { openDb } from "../db/db.ts";
 import { migrate } from "../db/migrate.ts";
+import { sweepDeepChecks } from "../domain/search/deep.ts";
 import { loadSettings } from "../platform/config.ts";
 import { dataDir, isDeployed } from "../platform/paths.ts";
+import { plainWords } from "../platform/plain.ts";
 import { alertRun } from "./alerts.ts";
 import { app } from "./app.ts";
 import { mountApply } from "./apply.ts";
@@ -94,6 +96,7 @@ if (!isDeployed() && (db.prepare("SELECT COUNT(*) AS n FROM packs").get() as { n
     2,
   );
 }
+sweepDeepChecks(db); // a deep check a restart cut short says so (as Research, the letters and Ask do in their mounts)
 mountSearch(app, db, settings);
 mountApply(app, db);
 mountTasks(app, db);
@@ -116,7 +119,7 @@ startScheduler(db, {
 const root = new Hono();
 // a failed request logs one plain line, never a stack: the service log must stay free of paths and content
 root.onError((e, c) => {
-  console.error(`a request failed: ${e.name}: ${e.message.replaceAll(/\/[^\s"']+/g, "(a path)").slice(0, 120)}`);
+  console.error(`a request failed: ${e.name}: ${plainWords(e.message)}`);
   return c.json({ error: "something went wrong on the computer's side" }, 500);
 });
 root.use("*", identity(settings.tailscaleLogin, isDeployed()));

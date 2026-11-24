@@ -33,7 +33,7 @@ import {
   skipQuiz,
   startQuiz,
 } from "../domain/learn/quiz.ts";
-import { dueLessons, gradeLesson, lessonStates, neverGraded } from "../domain/learn/review.ts";
+import { gradeLesson, lessonStates, practiceList, stateOf } from "../domain/learn/review.ts";
 import { Refused } from "../domain/notes/documents.ts";
 import { record } from "../platform/activity.ts";
 import type { Settings } from "../platform/config.ts";
@@ -93,7 +93,7 @@ export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
     const pack = db.prepare("SELECT name, area FROM packs WHERE id = ?").get(lesson.pack) as
       | { name: string; area: Area }
       | undefined;
-    const state = !r ? "new" : r.due <= new Date().toISOString() ? "due" : r.level >= 3 ? "known" : "learning";
+    const state = stateOf({ due: r?.due ?? null, level: r?.level ?? null }, new Date());
     return c.json({ ...lesson, state, packName: pack?.name ?? "", area: pack?.area ?? "learn" });
   });
   app.get("/api/learn/search", (c) =>
@@ -192,19 +192,16 @@ export function mountLearn(app: Hono, db: DatabaseSync, settings: Settings) {
       }
     },
   );
-  app.get("/api/learn/due", (c) => {
-    const ids = [...new Set([...dueLessons(db, new Date()), ...neverGraded(db)])];
-    const which = area(c.req.query("area")) ?? "learn";
-    const lessons = ids
-      .map((id) => getLesson(db, id))
-      .filter((l) => l !== null)
-      .filter((l) => {
-        const p = db.prepare("SELECT area FROM packs WHERE id = ?").get(l.pack) as { area: string } | undefined;
-        return p?.area === which;
-      })
-      .slice(0, 20);
-    return c.json({ lessons });
-  });
+  // Practice: an area's due lessons, then its new ones with a check; the counts are the ones every screen shows
+  app.get(
+    "/api/learn/due",
+    zValidator("query", z.object({ area: z.enum(["learn", "interview"]).catch("learn") })),
+    (c) => {
+      const got = practiceList(db, c.req.valid("query").area, new Date());
+      const lessons = got.ids.map((id) => getLesson(db, id)).filter((l) => l !== null);
+      return c.json({ lessons, due: got.due, new: got.fresh, reread: got.reread });
+    },
+  );
   app.post(
     "/api/learn/grade",
     zValidator("json", z.object({ lesson: z.string().min(1), grade: z.enum(["again", "good"]) })),

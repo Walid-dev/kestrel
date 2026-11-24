@@ -2,10 +2,12 @@
 // read a web page. A page's own find stays with its app (each knows its data). Each tool says when it helps and its
 // shape; Ask's prompt lists the ones its page allows, and Ask's loop runs them. Web search and page reading are the
 // model door's own, as Research and the deep checks use them. A page about my own things (notes, writing, the
-// applications, tasks) gets no web tool, so nothing of mine goes into a search.
+// applications, tasks, my prepared answers and my own packs) gets no web tool, so nothing of mine goes into a search;
+// and a page with the web opens no document or lesson of mine.
 import type { DatabaseSync } from "node:sqlite";
 import { fetchPage, searchWeb } from "../../ai/web.ts";
 import type { Settings } from "../../platform/config.ts";
+import { isMine } from "../learn/ask.ts";
 import { getLesson, lessonText } from "../learn/lessons.ts";
 import { getDocument } from "../notes/documents.ts";
 import { getListing } from "../search/listings.ts";
@@ -14,6 +16,10 @@ export type ToolName = "read" | "web" | "page";
 type O = Record<string, unknown>;
 const READ_CHARS = 6000;
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+
+// a page with a web tool opens the field's lessons and the listings only: a document of mine, my prepared answer or a
+// lesson of my own read there could go into a search next
+const withWeb = (tools: ToolName[]) => tools.includes("web") || tools.includes("page");
 
 // one item by its ref, as links name them: a lesson, a listing, a document in Notes
 function readRef(db: DatabaseSync, ref: string): string {
@@ -49,15 +55,19 @@ export const TOOLS: Record<
     when: string;
     shape: string;
     doing: string;
-    run: (db: DatabaseSync, settings: Settings, args: O) => Promise<string>;
+    run: (db: DatabaseSync, settings: Settings, args: O, tools: ToolName[]) => Promise<string>;
   }
 > = {
   read: {
     when: "open a lesson, a listing or a document the page or a link names, to answer from its own words",
     shape: '{"ref": "lesson:<id>" | "listing:<id>" | "document:<id>"}',
     doing: "Reading what the page names",
-    run: async (db, _s, a) => {
+    run: async (db, _s, a, tools) => {
       const ref = str(a.ref);
+      if (withWeb(tools) && ref.startsWith("document:"))
+        return `${ref}: a document isn't opened on a page with the web.`;
+      if (withWeb(tools) && ref.startsWith("lesson:") && isMine(db, ref.slice("lesson:".length)))
+        return `${ref}: a lesson of my own isn't opened on a page with the web.`;
       const text = readRef(db, ref);
       return text ? `${ref}:\n${text.slice(0, READ_CHARS)}` : `${ref || "(no ref)"}: nothing by that id.`;
     },
@@ -93,12 +103,22 @@ export const isTool = (k: string): k is ToolName => Object.hasOwn(TOOLS, k);
 
 // the tools in a prompt, each a fenced block of JSON, as the page's find is
 export const toolLines = (names: ToolName[]): string[] =>
-  names.map((n) => `- to ${TOOLS[n].when}: \`\`\`${n}\n${TOOLS[n].shape}\n\`\`\``);
+  names.map((n) =>
+    n === "read" && withWeb(names)
+      ? `- to open a lesson or a listing the page or a link names, to answer from its own words: \`\`\`read\n{"ref": "lesson:<id>" | "listing:<id>"}\n\`\`\``
+      : `- to ${TOOLS[n].when}: \`\`\`${n}\n${TOOLS[n].shape}\n\`\`\``,
+  );
 
 // one look the model asked for; a tool that fails says so in words, so the model answers without it
-export async function runTool(db: DatabaseSync, settings: Settings, name: ToolName, args: unknown): Promise<string> {
+export async function runTool(
+  db: DatabaseSync,
+  settings: Settings,
+  name: ToolName,
+  args: unknown,
+  tools: ToolName[],
+): Promise<string> {
   try {
-    return await TOOLS[name].run(db, settings, args && typeof args === "object" ? (args as O) : {});
+    return await TOOLS[name].run(db, settings, args && typeof args === "object" ? (args as O) : {}, tools);
   } catch (e) {
     return `${name} didn't work: ${(e instanceof Error ? e.message : String(e)).slice(0, 160)}`;
   }

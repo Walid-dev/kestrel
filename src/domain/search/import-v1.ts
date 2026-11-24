@@ -312,113 +312,117 @@ function importDeals(db: DatabaseSync, old: DatabaseSync, write: boolean, opts: 
 
 export function importV1(db: DatabaseSync, from: string, write: boolean, opts: ImportOptions = {}): ImportCounts {
   const old = new DatabaseSync(from, { readOnly: true });
-  const cols = (old.prepare("PRAGMA table_info(job_listings)").all() as { name: string }[]).map((c) => c.name);
-  const rows = old
-    .prepare(
-      `SELECT id, hunt, link, dedupe_key, status, found, data, ${cols.includes("owner") ? "owner" : "NULL AS owner"} FROM job_listings`,
-    )
-    .all() as OldRow[];
-  const source: Record<string, number> = {};
-  let sourceStarred = 0;
-  let sourceScored = 0;
-  const landed: Landed = { new: 0, updated: 0, unchanged: 0 };
-  // a link match stays inside its own search: another hunt's row with the same link is its own (the sweep's finding)
-  const get = db.prepare(
-    "SELECT id, status, starred, score, match, data FROM listings WHERE id = ? OR (search = ? AND (dedupe = ? OR link = ?))",
-  );
-  const insert = db.prepare(
-    `INSERT INTO listings (id, search, source, link, dedupe, status, starred, found, updated, score, match, data, kind)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'jobs')`,
-  );
-  const update = db.prepare(
-    "UPDATE listings SET status = ?, starred = ?, score = ?, match = ?, data = ?, updated = ? WHERE id = ?",
-  );
-  const kept: OldRow[] = [];
-  for (const r of rows) {
-    const data = json(r.data);
-    const own = json(r.owner);
-    if (own.deleted) continue; // a job I removed in the old setup stays removed
-    kept.push(r);
-    source[r.status] = (source[r.status] ?? 0) + 1;
-    // my star lives in the owner column; an old row may still carry it in its data
-    const star = own.star ?? data.star;
-    const starred = star === true ? 1 : star === false ? 0 : null;
-    if (starred === 1) sourceStarred++;
-    const score = typeof data.score === "number" ? Math.round(data.score) : null;
-    if (score !== null) sourceScored++;
-    // the old setup's "fair" is kestrel's possible tier
-    const match = String(data.match ?? "") === "fair" ? "weak" : String(data.match ?? "");
-    const updatedAt = String(data.lastSeen ?? r.found);
-    // a job open only where I can't work is set aside here too, each night, as kestrel's own finds are
-    const outside = data.leftOut ? null : outsideOf(opts.jobScoring?.(r.hunt), data as unknown as ScoredJob);
-    const carried = JSON.stringify({
-      ...data,
-      ...(outside ? { leftOut: outside } : {}),
-      kind: "jobs",
-      org: text(data.company) || text(data.org),
-      why: data.matchWhy ?? "",
-      note: text(own.myNote),
-      appliedAt: own.appliedAt ?? null,
-      followUpAt: own.followUpAt ?? null,
-      interviewAt: own.interviewAt ?? null,
-    });
-    const have = get.get(r.id, r.hunt, r.dedupe_key, r.link) as
-      | { id: string; status: string; starred: number | null; score: number | null; match: string; data: string }
-      | undefined;
-    if (!have) {
-      landed.new++;
-      if (write)
-        insert.run(
-          r.id,
-          r.hunt,
-          String(data.source ?? "unknown"),
-          r.link,
-          r.dedupe_key,
-          r.status,
-          starred,
-          r.found,
-          updatedAt,
-          score,
-          match,
-          carried,
-        );
-      continue;
+  // closed however it ends: a failed import is retried each night, and each try would leave one more file open
+  try {
+    const cols = (old.prepare("PRAGMA table_info(job_listings)").all() as { name: string }[]).map((c) => c.name);
+    const rows = old
+      .prepare(
+        `SELECT id, hunt, link, dedupe_key, status, found, data, ${cols.includes("owner") ? "owner" : "NULL AS owner"} FROM job_listings`,
+      )
+      .all() as OldRow[];
+    const source: Record<string, number> = {};
+    let sourceStarred = 0;
+    let sourceScored = 0;
+    const landed: Landed = { new: 0, updated: 0, unchanged: 0 };
+    // a link match stays inside its own search: another hunt's row with the same link is its own (the sweep's finding)
+    const get = db.prepare(
+      "SELECT id, status, starred, score, match, data FROM listings WHERE id = ? OR (search = ? AND (dedupe = ? OR link = ?))",
+    );
+    const insert = db.prepare(
+      `INSERT INTO listings (id, search, source, link, dedupe, status, starred, found, updated, score, match, data, kind)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'jobs')`,
+    );
+    const update = db.prepare(
+      "UPDATE listings SET status = ?, starred = ?, score = ?, match = ?, data = ?, updated = ? WHERE id = ?",
+    );
+    const kept: OldRow[] = [];
+    for (const r of rows) {
+      const data = json(r.data);
+      const own = json(r.owner);
+      if (own.deleted) continue; // a job I removed in the old setup stays removed
+      kept.push(r);
+      source[r.status] = (source[r.status] ?? 0) + 1;
+      // my star lives in the owner column; an old row may still carry it in its data
+      const star = own.star ?? data.star;
+      const starred = star === true ? 1 : star === false ? 0 : null;
+      if (starred === 1) sourceStarred++;
+      const score = typeof data.score === "number" ? Math.round(data.score) : null;
+      if (score !== null) sourceScored++;
+      // the old setup's "fair" is kestrel's possible tier
+      const match = String(data.match ?? "") === "fair" ? "weak" : String(data.match ?? "");
+      const updatedAt = String(data.lastSeen ?? r.found);
+      // a job open only where I can't work is set aside here too, each night, as kestrel's own finds are
+      const outside = data.leftOut ? null : outsideOf(opts.jobScoring?.(r.hunt), data as unknown as ScoredJob);
+      const carried = JSON.stringify({
+        ...data,
+        ...(outside ? { leftOut: outside } : {}),
+        kind: "jobs",
+        org: text(data.company) || text(data.org),
+        why: data.matchWhy ?? "",
+        note: text(own.myNote),
+        appliedAt: own.appliedAt ?? null,
+        followUpAt: own.followUpAt ?? null,
+        interviewAt: own.interviewAt ?? null,
+      });
+      const have = get.get(r.id, r.hunt, r.dedupe_key, r.link) as
+        | { id: string; status: string; starred: number | null; score: number | null; match: string; data: string }
+        | undefined;
+      if (!have) {
+        landed.new++;
+        if (write)
+          insert.run(
+            r.id,
+            r.hunt,
+            String(data.source ?? "unknown"),
+            r.link,
+            r.dedupe_key,
+            r.status,
+            starred,
+            r.found,
+            updatedAt,
+            score,
+            match,
+            carried,
+          );
+        continue;
+      }
+      if (
+        have.status === r.status &&
+        have.starred === starred &&
+        have.score === score &&
+        have.match === match &&
+        have.data === carried
+      ) {
+        landed.unchanged++;
+        continue;
+      }
+      landed.updated++; // the old setup stays the authority for status, star and note until the cutover
+      if (write) update.run(r.status, starred, score, match, carried, updatedAt, have.id);
     }
-    if (
-      have.status === r.status &&
-      have.starred === starred &&
-      have.score === score &&
-      have.match === match &&
-      have.data === carried
-    ) {
-      landed.unchanged++;
-      continue;
-    }
-    landed.updated++; // the old setup stays the authority for status, star and note until the cutover
-    if (write) update.run(r.status, starred, score, match, carried, updatedAt, have.id);
+    const applications = importApplications(db, kept, write);
+    const deals = importDeals(db, old, write, opts);
+    const deepChecks = importDeepChecks(db, old, write);
+    const kestrel: Record<string, number> = {};
+    const after = db.prepare("SELECT status, COUNT(*) AS n FROM listings GROUP BY status").all() as {
+      status: string;
+      n: number;
+    }[];
+    for (const row of after) kestrel[row.status] = row.n;
+    const starredRow = db.prepare("SELECT COUNT(*) AS n FROM listings WHERE starred = 1").get() as { n: number };
+    const scoredRow = db.prepare("SELECT COUNT(*) AS n FROM listings WHERE score IS NOT NULL").get() as { n: number };
+    return {
+      source,
+      sourceStarred,
+      sourceScored,
+      landed,
+      deals,
+      applications,
+      deepChecks,
+      kestrel,
+      kestrelStarred: starredRow.n,
+      kestrelScored: scoredRow.n,
+    };
+  } finally {
+    old.close();
   }
-  const applications = importApplications(db, kept, write);
-  const deals = importDeals(db, old, write, opts);
-  const deepChecks = importDeepChecks(db, old, write);
-  old.close();
-  const kestrel: Record<string, number> = {};
-  const after = db.prepare("SELECT status, COUNT(*) AS n FROM listings GROUP BY status").all() as {
-    status: string;
-    n: number;
-  }[];
-  for (const row of after) kestrel[row.status] = row.n;
-  const starredRow = db.prepare("SELECT COUNT(*) AS n FROM listings WHERE starred = 1").get() as { n: number };
-  const scoredRow = db.prepare("SELECT COUNT(*) AS n FROM listings WHERE score IS NOT NULL").get() as { n: number };
-  return {
-    source,
-    sourceStarred,
-    sourceScored,
-    landed,
-    deals,
-    applications,
-    deepChecks,
-    kestrel,
-    kestrelStarred: starredRow.n,
-    kestrelScored: scoredRow.n,
-  };
 }
