@@ -548,6 +548,7 @@ export function Quiz() {
                       key={q.id}
                       q={q}
                       busy={isBusy(q.id)}
+                      wrap
                       line={q.finished ? `${q.right} of ${q.total} right` : `${q.answered} of ${q.total} answered`}
                       end={
                         <>
@@ -598,14 +599,27 @@ function Failed({ message }: { message: string | null }) {
 }
 
 // an ended or archived quiz as a row of a List: its name opens it; its date or score under it; its actions at the end
-// (a row being archived or deleted dims whole: its end carries the mark, styles.css dims the row from it)
-function QuizRow({ q, busy, line, end }: { q: Summary; busy: boolean; line: ReactNode; end: ReactNode }) {
+// (a row being archived or deleted dims whole: its end carries the mark, styles.css dims the row from it). wrap: on a
+// phone the actions drop under the name, so a long name keeps the row's width (Restore and Delete take too much of it)
+function QuizRow({
+  q,
+  busy,
+  wrap = false,
+  line,
+  end,
+}: {
+  q: Summary;
+  busy: boolean;
+  wrap?: boolean;
+  line: ReactNode;
+  end: ReactNode;
+}) {
   return (
     <Row
       to={`/quiz/${q.id}`}
       title={named(q)}
       line={line}
-      end={<span className={cx("quiz-row-end", busy && "quiz-row-busy")}>{end}</span>}
+      end={<span className={cx("quiz-row-end", wrap && "quiz-row-wrap", busy && "quiz-row-busy")}>{end}</span>}
     />
   );
 }

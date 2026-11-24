@@ -2255,6 +2255,25 @@ pre.code .f {
     gap: 20px;
   }
 }
+/* an archived quiz on a phone: its Restore and Delete drop to a line of their own under its name, lined up with it,
+   so the name keeps the row's width. The words take the first line less the chevron and its gap (14 + 12). Placed
+   after .quiz-row-end, so its gap wins */
+@media (max-width: 30rem) {
+  .list-row:has(.quiz-row-wrap) {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .list-row:has(.quiz-row-wrap) > .list-text {
+    flex-basis: calc(100% - 26px);
+  }
+  .list-row:has(.quiz-row-wrap) > .list-end {
+    order: 1;
+  }
+  /* two worded buttons, not two round ones: the plain gap of a row of buttons */
+  .quiz-row-end.quiz-row-wrap {
+    gap: 12px;
+  }
+}
 /* a row being archived or deleted dims whole while it waits */
 .list-row:has(.quiz-row-busy) {
   opacity: 0.55;
@@ -2263,6 +2282,7 @@ pre.code .f {
 .quiz-place {
   display: grid;
   gap: 6px;
+  margin-bottom: 6px;
 }
 /* a quiz's answer starts at two lines (Field's tall starts at three) */
 .quiz-field .field-input {
