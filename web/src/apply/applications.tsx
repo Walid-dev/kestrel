@@ -1,6 +1,7 @@
-// Applications: the numbers first — sent, not sent, waiting on me, being applied, queued — then what happened after
-// sending (the job stages: interviewing, offers, rejections), this week's count, and the attempts of the state I pick,
-// newest first. An attempt opens its listing whole. Live through the events stream; the phone can ask to be told.
+// Applications: what happened after sending (the job stages: interviewing, offers, rejections) and this week's count in
+// one line under the title; then the words, the period and the states with their numbers — sent, not sent, waiting
+// on me, being applied, queued — and the attempts of the state I pick, newest first. An attempt opens its listing
+// whole. Live through the events stream; the phone can ask to be told, from the page's foot.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -14,6 +15,7 @@ import { EmptyState } from "../ui/empty.tsx";
 import { Field } from "../ui/field.tsx";
 import { Page } from "../ui/page.tsx";
 import { Pills, type Tone } from "../ui/pills.tsx";
+import { Seg } from "../ui/seg.tsx";
 
 type Application = {
   id: string;
@@ -43,6 +45,9 @@ const PERIODS = [
   ["all", "All time"],
 ] as const;
 const PAGE = 60;
+
+// a count in the line under the title: mono, in the ink
+const Num = ({ n }: { n: number | undefined }) => <b className="font-mono text-ink">{n ?? 0}</b>;
 
 export function Applications() {
   const queryClient = useQueryClient();
@@ -117,79 +122,56 @@ export function Applications() {
   return (
     <Page
       title="Applications"
+      // what happened after sending, and this week, in one quiet line
+      line={
+        <span className="block text-small">
+          After sending: <Num n={s.interviewing} /> interviewing · <Num n={s.offer} /> offers · <Num n={s.rejected} />{" "}
+          rejected · <Num n={s.applied} /> waiting for an answer. This week: <Num n={sentWeek} /> sent,{" "}
+          <Num n={stoppedWeek} /> stopped.
+        </span>
+      }
       actions={
-        <>
-          <Link to="/searches" className="btn">
-            Find jobs
-          </Link>
-          {!told && typeof Notification !== "undefined" && (
-            <button
-              type="button"
-              className="btn"
-              onClick={async () => setTold((await Notification.requestPermission()) === "granted")}
-            >
-              Notify this phone
-            </button>
-          )}
-        </>
+        <Link to="/searches" className="btn">
+          Find jobs
+        </Link>
       }
     >
-      <Pills
-        label="State"
-        options={STATES.map((x) => ({ value: x.state, label: x.title, tone: x.tone, count: counts[x.state] ?? 0 }))}
-        value={state}
-        onChange={(v) => {
-          setPick(v);
-          setLimit(PAGE);
-        }}
-      />
-      {/* the words on a row of their own, so the box keeps its width on a phone; the period under it, beside it wider,
-          where the box grows to the bar's height and its words stay in the middle, so both edges line up (the
-          box's own rule sets its words at the bottom, and a utility can't outrank it, so the words fill it instead) */}
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_20rem] md:[&_.field-box]:h-full md:[&_.field-input]:self-stretch">
-        <Field
-          label="Search title, company or reason"
-          value={q}
+      {/* the words and the period on one row (wrapping on a phone), the states under them */}
+      <div className="grid gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="min-w-0 flex-[1_1_16rem]">
+            <Field
+              label="Search title, company or reason"
+              value={q}
+              onChange={(v) => {
+                setQ(v);
+                setLimit(PAGE);
+              }}
+            />
+          </div>
+          <Seg
+            label="Period"
+            options={PERIODS.map(([k, label]) => ({ value: k, label }))}
+            value={period}
+            onChange={setPeriod}
+          />
+        </div>
+        <Pills
+          label="State"
+          options={STATES.map((x) => ({ value: x.state, label: x.title, tone: x.tone, count: counts[x.state] ?? 0 }))}
+          value={state}
           onChange={(v) => {
-            setQ(v);
+            setPick(v);
             setLimit(PAGE);
           }}
         />
-        <fieldset className="seg" aria-label="Period">
-          {PERIODS.map(([k, label]) => (
-            <button key={k} type="button" aria-pressed={period === k} onClick={() => setPeriod(k)}>
-              {label}
-            </button>
-          ))}
-        </fieldset>
       </div>
-
-      <Card>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-detail">
-          <span className="eyebrow">After sending</span>
-          <span>
-            <b className="font-mono text-orange">{s.interviewing ?? 0}</b> interviewing
-          </span>
-          <span>
-            <b className="font-mono text-green">{s.offer ?? 0}</b> offers
-          </span>
-          <span>
-            <b className="font-mono text-red">{s.rejected ?? 0}</b> rejected
-          </span>
-          <span>
-            <b className="font-mono text-accent">{s.applied ?? 0}</b> waiting for an answer
-          </span>
-          <span className="ml-auto text-muted">
-            This week: <b className="text-ink">{sentWeek}</b> sent, <b className="text-ink">{stoppedWeek}</b> stopped
-          </span>
-        </div>
-      </Card>
 
       {failed && <p className="m-0 text-detail text-red">{String((failed.error as Error).message)}</p>}
 
       <section className="grid gap-3">
         <div className="grid gap-1">
-          <h2 className="font-cond m-0 text-head">
+          <h2 className="font-cond m-0 text-section">
             {shown?.title} <span className="font-mono text-small text-muted">{rows.length}</span>
           </h2>
           {shown && <p className="m-0 text-small text-muted">{shown.what}</p>}
@@ -229,15 +211,14 @@ export function Applications() {
                 }
               >
                 <div className="grid gap-3">
-                  {a.org && <p className="m-0 text-ink">{a.org}</p>}
-                  {a.reason && (
-                    <p
-                      className={`m-0 rounded-lg px-3 py-2 text-ink ${a.state === "needs-me" ? "bg-pink-soft" : "bg-warn-soft"}`}
-                    >
-                      {a.reason}
-                    </p>
+                  {(a.org || a.reason) && (
+                    <div className="grid gap-2">
+                      {a.org && <p className="m-0 text-ink">{a.org}</p>}
+                      {/* why it stopped or waits: an inner block (the card's edge already says it needs me) */}
+                      {a.reason && <p className="inner m-0 text-ink">{a.reason}</p>}
+                    </div>
                   )}
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <a href={a.link} target="_blank" rel="noopener noreferrer" className="btn">
                       The posting ↗
                     </a>
@@ -281,6 +262,16 @@ export function Applications() {
         ]}
         onChange={() => queryClient.invalidateQueries({ queryKey: ["apply"] })}
       />
+      {/* the rare action, at the page's foot */}
+      {!told && typeof Notification !== "undefined" && (
+        <button
+          type="button"
+          className="btn btn-quiet justify-self-start"
+          onClick={async () => setTold((await Notification.requestPermission()) === "granted")}
+        >
+          Notify this phone
+        </button>
+      )}
       {open && <ListingSheet id={open} onClose={() => setOpen(null)} />}
     </Page>
   );

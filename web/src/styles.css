@@ -548,14 +548,14 @@ h3 {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-/* the card of the listing I opened last: an accent edge and a tag on its top edge */
+/* the card of the listing I opened last: an accent edge and a tag on its top edge, the accent as words and edge only
+   (the screen's one fill is its primary) */
 .last-opened {
   position: relative;
   display: grid;
 }
 .last-opened > article {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
 }
 .last-badge {
   position: absolute;
@@ -565,8 +565,9 @@ h3 {
   transform: translateX(-50%);
   padding: 2px 8px;
   border-radius: 6px;
-  background: var(--accent);
-  color: var(--bg);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--accent);
   font: 500 var(--text-label) / var(--text-label--line-height) var(--mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -686,6 +687,107 @@ h3 {
 .card-link:has(> .card-key:focus-visible) {
   outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
   outline-offset: 2px;
+}
+/* Searches' title is the hunt switcher: the hunt's name and a muted chevron, a button in the h1 in the title's own
+   voice; under the pointer a ground comes up behind it. On touch its area is 44 tall, like every control's */
+.hunt-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  margin-left: -6px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--t-fast);
+}
+.hunt-switch > span {
+  min-width: 0;
+}
+.hunt-switch > svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+}
+@media (hover: hover) {
+  .hunt-switch:hover {
+    background: var(--surface-hover);
+  }
+}
+.hunt-switch:active {
+  background: color-mix(in srgb, var(--strong) 5%, transparent);
+}
+@media (pointer: coarse) {
+  .hunt-switch::after {
+    content: "";
+    position: absolute;
+    inset: calc(50% - var(--h-hit) / 2) 0;
+  }
+}
+/* on a phone the hunt's switch, Search now and Settings fit one row of 36 at 393 when 6 apart (8 leaves them 3 px
+   short); their areas only reach up and down, the gear's 4 to each side, so none overlap */
+@media (pointer: coarse) {
+  .page-actions:has(> .seg-modes) {
+    column-gap: 6px;
+  }
+}
+/* the round Reset, lit in the accent's words while a filter differs from how the page opens (else it is disabled) */
+.search-reset:not([disabled]) {
+  color: var(--accent);
+}
+/* the filter panel's parts. Under a mouse each is one row: its legend (with its fold) in a 72 px column, its pills
+   wrapping beside it; folded, the legend and what is picked take the row. On touch the legend sits over its pills,
+   drawn 32 with a 44 area, 12 from the pills and from the next part, so no two areas overlap */
+.search-parts {
+  display: grid;
+  gap: 8px;
+}
+.search-part {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 12px;
+}
+.search-part-folded > .search-part-toggle {
+  grid-column: 1 / -1;
+}
+.search-part-toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: var(--h-choice);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (pointer: coarse) {
+  .search-parts {
+    gap: 12px;
+  }
+  .search-part {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 12px;
+  }
+  .search-part-toggle::after {
+    content: "";
+    position: absolute;
+    inset: calc(50% - var(--h-hit) / 2) 0;
+  }
 }
 .dot {
   width: 7px;
