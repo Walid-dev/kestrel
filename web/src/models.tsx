@@ -1,8 +1,27 @@
-// The Models screen: which model each use runs on. The door's models are the choices; one tap switches a use, the
-// settings file stays the fallback.
+// The Models screen: which model each use runs on. The door's models are the choices, as pills; one tap switches a use,
+// the settings file stays the fallback. Under them, the calls each made, with Cost a tap away for what they'd cost.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router";
+import { Card } from "./ui/card.tsx";
+import { Page } from "./ui/page.tsx";
+import { Pills } from "./ui/pills.tsx";
 
 type UseRow = { use: string; what: string; model: string; fallback: string };
+
+// each use by a plain name, not its id; a use or a prompt not named here reads its id in words ("notes-draft": "Notes
+// draft"), so a new one still shows
+const NAMES: Record<string, string> = {
+  "notes-careful": "Notes, careful",
+  "notes-fast": "Notes, fast",
+  ask: "Ask",
+  "search-deep": "Searches, deep check",
+  research: "Research",
+  "research-ask": "Research, its questions",
+  quiz: "Quiz, marking",
+  "quiz-explain": "Quiz, explanations",
+  letter: "Cover letters",
+};
+const named = (id: string) => NAMES[id] ?? `${id.charAt(0).toUpperCase()}${id.slice(1).replaceAll("-", " ")}`;
 
 export function Models() {
   const queryClient = useQueryClient();
@@ -37,83 +56,73 @@ export function Models() {
   });
   if (state.isError)
     return (
-      <main className="grid gap-3.5">
-        <h2 className="font-cond text-xl font-bold">Models</h2>
-        <section className="card">
-          <p className="text-sm" style={{ color: "var(--red)" }}>
-            the screen could not load the picks: {String((state.error as Error).message)}
-          </p>
-        </section>
-      </main>
+      <Page title="Models">
+        <p className="m-0 text-detail text-red">The picks didn't load: {String((state.error as Error).message)}</p>
+      </Page>
     );
   if (!state.data)
     return (
-      <main className="grid gap-3.5">
-        <h2 className="font-cond text-xl font-bold">Models</h2>
-        <p className="text-sm" style={{ color: "var(--muted)" }}>
-          reading the picks…
-        </p>
-      </main>
+      <Page title="Models">
+        <p className="m-0 text-detail text-muted">Reading the picks…</p>
+      </Page>
     );
   const { door, uses } = state.data;
   const switchWhy = set.isError ? String((set.error as Error).message) : "";
+  const calls = spent.data?.calls ?? [];
   return (
-    <main className="grid gap-3.5">
-      <h2 className="font-cond text-xl font-bold">Models</h2>
-      <p className="text-sm" style={{ color: "var(--muted)" }}>
-        Which model runs each job. The choices are what the computer's model door offers right now
-        {door.length === 0 && " — the door isn't answering, so only the current picks show"}.
-      </p>
-      {switchWhy && (
-        <p className="text-sm" style={{ color: "var(--red)" }}>
-          the switch was refused: {switchWhy}
-        </p>
-      )}
-      {uses.map((u) => (
-        <section key={u.use} className="card grid gap-2">
-          <div className="flex items-baseline gap-3">
-            <h3 className="font-cond text-lg font-bold">{u.use}</h3>
-            <span className="font-mono ml-auto text-[11px]" style={{ color: "var(--muted)" }}>
-              fallback {u.fallback}
+    <Page
+      title="Models"
+      line={
+        <>
+          Which model runs each job. The choices are what the computer's model door offers right now
+          {door.length === 0 && ": the door isn't answering, so only the current picks show"}.
+        </>
+      }
+    >
+      {switchWhy && <p className="m-0 text-detail text-red">The switch was refused: {switchWhy}</p>}
+      <div className="grid gap-3 md:grid-cols-2">
+        {uses.map((u) => (
+          <Card key={u.use} title={named(u.use)}>
+            <div className="grid gap-3">
+              <span>{u.what}</span>
+              <Pills
+                label={`The model for ${named(u.use)}`}
+                options={(door.length ? (door.includes(u.model) ? door : [u.model, ...door]) : [u.model]).map((m) => ({
+                  value: m,
+                  label: m,
+                }))}
+                value={u.model}
+                onChange={(m) => m !== u.model && !set.isPending && set.mutate({ use: u.use, model: m })}
+              />
+              <span className="font-mono text-small wrap-anywhere">Fallback: {u.fallback}</span>
+            </div>
+          </Card>
+        ))}
+      </div>
+      {calls.length > 0 && (
+        <Card title="The calls they made">
+          <div className="grid gap-3">
+            <span>
+              Every recorded call, newest first. Local models charge time, nothing else;{" "}
+              <Link to="/cost" className="text-accent underline underline-offset-2">
+                Cost
+              </Link>{" "}
+              shows what the same use would cost in the cloud.
             </span>
+            <ul className="m-0 grid list-none gap-2 p-0">
+              {calls.map((r) => (
+                <li key={`${r.purpose}:${r.model}`} className="grid gap-0.5" title={r.purpose}>
+                  <span className="font-semibold text-strong">{named(r.purpose.split(":")[0])}</span>
+                  <span className="font-mono text-small wrap-anywhere">
+                    {r.model} · {r.calls} call{r.calls === 1 ? "" : "s"} · {r.seconds} s each
+                    {r.failed > 0 && <span className="text-orange"> · {r.failed} failed</span>}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
-            {u.what}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {(door.length ? (door.includes(u.model) ? door : [u.model, ...door]) : [u.model]).map((m) => (
-              <button
-                key={m}
-                type="button"
-                className="btn"
-                style={
-                  m === u.model
-                    ? { background: "var(--accent-soft)", borderColor: "var(--accent)", color: "var(--accent)" }
-                    : undefined
-                }
-                disabled={set.isPending}
-                onClick={() => set.mutate({ use: u.use, model: m })}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
-        </section>
-      ))}
-      {(spent.data?.calls?.length ?? 0) > 0 && (
-        <section className="card grid gap-2">
-          <h3 className="font-cond text-lg font-bold">What they cost</h3>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
-            Local models charge time, nothing else. Every recorded call, newest first.
-          </p>
-          {(spent.data?.calls ?? []).map((r) => (
-            <p key={`${r.purpose}:${r.model}`} className="font-mono text-xs" style={{ color: "var(--muted)" }}>
-              {r.purpose} · {r.model} · {r.calls} call{r.calls === 1 ? "" : "s"} · {r.seconds}s each
-              {r.failed > 0 && <span style={{ color: "var(--orange)" }}> · {r.failed} failed</span>}
-            </p>
-          ))}
-        </section>
+        </Card>
       )}
-    </main>
+    </Page>
   );
 }

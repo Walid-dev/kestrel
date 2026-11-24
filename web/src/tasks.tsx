@@ -6,7 +6,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Ask } from "./ask.tsx";
+import { enterSends } from "./keys.ts";
+import { Card } from "./ui/card.tsx";
 import { useConfirm } from "./ui/confirm.tsx";
+import { cx } from "./ui/cx.ts";
+import { EmptyState } from "./ui/empty.tsx";
+import { Field } from "./ui/field.tsx";
+import { Page } from "./ui/page.tsx";
+import { Pills, type Tone } from "./ui/pills.tsx";
 
 type Task = {
   id: string;
@@ -20,13 +27,13 @@ type Task = {
 };
 
 // whom a task is for, each in its own colour
-const WHO: [string, string, string][] = [
-  ["any", "any agent", "tone-accent"],
-  ["claude", "Claude Code", "tone-purple"],
-  ["dsh", "dsh", "tone-cyan"],
-  ["me", "me", "tone-green"],
+const WHO: [string, string, Tone][] = [
+  ["any", "any agent", "accent"],
+  ["claude", "Claude Code", "purple"],
+  ["dsh", "dsh", "cyan"],
+  ["me", "me", "green"],
 ];
-const whoOf = (w: string) => WHO.find(([k]) => k === (w || "any")) ?? [w, w, "tone-pink"];
+const whoOf = (w: string): [string, string, Tone] => WHO.find(([k]) => k === (w || "any")) ?? [w, w, "pink"];
 const when = (iso: string) =>
   new Date(iso).toLocaleString(undefined, {
     weekday: "short",
@@ -82,78 +89,42 @@ export function Tasks() {
   const failed = [tasks, add, act].find((x) => x.isError);
 
   return (
-    <main className="mx-auto grid w-full max-w-3xl gap-3.5">
-      <div className="flex items-baseline gap-3">
-        <h2 className="font-cond m-0 text-[34px] font-bold uppercase leading-none tracking-tight">Tasks</h2>
-        <span className="text-[13px]" style={{ color: "var(--muted)" }}>
-          {open.length} open{done.length ? ` · ${done.length} done` : ""}
-        </span>
-      </div>
-
-      {/* the new task: its words, whom it is for, Enter adds */}
-      <section className="card grid gap-2.5 !p-3" style={{ boxShadow: "0 1px 0 rgba(0,0,0,0.12)" }}>
-        <textarea
-          className="min-h-[46px] w-full resize-none bg-transparent px-1 py-1 text-[16px] leading-relaxed outline-none"
-          style={{ color: "var(--strong)", fieldSizing: "content" } as React.CSSProperties}
-          rows={1}
+    <Page width="reading" title="Tasks" line={`${open.length} open${done.length ? ` · ${done.length} done` : ""}`}>
+      {/* the new task: its words, whom it is for; Enter adds */}
+      <Card>
+        <Field
+          label="New task"
           placeholder="What needs doing?"
-          aria-label="New task"
           value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey && text.trim()) {
-              e.preventDefault();
-              add.mutate();
-            }
-          }}
+          onChange={setText}
+          onSend={() => add.mutate()}
+          busy={add.isPending}
+          sendLabel="Add"
+          hint="Enter adds · Shift+Enter for a new line"
         />
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="eyebrow">For</span>
-          {WHO.map(([k, label, tone]) => (
-            <button key={k} type="button" className={`pill ${tone}`} aria-pressed={who === k} onClick={() => setWho(k)}>
-              <span className="dot" /> {label}
-            </button>
+        <Pills
+          label="For"
+          showLabel
+          options={WHO.map(([value, label, tone]) => ({ value, label, tone }))}
+          value={who}
+          onChange={setWho}
+        />
+      </Card>
+
+      {failed && <p className="m-0 text-detail text-red">{(failed.error as Error).message}</p>}
+
+      {tasks.data && open.length === 0 && <EmptyState title="Nothing open." line="Write the next thing above." />}
+      {open.length > 0 && (
+        <ol className="m-0 grid list-none gap-2 p-0">
+          {open.map((t) => (
+            <Row key={t.id} t={t} act={act.mutate} busy={act.isPending && act.variables?.id === t.id} />
           ))}
-          <button
-            type="button"
-            className="btn btn-primary ml-auto inline-flex items-center gap-2"
-            disabled={!text.trim() || add.isPending}
-            onClick={() => add.mutate()}
-          >
-            {add.isPending && <span className="spin" />}
-            Add
-          </button>
-        </div>
-        <p className="m-0 text-[12px]" style={{ color: "var(--muted)" }}>
-          Enter adds · Shift+Enter for a new line
-        </p>
-      </section>
-
-      {failed && (
-        <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-          {(failed.error as Error).message}
-        </p>
+        </ol>
       )}
-
-      {tasks.data && open.length === 0 && (
-        <p
-          className="m-0 rounded-xl border border-dashed p-5 text-center text-sm"
-          style={{ color: "var(--muted)", borderColor: "var(--line)" }}
-        >
-          Nothing open. Write the next thing above.
-        </p>
-      )}
-      <ol className="m-0 grid list-none gap-2 p-0">
-        {open.map((t) => (
-          <Row key={t.id} t={t} act={act.mutate} busy={act.isPending && act.variables?.id === t.id} />
-        ))}
-      </ol>
 
       {done.length > 0 && (
         <details>
-          <summary className="cursor-pointer text-[13.5px]" style={{ color: "var(--muted)" }}>
-            Done · {done.length}
-          </summary>
+          <summary className="cursor-pointer py-2.5 text-detail text-muted">Done · {done.length}</summary>
           <ol className="m-0 mt-2 grid list-none gap-2 p-0">
             {done.map((t) => (
               <Row key={t.id} t={t} act={act.mutate} busy={act.isPending && act.variables?.id === t.id} />
@@ -169,11 +140,11 @@ export function Tasks() {
         starters={["What should I do first?", "Group what is open by theme", "Which ones look done already?"]}
         onChange={refresh}
       />
-      <p className="m-0 text-[12px]" style={{ color: "var(--muted)" }}>
+      <p className="m-0 text-small text-muted">
         Tap a task to edit it. Agents read this list through the kestrel command, pick a task only when you ask, and
         close it with a short note of what was done.
       </p>
-    </main>
+    </Page>
   );
 }
 
@@ -194,17 +165,16 @@ function Row({ t, act, busy }: { t: Task; act: Act; busy: boolean }) {
     act({ id: t.id, how: "edit", change: { who: WHO[(i + 1) % WHO.length][0] } });
   };
   return (
-    <li className={`card grid grid-cols-[auto_1fr_auto] items-start gap-3 !p-3 ${busy ? "busy" : ""}`}>
+    <li className={cx("card grid grid-cols-[auto_1fr_auto] items-start gap-3 !p-3", busy && "busy")}>
+      {/* the round box keeps its small look; the area that takes the tap is a thumb's size around it */}
       <button
         type="button"
         aria-label={t.done ? "Not done" : "Done"}
         aria-pressed={t.done}
-        className="mt-0.5 grid h-[22px] w-[22px] place-items-center rounded-full border-2"
-        style={{
-          borderColor: t.done ? "var(--green)" : "var(--line)",
-          background: t.done ? "var(--green)" : "transparent",
-          color: "var(--bg)",
-        }}
+        className={cx(
+          "relative mt-0.5 grid h-[22px] w-[22px] place-items-center rounded-full border-2 text-page after:absolute after:-inset-3 after:rounded-full",
+          t.done ? "border-green bg-green" : "border-line bg-transparent",
+        )}
         onClick={() => act({ id: t.id, how: t.done ? "reopen" : "check" })}
       >
         {t.done && (
@@ -226,13 +196,10 @@ function Row({ t, act, busy }: { t: Task; act: Act; busy: boolean }) {
           <button
             type="button"
             title="Tap to edit"
-            className="-mx-1 block w-full cursor-text rounded-md px-1 text-left text-[15.5px] leading-relaxed"
-            style={{
-              whiteSpace: "pre-wrap",
-              overflowWrap: "anywhere",
-              color: t.done ? "var(--muted)" : "var(--strong)",
-              textDecoration: t.done ? "line-through" : undefined,
-            }}
+            className={cx(
+              "-mx-1 block w-full cursor-text whitespace-pre-wrap wrap-anywhere rounded-md px-1 text-left text-body",
+              t.done ? "text-muted line-through" : "text-strong",
+            )}
             onClick={() => setDraft(t.text)}
           >
             {t.text}
@@ -242,15 +209,7 @@ function Row({ t, act, busy }: { t: Task; act: Act; busy: boolean }) {
             // biome-ignore lint/a11y/noAutofocus: the tap that opened it asked for the words
             autoFocus
             aria-label="The task's words"
-            className="-mx-1 w-full resize-none rounded-md px-1 text-[15.5px] leading-relaxed outline-none"
-            style={
-              {
-                fieldSizing: "content",
-                color: "var(--strong)",
-                background: "var(--surface-2)",
-                boxShadow: "0 0 0 2px var(--accent)",
-              } as React.CSSProperties
-            }
+            className="-mx-1 field-sizing-content w-full resize-none rounded-md bg-surface-2 px-1 text-body text-strong outline-none ring-1 ring-line"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onFocus={(e) =>
@@ -258,18 +217,18 @@ function Row({ t, act, busy }: { t: Task; act: Act; busy: boolean }) {
             }
             onBlur={save}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                save();
-              }
               if (e.key === "Escape") setDraft(null);
+              else enterSends(save)(e);
             }}
           />
         )}
-        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[12px]" style={{ color: "var(--muted)" }}>
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-small text-muted">
           <button
             type="button"
-            className={`chip ${t.done ? "tone-muted" : tone}`}
+            className={cx(
+              "chip relative after:absolute after:-inset-x-1 after:-inset-y-3.5",
+              `tone-${t.done ? "muted" : tone}`,
+            )}
             title="Tap to change whom it is for"
             onClick={nextWho}
           >
@@ -279,19 +238,14 @@ function Row({ t, act, busy }: { t: Task; act: Act; busy: boolean }) {
             {when(t.edited ?? t.added)}
             {t.edited ? " · edited" : ""}
           </span>
-          {t.note && (
-            <span className="basis-full" style={{ color: "var(--green)" }}>
-              {t.note}
-            </span>
-          )}
+          {t.note && <span className="basis-full text-green">{t.note}</span>}
         </div>
       </div>
       <button
         type="button"
         aria-label="Delete"
         title="Delete"
-        className="rounded-lg px-2 py-0.5 text-[18px] leading-none"
-        style={{ color: "var(--muted)" }}
+        className="card-remove"
         onClick={async () => {
           const yes = await sure({
             title: "Delete this task?",
@@ -302,7 +256,7 @@ function Row({ t, act, busy }: { t: Task; act: Act; busy: boolean }) {
           if (yes) act({ id: t.id, how: "delete" });
         }}
       >
-        ×
+        ✕
       </button>
     </li>
   );

@@ -515,6 +515,11 @@ h3 {
 .pills .pill:hover:not([aria-pressed="true"]) {
   border-color: color-mix(in srgb, var(--strong) 30%, var(--line));
 }
+/* an action among the pills (Show all): the accent's words on no ground, so it reads as a button, not a choice */
+.pills .pill-action {
+  background: transparent;
+  color: var(--accent);
+}
 /* the action that can't be undone, filled: Confirm's Delete */
 .btn-primary.btn-danger {
   background: var(--red);
@@ -1025,6 +1030,11 @@ textarea.field-input {
 }
 .quiz-done:hover {
   background: var(--surface-2);
+}
+/* a quiz's score in its list: a chip a size up, so the number reads before the name */
+.quiz-score {
+  padding: 6px 10px;
+  font-size: 13px;
 }
 .dot {
   width: 7px;
@@ -1879,6 +1889,27 @@ pre.code .f {
 .ask-card.done {
   border-color: color-mix(in srgb, var(--green) 40%, var(--line));
   background: color-mix(in srgb, var(--green) 6%, var(--surface));
+}
+/* a change that didn't go through: red, as done is green, so it doesn't still look like one to tap */
+.ask-card.failed {
+  border-color: color-mix(in srgb, var(--red) 40%, var(--line));
+  background: color-mix(in srgb, var(--red) 6%, var(--surface));
+}
+/* on a phone, the head that opens Ask and its Start over take a thumb's size, without making the head taller */
+@media (pointer: coarse) {
+  .ask-toggle {
+    min-height: 44px;
+    margin-block: -8px;
+  }
+  .ask-icon {
+    position: relative;
+  }
+  .ask-icon::after {
+    content: "";
+    position: absolute;
+    inset: -7px;
+    border-radius: 999px;
+  }
 }
 .ask-starters {
   display: flex;

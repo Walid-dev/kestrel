@@ -198,14 +198,9 @@ export function Ask({
               {(m.cards ?? []).map((c, i) => (
                 <div key={c.label} className={`ask-card ${c.state}`}>
                   <span className="min-w-0 flex-1">
-                    <span className="block font-semibold" style={{ color: "var(--strong)" }}>
-                      {c.label}
-                    </span>
+                    <span className="block font-semibold text-strong">{c.label}</span>
                     {c.state !== "open" && (
-                      <span
-                        className="mt-0.5 block text-[13px]"
-                        style={{ color: c.state === "done" ? "var(--green)" : "var(--red)" }}
-                      >
+                      <span className={`mt-0.5 block text-small ${c.state === "done" ? "text-green" : "text-red"}`}>
                         {c.state === "done" ? "✓ " : ""}
                         {c.result}
                       </span>
@@ -426,10 +421,10 @@ function Point({ text }: { text: string }) {
   if (!term) return <Inline text={text} />;
   return (
     <>
-      <b style={{ color: "var(--strong)" }}>
+      <b className="text-strong">
         <Inline text={term[1]} />
       </b>
-      <span style={{ color: "var(--text)" }}>
+      <span className="text-ink">
         {" "}
         <Inline text={term[2]} />
       </span>
@@ -490,7 +485,7 @@ function Answer({ text, writing }: { text: string; writing: boolean }) {
           case "quote":
             return (
               <div key={key} className="read-box grid gap-1">
-                <span className="eyebrow" style={{ color: "var(--accent)" }}>
+                <span className="eyebrow tone-accent">
                   <Inline text={labelOf(n) || "Note"} />
                 </span>
                 <p className="m-0">
@@ -510,20 +505,15 @@ function Answer({ text, writing }: { text: string; writing: boolean }) {
             );
           case "table":
             return (
-              <div
-                key={key}
-                className="overflow-x-auto rounded-xl border"
-                style={{ borderColor: "var(--line)", background: "var(--surface)" }}
-              >
-                <table className="w-full border-collapse text-[13.5px]">
+              <div key={key} className="overflow-x-auto rounded-xl border border-line bg-surface">
+                <table className="w-full border-collapse text-detail">
                   <thead>
                     <tr>
                       {p.head.map((h, j) => (
                         <th
                           // biome-ignore lint/suspicious/noArrayIndexKey: a table's columns are fixed once written
                           key={j}
-                          className="px-3 py-2 text-left font-semibold"
-                          style={{ borderBottom: "1px solid var(--line)", color: "var(--strong)" }}
+                          className="border-b border-line px-3 py-2 text-left font-semibold text-strong"
                         >
                           <Inline text={h} />
                         </th>
@@ -538,8 +528,7 @@ function Answer({ text, writing }: { text: string; writing: boolean }) {
                           <td
                             // biome-ignore lint/suspicious/noArrayIndexKey: a row's cells are fixed once written
                             key={k}
-                            className="px-3 py-2 align-top"
-                            style={{ borderTop: j ? "1px solid var(--line)" : undefined }}
+                            className={`px-3 py-2 align-top ${j ? "border-t border-line" : ""}`}
                           >
                             <Inline text={c} />
                           </td>
@@ -551,7 +540,7 @@ function Answer({ text, writing }: { text: string; writing: boolean }) {
               </div>
             );
           default:
-            return <hr key={key} className="m-0 border-0 border-t" style={{ borderColor: "var(--line)" }} />;
+            return <hr key={key} className="m-0 border-0 border-t border-line" />;
         }
       })}
       {writing && <span className="caret" aria-hidden="true" />}
