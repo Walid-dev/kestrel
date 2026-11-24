@@ -5,6 +5,30 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-23 · Ten server fixes from a review of the night, each with a test that failed before it.**
+  An Ask answer that breaks ends as failed (it stayed "writing" until a restart, refusing every question). Nightly
+  copies are named to the minute (two on one date failed for hours); a failed copy tries again an hour later, not
+  every minute (one failed Live entry each time). Retry and a stopped chat picked up again keep "one open application
+  per link". Ask's tools are chosen per page: on my own words (Interview prep, the Personal group, interview quizzes)
+  no web tool, and on a page with the web the read tool opens neither a Notes document nor a lesson of my own. "Due"
+  has one meaning, a lesson I graded whose review date has come, counted by one function on every screen; Practice
+  keeps the due lessons that have a question before its 20-row limit (20 due guides had filled it, so it said
+  "Nothing due" while Learn said 21) and counts guides due as "reread". A deep check a restart cut short ends as failed
+  at start. The page reader opens public addresses only: by name, by address after resolving, through the redirects
+  a HEAD shows, older IPv6 forms included; a page that answers HEAD and GET differently can still pass, since the
+  model door fetches on its own (a door-side refusal of private addresses is the full fix, later). zod reads Live's
+  Stop, Pause and Activity and the old setup's chats; a failed old-database import closes its file; a failed tick's
+  log line carries no path. Left: malformed JSON answers 500, not 400, on every route (one change to root.onError).
+- **2026-11-23 · A quiz on the lessons I pick; quizzes archive and delete.**
+  Under a topic, its packs and lessons show as Pills, several at once (the pack `<select>` went); nothing picked is
+  the whole topic; a line says what the quiz draws from. Every picked id is checked against the area, the topic and
+  the packs, or the start is refused in words. Picked lessons may go round their other questions; a whole topic or a
+  pack asks each lesson once, as before. Migration 025 adds `quizzes.archived`: Archive takes a quiz off the list and
+  Restore brings it back (no question asked, since it undoes); Delete asks through Confirm and removes the quiz and its
+  Ask messages, while my answers stay (they still decide what comes back first). The list lost its hidden limit of 12:
+  every started quiz, the first 8 done ones, then Show all. Due on the quiz is Learn's own lesson state, the same on
+  the tiles, the header and the pills.
+
 - **2026-11-23 · Every document reads through one part: Read, Edit, Side by side, Download, Save as PDF.**
   `src/shared/markdown.ts` parses Markdown in kestrel's own code (no package), and every text run keeps its source
   offsets, so notes mark rendered words and a selection maps back to the exact characters. Raw HTML stays text; only
