@@ -199,7 +199,7 @@ export function ApplyButton({ state, onQueue, pending }: { state?: string; onQue
   const chip = state && state !== "not-sent" ? APP_CHIP[state] : null;
   if (chip && !pending)
     return (
-      <span className={`chip chip-caps ml-auto inline-flex items-center gap-1.5 tone-${chip[1]}`}>
+      <span className={`chip chip-caps ml-auto inline-flex items-center gap-1.5 self-center tone-${chip[1]}`}>
         {state === "applying" && <span className="dot tone-green pulse" />}
         {chip[0]}
       </span>
@@ -207,7 +207,7 @@ export function ApplyButton({ state, onQueue, pending }: { state?: string; onQue
   return (
     <button
       type="button"
-      className="btn btn-primary ml-auto inline-flex items-center gap-2"
+      className="btn btn-primary ml-auto inline-flex items-center justify-center gap-2"
       disabled={pending}
       onClick={onQueue}
     >
@@ -320,7 +320,11 @@ function Stages({
 }) {
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: the wrapper only stops the card's own tap
-    <div className="flex flex-wrap items-center gap-2 pt-1" onClick={(e) => e.stopPropagation()} onKeyDown={undefined}>
+    <div
+      className="pills-inline flex flex-wrap items-center gap-2 pt-1"
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={undefined}
+    >
       <Pills
         label="Mark it"
         options={MARKS[l.kind].map(([s, label, tone]) => ({
@@ -340,6 +344,17 @@ function Stages({
       />
       {extra}
     </div>
+  );
+}
+
+// the keyboard's way into the listing: Tab reaches this unseen button, the card rings (styles.css), Enter opens it.
+// It has no click of its own: its click rises to the card's, which opens the listing, so the card's other buttons
+// and the title's link never open the listing from the keyboard too
+function OpenKey({ title }: { title: string }) {
+  return (
+    <button type="button" className="card-key sr-only">
+      Open the listing: {title}
+    </button>
   );
 }
 
@@ -496,12 +511,9 @@ export function JobCard({
   return (
     // the whole card opens the listing and its title opens the posting, so it is the .card ground itself, not Card
     // (Card's title would open the listing instead of the posting)
-    <article
-      className="card card-link card-stack cursor-pointer"
-      aria-busy={Boolean(busy)}
-      onClick={onOpen}
-      onKeyDown={(e) => e.key === "Enter" && onOpen()}
-    >
+    // biome-ignore lint/a11y/useKeyWithClickEvents: the keyboard opens the card through its own Open button (OpenKey)
+    <article className="card card-link card-stack cursor-pointer" aria-busy={Boolean(busy)} onClick={onOpen}>
+      <OpenKey title={str(d.title)} />
       <Head l={l} />
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
@@ -563,12 +575,9 @@ export function DealCard({
   const deal = l.deal;
   const t = deal ? DEAL[deal.tier] : null;
   return (
-    <article
-      className="card card-link card-stack cursor-pointer"
-      aria-busy={Boolean(busy)}
-      onClick={onOpen}
-      onKeyDown={(e) => e.key === "Enter" && onOpen()}
-    >
+    // biome-ignore lint/a11y/useKeyWithClickEvents: the keyboard opens the card through its own Open button (OpenKey)
+    <article className="card card-link card-stack cursor-pointer" aria-busy={Boolean(busy)} onClick={onOpen}>
+      <OpenKey title={str(d.title)} />
       <Head l={l} />
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">

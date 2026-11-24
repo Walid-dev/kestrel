@@ -506,6 +506,8 @@ export function Searches() {
   const sortName = SORTS[kind].find(([k]) => k === sort)?.[1] ?? sort;
   const none = hunts.data !== undefined && all.length === 0;
 
+  // nothing until the hunts are known, as before: a stand-in head would jump to the hunt's name, eyebrow and line
+  if (hunts.isPending) return null;
   return (
     <Page
       eyebrow={
@@ -711,7 +713,8 @@ export function Searches() {
             <button
               type="button"
               className={cx(
-                "btn grid size-11 shrink-0 place-items-center !rounded-full !p-0",
+                // the thumb's 44 px on touch; under a mouse, the size it had
+                "btn grid size-9.5 shrink-0 place-items-center !rounded-full !p-0 pointer-coarse:size-11",
                 changed && "!text-accent",
               )}
               disabled={!changed}
@@ -734,7 +737,12 @@ export function Searches() {
                 <path d="M3 4v5h5" />
               </svg>
             </button>
-            <button type="button" className="btn min-h-11 shrink-0" aria-expanded={shown} onClick={() => fold(!shown)}>
+            <button
+              type="button"
+              className="btn min-h-9.5 shrink-0 pointer-coarse:min-h-11"
+              aria-expanded={shown}
+              onClick={() => fold(!shown)}
+            >
               {shown ? "Hide filters" : `Filters${active ? ` · ${active}` : ""}`}
             </button>
           </div>
@@ -747,28 +755,31 @@ export function Searches() {
                 open={!closed.has("stage")}
                 toggle={toggle}
               >
-                <Pills
-                  label="Stage"
-                  options={STAGE_LIST[kind].map(([s, label]) => ({
-                    value: s,
-                    label,
-                    tone: STAGE_TONE[s],
-                    count: c?.stages[s] ?? 0,
-                  }))}
-                  value={stage}
-                  onChange={(s) => set("stage", s)}
-                />
-                {kind === "jobs" && (
-                  <button
-                    type="button"
-                    className="pill tone-green"
-                    aria-pressed={todo}
-                    title="Hide the jobs that have an application (queued, sent or not sent) or that I applied to"
-                    onClick={flipTodo}
-                  >
-                    <span className="dot" /> Not applied yet
-                  </button>
-                )}
+                {/* Not applied yet wraps in line after the stage pills, not on a row of its own (styles.css) */}
+                <div className="pills-inline flex flex-wrap items-center gap-2">
+                  <Pills
+                    label="Stage"
+                    options={STAGE_LIST[kind].map(([s, label]) => ({
+                      value: s,
+                      label,
+                      tone: STAGE_TONE[s],
+                      count: c?.stages[s] ?? 0,
+                    }))}
+                    value={stage}
+                    onChange={(s) => set("stage", s)}
+                  />
+                  {kind === "jobs" && (
+                    <button
+                      type="button"
+                      className="pill tone-green"
+                      aria-pressed={todo}
+                      title="Hide the jobs that have an application (queued, sent or not sent) or that I applied to"
+                      onClick={flipTodo}
+                    >
+                      <span className="dot" /> Not applied yet
+                    </button>
+                  )}
+                </div>
               </Part>
               <Part
                 name="match"

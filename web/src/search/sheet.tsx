@@ -198,10 +198,11 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
       wide
       eyebrow={[str(d.family) || str(d.category), sourceName(l.source)].filter(Boolean).join(" · ")}
       // the listing's head: its title, the company and where, then the pay or price and the match (listing-head keeps
-      // the head on top while the sheet scrolls, styles.css)
+      // the head on top while the sheet scrolls, styles.css). The {" "} between its parts change nothing on screen
+      // (a grid and a flex row drop them) but keep the words apart when the title is read out, as the box's name
       title={
         <span className="listing-head grid gap-1">
-          <span>{str(d.title)}</span>
+          <span>{str(d.title)}</span>{" "}
           <span className="font-sans text-body font-normal text-ink">
             {str(d.org)}
             {where.length > 0 && (
@@ -210,12 +211,12 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
                 {where.join(" · ")}
               </span>
             )}
-          </span>
+          </span>{" "}
           <span className="flex flex-wrap items-center gap-2 pt-1 font-sans font-normal">
             {pay && <span className={cx("money text-body", moneyTone(l.match))}>{pay}</span>}
             {l.kind === "deals" && typeof d.price === "number" && (
               <span className={cx("money text-head", l.deal && moneyTone(l.deal.tier))}>${Math.round(d.price)}</span>
-            )}
+            )}{" "}
             {l.kind === "jobs" && MATCH[l.match] && (
               <span className={`chip tone-${MATCH[l.match].tone}`}>
                 {MATCH[l.match].label} · {l.score}
@@ -309,22 +310,28 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
           </span>
         </label>
 
-        <div className="flex flex-wrap items-end gap-2">
-          <Pills
-            label="Stage"
-            showLabel
-            options={STAGES[l.kind].map((s) => ({ value: s.status, label: s.label, tone: s.tone }))}
-            value={l.status}
-            onChange={(s) => act.mutate({ status: s })}
-          />
-          <button
-            type="button"
-            className="pill"
-            aria-pressed={l.starred === 1}
-            onClick={() => act.mutate({ starred: l.starred === 1 ? 0 : 1 })}
-          >
-            <span className="text-yellow">★</span> {l.starred === 1 ? "Starred" : "Star"}
-          </button>
+        {/* Star wraps in line after the stage pills, not on a row of its own (styles.css); the label stands over
+            them both, and the group keeps its name for a screen reader */}
+        <div className="grid gap-2">
+          <span className="eyebrow" aria-hidden="true">
+            Stage
+          </span>
+          <div className="pills-inline flex flex-wrap items-center gap-2">
+            <Pills
+              label="Stage"
+              options={STAGES[l.kind].map((s) => ({ value: s.status, label: s.label, tone: s.tone }))}
+              value={l.status}
+              onChange={(s) => act.mutate({ status: s })}
+            />
+            <button
+              type="button"
+              className="pill"
+              aria-pressed={l.starred === 1}
+              onClick={() => act.mutate({ starred: l.starred === 1 ? 0 : 1 })}
+            >
+              <span className="text-yellow">★</span> {l.starred === 1 ? "Starred" : "Star"}
+            </button>
+          </div>
         </div>
         {why && <p className="text-detail text-red">{String((why.error as Error).message)}</p>}
 

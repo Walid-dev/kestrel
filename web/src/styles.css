@@ -481,6 +481,18 @@ h3 {
     background: var(--bg);
   }
 }
+/* a choice and a toggle in one row (the stage pills and Not applied yet, or Star; a card's triage and Apply): the
+   Pills' group and row step aside, so the toggle wraps in line after the last pill instead of dropping to a row of
+   its own. The group keeps its legend, read out */
+.pills-inline > .pills,
+.pills-inline > .pills > .pills-row {
+  display: contents;
+}
+/* a listing card's Open, unseen until Tab reaches it: then the whole card takes the keyboard's ring */
+.card-link:has(> .card-key:focus-visible) {
+  outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  outline-offset: 2px;
+}
 /* a filter pill: quiet until picked; a dot in its tone; its count beside. A long name wraps inside it: one unbroken
    word must never push the page wider than the phone */
 .pill {
