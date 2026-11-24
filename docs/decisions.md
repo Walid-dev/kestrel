@@ -5,6 +5,14 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-24 · The jobspy wrapper is retired; kestrel's job hunts come through the mirror until the cutover.**
+  `scripts/collectors/jobspy.mjs` is deleted. Its LinkedIn reads went out from this computer's address outside the
+  old setup's LinkedIn cap; its Indeed reader used Indeed's private app API, a way past the site's bot check; and it
+  searched US Indeed, since it set no country. No setting fixed all three. Until the cutover a job hunt's finds come
+  only from the old setup, mirrored a few minutes after each of its rounds, and Search now starts the old setup's own
+  (the entry below). kestrel's own job searching waits for the cutover, which needs real collectors in the data
+  folder. Rejected: keeping Indeed alone, set to Canada (still the private app API). Replaces: the 2026-11-21 entry's
+  "generic jobspy wrapper until cutover".
 - **2026-11-24 · Search now on a job hunt the old setup runs starts the old setup's own.**
   A job hunt with no search of its own here that is on (one mirrored from the old setup) shows Search now. kestrel
   posts `{"hunt": <the old hunt's id>}` to the old server's `POST /api/jobs/search-now`, at the origin of
