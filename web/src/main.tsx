@@ -82,20 +82,33 @@ if (rootEl)
     </StrictMode>,
   );
 
-prefetchPages();
+// The very first visit: the files that came before the service worker took over went past it, so it kept no copy.
+// Once it controls the page, ask for them once more through it (the browser's cache answers, nothing downloads
+// again), and only then fetch the other pages, so they go through it too. A last sweep catches a file that was still
+// coming in when the worker took over. Later visits are controlled from the start, and every file goes through it.
+const sweep = () =>
+  Promise.allSettled(
+    performance
+      .getEntriesByType("resource")
+      .filter((e) => new URL(e.name).pathname.startsWith("/assets/"))
+      .map((e) => fetch(e.name)),
+  );
 
 if ("serviceWorker" in navigator) {
-  // The very first visit: this page's own files came before the service worker was there to keep a copy. Once it
-  // takes over, ask for them once more through it (the browser's cache answers, nothing is downloaded again), so the
-  // page opened first also works while the computer sleeps. Every later file goes through the worker by itself.
-  if (!navigator.serviceWorker.controller)
-    navigator.serviceWorker.addEventListener(
-      "controllerchange",
-      () => {
-        for (const e of performance.getEntriesByType("resource"))
-          if (new URL(e.name).pathname.startsWith("/assets/")) fetch(e.name).catch(() => {});
-      },
-      { once: true },
-    );
-  navigator.serviceWorker.register("/sw.js").catch(() => {});
-}
+  const sw = navigator.serviceWorker;
+  const first = !sw.controller;
+  const controlled = new Promise<void>((resolve) => {
+    if (!first) return resolve();
+    sw.addEventListener("controllerchange", () => resolve(), { once: true });
+    // a worker that never takes over (refused, or its install failed) doesn't hold the other pages back
+    sw.register("/sw.js").catch(() => resolve());
+    setTimeout(resolve, 10_000);
+  });
+  if (!first) sw.register("/sw.js").catch(() => {});
+  controlled.then(async () => {
+    const through = first && !!sw.controller; // without a worker the sweeps would only ask the browser's cache again
+    if (through) await sweep();
+    await prefetchPages();
+    if (through) await sweep();
+  });
+} else prefetchPages();

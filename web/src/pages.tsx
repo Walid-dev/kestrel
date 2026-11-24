@@ -6,6 +6,7 @@
 // Home and Chat stay in the first file: the frame itself (app.tsx) uses parts of both.
 import { Component, lazy, type ReactNode, Suspense, useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router";
+import { EmptyState } from "./ui/empty.tsx";
 
 // every page file, once: lazy() and the prefetch both load through this table, so they fetch the same file
 const load = {
@@ -56,22 +57,19 @@ export const QuizRun = lazy(() => load.quiz().then((m) => ({ default: m.QuizRun 
 export const Writing = lazy(() => load.writing().then((m) => ({ default: m.Writing })));
 
 // After the first screen is up and the browser is idle: the tabs, then every other page. A file already loaded costs
-// nothing (the browser keeps one copy of each module), and a hashed file comes from the browser's cache after the
-// first time, so this downloads each page once per deploy.
-export function prefetchPages() {
+// nothing (the browser keeps one copy of each module), and a file whose name hasn't changed comes from the cache. A
+// deploy renames every page file that imports a changed one, and the first file changes with almost any change, so
+// most pages come in again after a deploy. Resolves once every page has come in or failed.
+export function prefetchPages(): Promise<void> {
   const idle = (run: () => void) =>
     "requestIdleCallback" in window ? requestIdleCallback(run, { timeout: 3000 }) : setTimeout(run, 1200);
   const all = (keys: (keyof typeof load)[]) => Promise.allSettled(keys.map((k) => load[k]()));
-  const start = () =>
-    idle(() => {
-      all(TABS).then(() =>
-        idle(() => {
-          all((Object.keys(load) as (keyof typeof load)[]).filter((k) => !TABS.includes(k)));
-        }),
-      );
-    });
-  if (document.readyState === "complete") start();
-  else window.addEventListener("load", start, { once: true });
+  const rest = (Object.keys(load) as (keyof typeof load)[]).filter((k) => !TABS.includes(k));
+  return new Promise<void>((done) => {
+    const start = () => idle(() => all(TABS).then(() => idle(() => all(rest).then(() => done()))));
+    if (document.readyState === "complete") start();
+    else window.addEventListener("load", start, { once: true });
+  });
 }
 
 // The quiet line while a page's file comes in: nothing for the first 400 ms, so a quick load shows no flash, then the
@@ -90,8 +88,8 @@ function Opening() {
   );
 }
 
-// A page that can't come in: its file never reached this phone and the computer doesn't answer now, or the app was
-// deployed again and an old file is gone. The message stays inside the frame, so the bar and the tabs still work;
+// A page that can't come in: the app was deployed again and this page's old file is gone (a reload brings the new
+// version), or its file never reached this phone and the computer doesn't answer now. The message stays inside the frame, so the bar and the tabs still work;
 // going to another address clears it.
 type Caught = { error: boolean; path: string };
 class PageError extends Component<{ path: string; children: ReactNode }, Caught> {
@@ -105,14 +103,16 @@ class PageError extends Component<{ path: string; children: ReactNode }, Caught>
   render() {
     if (!this.state.error) return this.props.children;
     return (
-      <div role="alert" className="flex flex-col items-start gap-3 pt-6">
-        <p className="text-body text-ink">This page didn't open.</p>
-        <p className="text-detail text-muted">
-          If the computer is asleep, it opens once the computer answers. A new version may also be waiting.
-        </p>
-        <button type="button" className="btn" onClick={() => window.location.reload()}>
-          Reload
-        </button>
+      <div role="alert">
+        <EmptyState
+          title="This page didn't open."
+          line="A new version is probably ready: reload to get it. If the computer is asleep, reload once it answers."
+          action={
+            <button type="button" className="btn" onClick={() => window.location.reload()}>
+              Reload
+            </button>
+          }
+        />
       </div>
     );
   }
