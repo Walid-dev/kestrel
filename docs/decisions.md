@@ -5,6 +5,35 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-24 · The morning news.**
+  I'm not up to date with AI and tech news, so every morning kestrel writes me a brief. Every two hours it reads 19
+  public feeds, each verified (news sites with free articles, the AI labs' own pages, builders, Hacker News, Hugging
+  Face's daily papers), with no account and no cloud: several feeds hold less than a day (Techmeme about 5 hours).
+  The reader (`src/ai/news/feeds.ts`) sits behind publicUrl with an honest user agent, a 15 s deadline, a 3 MB cap and
+  gzip sniffing, and reads RSS, Atom and JSON without a package. At 06:30, or when the computer wakes before noon (a
+  failed morning retried once, 15 minutes later), the careful model makes two calls: the pick (6 to 10 stories, from a
+  broad list of interests in settings, `news.interests`: one passing debate is an example, never the beat) and the
+  write (plain words around the facts, the real technical terms kept). The code then keeps only links from what was
+  gathered, cuts any web address from the model's words, and checks every number against its sources (value, unit
+  and currency; an ungrounded one flags the story). Migration 027 keeps the items, the sources' health and every
+  brief. Make it now rewrites today's brief, and an empty run never replaces a full one. Home shows the top three
+  headlines; `/news` the whole brief, the earlier days and each source's state. Nothing about me is in the prompts.
+  Rejected: paywalled feeds (FT, WSJ, NYT, Bloomberg, The Information), Google News (redirect links), web searches in
+  the daily run (undated, noisy).
+- **2026-11-24 · Notes shows its work; a printed document reads like one.**
+  While notes are applied, the notes column (a bar on a phone) shows the steps, the time so far and what it usually
+  takes, Stop as a quiet action, and the review opens by itself. The print page leaves no room for the browser's
+  header and footer (a zero page margin, the margins moved into the page): they had printed the page's address, with
+  this computer's network name, on a CV meant for employers. A PDF's text joins only the lines that clearly continue a
+  sentence (a lower-case start, or a line ending on a comma, a hyphen or a small word), so a role line never merges
+  into a bullet; a document that starts like a CV prints like one (the name large, the contact lines small, ruled
+  headings, roles in bold, real bullets, 10.5 pt type).
+- **2026-11-24 · Searches' head as short facts; Cost in colour; Home's figures small.**
+  The line under a hunt's name is now its facts (the last search and what it found, the next one); a 429 is a
+  THROTTLED chip whose sentence opens on a tap, with the description, behind About. "+ New search" is visible on the
+  page (it was only in the title's switcher). Cost's money takes the money scale's tones, and what running here saved
+  against the cloud is green. Home's figures shrank and gained what's next.
+
 - **2026-11-24 · Every page to the Searches standard; Notes' Apply; the chat page never blocks.**
   The Searches page is the bar: one card anatomy repeated, numbers in mono on scales and tones, few chips, almost no
   prose, grids that use the width, one filled button per screen. A study scored every page against it; the lowest
