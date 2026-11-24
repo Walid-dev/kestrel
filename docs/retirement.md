@@ -8,7 +8,7 @@ I stop each part when its new home has carried it for two quiet weeks.
 
 | The old part                       | Its new home                                                                                                              | The cutover                                                                            |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Job Hunt (the hunts tool's jobs)   | Searches: the hunt page, cards, the whole listing, deep checks; my stars and notes                                        | Final import, enable the browser specs in the data folder, stop the old timer          |
+| Job Hunt (the hunts tool's jobs)   | Searches: the hunt page, cards, the whole listing, deep checks; my stars and notes                                        | Final import, real job collectors in the data folder switched on, stop the old timer   |
 | Deal Hunt (the chair searches)     | Searches: the chair hunt runs here at 10:00 and 20:00, On, and pings a great deal through ntfy                            | Done 2026-11-23: the old chair hunt is Paused; it stops for good after two quiet weeks |
 | The apply flow                     | Applications: the queue, the numbers, every attempt (193 carried); the old runner takes the queue                         | kestrel starts the agent itself, with the old runner's report and ping                 |
 | Learn (the old lessons app)        | Learn: the same method, packs by topic, my progress carried (21 in review)                                                | Done — the old page stays readable until unused                                        |
@@ -26,11 +26,14 @@ I stop each part when its new home has carried it for two quiet weeks.
 
 The mirror (`mirror-v1.json`) brings the old setup's finds about five minutes after each of its rounds, and everything
 at least once a day; it keeps kestrel's listings — jobs and deals — matched to the old database, which
-stays the authority for statuses until each cutover. The mirror's last word shows on the Searches page.
+stays the authority for statuses until each cutover. The mirror's last word shows on the Searches page. Search now on
+a job hunt the old setup runs starts the old setup's own (`settings.oldLive` names its server); the mirror after it
+brings the finds.
 
 ## What waits for me
 
-- The search cutover: the final import, the browser specs enabled, the old timer off.
+- The search cutover: the final import, real job collectors in the data folder switched on (kestrel has none of
+  its own since the jobspy wrapper went, 2026-11-24), the old timer off.
 - The apply cutover: kestrel starting the agent itself. Until then the old runner takes kestrel's queue and reports
   each end back (2026-11-23).
 - The deal cutover is done (2026-11-23): the old chair hunt waits, Paused, for its two quiet weeks.

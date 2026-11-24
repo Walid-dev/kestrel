@@ -1,7 +1,7 @@
 // A search's settings, the old hunt page's Settings: this search (name, what it looks for, on or paused, how often),
-// where it looks (the collector and its words), and what makes a good match (titles, skills, level, pay, places,
-// freshness; a deal's price cap). New makes one from nothing. Saving writes the search's own file in the data folder,
-// checked first; fields this page doesn't show are kept as they are.
+// where it looks (the collector and the settings its spec gives it), and what makes a good match (titles, skills,
+// level, pay, places, freshness; a deal's price cap). New makes one from nothing. Saving writes the search's own file
+// in the data folder, checked first; fields this page doesn't show are kept as they are.
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
@@ -24,12 +24,6 @@ const slug = (s: string) =>
     .replaceAll(/[^a-z0-9]+/g, "-")
     .replaceAll(/^-+|-+$/g, "")
     .slice(0, 60);
-// the collector's knobs this page names; any other stays as written
-const KNOBS: [string, string, string][] = [
-  ["TERM_WORDS", "Search words", "what the sites are asked for"],
-  ["LOCATION", "Place", "a city, or remote"],
-  ["HOURS_OLD", "Posted within (hours)", "older postings are skipped"],
-];
 
 // a setting: its name over its box, a hint under it
 function Labeled({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
@@ -154,7 +148,8 @@ export function SearchSettings() {
   const pay = (scoring.pay ?? {}) as { floor?: number };
   const price = (scoring.price ?? {}) as { cap?: number };
   const places = (scoring.places ?? {}) as { words?: unknown; remoteOk?: boolean; within?: unknown; closed?: unknown };
-  const others = Object.entries(env).filter(([k]) => !KNOBS.some(([n]) => n === k));
+  // the collector's own settings, each under its name as the spec writes it: no collector's names are built in
+  const knobs = Object.entries(env);
   // the collectors in the data folder, and the one this search names even when its file has gone
   const pickable = [...new Set([...(collectors.data?.collectors ?? []), String(raw.collector ?? "")].filter(Boolean))];
 
@@ -271,14 +266,7 @@ export function SearchSettings() {
               a script in the data folder's collectors; it prints the listings it finds
             </span>
           </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            {KNOBS.map(([k, label, hint]) => (
-              <Labeled key={k} label={label} hint={hint}>
-                <input className="input" value={env[k] ?? ""} onChange={(e) => putEnv(k, e.target.value)} />
-              </Labeled>
-            ))}
-          </div>
-          {others.map(([k, v]) => (
+          {knobs.map(([k, v]) => (
             <Labeled key={k} label={k}>
               <input className="input font-mono" value={v} onChange={(e) => putEnv(k, e.target.value)} />
             </Labeled>

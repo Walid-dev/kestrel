@@ -69,8 +69,14 @@ async function agentChats(url: string): Promise<Agents> {
 }
 
 // Stop and Pause go to the old setup's server, which runs the applications (its queue claims kestrel's too): Stop
-// ends the chat's running turn in dsh, Pause keeps the next queued application from starting until Play
-async function toOldSetup(oldLive: string, path: string, body: unknown): Promise<{ code: number; body: unknown }> {
+// ends the chat's running turn in dsh, Pause keeps the next queued application from starting until Play. A job hunt's
+// Search now goes there too while the old setup runs the job search (search.ts). JSON, with no Origin header: the old
+// server refuses a write that names another page's origin
+export async function toOldSetup(
+  oldLive: string,
+  path: string,
+  body: unknown,
+): Promise<{ code: number; body: unknown }> {
   if (!oldLive) return { code: 503, body: { error: "the old setup's Live isn't set (settings.json: oldLive)" } };
   try {
     const res = await fetch(new URL(path, oldLive), {
