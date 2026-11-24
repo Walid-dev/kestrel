@@ -8,7 +8,7 @@ import { Pills } from "./ui/pills.tsx";
 
 type UseRow = { use: string; what: string; model: string; fallback: string };
 
-// each use by a plain name, not its id; a use or a prompt not named here reads its id in words ("notes-draft": "Notes
+// each use by a plain name, not its id; a use or a call not named here reads its id in words ("notes-draft": "Notes
 // draft"), so a new one still shows
 const NAMES: Record<string, string> = {
   "notes-careful": "Notes, careful",
@@ -21,7 +21,29 @@ const NAMES: Record<string, string> = {
   "quiz-explain": "Quiz, explanations",
   letter: "Cover letters",
 };
-const named = (id: string) => NAMES[id] ?? `${id.charAt(0).toUpperCase()}${id.slice(1).replaceAll("-", " ")}`;
+const words = (id: string) => `${id.charAt(0).toUpperCase()}${id.slice(1).replaceAll("-", " ")}`;
+const named = (id: string) => NAMES[id] ?? words(id);
+// a recorded call carries its prompt's id ("quiz-grade:v3"), not its use's: the same plain names, so one job has one
+// name on this page. Ask's calls are one per app ("ask-learn")
+const PURPOSES: Record<string, string> = {
+  changes: "Notes, changes",
+  "deep-job": "Searches, deep check of a job",
+  "deep-deal": "Searches, deep check of a deal",
+  research: "Research",
+  "research-plan": "Research, its plan",
+  "research-ask": "Research, its questions",
+  "quiz-make": "Quiz, a question written",
+  "quiz-grade": "Quiz, marking",
+  "quiz-explain": "Quiz, explanations",
+  letter: "Cover letters",
+  "letter-review": "Cover letters, the review",
+  "letter-fix": "Cover letters, a fix",
+};
+const purposeOf = (purpose: string) => {
+  const [id = "", version = ""] = purpose.split(":");
+  const name = id.startsWith("ask-") ? `Ask, on ${words(id.slice(4))}` : (PURPOSES[id] ?? words(id));
+  return { name, version };
+};
 
 export function Models() {
   const queryClient = useQueryClient();
@@ -110,15 +132,22 @@ export function Models() {
               shows what the same use would cost in the cloud.
             </span>
             <ul className="m-0 grid list-none gap-2 p-0">
-              {calls.map((r) => (
-                <li key={`${r.purpose}:${r.model}`} className="grid gap-0.5" title={r.purpose}>
-                  <span className="font-semibold text-strong">{named(r.purpose.split(":")[0])}</span>
-                  <span className="font-mono text-small wrap-anywhere">
-                    {r.model} · {r.calls} call{r.calls === 1 ? "" : "s"} · {r.seconds} s each
-                    {r.failed > 0 && <span className="text-orange"> · {r.failed} failed</span>}
-                  </span>
-                </li>
-              ))}
+              {calls.map((r) => {
+                const p = purposeOf(r.purpose);
+                return (
+                  <li key={`${r.purpose}:${r.model}`} className="grid gap-0.5">
+                    {/* the prompt's version tells two rows of one job apart */}
+                    <span className="flex items-baseline gap-2">
+                      <span className="font-semibold text-strong">{p.name}</span>
+                      {p.version && <span className="font-mono text-small text-muted">{p.version}</span>}
+                    </span>
+                    <span className="font-mono text-small wrap-anywhere">
+                      {r.model} · {r.calls} call{r.calls === 1 ? "" : "s"} · {r.seconds} s each
+                      {r.failed > 0 && <span className="text-orange"> · {r.failed} failed</span>}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         </Card>

@@ -1,7 +1,7 @@
 // Cost, the old setup's: everything this computer's models did since oMLX started counting — tokens, requests, compute
 // — what the same use would have cost in the cloud at my reference prices, and what it cost in electricity; then the
 // tokens of each of the last 30 days, a period with each model apart, and the prices with where they were seen.
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { type CSSProperties, useState } from "react";
 import { cx } from "./ui/cx.ts";
 import { EmptyState } from "./ui/empty.tsx";
@@ -65,7 +65,8 @@ const PERIODS = [
   { value: "30", label: "30 days" },
   { value: "all", label: "All" },
 ];
-// the server answers 503 when oMLX's table isn't there to read: a set-up step, not a failure
+// the server answers 503 when oMLX's table isn't there to read: a set-up step, not a failure. It also answers 503
+// when the table is there but locked for a moment; with figures on screen that is only a missed refresh
 class NotReady extends Error {}
 
 // one series, so no legend: the title names it. Thin bars from the baseline, 2px apart, the top day labelled, a
@@ -148,6 +149,8 @@ export function Cost() {
     // a set-up step won't come right in a second: say so at once instead of trying three times first
     retry: (count, e) => !(e instanceof NotReady) && count < 2,
     refetchInterval: 12_000, // the count rolls on while a model works
+    // a new period keeps the figures and the pills on screen while it loads, so nothing jumps or loses focus
+    placeholderData: keepPreviousData,
   });
   const r = report.data;
   const t = r?.total;
@@ -167,7 +170,7 @@ export function Cost() {
           : "What this computer's models did."
       }
     >
-      {report.isError ? (
+      {report.isError && !r ? (
         report.error instanceof NotReady ? (
           <NotSetUp reason={report.error.message} />
         ) : (
@@ -180,18 +183,36 @@ export function Cost() {
           <div className="skeleton h-56 rounded-2xl" />
         </div>
       ) : (
-        <Counted r={r} t={t} tokens={tokens} daysCounted={daysCounted} days={days} setDays={setDays} />
+        <>
+          {report.isError && (
+            // the figures stay; the next refresh, 12 seconds on, tries again
+            <p className="m-0 text-detail text-muted" role="status">
+              The last refresh didn't come through ({(report.error as Error).message}). The next one tries again in a
+              few seconds.
+            </p>
+          )}
+          <Counted
+            r={r}
+            t={t}
+            tokens={tokens}
+            daysCounted={daysCounted}
+            days={days}
+            setDays={setDays}
+            loading={report.isPlaceholderData}
+          />
+        </>
       )}
     </Page>
   );
 }
 
-// oMLX isn't counting for kestrel yet: what is missing in plain words, the setting it needs small under it
+// oMLX isn't counting for kestrel yet: what is missing in plain words, the setting it needs small under it. A table
+// that is there but can't be read is not a set-up step, so its title says so
 function NotSetUp({ reason }: { reason: string }) {
   const setting = reason.match(/\s*\((settings\.json: \w+)\)\s*$/);
   return (
     <EmptyState
-      title="Cost isn't set up yet."
+      title={reason.includes("can't be read") ? "oMLX's figures can't be read right now." : "Cost isn't set up yet."}
       line={`${setting ? reason.slice(0, setting.index) : reason}.`}
       detail={setting?.[1]}
     />
@@ -205,6 +226,7 @@ function Counted({
   daysCounted,
   days,
   setDays,
+  loading,
 }: {
   r: Report;
   t: Figures;
@@ -212,6 +234,7 @@ function Counted({
   daysCounted: number;
   days: string;
   setDays: (d: string) => void;
+  loading: boolean;
 }) {
   return (
     <>
@@ -284,28 +307,31 @@ function Counted({
 
       <section className="card grid gap-3">
         <Pills label="Period" options={PERIODS} value={days} onChange={setDays} />
-        <p className="m-0 text-body">
-          <b className="font-cond text-lead text-strong">{n(r.period.fresh + r.period.reused + r.period.out)}</b> tokens
-          · {n(r.period.requests)} requests · {r.period.computeHours.toFixed(1)} h of compute
-        </p>
-        {r.models.map((m) => (
-          <div key={m.model} className="grid gap-1 rounded-xl bg-surface-2 px-3 py-2.5">
-            <div className="flex flex-wrap items-baseline gap-2">
-              <span className="font-mono text-small text-strong">{m.model}</span>
-              <span className="ml-auto text-small text-muted">
-                {short(m.fresh + m.reused + m.out)} tokens · {n(m.requests)} requests · {m.computeHours.toFixed(1)} h
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-x-4 text-small text-muted">
-              {m.cloud.map((c) => (
-                <span key={c.id}>
-                  {r.prices?.cloud.find((x) => x.id === c.id)?.name.split(",")[0]}:{" "}
-                  <b className="text-ink">{usd(c.usd)}</b>
+        {/* the last period's figures, dimmed, until the new one lands */}
+        <div className={cx("grid gap-3", loading && "busy")} aria-busy={loading}>
+          <p className="m-0 text-body">
+            <b className="font-cond text-lead text-strong">{n(r.period.fresh + r.period.reused + r.period.out)}</b>{" "}
+            tokens · {n(r.period.requests)} requests · {r.period.computeHours.toFixed(1)} h of compute
+          </p>
+          {r.models.map((m) => (
+            <div key={m.model} className="grid gap-1 rounded-xl bg-surface-2 px-3 py-2.5">
+              <div className="flex flex-wrap items-baseline gap-2">
+                <span className="font-mono text-small text-strong">{m.model}</span>
+                <span className="ml-auto text-small text-muted">
+                  {short(m.fresh + m.reused + m.out)} tokens · {n(m.requests)} requests · {m.computeHours.toFixed(1)} h
                 </span>
-              ))}
+              </div>
+              <div className="flex flex-wrap gap-x-4 text-small text-muted">
+                {m.cloud.map((c) => (
+                  <span key={c.id}>
+                    {r.prices?.cloud.find((x) => x.id === c.id)?.name.split(",")[0]}:{" "}
+                    <b className="text-ink">{usd(c.usd)}</b>
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </section>
 
       {r.prices && (

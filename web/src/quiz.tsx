@@ -408,7 +408,7 @@ export function Quiz() {
                         {q.answered}/{q.total}
                       </Ring>
                       <span className="grid min-w-0 flex-1 gap-1">
-                        <span className="font-cond truncate text-lead font-bold text-strong">{named(q)}</span>
+                        <span className="font-cond truncate text-head font-bold text-strong">{named(q)}</span>
                         <span className="text-detail text-ink">
                           Question {Math.min(q.place + 1, q.total)} of {q.total} · {q.right} right
                           {q.partly ? ` · ${q.partly} partly` : ""}
@@ -442,7 +442,7 @@ export function Quiz() {
                 </Card>
               ))}
               {started.length > STARTED_SHOWN && (
-                <button type="button" className="btn btn-quiet py-3" onClick={() => setAllStarted(!allStarted)}>
+                <button type="button" className="btn btn-quiet min-h-11" onClick={() => setAllStarted(!allStarted)}>
                   {allStarted ? "Show fewer" : `Show all ${started.length}`}
                 </button>
               )}

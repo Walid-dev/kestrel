@@ -124,7 +124,7 @@ export function Tasks() {
 
       {done.length > 0 && (
         <details>
-          <summary className="cursor-pointer py-2.5 text-detail text-muted">Done · {done.length}</summary>
+          <summary className="cursor-pointer py-3 text-detail text-muted">Done · {done.length}</summary>
           <ol className="m-0 mt-2 grid list-none gap-2 p-0">
             {done.map((t) => (
               <Row key={t.id} t={t} act={act.mutate} busy={act.isPending && act.variables?.id === t.id} />
@@ -222,11 +222,13 @@ function Row({ t, act, busy }: { t: Task; act: Act; busy: boolean }) {
             }}
           />
         )}
-        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-small text-muted">
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-small text-muted">
+          {/* the chip's tap area grows mostly downward: upward it stops short of the words above, so a tap meant to
+              edit them never changes whom the task is for */}
           <button
             type="button"
             className={cx(
-              "chip relative after:absolute after:-inset-x-1 after:-inset-y-3.5",
+              "chip relative after:absolute after:-inset-x-1 after:-top-1.5 after:-bottom-5",
               `tone-${t.done ? "muted" : tone}`,
             )}
             title="Tap to change whom it is for"
