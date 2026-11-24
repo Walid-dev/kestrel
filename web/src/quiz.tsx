@@ -4,14 +4,18 @@
 // through with the model. A quiz is kept as I take it: leaving loses nothing, a started quiz waits on this page to be
 // continued, and an ended one opens again on its score, each question a tap away. What I missed comes back first.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { type QuizLesson, questionsIn } from "../../src/shared/quiz.ts";
 import { Ask } from "./ask.tsx";
-import { enterSends } from "./keys.ts";
 import { block, Code, Inline, type Say } from "./learn/blocks.tsx";
 import { type Spoken, useReader } from "./learn/voice.ts";
+import { Card } from "./ui/card.tsx";
 import { useConfirm } from "./ui/confirm.tsx";
+import { cx } from "./ui/cx.ts";
+import { EmptyState } from "./ui/empty.tsx";
+import { Field } from "./ui/field.tsx";
+import { Page } from "./ui/page.tsx";
 import { Pills } from "./ui/pills.tsx";
 
 type Area = "learn" | "interview";
@@ -61,6 +65,8 @@ const when = (iso: string) =>
   });
 // a row's short date: room for the quiz's name beside its Archive and ✕ on a phone
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+// a part of a bar: its length is data, so it reaches the class as a variable
+const share = (n: number, total: number) => ({ "--part": `${total ? (n / total) * 100 : 0}%` }) as CSSProperties;
 const named = (q: { area: Area; scope: string }) => `${q.area === "interview" ? "Interview prep · " : ""}${q.scope}`;
 // a score's colour on the money scale: most right is great, few is poor
 const scoreTone = (right: number, total: number) => {
@@ -198,7 +204,7 @@ export function Quiz() {
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["quizzes"] }),
   });
-  const busy = (id: string) => (change.isPending && change.variables?.id === id ? { opacity: 0.5 } : undefined);
+  const isBusy = (id: string) => change.isPending && change.variables?.id === id;
   const act = (q: Summary, to: Change["to"], list: List) => change.mutate({ id: q.id, to, list, name: named(q) });
   const failedIn = (list: List) =>
     change.isError && change.variables?.list === list
@@ -222,347 +228,343 @@ export function Quiz() {
   const startedShown = allStarted ? started : started.slice(0, STARTED_SHOWN);
 
   return (
-    <main className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:grid-rows-[auto_auto_auto_1fr] lg:items-start lg:gap-x-8">
-      <header className="grid gap-2 lg:col-span-2">
-        <h2 className="font-cond m-0 text-[40px] font-bold uppercase leading-none tracking-tight">Quiz</h2>
-        <p className="m-0 max-w-2xl text-[16px] leading-relaxed" style={{ color: "var(--muted)" }}>
+    <Page
+      title="Quiz"
+      line={
+        <>
           Questions from your lessons, answered in your own words. The computer's model marks the meaning and explains
           it, and your place is kept.
           {due > 0 && (
             <>
               {" "}
-              <b style={{ color: "var(--teal)" }}>{due}</b> lessons are due for review.
+              <b className="text-cyan">{due}</b> {due === 1 ? "lesson" : "lessons"} to review today.
             </>
           )}
-        </p>
-      </header>
+        </>
+      }
+    >
+      {/* the new quiz on the left; on a computer the rest share one column on the right, so no gap opens between
+          them. On a phone that column dissolves (contents) and the quiz I started comes first, to continue */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-start lg:gap-x-8">
+        <Card>
+          <div className="grid gap-6">
+            <h2 className="font-cond m-0 text-head font-bold">{started.length ? "A new quiz" : "Start a quiz"}</h2>
+            <div className="grid gap-2.5">
+              <span className="eyebrow">From</span>
+              <fieldset className="seg" aria-label="From">
+                {(
+                  [
+                    ["learn", "Lessons"],
+                    ["interview", "Interview prep"],
+                  ] as [Area, string][]
+                ).map(([k, label]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    aria-pressed={area === k}
+                    onClick={() => {
+                      setArea(k);
+                      pickTopic("");
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </fieldset>
+            </div>
+            <div className="grid gap-2.5">
+              <span className="eyebrow">On</span>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2.5">
+                {topics.map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    className="tile"
+                    aria-pressed={from === t.key}
+                    onClick={() => pickTopic(t.key)}
+                  >
+                    <b>{t.name}</b>
+                    <span>{plural(t.lessons, "lesson")}</span>
+                    {t.due > 0 && <span>{t.due} to review</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {topic && topic.lessons > 0 && (
+              <div className="grid gap-4">
+                {topicPacks.length > 1 && (
+                  <Pills
+                    label="Packs"
+                    showLabel
+                    multiple
+                    options={topicPacks.map((p) => ({ value: p.id, label: p.name, count: p.lessons ?? 0 }))}
+                    value={packsPicked}
+                    onChange={pickPacks}
+                  />
+                )}
+                {shown.length > 0 && (
+                  <div ref={lessonPills}>
+                    <Pills
+                      label="Lessons"
+                      showLabel
+                      multiple
+                      describedBy="quiz-drawn"
+                      options={[
+                        ...listed.map((l) => ({
+                          value: l.id,
+                          label: l.title,
+                          ...(l.due ? { tone: "cyan" as const, hint: "to review" } : {}),
+                        })),
+                        // the rest of a long list, one tap away, and back: an action among the pills, so it wraps
+                        // with them
+                        ...(longList
+                          ? [
+                              {
+                                value: SHOW_MORE,
+                                label: allLessons ? "Show fewer" : `Show all ${shown.length}`,
+                                onPress: () => {
+                                  // the pill tapped leaves: focus the first lesson that came into sight, or, folding,
+                                  // the pill that brings them back (the last one of the short list)
+                                  focusPill.current = allLessons
+                                    ? short.length
+                                    : Math.max(
+                                        0,
+                                        shown.findIndex((l) => !short.includes(l)),
+                                      );
+                                  setAllLessons(!allLessons);
+                                },
+                              },
+                            ]
+                          : []),
+                      ]}
+                      value={lessonsPicked}
+                      onChange={setLessonsPicked}
+                    />
+                  </div>
+                )}
+                <p id="quiz-drawn" className="m-0 text-detail text-muted">
+                  {drawn}
+                  {lessonsPicked.length || packsPicked.length ? "" : ". Pick some to narrow the quiz."}
+                </p>
+              </div>
+            )}
+            <div className="grid gap-2.5">
+              <span className="eyebrow">How many</span>
+              <fieldset className="seg" aria-label="How many">
+                {(
+                  [
+                    [5, "quick"],
+                    [10, "a round"],
+                    [20, "a long one"],
+                  ] as const
+                ).map(([n, size]) => (
+                  <button key={n} type="button" aria-pressed={count === n} onClick={() => setCount(n)}>
+                    {n}
+                    <small>{size}</small>
+                  </button>
+                ))}
+              </fieldset>
+            </div>
+            <div className="grid gap-2.5">
+              <span className="eyebrow">Questions</span>
+              <fieldset className="seg" aria-label="Questions">
+                <button type="button" aria-pressed={!fresh} onClick={() => setFresh(false)}>
+                  The lessons' own
+                  <small>ready at once</small>
+                </button>
+                <button type="button" aria-pressed={fresh} onClick={() => setFresh(true)}>
+                  New ones
+                  <small>the model writes each</small>
+                </button>
+              </fieldset>
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary btn-big inline-flex w-full items-center justify-center gap-2"
+              disabled={start.isPending || questions === 0}
+              onClick={() => start.mutate()}
+            >
+              {start.isPending && <span className="spin" />}
+              {start.isPending
+                ? "Picking the questions"
+                : questions === 0
+                  ? "No lessons here yet"
+                  : `Start ${plural(questions, "question")}${on ? ` on ${on}` : ""}`}
+            </button>
+            <Failed message={failing ? (failing.error as Error).message : null} />
+          </div>
+        </Card>
 
-      {(started.length > 0 || failedIn("started") || quizzes.isError) && (
-        <section className="grid content-start gap-3 lg:col-start-2 lg:row-start-2">
-          <span className="eyebrow">Pick up where you left off</span>
-          <Failed message={quizzes.isError ? (quizzes.error as Error).message : failedIn("started")} />
-          {startedShown.map((q) => (
-            <article key={q.id} className="card quiz-list grid gap-4 !p-5" style={busy(q.id)}>
-              <div className="flex items-start gap-2">
-                <Link to={`/quiz/${q.id}`} className="flex min-w-0 flex-1 items-center gap-4">
-                  <Ring part={q.total ? q.answered / q.total : 0}>
-                    {q.answered}/{q.total}
-                  </Ring>
-                  <span className="grid min-w-0 flex-1 gap-1">
-                    <span
-                      className="font-cond truncate text-[22px] font-bold leading-tight"
-                      style={{ color: "var(--strong)" }}
+        <div className="contents lg:grid lg:content-start lg:gap-6">
+          {(started.length > 0 || failedIn("started") || quizzes.isError) && (
+            <section className="-order-1 grid content-start gap-3 lg:order-none">
+              <h2 className="eyebrow m-0">Pick up where you left off</h2>
+              <Failed message={quizzes.isError ? (quizzes.error as Error).message : failedIn("started")} />
+              {startedShown.map((q) => (
+                <Card key={q.id} busy={isBusy(q.id)}>
+                  <div className="flex items-start gap-2">
+                    <Link to={`/quiz/${q.id}`} className="flex min-w-0 flex-1 items-center gap-4">
+                      <Ring part={q.total ? q.answered / q.total : 0}>
+                        {q.answered}/{q.total}
+                      </Ring>
+                      <span className="grid min-w-0 flex-1 gap-1">
+                        <span className="font-cond truncate text-head font-bold text-strong">{named(q)}</span>
+                        <span className="text-detail text-ink">
+                          Question {Math.min(q.place + 1, q.total)} of {q.total} · {q.right} right
+                          {q.partly ? ` · ${q.partly} partly` : ""}
+                        </span>
+                        <span className="text-small text-muted">{when(q.updated)}</span>
+                      </span>
+                    </Link>
+                    <button
+                      type="button"
+                      className="card-remove"
+                      aria-label={`Delete "${named(q)}"`}
+                      title="Delete"
+                      onClick={() => remove(q, "started")}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Link to={`/quiz/${q.id}`} className="btn btn-primary btn-big flex-1 text-center">
+                      Continue
+                    </Link>
+                    <button
+                      type="button"
+                      className="btn btn-quiet btn-big"
+                      aria-label={`Archive "${named(q)}"`}
+                      onClick={() => act(q, "archive", "started")}
+                    >
+                      Archive
+                    </button>
+                  </div>
+                </Card>
+              ))}
+              {started.length > STARTED_SHOWN && (
+                <button type="button" className="btn btn-quiet min-h-11" onClick={() => setAllStarted(!allStarted)}>
+                  {allStarted ? "Show fewer" : `Show all ${started.length}`}
+                </button>
+              )}
+            </section>
+          )}
+
+          {(ended.length > 0 || failedIn("done")) && (
+            <section className="grid content-start gap-3">
+              <h2 className="eyebrow m-0">Done</h2>
+              <Failed message={failedIn("done")} />
+              <div className="card quiz-list grid overflow-hidden !p-0">
+                {(allDone ? ended : ended.slice(0, DONE_SHOWN)).map((q) => (
+                  <div
+                    key={q.id}
+                    className={cx(
+                      "quiz-done relative flex items-center gap-3 border-line px-4 py-3.5 [&+&]:border-t",
+                      isBusy(q.id) && "busy",
+                    )}
+                  >
+                    <span className={`chip quiz-score ${scoreTone(q.right, q.total)}`}>
+                      {q.right}/{q.total}
+                    </span>
+                    <Link
+                      to={`/quiz/${q.id}`}
+                      className="card-open min-w-0 flex-1 truncate text-body font-semibold text-strong"
                     >
                       {named(q)}
+                    </Link>
+                    <span className="shrink-0 text-small text-muted" title={when(q.finished ?? q.updated)}>
+                      {day(q.finished ?? q.updated)}
                     </span>
-                    <span className="text-[14px]" style={{ color: "var(--text)" }}>
-                      Question {Math.min(q.place + 1, q.total)} of {q.total} · {q.right} right
-                      {q.partly ? ` · ${q.partly} partly` : ""}
+                    <span className="flex shrink-0 items-center">
+                      <button
+                        type="button"
+                        className="card-remove quiz-keep"
+                        aria-label={`Archive "${named(q)}"`}
+                        title="Archive"
+                        onClick={() => act(q, "archive", "done")}
+                      >
+                        <ArchiveIcon />
+                      </button>
+                      <button
+                        type="button"
+                        className="card-remove"
+                        aria-label={`Delete "${named(q)}"`}
+                        title="Delete"
+                        onClick={() => remove(q, "done")}
+                      >
+                        ✕
+                      </button>
                     </span>
-                    <span className="text-[13px]" style={{ color: "var(--muted)" }}>
-                      {when(q.updated)}
-                    </span>
-                  </span>
-                </Link>
-                <button
-                  type="button"
-                  className="card-remove"
-                  aria-label={`Delete "${named(q)}"`}
-                  title="Delete"
-                  onClick={() => remove(q, "started")}
-                >
-                  ✕
-                </button>
+                  </div>
+                ))}
+                {ended.length > DONE_SHOWN && (
+                  <button
+                    type="button"
+                    className="btn btn-quiet !rounded-none !border-x-0 !border-b-0 py-3"
+                    onClick={() => setAllDone(!allDone)}
+                  >
+                    {allDone ? "Show fewer" : `Show all ${ended.length}`}
+                  </button>
+                )}
               </div>
-              <div className="flex items-center gap-2">
-                <Link to={`/quiz/${q.id}`} className="btn btn-primary btn-big flex-1 text-center">
-                  Continue
-                </Link>
-                <button
-                  type="button"
-                  className="btn btn-quiet btn-big"
-                  aria-label={`Archive "${named(q)}"`}
-                  onClick={() => act(q, "archive", "started")}
-                >
-                  Archive
-                </button>
-              </div>
-            </article>
-          ))}
-          {started.length > STARTED_SHOWN && (
-            <button type="button" className="btn btn-quiet min-h-11 py-3" onClick={() => setAllStarted(!allStarted)}>
-              {allStarted ? "Show fewer" : `Show all ${started.length}`}
-            </button>
+            </section>
           )}
-        </section>
-      )}
 
-      <section className="card grid content-start gap-6 !p-5 md:!p-6 lg:col-start-1 lg:row-span-3 lg:row-start-2">
-        <h3 className="font-cond m-0 text-[26px] font-bold leading-none" style={{ color: "var(--strong)" }}>
-          {started.length ? "A new quiz" : "Start a quiz"}
-        </h3>
-        <div className="grid gap-2.5">
-          <span className="eyebrow">From</span>
-          <fieldset className="seg" aria-label="From">
-            {(
-              [
-                ["learn", "Lessons"],
-                ["interview", "Interview prep"],
-              ] as [Area, string][]
-            ).map(([k, label]) => (
-              <button
-                key={k}
-                type="button"
-                aria-pressed={area === k}
-                onClick={() => {
-                  setArea(k);
-                  pickTopic("");
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </fieldset>
-        </div>
-        <div className="grid gap-2.5">
-          <span className="eyebrow">On</span>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2.5">
-            {topics.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                className="tile"
-                aria-pressed={from === t.key}
-                onClick={() => pickTopic(t.key)}
-              >
-                <b>{t.name}</b>
-                <span>
-                  {t.lessons} lesson{t.lessons === 1 ? "" : "s"}
-                  {t.due ? ` · ${t.due} due` : ""}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-        {topic && topic.lessons > 0 && (
-          <div className="grid gap-4">
-            {topicPacks.length > 1 && (
+          {(archived.length > 0 || failedIn("archived") || archivedList.isError) && (
+            <section className="grid content-start gap-3">
               <Pills
-                label="Packs"
-                showLabel
+                label="Archived quizzes"
                 multiple
-                options={topicPacks.map((p) => ({ value: p.id, label: p.name, count: p.lessons ?? 0 }))}
-                value={packsPicked}
-                onChange={pickPacks}
+                options={[{ value: "archived", label: "Archived", count: archived.length }]}
+                value={archivedOpen ? ["archived"] : []}
+                onChange={(v) => setArchivedOpen(v.length > 0)}
               />
-            )}
-            {shown.length > 0 && (
-              <div ref={lessonPills}>
-                <Pills
-                  label="Lessons"
-                  showLabel
-                  multiple
-                  describedBy="quiz-drawn"
-                  options={[
-                    ...listed.map((l) => ({
-                      value: l.id,
-                      label: l.title,
-                      ...(l.due ? { tone: "cyan" as const, hint: "due" } : {}),
-                    })),
-                    // the rest of a long list, one tap away, and back: a pill among the pills, so it wraps with them
-                    ...(longList
-                      ? [{ value: SHOW_MORE, label: allLessons ? "Show fewer" : `Show all ${shown.length}` }]
-                      : []),
-                  ]}
-                  value={lessonsPicked}
-                  onChange={(next) => {
-                    if (next.includes(SHOW_MORE)) {
-                      // the pill tapped leaves: focus the first lesson that came into sight, or, folding, the pill
-                      // that brings them back (the last one of the short list)
-                      focusPill.current = allLessons
-                        ? short.length
-                        : Math.max(
-                            0,
-                            shown.findIndex((l) => !short.includes(l)),
-                          );
-                      setAllLessons(!allLessons);
-                    }
-                    setLessonsPicked(next.filter((v) => v !== SHOW_MORE));
-                  }}
-                />
-              </div>
-            )}
-            <p id="quiz-drawn" className="m-0 text-[14px]" style={{ color: "var(--muted)" }}>
-              {drawn}
-              {lessonsPicked.length || packsPicked.length ? "" : ". Pick some to narrow the quiz."}
-            </p>
-          </div>
-        )}
-        <div className="grid gap-2.5">
-          <span className="eyebrow">How many</span>
-          <fieldset className="seg" aria-label="How many">
-            {(
-              [
-                [5, "quick"],
-                [10, "a round"],
-                [20, "a long one"],
-              ] as const
-            ).map(([n, size]) => (
-              <button key={n} type="button" aria-pressed={count === n} onClick={() => setCount(n)}>
-                {n}
-                <small>{size}</small>
-              </button>
-            ))}
-          </fieldset>
-        </div>
-        <div className="grid gap-2.5">
-          <span className="eyebrow">Questions</span>
-          <fieldset className="seg" aria-label="Questions">
-            <button type="button" aria-pressed={!fresh} onClick={() => setFresh(false)}>
-              The lessons' own
-              <small>ready at once</small>
-            </button>
-            <button type="button" aria-pressed={fresh} onClick={() => setFresh(true)}>
-              New ones
-              <small>the model writes each</small>
-            </button>
-          </fieldset>
-        </div>
-        <button
-          type="button"
-          className="btn btn-primary btn-big inline-flex w-full items-center justify-center gap-2"
-          disabled={start.isPending || questions === 0}
-          onClick={() => start.mutate()}
-        >
-          {start.isPending && <span className="spin" />}
-          {start.isPending
-            ? "Picking the questions"
-            : questions === 0
-              ? "No lessons here yet"
-              : `Start ${plural(questions, "question")}${on ? ` on ${on}` : ""}`}
-        </button>
-        <Failed message={failing ? (failing.error as Error).message : null} />
-      </section>
-
-      {(ended.length > 0 || failedIn("done")) && (
-        <section className="grid content-start gap-3 lg:col-start-2">
-          <span className="eyebrow">Done</span>
-          <Failed message={failedIn("done")} />
-          <div className="card quiz-list grid overflow-hidden !p-0">
-            {(allDone ? ended : ended.slice(0, DONE_SHOWN)).map((q, i) => (
-              <div
-                key={q.id}
-                className="quiz-done relative flex items-center gap-3 px-4 py-3.5"
-                style={{ borderTop: i ? "1px solid var(--line)" : undefined, ...busy(q.id) }}
-              >
-                <span className={`chip ${scoreTone(q.right, q.total)} !px-2.5 !py-1.5 !text-[13px]`}>
-                  {q.right}/{q.total}
-                </span>
-                <Link
-                  to={`/quiz/${q.id}`}
-                  className="card-open min-w-0 flex-1 truncate text-[15px] font-semibold"
-                  style={{ color: "var(--strong)" }}
-                >
-                  {named(q)}
-                </Link>
-                <span
-                  className="shrink-0 text-[13px]"
-                  style={{ color: "var(--muted)" }}
-                  title={when(q.finished ?? q.updated)}
-                >
-                  {day(q.finished ?? q.updated)}
-                </span>
-                <span className="flex shrink-0 items-center">
-                  <button
-                    type="button"
-                    className="card-remove quiz-keep"
-                    aria-label={`Archive "${named(q)}"`}
-                    title="Archive"
-                    onClick={() => act(q, "archive", "done")}
-                  >
-                    <ArchiveIcon />
-                  </button>
-                  <button
-                    type="button"
-                    className="card-remove"
-                    aria-label={`Delete "${named(q)}"`}
-                    title="Delete"
-                    onClick={() => remove(q, "done")}
-                  >
-                    ✕
-                  </button>
-                </span>
-              </div>
-            ))}
-            {ended.length > DONE_SHOWN && (
-              <button
-                type="button"
-                className="btn btn-quiet !rounded-none !border-0 !border-t py-3"
-                style={{ borderTop: "1px solid var(--line)" }}
-                onClick={() => setAllDone(!allDone)}
-              >
-                {allDone ? "Show fewer" : `Show all ${ended.length}`}
-              </button>
-            )}
-          </div>
-        </section>
-      )}
-
-      {(archived.length > 0 || failedIn("archived") || archivedList.isError) && (
-        <section className="grid content-start gap-3 lg:col-start-2">
-          <Pills
-            label="Archived quizzes"
-            multiple
-            options={[{ value: "archived", label: "Archived", count: archived.length }]}
-            value={archivedOpen ? ["archived"] : []}
-            onChange={(v) => setArchivedOpen(v.length > 0)}
-          />
-          <Failed message={archivedList.isError ? (archivedList.error as Error).message : failedIn("archived")} />
-          {archivedOpen && archived.length > 0 && (
-            <div className="card quiz-list grid overflow-hidden !p-0">
-              {archived.map((q, i) => (
-                <div
-                  key={q.id}
-                  className="quiz-done relative flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3.5"
-                  style={{ borderTop: i ? "1px solid var(--line)" : undefined, ...busy(q.id) }}
-                >
-                  <span
-                    className={`chip ${q.finished ? scoreTone(q.right, q.total) : "tone-muted"} !px-2.5 !py-1.5 !text-[13px]`}
-                  >
-                    {q.finished ? q.right : q.answered}/{q.total}
-                  </span>
-                  <Link
-                    to={`/quiz/${q.id}`}
-                    className="card-open min-w-[9rem] flex-1 truncate text-[15px] font-semibold"
-                    style={{ color: "var(--strong)" }}
-                  >
-                    {named(q)}
-                  </Link>
-                  <span className="relative z-[1] ml-auto flex shrink-0 gap-2">
-                    <button
-                      type="button"
-                      className="btn"
-                      aria-label={`Restore "${named(q)}"`}
-                      onClick={() => act(q, "restore", "archived")}
+              <Failed message={archivedList.isError ? (archivedList.error as Error).message : failedIn("archived")} />
+              {archivedOpen && archived.length > 0 && (
+                <div className="card quiz-list grid overflow-hidden !p-0">
+                  {archived.map((q) => (
+                    <div
+                      key={q.id}
+                      className={cx(
+                        "quiz-done relative flex flex-wrap items-center gap-x-3 gap-y-2 border-line px-4 py-3.5 [&+&]:border-t",
+                        isBusy(q.id) && "busy",
+                      )}
                     >
-                      Restore
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-danger"
-                      aria-label={`Delete "${named(q)}"`}
-                      onClick={() => remove(q, "archived")}
-                    >
-                      Delete
-                    </button>
-                  </span>
+                      <span className={`chip quiz-score ${q.finished ? scoreTone(q.right, q.total) : "tone-muted"}`}>
+                        {q.finished ? q.right : q.answered}/{q.total}
+                      </span>
+                      <Link
+                        to={`/quiz/${q.id}`}
+                        className="card-open min-w-[9rem] flex-1 truncate text-body font-semibold text-strong"
+                      >
+                        {named(q)}
+                      </Link>
+                      <span className="relative z-[1] ml-auto flex shrink-0 gap-2">
+                        <button
+                          type="button"
+                          className="btn"
+                          aria-label={`Restore "${named(q)}"`}
+                          onClick={() => act(q, "restore", "archived")}
+                        >
+                          Restore
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-danger"
+                          aria-label={`Delete "${named(q)}"`}
+                          onClick={() => remove(q, "archived")}
+                        >
+                          Delete
+                        </button>
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+            </section>
           )}
-        </section>
-      )}
-    </main>
+        </div>
+      </div>
+    </Page>
   );
 }
 
@@ -576,7 +578,7 @@ type List = "started" | "done" | "archived"; // where an archive, restore or del
 // what went wrong, in red, where it went wrong
 function Failed({ message }: { message: string | null }) {
   return message ? (
-    <p className="m-0 text-sm" role="alert" style={{ color: "var(--red)" }}>
+    <p className="m-0 text-detail text-red" role="alert">
       {message}
     </p>
   ) : null;
@@ -609,22 +611,20 @@ function Ring({ part, children }: { part: number; children: ReactNode }) {
   return (
     <span className="relative grid h-14 w-14 shrink-0 place-items-center">
       <svg viewBox="0 0 56 56" className="absolute inset-0" aria-hidden="true">
-        <circle cx="28" cy="28" r={r} fill="none" stroke="var(--surface-2)" strokeWidth="5" />
+        <circle cx="28" cy="28" r={r} fill="none" className="stroke-surface-2" strokeWidth="5" />
         <circle
           cx="28"
           cy="28"
           r={r}
           fill="none"
-          stroke="var(--teal)"
+          className="stroke-teal"
           strokeWidth="5"
           strokeLinecap="round"
           strokeDasharray={`${Math.max(0.001, c * part)} ${c}`}
           transform="rotate(-90 28 28)"
         />
       </svg>
-      <span className="font-mono text-[12.5px] font-semibold" style={{ color: "var(--strong)" }}>
-        {children}
-      </span>
+      <span className="font-mono text-small font-semibold text-strong">{children}</span>
     </span>
   );
 }
@@ -719,27 +719,24 @@ export function QuizRun() {
 
   if (loaded.isError)
     return (
-      <main className="mx-auto grid w-full max-w-3xl gap-3">
-        <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-          {(loaded.error as Error).message}
-        </p>
-        <Link to="/quiz" className="btn justify-self-start">
-          ← Quizzes
-        </Link>
-      </main>
+      <Page width="reading" back={{ to: "/quiz", label: "Quiz" }} title="This quiz didn't open">
+        <Failed message={(loaded.error as Error).message} />
+      </Page>
     );
   if (!quiz) return null;
   if (review === null && quiz.place >= quiz.items.length) return <QuizEnd quiz={quiz} />;
   if (!item)
     return (
-      <main className="mx-auto grid w-full max-w-3xl gap-3">
-        <p className="m-0 text-sm" style={{ color: "var(--muted)" }}>
-          No such question in this quiz.
-        </p>
-        <Link to={`/quiz/${quiz.id}`} className="btn justify-self-start">
-          ← The quiz
-        </Link>
-      </main>
+      <Page width="reading" back={{ to: `/quiz/${quiz.id}`, label: "The score" }} eyebrow={named(quiz)} title="Quiz">
+        <EmptyState
+          title="No such question in this quiz."
+          action={
+            <Link to={`/quiz/${quiz.id}`} className="btn">
+              Back to the score
+            </Link>
+          }
+        />
+      </Page>
     );
 
   const answered = quiz.answers.filter(Boolean).length;
@@ -747,63 +744,45 @@ export function QuizRun() {
   const looking = review !== null; // a question looked at again: no answering, back to the score
   const failed = [grade, skip, move, made].find((x) => x.isError);
   return (
-    <main className="mx-auto grid w-full max-w-3xl gap-4">
-      <div className="flex items-center gap-3">
-        <Link to={looking ? `/quiz/${quiz.id}` : "/quiz"} className="btn btn-quiet">
-          {looking ? "← The score" : "← Quizzes"}
-        </Link>
-        <span className="eyebrow">
-          Question {at + 1} of {quiz.items.length}
-        </span>
-        <span className="eyebrow ml-auto">
-          {right} of {answered} right
-        </span>
-      </div>
-      <div className="h-1.5 overflow-hidden rounded-full" style={{ background: "var(--surface-2)" }}>
-        <div
-          className="h-full rounded-full"
-          style={{
-            width: `${(answered / quiz.items.length) * 100}%`,
-            background: "var(--good)",
-            transition: "width .2s",
-          }}
-        />
+    <Page
+      width="reading"
+      back={looking ? { to: `/quiz/${quiz.id}`, label: "The score" } : { to: "/quiz", label: "Quiz" }}
+      eyebrow={named(quiz)}
+      title={`Question ${at + 1} of ${quiz.items.length}`}
+      line={`${right} of ${answered} right`}
+    >
+      {/* how far the quiz is: its length is data, so it reaches the bar as a variable */}
+      <div className="meter" aria-hidden="true">
+        <span className="tone-good" style={share(answered, quiz.items.length)} />
       </div>
       <ArchivedNote quiz={quiz} />
-      <section className="card grid gap-3">
+      <Card>
         <Link
           to={`/learn/lesson/${encodeURIComponent(item.lesson)}`}
-          className="eyebrow hover:underline"
-          style={{ color: "var(--accent)" }}
+          className="eyebrow tone-accent relative justify-self-start hover:underline after:absolute after:inset-x-0 after:-inset-y-2"
         >
           {item.packName} · {item.title}
         </Link>
-        <p className="font-cond m-0 text-[22px] font-bold leading-snug" style={{ color: "var(--strong)" }}>
+        <p className="font-cond m-0 text-lead font-bold text-strong">
           {question ? <Inline text={question} /> : made.isError ? "No question this time." : "Writing a question…"}
         </p>
 
         {!mark && !looking && (
           <>
-            <textarea
-              className="btn min-h-[110px] text-[15px] leading-relaxed"
+            {/* the round button checks it; Enter does too */}
+            <Field
+              label="Your answer"
               placeholder="Your answer, in your own words"
-              aria-label="Your answer"
               value={answer}
-              disabled={!question || grade.isPending}
-              onChange={(e) => setAnswer(e.target.value)}
-              enterKeyHint="send"
-              onKeyDown={enterSends(() => answer.trim() && !grade.isPending && grade.mutate())}
+              onChange={setAnswer}
+              onSend={() => grade.mutate()}
+              busy={grade.isPending}
+              disabled={!question}
+              sendLabel="Check my answer"
+              hint={grade.isPending ? "Marking your answer…" : "Enter checks it · Shift+Enter for a new line"}
+              tall
             />
             <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="btn btn-primary inline-flex items-center gap-2"
-                disabled={!answer.trim() || !question || grade.isPending}
-                onClick={() => grade.mutate()}
-              >
-                {grade.isPending && <span className="spin" />}
-                {grade.isPending ? "Marking" : "Check my answer"}
-              </button>
               <button
                 type="button"
                 className="btn"
@@ -832,10 +811,8 @@ export function QuizRun() {
                 </div>
               )}
               <div className="quiz-said quiz-answer">
-                <span className="eyebrow" style={{ color: "var(--accent)" }}>
-                  The answer
-                </span>
-                <p className="m-0" style={{ color: "var(--strong)" }}>
+                <span className="eyebrow tone-accent">The answer</span>
+                <p className="m-0 text-strong">
                   <Inline text={expected} />
                 </p>
               </div>
@@ -845,12 +822,10 @@ export function QuizRun() {
                 <span className={`chip chip-caps ${VERDICT[mark.verdict][1]} justify-self-start`}>
                   {mark.skipped ? "You didn't know it yet" : VERDICT[mark.verdict][0]}
                 </span>
-                {mark.why && <p className="m-0 text-[15px] leading-relaxed">{mark.why}</p>}
+                {mark.why && <p className="m-0 text-body">{mark.why}</p>}
               </div>
             ) : (
-              <p className="m-0 text-[14.5px]" style={{ color: "var(--muted)" }}>
-                You didn't answer this one.
-              </p>
+              <p className="m-0 text-detail text-muted">You didn't answer this one.</p>
             )}
             {explained.data ? (
               <Explanation e={explained.data} />
@@ -860,7 +835,7 @@ export function QuizRun() {
                 {(mark?.correct ?? []).map((l, i) =>
                   typeof l === "string" ? (
                     // biome-ignore lint/suspicious/noArrayIndexKey: the answer's lines are fixed once marked
-                    <p key={i} className="m-0 text-[15px] leading-relaxed">
+                    <p key={i} className="m-0 text-body">
                       <Inline text={l} />
                     </p>
                   ) : (
@@ -868,17 +843,17 @@ export function QuizRun() {
                     <Code key={i} text={l.code} />
                   ),
                 )}
-                <p className="m-0 text-[13px]" style={{ color: "var(--muted)" }}>
+                <p className="m-0 text-small text-muted">
                   The explanation didn't come: {(explained.error as Error).message}
                 </p>
               </div>
             ) : (
               <div className="grid gap-2">
-                <span className="eyebrow inline-flex items-center gap-2" style={{ color: "var(--purple)" }}>
+                <span className="eyebrow tone-purple inline-flex items-center gap-2">
                   <span className="spin" /> Writing the explanation
                 </span>
                 {["w1", "w2", "w3"].map((k) => (
-                  <div key={k} className="skeleton h-4 rounded" style={{ width: k === "w3" ? "60%" : "100%" }} />
+                  <div key={k} className={cx("skeleton h-4 rounded", k === "w3" ? "w-3/5" : "w-full")} />
                 ))}
               </div>
             )}
@@ -895,12 +870,8 @@ export function QuizRun() {
             )}
           </div>
         )}
-        {failed && (
-          <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-            {(failed.error as Error).message}
-          </p>
-        )}
-      </section>
+        <Failed message={failed ? (failed.error as Error).message : null} />
+      </Card>
 
       {/* Ask: talk the question through with the model, once it's answered; kept with the quiz */}
       {(mark || looking) && question && (
@@ -921,7 +892,7 @@ export function QuizRun() {
           }
         />
       )}
-    </main>
+    </Page>
   );
 }
 
@@ -938,7 +909,7 @@ function ArchivedNote({ quiz }: { quiz: QuizData }) {
   });
   if (!quiz.archived) return null;
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px]" style={{ color: "var(--muted)" }}>
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-detail text-muted">
       <span>This quiz is archived.</span>
       <button
         type="button"
@@ -958,22 +929,14 @@ function QuizEnd({ quiz }: { quiz: QuizData }) {
   const right = quiz.answers.filter((m) => m?.verdict === "right").length;
   const partly = quiz.answers.filter((m) => m?.verdict === "partly").length;
   return (
-    <main className="mx-auto grid w-full max-w-3xl gap-4">
-      <div className="flex items-center gap-3">
-        <Link to="/quiz" className="btn btn-quiet">
-          ← Quizzes
-        </Link>
-        <span className="eyebrow truncate">{named(quiz)}</span>
-      </div>
+    <Page
+      width="reading"
+      back={{ to: "/quiz", label: "Quiz" }}
+      eyebrow={named(quiz)}
+      title={`${right} of ${quiz.items.length} right`}
+      line={`${partly ? `${partly} partly. ` : ""}Tap a question to read it again and ask about it.`}
+    >
       <ArchivedNote quiz={quiz} />
-      <section className="card grid gap-1">
-        <span className="font-cond text-[44px] font-bold leading-none" style={{ color: "var(--strong)" }}>
-          {right} of {quiz.items.length}
-        </span>
-        <span style={{ color: "var(--muted)" }}>
-          right{partly ? `, ${partly} partly` : ""}. Tap a question to read it again and ask about it.
-        </span>
-      </section>
       <section className="grid gap-2">
         {quiz.items.map((it, i) => {
           const m = quiz.answers[i];
@@ -983,25 +946,21 @@ function QuizEnd({ quiz }: { quiz: QuizData }) {
               : VERDICT[m.verdict]
             : ["Skipped", "tone-muted"];
           return (
-            <Link
-              // biome-ignore lint/suspicious/noArrayIndexKey: a quiz's list is fixed once it ends; a lesson can come twice
-              key={`${it.lesson}-${i}`}
-              to={`/quiz/${quiz.id}?q=${i}`}
-              className="card card-link flex items-center gap-3 !py-3"
-            >
-              <span className={`chip chip-caps ${tone}`}>{label}</span>
-              <span className="truncate font-semibold" style={{ color: "var(--strong)" }}>
-                {it.title}
+            // biome-ignore lint/suspicious/noArrayIndexKey: a quiz's list is fixed once it ends; a lesson can come twice
+            <Card key={`${it.lesson}-${i}`} to={`/quiz/${quiz.id}?q=${i}`}>
+              <span className="flex min-w-0 items-center gap-3">
+                <span className={`chip chip-caps ${tone}`}>{label}</span>
+                <span className="min-w-0 truncate font-semibold text-strong">{it.title}</span>
+                <span className="eyebrow ml-auto hidden truncate md:inline">{it.packName}</span>
               </span>
-              <span className="eyebrow ml-auto hidden truncate md:inline">{it.packName}</span>
-            </Link>
+            </Card>
           );
         })}
       </section>
-      <Link to="/quiz" className="btn btn-primary justify-self-start">
+      <Link to="/quiz" className="btn btn-primary btn-big text-center md:justify-self-start">
         Another quiz
       </Link>
-    </main>
+    </Page>
   );
 }
 
@@ -1022,29 +981,22 @@ function Explanation({ e }: { e: Explained }) {
   const body = e.blocks.map((b, i) => block(b, say, `x${i}`));
   const remember = e.remember ? say.add(e.remember) : -1;
   return (
-    <section
-      className="grid gap-3 rounded-2xl border p-4"
-      style={{ borderColor: "var(--line)", background: "var(--bg)" }}
-    >
+    <section className="grid gap-3 rounded-2xl border border-line bg-page p-4">
       <div className="flex items-center gap-2">
-        <span className="eyebrow" style={{ color: "var(--purple)" }}>
-          Explained
-        </span>
+        <span className="eyebrow tone-purple">Explained</span>
         <button
           type="button"
-          className="btn ml-auto !py-1 text-[13px]"
+          className="btn ml-auto"
           onClick={() => (reader.reading ? reader.stop() : reader.play(list.current))}
         >
           {reader.reading ? "■ Stop" : "▶ Listen"}
         </button>
       </div>
-      <div className="grid gap-2.5 text-[15.5px] leading-relaxed">{body}</div>
+      <div className="grid gap-2.5 text-body">{body}</div>
       {e.remember && (
         <div className={`callout tone-green grid gap-1 ${reader.at === remember ? "reading" : ""}`}>
-          <span className="eyebrow" style={{ color: "var(--green)" }}>
-            Remember
-          </span>
-          <p className="m-0 font-semibold" style={{ color: "var(--strong)" }}>
+          <span className="eyebrow tone-green">Remember</span>
+          <p className="m-0 font-semibold text-strong">
             <Inline text={e.remember} />
           </p>
         </div>

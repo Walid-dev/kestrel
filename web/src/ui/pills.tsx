@@ -1,6 +1,7 @@
 // A choice shown whole, as pills instead of a dropdown: every option in sight, one tap to pick. The filter pill's
 // look (quiet until picked; a dot in its tone; its count beside), in a fieldset whose legend names the group for
-// screen readers, each pill a button with aria-pressed, the way the app's .seg already works. Two options or thirty:
+// screen readers, each pill a button with aria-pressed, the way the app's .seg already works. An action pill (Show all)
+// is a plain button among them, in the accent, so it is never read as one more choice. Two options or thirty:
 // the row wraps on a phone, never scrolls sideways, and a long name wraps inside its pill.
 import type { ReactNode } from "react";
 import { toggle } from "./logic.ts";
@@ -27,6 +28,9 @@ export type PillOption<V extends string> = {
   tone?: Tone;
   // a few quiet words after the name (a lesson's number, a size)
   hint?: string;
+  // an action among the choices ("Show all 25"): a plain button that does this, never picked, so it wraps with the
+  // pills it acts on instead of sitting apart
+  onPress?: () => void;
 };
 
 type Base<V extends string> = {
@@ -58,20 +62,26 @@ export function Pills<V extends string>(props: One<V> | Many<V>) {
     <fieldset className="pills" aria-describedby={describedBy}>
       <legend className={showLabel ? "eyebrow pills-legend" : "sr-only"}>{label}</legend>
       <div className="pills-row">
-        {options.map((o) => (
-          <button
-            key={o.value}
-            type="button"
-            className={`pill ${o.tone ? `tone-${o.tone}` : ""}`}
-            aria-pressed={picked(o.value)}
-            onClick={() => pick(o.value)}
-          >
-            {o.tone && <span className="dot" aria-hidden="true" />}
-            <span className="pill-name">{o.label}</span>
-            {o.hint && <small>{o.hint}</small>}
-            {o.count !== undefined && <b>{o.count}</b>}
-          </button>
-        ))}
+        {options.map((o) =>
+          o.onPress ? (
+            <button key={o.value} type="button" className="pill pill-action" onClick={o.onPress}>
+              <span className="pill-name">{o.label}</span>
+            </button>
+          ) : (
+            <button
+              key={o.value}
+              type="button"
+              className={`pill ${o.tone ? `tone-${o.tone}` : ""}`}
+              aria-pressed={picked(o.value)}
+              onClick={() => pick(o.value)}
+            >
+              {o.tone && <span className="dot" aria-hidden="true" />}
+              <span className="pill-name">{o.label}</span>
+              {o.hint && <small>{o.hint}</small>}
+              {o.count !== undefined && <b>{o.count}</b>}
+            </button>
+          ),
+        )}
       </div>
     </fieldset>
   );

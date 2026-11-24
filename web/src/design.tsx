@@ -196,6 +196,7 @@ export function Design() {
   const [one, setOne] = useState<string | null>("week");
   const [many, setMany] = useState<string[]>(["review", "interested"]);
   const [lesson, setLesson] = useState<string | null>("l3");
+  const [allLessons, setAllLessons] = useState(false);
   const [seg, setSeg] = useState("lessons");
   const [mode, setMode] = useState("on");
   const [tile, setTile] = useState("bees");
@@ -392,8 +393,24 @@ export function Design() {
           />
         </Part>
 
-        <Part title="Pills, a long list" when="A topic's 25 lessons, the quiz's pick: each with its length as a hint.">
-          <Pills label="Lessons" showLabel options={LESSONS} value={lesson} onChange={setLesson} />
+        <Part
+          title="Pills, a long list"
+          when="A topic's 25 lessons, the quiz's pick: each with its length as a hint. A long list starts short; an action pill (onPress) shows the rest, a button among the choices, never one of them."
+        >
+          <Pills
+            label="Lessons"
+            showLabel
+            options={[
+              ...(allLessons ? LESSONS : LESSONS.slice(0, 8)),
+              {
+                value: "more",
+                label: allLessons ? "Show fewer" : `Show all ${LESSONS.length}`,
+                onPress: () => setAllLessons(!allLessons),
+              },
+            ]}
+            value={lesson}
+            onChange={setLesson}
+          />
         </Part>
 
         <Part title="Seg" when="A choice among two or three, as one bar: the quiz's source, its length.">
