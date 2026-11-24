@@ -13,7 +13,9 @@ technical; the plan and the runbook carry the detail.
   Stop on an application keeps its two-choice question, since Confirm has one yes. Show all is an action pill, not a
   stand-in value. Cost keeps its figures when a refresh fails; Models names each recorded call by its use. The UI
   audit's page findings were fixed with the move (one title size and case, labelled choices, the pay pill's contrast
-  in light, tap targets). Notes follows in its own merge.
+  in light, tap targets). Notes moved last: on a phone a document now starts 100 to 130 px higher; a 404 says the
+  document is gone instead of retrying. With every page at zero, the design check's baseline is empty: any new one-off
+  inline value fails the check.
 
 - **2026-11-23 · The tokens as classes, the page parts, the phone's floor, and a ratchet on one-offs (v0.9 step 2).**
   `@theme inline` names the role variables as classes read at run time (`text-muted`, `bg-surface`…), so one switch
