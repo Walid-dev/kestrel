@@ -1,64 +1,82 @@
 // /design: every shared part in its states, with made-up content and a line on when to use it. A new part is reviewed
 // here before a page uses it. Out of the menu, reached by its address. The look lives in styles.css, the parts in
 // web/src/ui/; this page only shows them.
-import { type ReactNode, useState } from "react";
+import { type CSSProperties, type ReactNode, useState } from "react";
+import { Link } from "react-router";
 import type { Drawing as D } from "../../src/shared/blocks.ts";
 import { Drawing } from "./drawing.tsx";
+import { Card } from "./ui/card.tsx";
 import { useConfirm } from "./ui/confirm.tsx";
 import { Dialog } from "./ui/dialog.tsx";
+import { EmptyState } from "./ui/empty.tsx";
+import { Field } from "./ui/field.tsx";
+import { Page, PageHead } from "./ui/page.tsx";
 import { Pills, type Tone } from "./ui/pills.tsx";
 
-const COLOURS: { group: string; when: string; tokens: [string, string][] }[] = [
+// each role: its variable, what it is for, and the class that paints with it
+const COLOURS: { group: string; when: string; tokens: [string, string, string][] }[] = [
   {
     group: "Ground",
     when: "the surfaces, from the page up",
     tokens: [
-      ["--bg", "the page"],
-      ["--surface", "cards and boxes"],
-      ["--surface-2", "sunk parts, the picked pill"],
-      ["--line", "hairlines"],
+      ["--bg", "the page", "bg-page"],
+      ["--surface", "cards and boxes", "bg-surface"],
+      ["--surface-2", "sunk parts, the picked pill", "bg-surface-2"],
+      ["--line", "hairlines", "border-line"],
     ],
   },
   {
     group: "Ink",
     when: "the words",
     tokens: [
-      ["--strong", "headings"],
-      ["--text", "body"],
-      ["--muted", "secondary lines"],
+      ["--strong", "headings", "text-strong"],
+      ["--text", "body", "text-ink"],
+      ["--muted", "secondary lines", "text-muted"],
     ],
   },
   {
     group: "The lead",
     when: "one colour that means act here",
     tokens: [
-      ["--accent", "primary buttons, links, focus"],
-      ["--accent-soft", "the active chip's ground"],
+      ["--accent", "primary buttons, links, focus", "text-accent, bg-accent"],
+      ["--accent-soft", "the active chip's ground", "bg-accent-soft"],
     ],
   },
   {
     group: "The working colours",
     when: "one meaning each, through the tones",
     tokens: [
-      ["--green", "done, ok, diff plus"],
-      ["--red", "danger, diff minus"],
-      ["--orange", "warnings, deals"],
-      ["--yellow", "waiting, the moon"],
-      ["--purple", "Ask, deep work"],
-      ["--pink", "the wolf, note marks"],
-      ["--cyan", "drawings' fifth colour"],
+      ["--green", "done, ok, at work now", "tone-green, text-green"],
+      ["--red", "danger, diff minus", "tone-red, text-red"],
+      ["--orange", "warnings, deals", "tone-orange"],
+      ["--yellow", "waiting, the moon", "tone-yellow"],
+      ["--purple", "Ask, deep work, learning", "tone-purple"],
+      ["--pink", "needs me, the wolf, note marks", "tone-pink, text-pink"],
+      ["--cyan", "review today, drawings' fifth colour", "tone-cyan"],
     ],
   },
   {
     group: "The money scale",
     when: "a pay or a price, great to poor",
     tokens: [
-      ["--great", "great"],
-      ["--good", "good"],
-      ["--fair", "fair"],
-      ["--poor", "poor"],
+      ["--great", "great", "tone-great"],
+      ["--good", "good", "tone-good"],
+      ["--fair", "fair", "tone-fair"],
+      ["--poor", "poor", "tone-poor"],
     ],
   },
+];
+
+// the type steps, largest first: the class, its size, when to use it, and the font it goes with
+const STEPS: [string, string, string, string][] = [
+  ["text-title", "34 px", "a page's title (PageHead sets it)", "font-cond font-bold"],
+  ["text-lead", "24 px", "one big line: a number, an answer to say", "font-cond font-bold"],
+  ["text-head", "19 px", "a card's or a section's heading", "font-cond font-bold"],
+  ["text-read", "16.5 px", "what is read slowly: a lesson, a line to say", ""],
+  ["text-body", "15.5 px", "running text, the page's own size", ""],
+  ["text-detail", "14 px", "a card's description", "text-muted"],
+  ["text-small", "13 px", "hints, meta lines, captions", "text-muted"],
+  ["text-label", "11 px", "mono labels and counts", "font-mono text-muted"],
 ];
 
 const TONES: Tone[] = ["accent", "green", "yellow", "orange", "red", "purple", "pink", "cyan", "muted"];
@@ -112,12 +130,13 @@ const DRAWINGS: D[] = [
     ],
   },
   {
+    // dates of different widths: the dots stay in one column
     kind: "timeline",
     title: "A made-up week",
     events: [
-      { when: "Monday", what: "The plan" },
-      { when: "Wednesday", what: "The first draft" },
-      { when: "Friday", what: "The review" },
+      { when: "Mon", what: "The plan" },
+      { when: "Wednesday 12 March", what: "The first draft" },
+      { when: "Fri", what: "The review" },
     ],
   },
   {
@@ -139,24 +158,35 @@ function Part({ title, when, wide, children }: { title: string; when: string; wi
   return (
     <section className={`card grid content-start gap-4 ${wide ? "lg:col-span-2" : ""}`}>
       <div className="grid gap-1">
-        <h3 className="font-cond m-0 text-[20px] font-bold leading-tight">{title}</h3>
-        <p className="m-0 text-[14px]" style={{ color: "var(--muted)" }}>
-          {when}
-        </p>
+        <h2 className="font-cond m-0 text-head font-bold">{title}</h2>
+        <p className="m-0 text-detail text-muted">{when}</p>
       </div>
       {children}
     </section>
   );
 }
 
-function Swatch({ token, role }: { token: string; role: string }) {
+function Swatch({ token, role, cls }: { token: string; role: string; cls: string }) {
   return (
     <div className="swatch">
-      <i style={{ background: `var(${token})` }} />
+      {/* the colour itself is the point here: it reaches the swatch as a variable */}
+      <i style={{ "--swatch": `var(${token})` } as CSSProperties} />
       <span>
         {role}
-        <code>{token}</code>
+        <code>
+          {token} · {cls}
+        </code>
       </span>
+    </div>
+  );
+}
+
+// a frame around an example that is a page's own part (a head, a width)
+function Frame({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid gap-2">
+      <span className="eyebrow">{label}</span>
+      <div className="page rounded-2xl border border-dashed border-line p-4">{children}</div>
     </div>
   );
 }
@@ -174,45 +204,98 @@ export function Design() {
   const [saved, setSaved] = useState("");
   const [answer, setAnswer] = useState("");
   const [cards, setCards] = useState(["A kept answer", "Another one"]);
+  const [slow, setSlow] = useState(false);
+  const [note, setNote] = useState("");
+  const [sent, setSent] = useState<string[]>([]);
+  const [find, setFind] = useState("");
+  // one long word with no space, as a pasted link is: the box must break it, never widen the page
+  const [link, setLink] = useState(
+    "https://example.com/made-up/beehive-sensors/a-very-long-path-with-no-spaces-in-it/and-a-query?hive=7&frame=12&reading=temperature-and-humidity",
+  );
 
   return (
-    <main className="grid gap-5">
-      <header className="grid gap-1.5">
-        <span className="eyebrow">The design system</span>
-        <h2 className="font-cond m-0 text-[34px] font-bold leading-none tracking-tight">The parts</h2>
-        <p className="m-0 max-w-2xl text-[15px]" style={{ color: "var(--muted)" }}>
-          Every shared part in its states. A new part is reviewed here before a page uses it. Each takes a few props,
-          never a style: the look lives in styles.css, the parts in web/src/ui/.
-        </p>
-      </header>
-
+    <Page
+      eyebrow="The design system"
+      title="The parts"
+      line="Every shared part in its states. A new part is reviewed here before a page uses it. Each takes a few props, never a style: the look lives in styles.css, the parts in web/src/ui/."
+    >
       <div className="grid gap-4 lg:grid-cols-2">
-        <Part title="Colours" when="Named by role. Light follows the system; dark is the default." wide>
+        <Part
+          title="Colours"
+          when="Named by role, and each a class: text-muted is color: var(--muted). Light follows the system; dark is the default. text-tone, bg-tone and border-tone read the nearest tone-*."
+          wide
+        >
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {COLOURS.map((g) => (
               <div key={g.group} className="grid content-start gap-2.5">
                 <span className="eyebrow">
                   {g.group} · {g.when}
                 </span>
-                {g.tokens.map(([t, r]) => (
-                  <Swatch key={t} token={t} role={r} />
+                {g.tokens.map(([t, r, c]) => (
+                  <Swatch key={t} token={t} role={r} cls={c} />
                 ))}
               </div>
             ))}
           </div>
         </Part>
 
-        <Part title="Type" when="Sans for reading, the condensed bold for headings, mono for data and labels.">
+        <Part
+          title="Type"
+          when="Eight steps, each with its line height, from the sizes the pages used. Sans for reading, the condensed bold for headings, mono for data and labels."
+        >
           <div className="grid gap-3">
-            <p className="font-cond m-0 text-[28px] font-bold leading-tight" style={{ color: "var(--strong)" }}>
-              A heading in Plex Condensed
-            </p>
-            <p className="m-0">Body text in Plex Sans: the point first, short sentences, one idea each.</p>
-            <p className="m-0" style={{ color: "var(--muted)" }}>
-              A secondary line, muted.
-            </p>
-            <span className="eyebrow">An eyebrow in mono</span>
-            <code className="font-mono text-[13px]">~/made-up/path/to/a-file.md</code>
+            {STEPS.map(([cls, size, when, font]) => (
+              <div key={cls} className="grid gap-0.5">
+                <span className={`${cls} ${font}`}>{cls === "text-label" ? "SIX TO REVIEW" : "The point first"}</span>
+                <code className="font-mono text-small text-muted">
+                  {cls} · {size} · {when}
+                </code>
+              </div>
+            ))}
+          </div>
+        </Part>
+
+        <Part
+          title="Page and PageHead"
+          when="Every page starts with it: one title size, one case. A page with a parent gets the back link, its buttons on the same bar (it can stay on top while the page scrolls; when the back link would keep less than about twenty letters of its name, the buttons drop to a row of their own); a top page has its buttons beside the title. Two widths, both from the left edge under kestrel: wide for lists, reading for text."
+        >
+          <Frame label="A top page">
+            <PageHead
+              title="Tasks"
+              line="Three open, two done this week."
+              actions={
+                <button type="button" className="btn">
+                  Notify this phone
+                </button>
+              }
+            />
+          </Frame>
+          <Frame label="A page with a parent">
+            <PageHead
+              back={{ to: "/design", label: "A made-up pack" }}
+              eyebrow="Part 2 · Topic 2.3"
+              title="How a load balancer picks a worker"
+              line={<span className="chip chip-caps tone-cyan">Review today</span>}
+              actions={
+                <>
+                  <button type="button" className="btn btn-primary">
+                    ▶ Listen
+                  </button>
+                  <button type="button" className="btn">
+                    Slow
+                  </button>
+                </>
+              }
+            />
+          </Frame>
+          <div className="grid gap-2">
+            <span className="eyebrow">The two widths</span>
+            <div className="grid gap-1.5">
+              <span className="rounded-md bg-surface-2 px-3 py-1 text-small text-muted">wide: lists and grids</span>
+              <span className="page-reading rounded-md bg-surface-2 px-3 py-1 text-small text-muted">
+                reading: 768 px at most, for text
+              </span>
+            </div>
           </div>
         </Part>
 
@@ -233,8 +316,19 @@ export function Design() {
             <button type="button" className="btn btn-primary btn-danger">
               Delete
             </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <button type="button" className="btn" disabled>
-              Disabled
+              Waiting
+            </button>
+            <button type="button" className="btn btn-primary" disabled>
+              Not yet
+            </button>
+            <button type="button" className="btn" aria-pressed={slow} onClick={() => setSlow(!slow)}>
+              Slow (stays on)
+            </button>
+            <button type="button" className="btn tone-red" aria-pressed="true">
+              ■ Stop recording
             </button>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -245,6 +339,7 @@ export function Design() {
               Big: the page's one action
             </button>
           </div>
+          <p className="m-0 text-small text-muted">On a phone every button and pill stands 44 px tall.</p>
         </Part>
 
         <Part title="Chips and tones" when="A small coloured label: a state, a match, a source. One tone per meaning.">
@@ -256,11 +351,12 @@ export function Design() {
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <span className="chip chip-caps tone-pink">needs me</span>
+            <span className="chip chip-caps tone-cyan">review today</span>
             <span className="chip chip-caps tone-purple">deep</span>
-            <span className="chip chip-caps tone-accent">quick</span>
             <span className="chip tone-great">Great · 92</span>
             <span className="chip tone-poor">Poor · 31</span>
-            <span className="flex items-center gap-1.5 text-[13px]" style={{ color: "var(--muted)" }}>
+            <span className="flex items-center gap-1.5 text-small text-muted">
               <span className="dot tone-green pulse" /> a running dot
             </span>
           </div>
@@ -340,44 +436,35 @@ export function Design() {
         </Part>
 
         <Part
-          title="Cards"
-          when="Every surface block. A card that opens lifts under the pointer; its ✕ asks first, with Confirm."
+          title="Card"
+          when="Every surface block. A link card opens a page; a card with a title opens by it, and its ✕ asks first, with Confirm. A tone marks what matters now. A long word wraps; it never widens the page."
         >
-          <div className="card !p-4">A plain card: a block of the page.</div>
+          <Card>A plain card: a block of the page, its parts 12 px apart.</Card>
+          <Card to="/design">A link card: the whole card opens a page, and lifts under the pointer.</Card>
           {cards.map((c) => (
-            <div key={c} className="card card-link relative grid gap-1 !p-4">
-              <div className="flex items-center gap-2">
-                <span className="chip chip-caps tone-accent">quick</span>
-                <span className="eyebrow ml-auto">today</span>
-                <button
-                  type="button"
-                  className="card-remove"
-                  aria-label={`Delete "${c}"`}
-                  title="Delete"
-                  onClick={async () => {
-                    const yes = await sure({
-                      title: "Delete this card?",
-                      body: `“${c}” goes from this page until it reloads.`,
-                      yes: "Delete",
-                      danger: true,
-                    });
-                    if (yes) setCards((all) => all.filter((x) => x !== c));
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-              <button
-                type="button"
-                className="card-open font-cond text-left text-[19px] font-bold leading-tight"
-                style={{ color: "var(--strong)" }}
-              >
-                {c}
-              </button>
-              <span className="text-[14px]" style={{ color: "var(--muted)" }}>
-                A tap anywhere on it opens it; the ✕ sits above.
-              </span>
-            </div>
+            <Card
+              key={c}
+              title={c}
+              onOpen={() => setDialog("plain")}
+              meta={
+                <>
+                  <span className="chip chip-caps tone-accent">quick</span>
+                  <span className="eyebrow ml-auto">today</span>
+                </>
+              }
+              onRemove={async () => {
+                const yes = await sure({
+                  title: "Delete this card?",
+                  body: `“${c}” goes from this page until it reloads.`,
+                  yes: "Delete",
+                  danger: true,
+                });
+                if (yes) setCards((all) => all.filter((x) => x !== c));
+              }}
+              removeLabel={`Delete “${c}”`}
+            >
+              A tap anywhere on it opens it; the ✕ sits above.
+            </Card>
           ))}
           {cards.length < 2 && (
             <button
@@ -388,11 +475,63 @@ export function Design() {
               Bring them back
             </button>
           )}
+          <Card tone="pink" title="Two need me">
+            A tone on its edge: needs me is pink everywhere.
+          </Card>
+          <Card title="Anunbrokenwordtoolongforanyphonescreenwrapsinsideitscard">The title breaks where it must.</Card>
+        </Part>
+
+        <Part
+          title="EmptyState"
+          when="Nothing here yet, in one voice: what is missing, what to do, the one next step; the setting it needs, small, only when a setting is the fix."
+        >
+          <EmptyState
+            title="Nothing asked yet."
+            line="Ask a question above: the answer is kept here, like a lesson."
+            action={
+              <Link to="/research" className="btn">
+                Open Research
+              </Link>
+            }
+          />
+          <EmptyState
+            title="Cost isn't set up yet."
+            line="It reads the model server's logs once it knows where they are."
+            detail="settings.json · omlxHome"
+          />
+        </Part>
+
+        <Part
+          title="Field"
+          when="A box to write in: Enter sends, Shift+Enter makes a line, the round button sends too. 16 px, so a phone never zooms in. Without a send, it is a search."
+        >
+          <Field
+            label="A made-up note"
+            placeholder="Write a line, then Enter"
+            value={note}
+            onChange={setNote}
+            onSend={() => {
+              setSent((all) => [note.trim(), ...all].slice(0, 3));
+              setNote("");
+            }}
+            sendLabel="Add"
+          />
+          {sent.length > 0 && <p className="m-0 text-small text-muted">Sent: {sent.join(" · ")}</p>}
+          <Field
+            label="A question"
+            placeholder="A longer question starts three lines tall"
+            value={typed}
+            onChange={setTyped}
+            onSend={() => setSaved(typed)}
+            tall
+          />
+          <Field label="A pasted link" value={link} onChange={setLink} onSend={() => setLink("")} sendLabel="Save" />
+          <Field label="Search the lessons" value={find} onChange={setFind} />
         </Part>
 
         <Part
           title="Dialog and Confirm"
-          when="A box over the page. Esc, Back, a tap outside and the ✕ close it; typed words stay. Confirm asks before an action, the safe answer first when it can't be undone."
+          when="A box over the page. Esc, Back, a tap outside and the ✕ close it; typed words stay; the page behind stays still. Confirm asks before an action, the safe answer first when it can't be undone."
         >
           <div className="flex flex-wrap gap-2">
             <button type="button" className="btn" onClick={() => setDialog("plain")}>
@@ -431,7 +570,7 @@ export function Design() {
               Ask to restore
             </button>
           </div>
-          <p className="m-0 text-[13.5px]" style={{ color: "var(--muted)" }}>
+          <p className="m-0 text-small text-muted">
             {answer ? `The last answer: ${answer}.` : "No answer yet."}
             {saved && ` Saved: “${saved}”.`}
           </p>
@@ -473,9 +612,7 @@ export function Design() {
                 value={typed}
                 onChange={(e) => setTyped(e.target.value)}
               />
-              <span className="font-mono text-[11px]" style={{ color: "var(--muted)" }}>
-                Enter saves
-              </span>
+              <span className="font-mono text-label text-muted">Enter saves</span>
             </form>
           </Dialog>
         </Part>
@@ -492,6 +629,6 @@ export function Design() {
           </div>
         </Part>
       </div>
-    </main>
+    </Page>
   );
 }

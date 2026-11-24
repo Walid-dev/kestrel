@@ -15,6 +15,8 @@ const COLOURS = [
   "var(--pink)",
 ];
 const tint = (i: number) => ({ "--c": COLOURS[i % COLOURS.length] }) as CSSProperties;
+// a bar's length comes from the data, so it stays a variable the class reads (.d-fill: width: var(--part))
+const share = (pct: number) => ({ "--part": `${pct}%` }) as CSSProperties;
 const nice = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
 export function Drawing({ d }: { d: D }) {
@@ -107,7 +109,7 @@ export function Drawing({ d }: { d: D }) {
           {(d.title || d.unit) && (
             <figcaption className="eyebrow">
               {d.title}
-              {d.unit && <span style={{ color: "var(--muted)" }}>{d.title ? ` · ${d.unit}` : d.unit}</span>}
+              {d.unit && <span className="text-muted">{d.title ? ` · ${d.unit}` : d.unit}</span>}
             </figcaption>
           )}
           {d.bars.map((b, j) => (
@@ -115,7 +117,7 @@ export function Drawing({ d }: { d: D }) {
             <div key={j} className="d-bar">
               <span className="truncate">{b.label}</span>
               <span className="d-track">
-                <span className="d-fill" style={{ width: `${top ? Math.max(1.5, (b.value / top) * 100) : 0}%` }} />
+                <span className="d-fill" style={share(top ? Math.max(1.5, (b.value / top) * 100) : 0)} />
               </span>
               <span className="font-mono">{nice(b.value)}</span>
             </div>
@@ -143,7 +145,7 @@ function Check({ q, a }: { q: string; a: string }) {
   return (
     <div className="d-check">
       <span className="eyebrow d-check-label">Check yourself</span>
-      <p className="m-0 font-semibold" style={{ color: "var(--strong)" }}>
+      <p className="m-0 font-semibold text-strong">
         <Inline text={q} />
       </p>
       {shown ? (

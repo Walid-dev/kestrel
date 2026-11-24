@@ -1,7 +1,9 @@
 /// <reference types="node" />
-// The confirm answers each question once and asks one at a time; a pill pick keeps the options' order.
+// The confirm answers each question once and asks one at a time; a pill pick keeps the options' order; cx joins only
+// the classes that apply.
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { cx } from "./cx.ts";
 import { asker, toggle } from "./logic.ts";
 
 test("a confirm resolves with the answer, and only the first answer counts", async () => {
@@ -32,4 +34,10 @@ test("a pill toggles in and out, in the options' order", () => {
   assert.deepEqual(toggle(order, ["c"], "a"), ["a", "c"]);
   assert.deepEqual(toggle(order, ["a", "c"], "c"), ["a"]);
   assert.deepEqual(toggle(order, [], "d"), ["d"]);
+});
+
+test("cx joins the classes that apply and drops the rest, never writing false or undefined into the page", () => {
+  const wide = false;
+  assert.equal(cx("card", wide && "card-wide", undefined, null, "", "busy"), "card busy");
+  assert.equal(cx(), "");
 });

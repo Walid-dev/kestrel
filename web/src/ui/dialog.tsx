@@ -4,17 +4,23 @@
 // open the page behind keeps its place, and when it closes the focus goes back where it was.
 import { type ReactNode, useEffect, useId, useRef } from "react";
 
-// boxes can stack (a Confirm over a sheet): the page behind scrolls again only when the last one closes
+// The page behind stays still while a box is open. overflow: hidden on the page is ignored by a home-screen app on the
+// iPhone (WebKit bug 259568), so the body itself is pinned where it stands (fixed, moved up by the distance scrolled)
+// and put back, at the same place, when the last box closes: boxes can stack (a Confirm over a sheet). A box closed
+// by going to another page leaves that page where it starts.
 let locks = 0;
-let before = "";
+let held = { y: 0, style: "", page: "" };
 const lockPage = () => {
-  if (locks++ === 0) {
-    before = document.documentElement.style.overflow;
-    document.documentElement.style.overflow = "hidden";
-  }
+  if (locks++ > 0) return;
+  const body = document.body;
+  held = { y: window.scrollY, style: body.getAttribute("style") ?? "", page: location.pathname };
+  Object.assign(body.style, { position: "fixed", top: `-${held.y}px`, left: "0", right: "0", width: "100%" });
 };
 const unlockPage = () => {
-  if (--locks === 0) document.documentElement.style.overflow = before;
+  if (--locks > 0) return;
+  if (held.style) document.body.setAttribute("style", held.style);
+  else document.body.removeAttribute("style");
+  if (location.pathname === held.page) window.scrollTo({ top: held.y, behavior: "instant" });
 };
 
 export function Dialog({

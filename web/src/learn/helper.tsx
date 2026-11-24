@@ -4,6 +4,8 @@
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
+import { Card } from "../ui/card.tsx";
+import { Page } from "../ui/page.tsx";
 
 type Heard = {
   heard: string;
@@ -130,25 +132,16 @@ export function InterviewHelper() {
 
   const got = ask.data;
   return (
-    <main className="mx-auto grid w-full max-w-3xl gap-4">
-      <Link to="/interview" className="text-sm font-medium" style={{ color: "var(--accent)" }}>
-        ← Interview prep
-      </Link>
-      <h2 className="font-cond m-0 text-[28px] font-bold">The interview helper</h2>
-      <p className="m-0 text-sm" style={{ color: "var(--muted)" }}>
-        Hold the button while the question is asked. The computer's own ears write it down — nothing leaves it — and the
-        nearest prepared answer from Interview prep shows large, the lines to say first.
-      </p>
+    <Page
+      width="reading"
+      back={{ to: "/interview", label: "Interview prep" }}
+      title="The interview helper"
+      line="Hold the button while the question is asked. The computer's own ears write it down — nothing leaves it — and the nearest prepared answer from Interview prep shows large, the lines to say first."
+    >
       <button
         type="button"
-        className="card grid select-none place-items-center"
-        style={{
-          touchAction: "none",
-          minHeight: "9rem",
-          cursor: "pointer",
-          borderColor: holding ? "var(--pink)" : undefined,
-          background: holding ? "var(--pink-soft)" : undefined,
-        }}
+        className="card hold"
+        aria-pressed={holding}
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId);
           held.current = true;
@@ -159,57 +152,37 @@ export function InterviewHelper() {
         onPointerCancel={stop}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <span className="font-cond text-2xl font-bold" style={{ color: holding ? "var(--pink)" : "var(--strong)" }}>
-          {holding ? "Listening…" : ask.isPending ? "Hearing it…" : "Hold to listen"}
-        </span>
+        {holding ? "Listening…" : ask.isPending ? "Hearing it…" : "Hold to listen"}
       </button>
       {(why || ask.isError) && (
-        <p className="m-0 text-sm" style={{ color: "var(--red)" }}>
-          {why || String((ask.error as Error).message)}
-        </p>
+        <p className="m-0 text-detail text-red">{why || String((ask.error as Error).message)}</p>
       )}
       {got && !ask.isPending && (
         <section className="grid gap-3">
-          <p className="font-mono m-0 text-xs" style={{ color: "var(--muted)" }}>
-            heard: {got.heard}
-          </p>
+          <p className="font-mono m-0 text-small text-muted">heard: {got.heard}</p>
           {got.lesson ? (
-            <div
-              className="card grid gap-3"
-              style={{ borderColor: "color-mix(in srgb, var(--accent) 40%, var(--line))" }}
-            >
-              <span className="eyebrow" style={{ color: "var(--accent)" }}>
-                {got.lesson.title}
-              </span>
+            <Card tone="accent">
+              <span className="eyebrow tone-accent">{got.lesson.title}</span>
               {got.lesson.body.say.map((line) => (
-                <p
-                  key={line}
-                  className="font-cond m-0 text-[26px] font-bold leading-snug"
-                  style={{ color: "var(--strong)" }}
-                >
+                <p key={line} className="font-cond m-0 text-lead font-bold text-strong">
                   {line}
                 </p>
               ))}
-              {got.lesson.body.example && (
-                <p className="m-0 text-sm" style={{ color: "var(--muted)" }}>
-                  {got.lesson.body.example}
-                </p>
-              )}
+              {got.lesson.body.example && <p className="m-0 text-detail text-muted">{got.lesson.body.example}</p>}
               <Link
                 to={`/learn/lesson/${encodeURIComponent(got.lesson.id)}`}
-                className="font-mono text-xs"
-                style={{ color: "var(--accent)" }}
+                className="font-mono text-small text-accent"
               >
                 the whole answer →
               </Link>
-            </div>
+            </Card>
           ) : (
-            <p className="m-0 text-sm" style={{ color: "var(--muted)" }}>
+            <p className="m-0 text-detail text-muted">
               No prepared answer is close to that. The packs in Interview prep carry what the helper can find.
             </p>
           )}
         </section>
       )}
-    </main>
+    </Page>
   );
 }

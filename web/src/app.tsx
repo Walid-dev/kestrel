@@ -1,5 +1,6 @@
 // The frame every screen sits in: the bar with the app's name and the health chip, and the asleep banner when the
-// computer doesn't answer (the service worker then serves the last copies).
+// computer doesn't answer (the service worker then serves the last copies). The places: the bottom bar on a touch
+// screen, the dock at the right edge under a mouse (styles.css chooses by the pointer, never by the width).
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router";
@@ -8,6 +9,7 @@ import { useEvents } from "./events.ts";
 import { ICONS, STROKE } from "./home.tsx";
 import { Mark } from "./mark.tsx";
 import { ConfirmProvider } from "./ui/confirm.tsx";
+import { cx } from "./ui/cx.ts";
 
 const LAST_SEEN = "kestrel-last-seen";
 
@@ -70,77 +72,57 @@ export function App() {
   );
 }
 
+// a dot on Live's icon while anything works (green, glowing) or waits for me (pink, the one colour of needs me)
+function LiveBadge({ live }: { live: { working: number; waiting: number } }) {
+  if (live.working === 0 && live.waiting === 0) return null;
+  return (
+    <span
+      aria-hidden="true"
+      className={cx("dot nav-badge", live.waiting ? "tone-pink" : "tone-green", live.working > 0 && "pulse")}
+    />
+  );
+}
+
 function Shell() {
   const health = useHealth();
   const busy = useBusy();
+  const lit = busy.working > 0 || busy.waiting > 0;
+  // one colour per meaning: asleep is a warning, waiting for me is pink, all well is green
+  const tone = health.isError ? "tone-orange" : busy.waiting ? "tone-pink" : "tone-green";
   return (
-    <div className="mx-auto min-h-dvh w-full max-w-xl px-4 pb-28 md:max-w-4xl md:px-6 md:pb-16 lg:max-w-[1440px] lg:px-10 2xl:max-w-[1760px]">
-      <header className="flex items-center gap-2.5 py-5">
-        <Link to="/" className="flex items-center gap-2.5" aria-label="Home">
+    <div className="shell">
+      <header className="shell-head">
+        <Link to="/" className="head-home" aria-label="Home">
           <Mark size={26} />
-          <h1 className="font-cond text-2xl font-bold tracking-tight">kestrel</h1>
+          kestrel
         </Link>
-        <Link
-          to="/live"
-          className="font-mono ml-auto flex items-center gap-2 rounded-full px-2.5 py-1 text-xs"
-          style={{
-            color: busy.working || busy.waiting ? "var(--strong)" : "var(--muted)",
-            background: busy.working || busy.waiting ? "var(--surface)" : undefined,
-            border: busy.working || busy.waiting ? "1px solid var(--line)" : "1px solid transparent",
-          }}
-          aria-label="Live: what runs now"
-        >
-          <span
-            aria-hidden="true"
-            className={`block h-2.5 w-2.5 rounded-full ${busy.working && !health.isError ? "pulse" : ""}`}
-            style={{ background: health.isError ? "var(--warn)" : busy.waiting ? "var(--pink)" : "var(--ok)" }}
-          />
-          {health.isError
-            ? "asleep"
-            : busy.working
-              ? `live · ${busy.working} working`
-              : busy.waiting
-                ? `${busy.waiting} need${busy.waiting === 1 ? "s" : ""} me`
-                : "up"}
+        <Link to="/live" className="head-live" aria-label="Live: what runs now">
+          <span className={cx("head-chip", lit && "head-chip-on")}>
+            <span aria-hidden="true" className={cx("dot", tone, busy.working > 0 && !health.isError && "pulse")} />
+            {health.isError
+              ? "asleep"
+              : busy.working
+                ? `live · ${busy.working} working`
+                : busy.waiting
+                  ? `${busy.waiting} need${busy.waiting === 1 ? "s" : ""} me`
+                  : "up"}
+          </span>
         </Link>
       </header>
       {health.isError && (
-        <p
-          className="mb-4 rounded-xl border px-4 py-3 text-sm"
-          style={{ borderColor: "var(--line)", background: "var(--warn-soft)", color: "var(--text)" }}
-        >
+        <p className="mb-4 rounded-xl border border-line bg-warn-soft px-4 py-3 text-detail text-ink">
           Computer asleep since {asleepSince()}. You are reading the last copies; nothing can be saved right now.
         </p>
       )}
       <Outlet />
       <Dock live={busy} />
-      {/* on a phone, the main places one tap away under the thumb: Home is always the first */}
-      <nav
-        className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t px-1 pt-1.5 md:hidden"
-        style={{
-          background: "color-mix(in srgb, var(--bg) 92%, transparent)",
-          backdropFilter: "blur(10px)",
-          borderColor: "var(--line)",
-          paddingBottom: "max(8px, env(safe-area-inset-bottom))",
-        }}
-        aria-label="The main places"
-      >
+      {/* on a touch screen, the main places one tap away under the thumb: Home is always the first */}
+      <nav className="tabbar" aria-label="The main places">
         {BAR.map((b) => (
-          <NavLink
-            key={b.to}
-            to={b.to}
-            end={b.to === "/"}
-            className="flex min-w-14 flex-col items-center gap-0.5 rounded-lg px-2 py-1 text-[10.5px]"
-            style={({ isActive }) => ({ color: isActive ? "var(--accent)" : "var(--muted)" })}
-          >
+          <NavLink key={b.to} to={b.to} end={b.to === "/"} className="tabbar-item">
             <span className="relative">
               {b.icon}
-              {b.to === "/live" && (busy.working > 0 || busy.waiting > 0) && (
-                <span
-                  className={`absolute -top-0.5 -right-1 block h-2 w-2 rounded-full ${busy.working ? "pulse" : ""}`}
-                  style={{ background: busy.waiting ? "var(--pink)" : "var(--green)" }}
-                />
-              )}
+              {b.to === "/live" && <LiveBadge live={busy} />}
             </span>
             {b.label}
           </NavLink>
@@ -175,8 +157,8 @@ const BAR = [
   },
 ];
 
-// on a computer, every app at the screen's right edge, the old pages' dock: the pointer at the edge slides it in, a
-// click goes there, leaving lets it slide away. Phones keep the bottom bar.
+// under a mouse or a trackpad, every app at the screen's right edge, the old pages' dock: the pointer at the edge
+// slides it in, a click goes there, leaving lets it slide away. Touch screens keep the bottom bar.
 const DOCK: { to: string; label: string; icon: React.ReactNode }[] = [
   { to: "/", label: "Home", icon: null },
   { to: "/searches", label: "Searches", icon: ICONS.Searches },
@@ -239,12 +221,7 @@ function Dock({ live }: { live: { working: number; waiting: number } }) {
             >
               <span className="relative grid place-items-center">
                 {d.to === "/" ? BAR[0].icon : d.to === "/live" ? BAR[4].icon : d.icon}
-                {d.to === "/live" && (live.working > 0 || live.waiting > 0) && (
-                  <span
-                    className={`absolute -top-0.5 -right-1 block h-2 w-2 rounded-full ${live.working ? "pulse" : ""}`}
-                    style={{ background: live.waiting ? "var(--pink)" : "var(--green)" }}
-                  />
-                )}
+                {d.to === "/live" && <LiveBadge live={live} />}
               </span>
               <span className="dock-label">{d.label}</span>
             </NavLink>
