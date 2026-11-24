@@ -27,6 +27,19 @@ const onThisComputer = (u: string): boolean => {
   }
 };
 
+// the morning news (src/domain/news/): the time its brief is written, how often the feeds are read in between (some
+// hold only a few hours), and the hour after which a morning missed (the computer asleep) waits for the next one
+export const NewsSettings = z.object({
+  enabled: z.boolean().default(true),
+  time: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "a time like 06:30")
+    .default("06:30"),
+  collectEveryMinutes: z.number().int().min(30).max(1440).default(120),
+  latestHour: z.number().int().min(1).max(24).default(12),
+});
+export type NewsSettings = z.infer<typeof NewsSettings>;
+
 export const Settings = z.object({
   // who may reach kestrel: my Tailscale login, which Serve stamps on every request (step 7 enforces it)
   tailscaleLogin: z.string().min(1),
@@ -95,6 +108,8 @@ export const Settings = z.object({
   // the old setup's Live (its /api/live, on this computer): the agent's chats and their steps, which Live shows until
   // kestrel reads the chats itself. Empty: Live shows kestrel's own work only
   oldLive: z.string().optional(),
+  // the morning news (NewsSettings, above; newsOf reads it with its defaults)
+  news: NewsSettings.optional(),
   // who I am, for a deep check's read of a job: level, years, skills, a summary (personal: the data folder only)
   profile: z
     .object({
@@ -106,6 +121,8 @@ export const Settings = z.object({
     .default({}),
 });
 export type Settings = z.infer<typeof Settings>;
+
+export const newsOf = (settings: Settings): NewsSettings => settings.news ?? NewsSettings.parse({});
 
 // The evals' --live mode and the model probe ask the real door on purpose, with made-up text. They never take it from
 // the made-up data folder: its doors are dead on purpose, so a development run fails fast instead of asking my models
@@ -121,13 +138,19 @@ export function liveModels(given?: string): Settings["models"] {
 
 // Any run but the deployed app (development, tests, a builder's screen check) gets dead model and voice doors unless
 // its settings.json names a door itself: a made-up folder seeded before the seed had them (dataDir copies the seed
-// only once) fails fast too, instead of asking my models. Port 9 answers nothing, so a call is refused at once.
+// only once) fails fast too, instead of asking my models. Port 9 answers nothing, so a call is refused at once. The
+// morning news is off there too unless settings.json names it, so a development run never reads the feeds by itself.
 export const DEAD_DOOR = "http://127.0.0.1:9";
 function deadDoors(raw: unknown): unknown {
   if (!isObject(raw)) return raw;
   const door = (part: unknown, url: string) =>
     part === undefined ? { url } : isObject(part) ? { url, ...part } : part;
-  return { ...raw, models: door(raw.models, `${DEAD_DOOR}/v1`), voice: door(raw.voice, DEAD_DOOR) };
+  return {
+    ...raw,
+    models: door(raw.models, `${DEAD_DOOR}/v1`),
+    voice: door(raw.voice, DEAD_DOOR),
+    news: raw.news === undefined ? { enabled: false } : raw.news,
+  };
 }
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 

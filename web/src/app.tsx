@@ -11,6 +11,7 @@ import { useChatLink } from "./chats.tsx";
 import { useEvents } from "./events.ts";
 import { ICONS, STROKE } from "./home.tsx";
 import { Mark } from "./mark.tsx";
+import { NEWS_ICON } from "./news/card.tsx";
 import { ConfirmProvider } from "./ui/confirm.tsx";
 import { cx } from "./ui/cx.ts";
 
@@ -58,6 +59,10 @@ function useBusy() {
   });
   useEvents((p) => {
     if (p.kind === "live" || p.kind === "apply") queryClient.invalidateQueries({ queryKey: ["live"] });
+    // a news brief that starts or ends (the morning's own, Make it now on another device) shows at once, on Home's
+    // card as on the page
+    if (p.kind === "live")
+      for (const key of ["news", "news-days", "news-sources"]) queryClient.invalidateQueries({ queryKey: [key] });
   });
   const d = live.data;
   return {
@@ -210,6 +215,7 @@ const DOCK: { to: string; label: string; icon: React.ReactNode }[] = [
   { to: "/notes", label: "Notes", icon: ICONS.Notes },
   { to: "/tasks", label: "Tasks", icon: ICONS.Tasks },
   { to: "/research", label: "Research", icon: ICONS.Research },
+  { to: "/news", label: "News", icon: NEWS_ICON },
   { to: "/quiz", label: "Quiz", icon: ICONS.Quiz },
   { to: "/applications", label: "Applications", icon: ICONS.Applications },
   { to: "/writing", label: "Writing", icon: ICONS.Writing },

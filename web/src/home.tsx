@@ -8,6 +8,7 @@ import { Link } from "react-router";
 import { useChatLink } from "./chats.tsx";
 import { LiveStrip } from "./live-strip.tsx";
 import { Mark } from "./mark.tsx";
+import { NewsCard } from "./news/card.tsx";
 import { cx } from "./ui/cx.ts";
 import { List, Row } from "./ui/list.tsx";
 import { Page } from "./ui/page.tsx";
@@ -384,6 +385,7 @@ export function Home() {
             ))}
         </section>
       )}
+      <NewsCard />
       <List cols label="The apps">
         {APPS.map((app) => (
           <Row

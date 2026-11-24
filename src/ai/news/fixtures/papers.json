@@ -1,0 +1,17 @@
+[
+  {
+    "paper": {
+      "id": "2611.01234",
+      "title": "Steeping Is All You Need",
+      "summary": "A made-up paper on how long to steep a model.",
+      "upvotes": 94,
+      "publishedAt": "2026-11-23T17:00:00.000Z"
+    },
+    "publishedAt": "2026-11-23T18:00:00.000Z",
+    "title": "Steeping Is All You Need"
+  },
+  {
+    "paper": { "id": "2611.04321", "title": "A Quiet Paper", "summary": "Few read it.", "upvotes": 12 },
+    "publishedAt": "2026-11-23T19:00:00.000Z"
+  }
+]

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A made-up news feed: CDATA, entities, odd dates, a link with tracking, an item with no date and one from the future -->
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Made-up Tech Daily</title>
+    <link>https://news.example.com/</link>
+    <description>A feed that does not exist</description>
+    <item>
+      <title><![CDATA[Teapot Labs raises $40m for kettles that think]]></title>
+      <link>https://news.example.com/2026/11/24/teapot-labs-raise/?utm_source=rss&amp;utm_medium=feed&amp;id=7</link>
+      <pubDate>Tue, 24 Nov 2026 09:15:00 -0500</pubDate>
+      <description><![CDATA[<p>The made-up start-up says its kettles <b>learn</b> when you want tea &amp; biscuits.</p>]]></description>
+    </item>
+    <item>
+      <title>Spout&#8217;s new model reads 2&#x2009;million words at once</title>
+      <link>http://news.example.com/2026/11/24/spout-model</link>
+      <pubDate>Tue, 24 Nov 2026 13:05:00 GMT</pubDate>
+      <description>&lt;p&gt;A made-up lab&amp;#8217;s model takes a whole library in one go.&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>Saucer chips sell out for the third quarter</title>
+      <link>https://news.example.com/2026/11/23/saucer-chips</link>
+      <dc:date>2026-11-23T22:40:00Z</dc:date>
+      <content:encoded><![CDATA[<div>Every made-up saucer chip is spoken for until spring.</div>]]></content:encoded>
+    </item>
+    <item>
+      <title>A cup with no date</title>
+      <link>https://news.example.com/2026/11/cup/#comments</link>
+      <description>No date here.</description>
+    </item>
+    <item>
+      <title>A story from next year</title>
+      <link>https://news.example.com/2027/01/01/later</link>
+      <pubDate>Fri, 01 Jan 2027 08:00:00 GMT</pubDate>
+      <description>Its date is in the future.</description>
+    </item>
+  </channel>
+</rss>

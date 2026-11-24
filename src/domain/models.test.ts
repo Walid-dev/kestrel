@@ -44,6 +44,8 @@ test("the settings answer until a pick is made; the pick wins and survives a reo
       ["quiz", "careful-model"],
       ["quiz-explain", "fast-model"], // written while I answer: the fast model
       ["letter", "careful-model"],
+      ["news-pick", "careful-model"], // the morning news, written while I sleep: the careful model for both steps
+      ["news-write", "careful-model"],
     ],
   );
 });

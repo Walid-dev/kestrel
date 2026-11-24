@@ -4645,6 +4645,384 @@ body:has(.paper-view) {
 .list-row:has(.writing-busy) {
   opacity: 0.55;
 }
+/* News on Home (web/src/news/card.tsx): one small card under the figures, the whole card one link to the page. On a
+   phone: the head (the eyebrow, when, the count) with the chevron beside it, then the three headlines one line each,
+   the source after it in mono, the headline giving way first. From 48rem, as the figures above: one row of columns,
+   the head first, each headline over its source, so the card is no taller than they */
+.news-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+.news-card-head {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.news-card-sub,
+.news-card-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.news-card-sub {
+  flex: 1;
+}
+.news-card-state {
+  gap: 6px;
+  font-size: var(--text-small);
+  line-height: var(--text-small--line-height);
+}
+.news-card-when,
+.news-card-count {
+  flex: none;
+  font: var(--text-small) / var(--text-small--line-height) var(--mono);
+  color: var(--muted);
+}
+.news-card-count {
+  margin-left: auto;
+}
+.news-card-chevron {
+  grid-column: 2;
+  grid-row: 1;
+  color: var(--muted);
+}
+.news-card-line,
+.news-card-note {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.news-card-line {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.news-card-headline,
+.news-card-src,
+.news-card-truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.news-card-headline {
+  flex: 0 1 auto;
+  font: 500 var(--text-detail) / var(--text-detail--line-height) var(--sans);
+  color: var(--text);
+}
+/* the source keeps its name: the longest short name is 12 letters */
+.news-card-src {
+  flex: none;
+  max-width: 13ch;
+  font: var(--text-small) / var(--text-small--line-height) var(--mono);
+  color: var(--muted);
+}
+.news-card-note {
+  font-size: var(--text-small);
+  line-height: var(--text-small--line-height);
+}
+@media (min-width: 48rem) {
+  .news-card {
+    grid-template-columns: max-content repeat(3, minmax(0, 1fr)) auto;
+    column-gap: 24px;
+  }
+  .news-card-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    max-width: 13rem;
+  }
+  .news-card-sub {
+    flex: none;
+    max-width: 100%;
+  }
+  .news-card-count {
+    margin-left: 0;
+  }
+  .news-card-sub > * + .news-card-count::before {
+    content: "· ";
+  }
+  .news-card-chevron {
+    grid-column: -2;
+  }
+  .news-card-line {
+    grid-column: auto;
+    grid-row: 1;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+  }
+  .news-card-note {
+    grid-column: 2 / -2;
+    grid-row: 1;
+  }
+}
+/* a phone turned or a narrow window: two headlines, wide enough to read */
+@media (min-width: 48rem) and (max-width: 63.99rem) {
+  .news-card {
+    grid-template-columns: max-content repeat(2, minmax(0, 1fr)) auto;
+  }
+  .news-card-third {
+    display: none;
+  }
+}
+/* News, the page (web/src/news/page.tsx): the brief in one reading column (52rem at most: a brief is read top to
+   bottom, and a section of one or three stories left holes in a grid) and, from 64rem, a rail of 280 to 340 beside it
+   (the earlier days, the sources; never sticky, so an open sources table can always be read to its end); on a phone
+   the rail's parts follow the stories. The head's line is a report's (.research-line) */
+.news-layout {
+  display: grid;
+  gap: var(--page-gap);
+  align-items: start;
+}
+@media (min-width: 64rem) {
+  .news-layout {
+    grid-template-columns: minmax(0, 52rem) minmax(280px, 340px);
+    column-gap: 32px;
+  }
+}
+.news-main,
+.news-rail,
+.news-section,
+.news-rail-part {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+}
+.news-main {
+  gap: var(--page-gap);
+}
+.news-rail {
+  gap: 16px;
+}
+.news-section,
+.news-rail-part {
+  gap: 12px;
+}
+.news-stories {
+  display: grid;
+  gap: 12px;
+}
+.news-fold > .card {
+  margin-top: 4px;
+}
+/* while a brief is written: its five steps (done, now, next) over a bar that sweeps, on the card that works now */
+.news-running {
+  display: grid;
+  gap: 10px;
+}
+.news-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-small);
+  line-height: var(--text-small--line-height);
+  color: var(--muted);
+}
+.news-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.news-step[data-state="done"] {
+  color: var(--text);
+}
+.news-step[data-state="now"] {
+  color: var(--strong);
+  font-weight: 500;
+}
+.news-step-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 12px;
+}
+.news-step[data-state="done"] > .news-step-mark {
+  color: var(--green);
+}
+/* the brief that failed: one orange line over the last good one, Make it now (small, quiet) at its end */
+.news-failed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 4px 8px;
+  margin: 0;
+  font-size: var(--text-detail);
+  line-height: var(--text-detail--line-height);
+  color: var(--orange);
+}
+.news-failed-mark {
+  margin-top: 7px;
+}
+.news-failed > p {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+.news-failed > .btn {
+  margin-top: -2px;
+}
+/* the opening, read slowly, with no box */
+.news-opening {
+  max-width: 68ch;
+  text-wrap: pretty;
+}
+/* a section's heading, its tone's dot before it */
+.news-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+/* a story, the Searches card's anatomy: the section's chip and the source on top, the headline with its number as a
+   pill, the story, then its links and Look deeper, its parts 8 apart */
+.news-story {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  scroll-margin-top: var(--page-gap);
+}
+.news-story-meta,
+.news-story-head {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+.news-story-meta {
+  align-items: center;
+  gap: 8px;
+}
+.news-story-from {
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--text-small) / var(--text-small--line-height) var(--mono);
+  color: var(--muted);
+}
+.news-story-head {
+  align-items: flex-start;
+}
+.news-story-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--strong);
+  text-wrap: pretty;
+}
+/* the links: the small step of the ladder (24, 36 on touch), rows 8 apart on touch so their 44 areas never meet */
+.news-story-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 2px;
+}
+@media (pointer: coarse) {
+  .news-story-foot {
+    gap: 8px;
+  }
+}
+.news-src {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  min-height: var(--h-sm);
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font: 500 var(--text-small) / 1 var(--mono);
+  text-decoration: none;
+  transition:
+    color var(--t-fast),
+    box-shadow var(--t-fast);
+}
+.news-src-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.news-src-count {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+@media (hover: hover) {
+  .news-src:hover {
+    color: var(--strong);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+  }
+}
+@media (pointer: coarse) {
+  .news-src::after {
+    content: "";
+    position: absolute;
+    inset: calc(50% - var(--h-hit) / 2) 0;
+  }
+}
+.news-deeper {
+  margin-left: auto;
+}
+/* the sources' health: aligned mono columns, the state at the row's end, a down source's reason under its name */
+.news-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-small);
+  line-height: var(--text-small--line-height);
+}
+.news-th {
+  padding: 0 8px 6px 0;
+  text-align: left;
+  font: 500 var(--text-label) / var(--text-label--line-height) var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.news-td {
+  padding: 6px 8px 6px 0;
+  border-top: 1px solid var(--line);
+  vertical-align: top;
+}
+.news-th:last-child,
+.news-td:last-child {
+  padding-right: 0;
+  text-align: right;
+}
+.news-num {
+  text-align: right;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.news-num,
+.news-time {
+  white-space: nowrap;
+}
+.news-table-why {
+  display: block;
+}
+/* the page's foot: Make it now and what it does */
+.news-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
 /* work in progress: a thin bar that sweeps while a list refills, a shimmer where a card is coming, a small spinner on
    the button that was pressed */
 .loading-bar {

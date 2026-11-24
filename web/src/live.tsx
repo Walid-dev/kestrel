@@ -159,6 +159,7 @@ const KIND: Record<string, [string, Tone]> = {
   research: ["Research", "yellow"],
   quiz: ["Quiz", "purple"],
   letter: ["Writing", "orange"],
+  news: ["News", "cyan"],
 };
 // a kind's name as a filter, where a plural reads better; any other kind is filtered by its chip's name
 const PLURAL: Record<string, string> = {

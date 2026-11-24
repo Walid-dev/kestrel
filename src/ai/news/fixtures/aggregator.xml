@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A made-up aggregator: each item's own link is its page; the article is the first outside link in the description -->
+<rss version="2.0">
+  <channel>
+    <title>Made-up Meme</title>
+    <link>https://www.meme.example.com/</link>
+    <item>
+      <title>Kettle maker's shares fall 6% (Made-up Wire)</title>
+      <link>https://www.meme.example.com/261124/p5#a261124p5</link>
+      <pubDate>Tue, 24 Nov 2026 10:25:00 +0000</pubDate>
+      <description>&lt;A HREF="https://www.meme.example.com/261124/p5#a261124p5"&gt;&lt;IMG SRC="https://www.meme.example.com/img/x.jpg"&gt;&lt;/A&gt; Made-up Wire / &lt;A HREF="https://wire.example.net/"&gt;Made-up Wire&lt;/A&gt;: &lt;B&gt;&lt;A HREF="https://wire.example.net/markets/kettle-shares-fall?utm_campaign=meme"&gt;Kettle maker's shares fall 6% after a made-up rally&lt;/A&gt;&lt;/B&gt; &amp;nbsp; — Shares fell 6% on Tuesday.</description>
+    </item>
+  </channel>
+</rss>
