@@ -4,6 +4,68 @@
    this app (web/public/fonts), never from the internet. */
 @import "tailwindcss";
 
+/* The tokens as classes (shown on /design). The role variables stay on :root below, dark by default and light with
+   the system; @theme inline only names them for Tailwind, so text-muted compiles to color: var(--muted) and follows
+   the theme at run time. One name per role, never a colour's own name for a size: text-strong is ink, text-title a
+   size. No dark: classes anywhere: the variables switch, the classes stay. */
+@theme inline {
+  --color-page: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-ink: var(--text);
+  --color-strong: var(--strong);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-green: var(--green);
+  --color-red: var(--red);
+  --color-orange: var(--orange);
+  --color-yellow: var(--yellow);
+  --color-purple: var(--purple);
+  --color-pink: var(--pink);
+  --color-pink-soft: var(--pink-soft);
+  --color-cyan: var(--cyan);
+  --color-teal: var(--teal);
+  --color-magenta: var(--magenta);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-add-soft: var(--add-soft);
+  --color-del-soft: var(--del-soft);
+  --color-great: var(--great);
+  --color-good: var(--good);
+  --color-fair: var(--fair);
+  --color-poor: var(--poor);
+  /* the colour of the nearest tone-* class: text-tone, bg-tone/15, border-tone */
+  --color-tone: var(--tone, var(--muted));
+  --font-sans: var(--sans);
+  --font-cond: var(--cond);
+  --font-mono: var(--mono);
+}
+/* The type steps, from the sizes the pages really used (28 of them on 2026-11-23, folded into eight). Each carries its
+   line height. label: mono labels and counts; small: hints, meta lines, captions; detail: a card's description;
+   body: running text (the page's own size); read: what is read slowly (a lesson, a line to say); head: a card's or a
+   section's heading; lead: one big line (a number, an answer to say); title: the page's title. */
+@theme {
+  --text-label: 11px;
+  --text-label--line-height: 1.35;
+  --text-small: 13px;
+  --text-small--line-height: 1.45;
+  --text-detail: 14px;
+  --text-detail--line-height: 1.5;
+  --text-body: 15.5px;
+  --text-body--line-height: 1.6;
+  --text-read: 16.5px;
+  --text-read--line-height: 1.7;
+  --text-head: 19px;
+  --text-head--line-height: 1.25;
+  --text-lead: 24px;
+  --text-lead--line-height: 1.25;
+  --text-title: 34px;
+  --text-title--line-height: 1.05;
+}
+
 @font-face {
   font-family: "IBM Plex Sans";
   src: url("/fonts/ibm-plex-sans-400-600.woff2") format("woff2");
@@ -108,8 +170,11 @@
   }
 }
 
+/* the ground behind everything, the iPhone's bars included (a home-screen app tints them from it); the scrollbar's
+   room stays when a box stops the page scrolling, so nothing shifts sideways */
 html {
   background: var(--bg);
+  scrollbar-gutter: stable;
 }
 h1,
 h2,
@@ -200,17 +265,18 @@ h3 {
 .stop-choice span {
   color: var(--muted);
 }
-/* a phone keyboard must not zoom the page: form controls stay at 16px under a coarse pointer */
-@media (pointer: coarse) {
-  input.btn,
-  select.btn {
-    font-size: 16px;
-  }
-}
-
+/* a button that waits: the sunk ground and muted words, never a dimmed primary (dark words on a dim blue read as
+   broken, not as "not yet") */
 .btn[disabled] {
-  opacity: 0.55;
   cursor: default;
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: color-mix(in srgb, var(--muted) 75%, transparent);
+}
+/* a button that stays on (Slow, Record me): its tone's edge and words, the accent unless a tone-* says otherwise */
+.btn[aria-pressed="true"] {
+  border-color: var(--tone, var(--accent));
+  color: var(--tone, var(--accent));
 }
 .card {
   background: var(--surface);
@@ -322,19 +388,22 @@ h3 {
   text-transform: uppercase;
   white-space: nowrap;
 }
-/* a filter pill: quiet until picked; a dot in its tone; its count beside */
+/* a filter pill: quiet until picked; a dot in its tone; its count beside. A long name wraps inside it: one unbroken
+   word must never push the page wider than the phone */
 .pill {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  max-width: 100%;
   font: 500 13.5px / 1.2 var(--sans);
   padding: 7px 12px;
   border-radius: 9px;
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--text);
+  text-align: left;
+  overflow-wrap: anywhere;
   cursor: pointer;
-  white-space: nowrap;
 }
 .pill b {
   font-family: var(--mono);
@@ -434,11 +503,6 @@ h3 {
   flex-wrap: wrap;
   gap: 8px;
 }
-.pills .pill {
-  max-width: 100%;
-  white-space: normal;
-  text-align: left;
-}
 .pill-name {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -483,10 +547,6 @@ h3 {
   width: min(calc(100vw - 16px), 900px);
   max-height: 92dvh;
   background: var(--bg);
-}
-/* the box takes the focus when it opens: no ring around the whole box */
-.dialog:focus-visible {
-  outline: none;
 }
 .dialog::backdrop {
   background: rgba(0, 0, 0, 0.55);
@@ -556,11 +616,8 @@ h3 {
 .dialog-body:last-child {
   padding-bottom: 20px;
 }
-/* the phone: the thumb's size for every control in a box and every pill */
+/* the phone: the thumb's size for every control in a box (the pills' and buttons' floor is the phone's floor, below) */
 @media (pointer: coarse) {
-  .pills .pill {
-    min-height: 44px;
-  }
   .dialog-x {
     width: 44px;
     height: 44px;
@@ -578,6 +635,310 @@ h3 {
     animation: none;
   }
 }
+/* ── The page parts (web/src/ui/, shown on /design) ── */
+/* Page: every page's frame. Two widths, both from the shell's left edge, so a title always starts where the name
+   kestrel starts: wide for lists and grids, reading for text (a line the eye can follow) */
+.page {
+  display: grid;
+  align-content: start;
+  gap: 20px;
+  min-width: 0;
+}
+.page-reading {
+  max-width: 768px;
+}
+/* PageHead: the back link and the page's tools on one bar, the eyebrow, one title size in one case, the line under
+   it. A long word in a title breaks rather than widen the page */
+.page-head {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+/* one row: the back link gives way first (its name ends in …), then the buttons wrap among themselves. On a page it
+   sits close over the head it belongs to (the page's gap is 20 px, the head's own 6) */
+.page-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}
+.page > .page-bar {
+  margin-bottom: -14px;
+}
+/* the bar that stays on top while the page scrolls (a lesson's Listen): the page's ground, frosted, edge to edge of
+   the screen (a shadow carries its ground past the gutters; the clip keeps it one bar tall). At the top of the page
+   it is clear, so no band shows over the page's glow; the ground fades in over the first 48 px scrolled */
+.page-bar-sticky {
+  --bar: color-mix(in srgb, var(--bg) 88%, transparent);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding-block: 6px;
+  margin-block: -6px 0;
+  background: var(--bar);
+  box-shadow: 0 0 0 100vmax var(--bar);
+  clip-path: inset(0 -100vmax);
+  backdrop-filter: blur(10px);
+}
+@supports (animation-timeline: scroll()) {
+  .page-bar-sticky {
+    animation: bar-ground linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 48px;
+  }
+}
+@keyframes bar-ground {
+  from {
+    background: transparent;
+    box-shadow: 0 0 0 100vmax transparent;
+    backdrop-filter: none;
+  }
+}
+.page-back {
+  display: inline-flex;
+  justify-self: start;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding-right: 10px;
+  font: 500 14px / 1.3 var(--sans);
+  color: var(--accent);
+}
+.page-back svg {
+  flex: none;
+}
+.page-back span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.page-tools,
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.page-tools {
+  grid-column: 2;
+  justify-content: flex-end;
+}
+.page-title-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 16px;
+}
+.page-title {
+  min-width: 0;
+  margin: 0;
+  font: 700 34px / 1.05 var(--cond);
+  letter-spacing: -0.01em;
+  color: var(--strong);
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.page-line {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+/* on a phone the buttons come under the line; wider, they sit beside the title and the line goes below both */
+.page-actions {
+  margin-top: 6px;
+}
+@media (min-width: 48rem) {
+  .page-title-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .page-title {
+    grid-area: 1 / 1;
+  }
+  .page-actions {
+    grid-area: 1 / 2;
+    margin-top: 0;
+  }
+  .page-line {
+    grid-area: 2 / 1 / 3 / -1;
+  }
+}
+/* Card: the .card ground. A block stacks its parts 12 px apart (design.md: cards breathe). With a title: its meta
+   row on top (chips, a date, the ✕ at the end), the title in the heading voice, what it holds under it. A card that
+   opens is opened by its title, stretched over the whole card; any other link or button in it sits above that */
+.card-stack {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+.card-titled {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+.card-titled :is(a, button):not(.card-open) {
+  position: relative;
+  z-index: 1;
+}
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-meta-main {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.card-title {
+  margin: 0;
+  font: 700 19px / 1.25 var(--cond);
+  color: var(--strong);
+  text-wrap: pretty;
+}
+.card-title > .card-open {
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.card-titled > .card-body {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+/* a card about one thing that matters now (needs me, review today): its edge in that tone */
+.card-tone {
+  border-color: color-mix(in srgb, var(--tone) 55%, var(--line));
+}
+/* across the whole row of the grid it sits in */
+.card-wide {
+  grid-column: 1 / -1;
+}
+/* a card's title, or any heading in a card, breaks a long word instead of pushing the card (and the page) wider */
+.card :is(h2, h3, h4),
+.card-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* EmptyState: nothing here yet, said once and plainly, with the next step; the setting it needs, if any, small */
+.empty {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  padding: 20px;
+  border: 1px dashed var(--line);
+  border-radius: 16px;
+}
+.empty-title {
+  margin: 0;
+  font-weight: 600;
+  color: var(--strong);
+}
+.empty-line {
+  margin: 0;
+  max-width: 60ch;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.empty-action {
+  margin-top: 8px;
+}
+.empty-detail {
+  font: 12px / 1.4 var(--mono);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+/* Field: a box to write in that sends on Enter, its round send button inside at its foot, the rule said under it.
+   16 px always, so a phone never zooms into it; it grows with the words */
+.field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.field-box {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 5px 5px 5px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+  transition: border-color 0.15s;
+}
+.field-box:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
+}
+.field-input {
+  flex: 1;
+  min-width: 0;
+  max-height: 40vh;
+  padding: 8px 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--strong);
+  font: 400 16px / 1.5 var(--sans);
+}
+textarea.field-input {
+  field-sizing: content;
+}
+/* a search: one line, no button, a little slimmer */
+.field-search .field-box {
+  padding-right: 14px;
+}
+.field-search .field-input {
+  padding-block: 5px;
+}
+.field-input::placeholder {
+  color: var(--muted);
+}
+.field-tall .field-input {
+  min-height: 88px;
+}
+.field-send {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg);
+  cursor: pointer;
+}
+.field-send[disabled] {
+  cursor: default;
+  background: var(--line);
+  color: var(--muted);
+}
+.field-hint {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+/* a bar of parts, each as long as its share (--part, set by the page from the data) in its tone: Learn's progress */
+.meter {
+  display: flex;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+.meter > span {
+  width: var(--part);
+  background: var(--tone);
+}
 /* /design: the swatches of the tokens */
 .swatch {
   display: grid;
@@ -590,6 +951,7 @@ h3 {
   height: 36px;
   border-radius: 10px;
   border: 1px solid var(--line);
+  background: var(--swatch);
 }
 .swatch span {
   display: grid;
@@ -671,9 +1033,17 @@ h3 {
   text-transform: uppercase;
   color: var(--muted);
 }
+/* an eyebrow in a colour takes a tone on itself (eyebrow tone-accent: "Check yourself"); a tone on a parent card
+   leaves it muted */
+.eyebrow[class*="tone-"] {
+  color: var(--tone);
+}
 
 /* a grid's items may shrink below their content: a wide diagram, table or code block scrolls inside its own frame
    instead of pushing the whole page sideways on a phone */
+.page > * {
+  min-width: 0;
+}
 main .grid > *,
 main.grid > * {
   min-width: 0;
@@ -749,7 +1119,191 @@ pre.code .f {
 .say-tap {
   cursor: pointer;
 }
-/* a moving thing: the dot that glows while something runs */
+/* a lesson's line to say: a tap reads it aloud; the line being read is lit */
+.say-row {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--strong);
+  font-size: 16.5px;
+  line-height: 1.625;
+  text-align: left;
+  cursor: pointer;
+}
+.say-row > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.say-row[data-reading] {
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.say-play {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 9px;
+}
+/* a word and what it means: the word underlined with dots */
+.term {
+  font-weight: 600;
+  color: var(--strong);
+  text-decoration: underline dotted;
+  text-underline-offset: 4px;
+}
+/* the interview helper's pad: held while the question is asked, pink while it listens */
+.hold {
+  display: grid;
+  place-items: center;
+  min-height: 9rem;
+  font: 700 24px / 1.25 var(--cond);
+  color: var(--strong);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+}
+.hold[aria-pressed="true"] {
+  border-color: var(--pink);
+  background: var(--pink-soft);
+  color: var(--pink);
+}
+/* a guide's hand-placed diagram: each part in its tone; a part without one on the sunk ground */
+.dia-node {
+  fill: color-mix(in srgb, var(--tone) 14%, var(--surface));
+  stroke: var(--tone);
+}
+.dia-plain {
+  fill: var(--surface-2);
+  stroke: currentColor;
+}
+/* ── The shell (web/src/app.tsx): the frame every page sits in ── */
+/* One column on the phone, wider on a computer. Its sides keep clear of the notch when the phone is turned (the page
+   reaches under it: viewport-fit=cover), and its foot clears the bottom bar. --gutter is its side margin. */
+.shell {
+  --gutter: 16px;
+  width: 100%;
+  max-width: 576px;
+  min-height: 100svh;
+  margin-inline: auto;
+  padding: 0 max(var(--gutter), env(safe-area-inset-right)) 112px max(var(--gutter), env(safe-area-inset-left));
+}
+@media (min-width: 48rem) {
+  .shell {
+    --gutter: 24px;
+    max-width: 896px;
+  }
+}
+@media (min-width: 64rem) {
+  .shell {
+    --gutter: 40px;
+    max-width: 1440px;
+  }
+}
+@media (min-width: 96rem) {
+  .shell {
+    max-width: 1760px;
+  }
+}
+/* the head: the name that goes Home and the live chip, each a 44 px target */
+.shell-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(14px + env(safe-area-inset-top)) 0 14px;
+}
+.head-home {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font: 700 24px / 1 var(--cond);
+  letter-spacing: -0.025em;
+  color: var(--strong);
+}
+.head-live {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  margin-left: auto;
+}
+/* the chip inside the 44 px target: lit while anything works or waits for me */
+.head-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font: 400 12px / 1.3 var(--mono);
+  color: var(--muted);
+}
+.head-chip-on {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--strong);
+}
+.head-chip .dot {
+  width: 10px;
+  height: 10px;
+}
+/* a dot on a nav icon: something works (green, glowing) or waits for me (pink) */
+.nav-badge {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  width: 8px;
+  height: 8px;
+}
+/* where the places are depends on the pointer, never the width: a touch screen (a phone upright or turned, a tablet)
+   gets the bottom bar under the thumb; a mouse or a trackpad gets the dock at the right edge */
+.tabbar {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  padding: 6px max(4px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom))
+    max(4px, env(safe-area-inset-left));
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(10px);
+}
+.tabbar-item {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  max-width: 120px;
+  min-height: 44px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font: 500 10.5px / 1.4 var(--sans);
+  color: var(--muted);
+}
+.tabbar-item[aria-current="page"] {
+  color: var(--accent);
+}
+@media (hover: hover) and (pointer: fine) {
+  .shell {
+    padding-bottom: 64px;
+  }
+  .tabbar {
+    display: none;
+  }
+}
 /* the computer's dock: a thin zone at the screen's right edge; the pointer there slides the dock in, a frosted column
    of the apps, each with its name beside it on hover; it never covers the page until called */
 .dock-zone {
@@ -761,7 +1315,7 @@ pre.code .f {
   width: 14px;
   z-index: 40;
 }
-@media (min-width: 768px) and (hover: hover) {
+@media (hover: hover) and (pointer: fine) {
   .dock-zone {
     display: block;
   }
@@ -1154,10 +1708,13 @@ pre.code .f {
 .d-tree li span {
   color: var(--text);
 }
-/* events by date: the date on the left, a dot in its colour on one line, what happened beside it */
+/* events by date: the date on the left, a dot in its colour on one line, what happened beside it. The list owns the
+   columns and each event borrows them (subgrid), so one wide date moves every dot together, never one alone; a date
+   longer than 40% of the width wraps */
 .d-timeline ol {
   display: grid;
-  gap: 0;
+  grid-template-columns: fit-content(40%) 12px minmax(0, 1fr);
+  gap: 12px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1165,13 +1722,9 @@ pre.code .f {
 .d-timeline li {
   --c: var(--accent);
   display: grid;
-  grid-template-columns: max-content 12px minmax(0, 1fr);
-  gap: 12px;
-  padding: 0 0 12px;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   line-height: 1.5;
-}
-.d-timeline li:last-child {
-  padding-bottom: 0;
 }
 .d-when {
   min-width: 52px;
@@ -1218,6 +1771,7 @@ pre.code .f {
 }
 .d-fill {
   display: block;
+  width: var(--part);
   height: 100%;
   border-radius: 999px;
   background: var(--accent);
@@ -1346,14 +1900,11 @@ pre.code .f {
   color: var(--bg);
   cursor: pointer;
 }
+/* nothing to send yet: a grey round, never a dimmed blue */
 .ask-send[disabled] {
-  opacity: 0.45;
   cursor: default;
-}
-@media (pointer: coarse) {
-  .ask-input {
-    font-size: 16px;
-  }
+  background: var(--line);
+  color: var(--muted);
 }
 @container (max-width: 420px) {
   .ask-answer {
@@ -1521,6 +2072,8 @@ pre.code .f {
     transform: none;
   }
 }
+/* a word too long for its line breaks at the edge instead of pushing the page sideways (sizes stay as they were:
+   break-word, unlike anywhere, leaves min-content alone) */
 body {
   margin: 0;
   background: radial-gradient(120% 50% at 50% -10%, var(--glow), transparent 70%) var(--bg);
@@ -1528,8 +2081,11 @@ body {
   font-family: var(--sans);
   font-size: 15.5px;
   line-height: 1.6;
+  overflow-wrap: break-word;
   -webkit-font-smoothing: antialiased;
 }
+/* kept beside the theme's own font-cond and font-mono utilities: these, outside the utilities' layer, also win over a
+   part's own font (a .btn or a .chip in mono) */
 .font-cond {
   font-family: var(--cond);
 }
@@ -1539,9 +2095,54 @@ body {
 ::selection {
   background: var(--accent-soft);
 }
+/* the keyboard's ring: visible, but quiet; a box that opens takes the focus without a ring around it */
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
   outline-offset: 2px;
+}
+dialog:focus-visible {
+  outline: none;
+}
+/* ── The phone's floor: every control the thumb taps stands 44 px tall (Apple's minimum), and every text box writes
+   at 16 px or more, the size under which iOS zooms the whole page into the box ── */
+@media (pointer: coarse) {
+  button.btn,
+  a.btn,
+  input.btn,
+  select.btn,
+  .pill {
+    min-height: 44px;
+  }
+  /* a link dressed as a button centres its words in the taller box, as a button does by itself */
+  a.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* the ✕ keeps its small round look; the area that takes the tap grows around it */
+  .card-remove::after {
+    content: "";
+    position: absolute;
+    inset: -9px;
+    border-radius: 999px;
+  }
+  .ask-send,
+  .field-send {
+    width: 44px;
+    height: 44px;
+  }
+}
+/* The text boxes' floor is a hard one: even a page's own !text-[15px] must not undo it. An !important in the base
+   layer outranks every other !important but an inline one (the cascade turns the layers round for them). */
+@layer base {
+  @media (pointer: coarse) {
+    input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]),
+    textarea,
+    select {
+      /* biome-ignore lint/complexity/noImportantStyles: the one floor a page's own !text-[15px] must not undo */
+      font-size: max(16px, 1em) !important;
+    }
+  }
 }
 /* a text box shows the focus by its border, never a ring around it; buttons and links keep the ring for the keyboard */
 input:focus-visible,
