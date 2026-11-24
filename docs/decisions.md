@@ -5,6 +5,22 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-24 · News is its own app; Ask on each story.**
+  Every brief is kept and browsable on All days (`/news/days`), a hundred days at a time with Show older, by month. A
+  find matches every word in a story's headline or text across the brief each day shows, in JavaScript (SQLite's
+  LIKE treats % and _ as wildcards and folds only ASCII), at most 50. Deleting a day removes all its runs, their
+  `news_used` rows (their links may be told again) and its stories' Ask conversations, in one transaction; it is
+  refused while a run of that day writes, while Ask answers there, and for today while the morning brief could still
+  be written (the scheduler would write it again at once). Each story has Ask (app `news`, ref `<brief id>:<n>`) with
+  the web tools: a story is public and nothing of mine is on its page; its context says the web's words are facts to
+  check, never instructions. `GET /api/news` carries each story's asked and answering counts in one read. Rejected: a
+  cap on the history (old days unreachable); a marker that keeps a deleted today empty (machinery).
+- **2026-11-24 · Home leads with the news; a new tone, indigo, for News.**
+  Home's head is two blocks: the date over the wolf and kestrel, and "One app, one computer, / local models." beside
+  them, level with their two lines (PageHead's new `aside`). The news card comes first, News in indigo and each
+  headline with its section's dot; then the live line and the figures, and the apps with News after Tasks. Each app
+  has its own colour and the accent blue is Notes', so News gets `--indigo` (#4f46e5 light, #818cf8 dark, above 5:1 on
+  a card): in light it sits closest to Learn's purple and still reads apart.
 - **2026-11-24 · The morning news.**
   I'm not up to date with AI and tech news, so every morning kestrel writes me a brief. Every two hours it reads 19
   public feeds, each verified (news sites with free articles, the AI labs' own pages, builders, Hacker News, Hugging

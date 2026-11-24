@@ -133,7 +133,8 @@ Each gets its own step-by-step plan, reviewed, before it starts.
 ### v0.5 · The rest, and the old setup retired
 
 - Tasks with commands for agents, deal searches (in Searches), the models and what they cost, the morning news
-  (built 2026-11-24: the day in AI and tech from 19 public feeds, in plain words with links), small apps.
+  (built 2026-11-24: the day in AI and tech from 19 public feeds, in plain words with links; the same day its own
+  app: every day kept, found and deleted, Ask on each story with the web), small apps.
 - Each old part stops after two weeks without use; the last one closes the old setup.
 
 ### v0.7 · Ask on every page

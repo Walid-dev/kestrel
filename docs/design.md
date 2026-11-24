@@ -15,7 +15,8 @@ The look since 2026-11-24: small, calm and precise under a mouse, comfortable on
 - **Ink:** `--text` for body, `--strong` for headings, `--muted` for secondary lines.
 - **The lead:** `--accent` — One Dark's blue. The one filled button, links, focus rings.
 - **The working colours**, the editor's neon shades: `--pink` (the wolf, the note marks, needs me), `--purple`,
-  `--green` (ok, done, diff plus), `--orange` (warnings, asleep), `--yellow` (the moon), `--red` (danger).
+  `--green` (ok, done, diff plus), `--orange` (warnings, asleep), `--yellow` (the moon), `--red` (danger), `--indigo`
+  (News' own blue, between the accent and the purple: each app has its own colour and the accent is Notes').
 - **Shades** for what floats: `--shade-dialog`, `--shade-dock`, `--shade-pip`, `--shade-seg`, `--backdrop`.
 - **Fonts:** IBM Plex Sans for text, Sans Condensed for headings and the wordmark, Mono for numbers, paths, labels and
   chips. All served from `web/public/fonts`. Only the weights that ship: Sans 400–600, Condensed 600/700, Mono
@@ -126,7 +127,12 @@ reading width is 720.
   (`{ to, label }`), `sticky`, `width` (`wide`, or `reading`: 720 at most), `titleAs`. A top page's title is the title
   step; a child page (one with `back`) gets a back row (30 / 44) and its title a step down. Under a mouse at 48rem or
   wider a top page's buttons sit on the title row; otherwise they wrap 12 under the line. A page's state chip goes in
-  the line under the title.
+  the line under the title. `aside` (Home's "One app, one computer, / local models.") sets two short lines beside the
+  head, past a thin rule, its first level with the eyebrow and its last with the title at every width; it needs an
+  eyebrow and takes the place of `line`, and the title's column gives way first when room runs short.
+- `Ask` (`web/src/ask.tsx`) — the same box on every app: its head, the conversation, starters, a line to ask. `bare`
+  puts it inside a card that belongs to the page (a news story): no card and no head of its own, the page opens and
+  closes it, Start over beside the line to ask.
 - `Card` (`web/src/ui/card.tsx`) — plain; `to` makes the whole card a link; `title` adds `meta`, `to` or `onOpen`,
   `onRemove` and `removeLabel` (the ✕ waits out of sight under a mouse until hover or focus); `tone` colours its edge;
   `wide` spans the grid's row.
@@ -143,7 +149,11 @@ reading width is 720.
 - Patterns the pages share: a page's view switch (Live's Now and Activity, Applications' period) is a Seg; a read-only
   document is Doc without `onSave`; a page whose item is gone says so in plain words and doesn't retry; the listing
   sheet is the wide Dialog, its title and ✕ kept in view on tall screens, Apply at its foot; a stage's colour comes
-  from one map (`STAGES`).
+  from one map (`STAGES`); a history (News' All days) lists by month, a hundred at a time with Show older, a find at
+  its top and a ✕ per row that deletes after Confirm.
+- Home, top to bottom: the head (the date over the wolf and kestrel, the aside beside them), the news card (News in
+  indigo, each headline with its section's dot), the live line and the figures, the apps (each its own colour), then
+  Cost and Models.
 - The Searches standard, for every page: one card anatomy repeated (a meta chip on the left, the date or source on
   the right; the title with its key number as a pill beside it; one muted subline; facts in muted text with only the
   values bold; the actions last); numbers in mono, on scales and tones; a page's figures as one strip of cells (label,
