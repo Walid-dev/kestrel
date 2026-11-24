@@ -28,7 +28,6 @@ export function NotesSet() {
   const [applied, setApplied] = useState<(AppliedSave & { id: string }) | null>(null);
   // what the review dropped, by draft, so a box closed by accident keeps my picks
   const [dropped, setDropped] = useState<Record<string, Record<string, number[]>>>({});
-  const [asked, setAsked] = useState<number>();
 
   const docs = useQuery({
     queryKey: ["docs"],
@@ -187,11 +186,7 @@ export function NotesSet() {
           draft={setDraft}
           speed={speed}
           onSpeed={setSpeed}
-          asked={asked}
-          onApply={() => {
-            setAsked(openNotes);
-            ask.mutate();
-          }}
+          onApply={() => ask.mutate()}
           applying={ask.isPending}
           askWhy={why}
           onStop={async () => {

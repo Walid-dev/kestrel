@@ -4073,6 +4073,74 @@ body:has(.paper-view) {
 .note-bar .note-apply-pair {
   gap: 8px;
 }
+/* the model at work (apply.tsx's Working). In the column: what it does and the time so far, the model and what it
+   usually takes, the steps (done ✓ in green, the one under way a pulsing dot, the next muted), then the hint and a
+   quiet Stop. In the phone's bar: the step on one line, the model and the time under it, Stop beside them */
+.note-work-col {
+  display: grid;
+  gap: 4px;
+}
+.note-work-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.note-work-steps {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 2px;
+  padding: 0;
+  list-style: none;
+}
+.note-work-steps > li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: start;
+  gap: 6px;
+  font: 400 var(--text-detail) / var(--text-detail--line-height) var(--sans);
+  color: var(--muted);
+}
+.note-work-steps > li[data-state="now"] {
+  font-weight: 500;
+  color: var(--strong);
+}
+.note-work-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 1lh;
+}
+.note-work-steps > li[data-state="done"] .note-work-mark {
+  color: var(--green);
+}
+.note-work-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-top: 2px;
+}
+.note-work-now {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: var(--strong);
+}
+.note-work-meta {
+  display: block;
+  padding-left: 15px;
+  font: 400 var(--text-small) / var(--text-small--line-height) var(--sans);
+  color: var(--muted);
+}
+/* a phone on its side: one row, the time after the step */
+@media (max-width: 63.99rem) and (max-height: 500px) {
+  .note-bar .note-work-meta {
+    display: inline;
+    padding-left: 4px;
+  }
+}
 /* the review: each change the model placed as a block (the note it answers, Keep or Drop, its own short diff), on
    the card's ground over the wide box's page ground */
 .note-change {

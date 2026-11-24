@@ -68,8 +68,6 @@ export function Reader() {
   const [review, setReview] = useState(false);
   // what the review dropped, by draft: closing the box by accident keeps my picks (a new draft has a new id)
   const [dropped, setDropped] = useState<Record<string, Record<string, number[]>>>({});
-  // how many notes the running Apply took, to name them while the model works
-  const [asked, setAsked] = useState<number>();
   const [askWhy, setAskWhy] = useState("");
   // the last save of the model's changes, said at Apply's place until I close it or leave a new note
   const [applied, setApplied] = useState<AppliedSave | null>(null);
@@ -377,14 +375,10 @@ export function Reader() {
   const applyProps = {
     open: openNotes,
     draft: current,
-    asked,
     editing: !reading,
     speed,
     onSpeed: setSpeed,
-    onApply: () => {
-      setAsked(openNotes);
-      ask.mutate();
-    },
+    onApply: () => ask.mutate(),
     applying: ask.isPending,
     askWhy,
     onStop: async () => {
