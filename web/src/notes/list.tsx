@@ -4,12 +4,20 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import type { DocumentMeta } from "../../../src/shared/notes.ts";
-import { Card } from "../ui/card.tsx";
 import { useConfirm } from "../ui/confirm.tsx";
 import { EmptyState } from "../ui/empty.tsx";
+import { List, Row } from "../ui/list.tsx";
 import { Page } from "../ui/page.tsx";
 import { sentence } from "./parts.tsx";
 import { LAST_DOC } from "./reader.tsx";
+
+// when a document came in, short: "Nov 24"
+// the day it came in, with the year when it isn't this one
+const added = (iso: string) => {
+  const d = new Date(iso);
+  const year = d.getFullYear() === new Date().getFullYear() ? undefined : "numeric";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year });
+};
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -81,8 +89,9 @@ export function NotesList() {
   const documents = docs.data?.documents ?? [];
   const opened = new Set(documents.map((d) => d.path).filter(Boolean));
   const offered = (files.data?.files ?? []).filter((f) => !opened.has(f.path));
-  const upload = (
-    <button type="button" className="btn btn-primary" onClick={() => file.current?.click()}>
+  // filled only as the empty page's one next step; beside a list of documents it is a plain button
+  const upload = (filled: boolean) => (
+    <button type="button" className={filled ? "btn btn-primary" : "btn"} onClick={() => file.current?.click()}>
       Upload a text
     </button>
   );
@@ -96,7 +105,7 @@ export function NotesList() {
           : "Open a document to read it and leave notes on its words."
       }
       // with nothing here yet, Upload is the empty state's own button
-      actions={documents.length > 0 && upload}
+      actions={documents.length > 0 && upload(false)}
     >
       <input
         ref={file}
@@ -116,7 +125,7 @@ export function NotesList() {
         }}
       />
       {why && (
-        <p role="alert" className="m-0 rounded-xl border border-line bg-warn-soft px-4 py-3 text-detail">
+        <p role="alert" className="m-0 rounded-lg border border-line bg-warn-soft px-3 py-2 text-detail">
           {sentence(why)}
         </p>
       )}
@@ -128,49 +137,55 @@ export function NotesList() {
               ? "Upload a text or a PDF, or open a file from your folders below."
               : "Upload a text or a PDF to read it here and leave notes on its words."
           }
-          action={upload}
+          action={upload(true)}
           // the setting is the fix only when no folder is listed
           detail={files.data && files.data.files.length === 0 ? "settings.json · notes.folders" : undefined}
         />
       ) : (
         documents.length > 0 && (
           <section className="grid gap-3" aria-label="My documents">
-            <ul className="m-0 grid list-none gap-3 p-0 lg:grid-cols-2">
+            {/* one list: each document's name opens it; its line says where it is and when it came; its end holds
+                the tick for a set and the ✕ (out of sight under a mouse until the row is hovered) */}
+            <List cols>
               {documents.map((d) => (
-                <li key={d.id} className="flex gap-1">
-                  {/* the box itself is small; its label is the thumb's 44 px, reaching into the gutter so the box
-                      lines up with the page's edge */}
-                  <label className="-ml-3 grid size-11 shrink-0 cursor-pointer place-items-center self-center">
-                    <input
-                      type="checkbox"
-                      aria-label={`Pick ${d.name} for a set`}
-                      checked={picked.includes(d.id)}
-                      onChange={(e) =>
-                        setPicked((p) => (e.target.checked ? [...p, d.id] : p.filter((x) => x !== d.id)))
-                      }
-                      className="size-4.5 cursor-pointer accent-accent"
-                    />
-                  </label>
-                  <div className="min-w-0 flex-1 [&>*]:h-full">
-                    <Card
-                      title={d.name}
-                      to={`/notes/${d.id}`}
-                      busy={forget.isPending && forget.variables?.id === d.id}
-                      meta={
-                        <span className="font-mono text-small text-muted">
-                          {d.source === "upload" ? "Upload" : "File"} · {Math.max(1, Math.round(d.chars / 1000))}k
-                          characters
-                        </span>
-                      }
-                      onRemove={() => forget.mutate(d)}
-                      removeLabel={`Forget ${d.name}`}
-                    >
-                      {d.path && <span className="font-mono block break-all text-small">{d.path}</span>}
-                    </Card>
-                  </div>
-                </li>
+                <Row
+                  key={d.id}
+                  to={`/notes/${d.id}`}
+                  title={d.name}
+                  line={
+                    <>
+                      {d.path ? <span className="font-mono break-all">{d.path}</span> : "Uploaded to kestrel"}
+                      {" · "}
+                      {added(d.addedAt)}
+                    </>
+                  }
+                  end={
+                    <>
+                      <label className="notes-pick">
+                        <input
+                          type="checkbox"
+                          aria-label={`Pick ${d.name} for a set`}
+                          checked={picked.includes(d.id)}
+                          onChange={(e) =>
+                            setPicked((p) => (e.target.checked ? [...p, d.id] : p.filter((x) => x !== d.id)))
+                          }
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="card-remove"
+                        aria-label={`Forget ${d.name}`}
+                        title={`Forget ${d.name}`}
+                        disabled={forget.isPending && forget.variables?.id === d.id}
+                        onClick={() => forget.mutate(d)}
+                      >
+                        ✕
+                      </button>
+                    </>
+                  }
+                />
               ))}
-            </ul>
+            </List>
             {picked.length >= 2 && (
               <Link to={`/notes/set?ids=${picked.join(",")}`} className="btn btn-primary justify-self-start">
                 Review {picked.length} together →
@@ -181,25 +196,27 @@ export function NotesList() {
       )}
       {offered.length > 0 && (
         <section className="grid gap-2" aria-labelledby="notes-folders">
-          <h2 id="notes-folders" className="eyebrow m-0">
+          <h2 id="notes-folders" className="font-cond m-0 text-section">
             From your folders
           </h2>
-          <ul className="card m-0 grid list-none gap-1">
+          <List cols>
             {offered.map((f) => (
-              // each row reaches halfway into the card's own room, so its hover ground spans the card
-              <li key={f.path} className="-mx-2">
-                <button
-                  type="button"
-                  className="grid min-h-11 w-full cursor-pointer gap-0.5 rounded-lg px-2 py-2 text-left hover:bg-surface-2"
-                  disabled={open.isPending}
-                  onClick={() => open.mutate({ kind: "open", payload: { path: f.path } })}
-                >
-                  <span className="text-body text-accent">{f.name}</span>
-                  <span className="font-mono break-all text-small text-muted">{f.path}</span>
-                </button>
-              </li>
+              <Row
+                key={f.path}
+                title={f.name}
+                line={
+                  open.isPending && open.variables?.payload.path === f.path ? (
+                    "Opening…"
+                  ) : (
+                    <span className="font-mono break-all">{f.path}</span>
+                  )
+                }
+                onOpen={() => {
+                  if (!open.isPending) open.mutate({ kind: "open", payload: { path: f.path } });
+                }}
+              />
             ))}
-          </ul>
+          </List>
         </section>
       )}
     </Page>

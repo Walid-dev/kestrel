@@ -14,7 +14,9 @@ import { useConfirm } from "./ui/confirm.tsx";
 import { cx } from "./ui/cx.ts";
 import { EmptyState } from "./ui/empty.tsx";
 import { Field } from "./ui/field.tsx";
+import { List, Row as ListRow } from "./ui/list.tsx";
 import { Page } from "./ui/page.tsx";
+import { Seg } from "./ui/seg.tsx";
 
 type Level = "quick" | "deep";
 type Row = {
@@ -43,9 +45,10 @@ type Full = Omit<Row, "title" | "short"> & { report: Report | null; answers: str
 type Context = { about: string; files: { name: string; chars: number }[] };
 
 const LEVELS: [Level, string, string][] = [
-  ["quick", "Quick", "one search, three pages, about a minute"],
-  ["deep", "Deep", "several searches, six pages, a few minutes"],
+  ["quick", "Quick", "One search, three pages, about a minute"],
+  ["deep", "Deep", "Several searches, six pages, a few minutes"],
 ];
+const ASK_ME = "Up to three questions first, when the answer depends on you";
 const QUESTION_MAX = 1000; // the server's limit on a question
 const BACK = { to: "/research", label: "Research" };
 // an answer the server doesn't have: final, so it is not asked for again
@@ -181,25 +184,21 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
                 ? "Researching… the next question can go once this answer is written"
                 : first.isPending
                   ? "Thinking of a few questions first…"
-                  : undefined
+                  : "Enter sends · Shift+Enter for a new line · Ask me first: up to three questions when the answer depends on you"
           }
           tall
         />
-        <fieldset className="seg" aria-label="How deep">
-          {LEVELS.map(([k, label, hint]) => (
-            <button key={k} type="button" aria-pressed={level === k} onClick={() => setLevel(k)}>
-              {label}
-              <small>{hint}</small>
-            </button>
-          ))}
-        </fieldset>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <button type="button" className="btn" aria-pressed={askMe} onClick={() => setAskMe(!askMe)}>
+        {/* how deep, and whether it asks first: one row, what the depth means under it */}
+        <div className="research-how">
+          <Seg
+            label="How deep"
+            options={LEVELS.map(([value, label, hint]) => ({ value, label, hint }))}
+            value={level}
+            onChange={setLevel}
+          />
+          <button type="button" className="btn" aria-pressed={askMe} title={ASK_ME} onClick={() => setAskMe(!askMe)}>
             {askMe ? "✓ " : ""}Ask me first
           </button>
-          <span className="min-w-0 flex-1 text-small text-muted">
-            Up to three questions first, when the answer depends on you
-          </span>
         </div>
         {error && <p className="m-0 text-detail text-red">{sentence((error as Error).message)}</p>}
       </Card>
@@ -217,7 +216,7 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
           >
             <span className="eyebrow tone-purple">A few questions first</span>
             {questions.map((q, i) => (
-              <label key={q} className="grid gap-1.5">
+              <label key={q} className="grid gap-1">
                 <span className="text-body text-strong">{q}</span>
                 <input
                   className="input w-full"
@@ -266,7 +265,7 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
       )}
       {kept.length > 0 && (
         <section className="grid gap-3">
-          <h2 className="eyebrow m-0">Kept</h2>
+          <h2 className="font-cond m-0 text-section">Kept</h2>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {kept.map((r) => (
               <Card
@@ -437,23 +436,20 @@ function ReportView({ id, onBack }: { id: string; onBack: () => void }) {
               </section>
             )}
             {used.length > 0 && (
-              <Card>
+              // a list of the pages it read: each row opens the page in a tab of its own, its site under its title
+              <section className="grid gap-2">
                 <h2 className="font-cond m-0 text-head">Sources</h2>
-                <div className="grid gap-1.5">
+                <List>
                   {used.map((s) => (
-                    <a
+                    <ListRow
                       key={s.n}
                       href={s.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex min-h-11 min-w-0 items-center gap-2 rounded-xl bg-surface-2 px-3 py-2 text-detail text-accent hover:underline"
-                    >
-                      <span className="cite !ml-0 shrink-0">{host(s.url)}</span>
-                      <span className="truncate text-ink">{s.title || s.url}</span>
-                    </a>
+                      title={s.title || s.url}
+                      line={<span className="font-mono">{host(s.url)}</span>}
+                    />
                   ))}
-                </div>
-              </Card>
+                </List>
+              </section>
             )}
           </aside>
         </div>
@@ -503,24 +499,37 @@ function AboutMe({ context }: { context: Context | undefined }) {
     onSuccess: (id) => navigate(`/notes/${id}`),
   });
   const files = context?.files.length ?? 0;
+  // one row: About me and its context files, what it is under it (a phone keeps the short half, so the line stays
+  // one line beside the button), and its one action at the end
   return (
-    <Card>
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="min-w-0 flex-1 text-detail">
-          <b className="text-strong">About me</b>
-          <span className="text-muted">
-            {" "}
-            · read before every answer, never put into a web search
-            {files ? ` · ${files} context file${files === 1 ? "" : "s"}` : ""}
-          </span>
-        </span>
-        <button type="button" className="btn" disabled={open.isPending} onClick={() => open.mutate()}>
-          {open.isPending ? "Opening…" : "Edit in Notes →"}
-        </button>
-        {open.isError && (
-          <span className="basis-full text-small text-red">{sentence((open.error as Error).message)}</span>
-        )}
-      </div>
-    </Card>
+    <List>
+      <ListRow
+        title={
+          <>
+            About me
+            {files > 0 && (
+              <span className="font-normal text-muted">
+                {" "}
+                · {files} context file{files === 1 ? "" : "s"}
+              </span>
+            )}
+          </>
+        }
+        line={
+          open.isError ? (
+            <span className="text-red">{sentence((open.error as Error).message)}</span>
+          ) : (
+            <>
+              Read before every answer<span className="pointer-coarse:hidden">, never put into a web search</span>
+            </>
+          )
+        }
+        end={
+          <button type="button" className="btn btn-sm" disabled={open.isPending} onClick={() => open.mutate()}>
+            {open.isPending ? "Opening…" : "Edit in Notes →"}
+          </button>
+        }
+      />
+    </List>
   );
 }

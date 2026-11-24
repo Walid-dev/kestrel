@@ -14,6 +14,7 @@ import { Doc } from "./ui/doc.tsx";
 import { EmptyState } from "./ui/empty.tsx";
 import { Field } from "./ui/field.tsx";
 import { Page } from "./ui/page.tsx";
+import { Seg } from "./ui/seg.tsx";
 
 type Job = { id: string; title: string; org: string; state: string; at: string };
 type Kind = "letter" | "answer" | "text";
@@ -30,14 +31,21 @@ type TryRow = {
   // the PDF's file name, when the try made one
   pdf?: string | null;
 };
-// each kind: its name on the choice (short, so the three stay one line each on a phone; the page's line says cover
-// letter), the box's name, and what to type in it
-const KINDS: [Kind, string, string, string][] = [
-  ["letter", "A letter", "", ""],
-  ["answer", "An answer", "The form's question", "Paste the form's question, like: Why do you want to work here?"],
+// each kind: its name on the choice (short, so the three stay one line on a phone), what it writes (the switch's hint
+// line), the box's name, and what to type in it
+const KINDS: [Kind, string, string, string, string][] = [
+  ["letter", "A letter", "A cover letter for this job, laid out as a PDF", "", ""],
+  [
+    "answer",
+    "An answer",
+    "The answer to one of the form's questions",
+    "The form's question",
+    "Paste the form's question, like: Why do you want to work here?",
+  ],
   [
     "text",
     "Any text",
+    "Any text you describe, for this job",
     "What to write",
     "Say what to write, like: a three-line note to the recruiter about my start date",
   ],
@@ -172,9 +180,10 @@ export function Writing() {
         />
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(300px,380px)_minmax(0,1fr)]">
+      {/* the side column 320 wide on a computer, 16 from the try */}
+      <div className="grid gap-x-4 gap-y-(--page-gap) lg:grid-cols-[320px_minmax(0,1fr)]">
         {/* the job, and its tries */}
-        <section className="grid content-start gap-5">
+        <section className="grid content-start gap-(--page-gap)">
           <Card>
             <h2 className="font-cond m-0 text-head">The job</h2>
             <Field label="Search your applications" value={q} onChange={setQ} />
@@ -210,17 +219,17 @@ export function Writing() {
               </div>
             )}
             <h2 className="font-cond m-0 text-head">What to write</h2>
-            <fieldset className="seg" aria-label="What to write">
-              {KINDS.map(([k, label]) => (
-                <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)}>
-                  {label}
-                </button>
-              ))}
-            </fieldset>
+            <Seg
+              label="What to write"
+              options={KINDS.map(([value, label, hint]) => ({ value, label, hint }))}
+              value={kind}
+              onChange={setKind}
+            />
             {kind === "letter" || !box ? (
+              // the form's one main action: as wide as its words under a mouse, the whole width on touch
               <button
                 type="button"
-                className="btn btn-primary btn-big inline-flex w-full items-center justify-center gap-2"
+                className="btn btn-primary btn-big justify-self-start pointer-coarse:w-full"
                 disabled={!ready || write.isPending || running}
                 onClick={() => write.mutate()}
               >
@@ -229,8 +238,8 @@ export function Writing() {
               </button>
             ) : (
               <Field
-                label={box[2]}
-                placeholder={box[3]}
+                label={box[3]}
+                placeholder={box[4]}
                 value={ask}
                 onChange={(v) => setAsk(v.slice(0, ASK_MAX))}
                 // the words can be typed before a job is picked; only the send waits for it
@@ -250,51 +259,53 @@ export function Writing() {
             {write.isError && <p className="m-0 text-detail text-red">{sentence((write.error as Error).message)}</p>}
           </Card>
           {job && (tries.data?.length ?? 0) > 0 && (
-            <section className="grid gap-3">
+            <section className="grid gap-2">
               <h2 className="font-cond m-0 text-head">Tries</h2>
-              {tries.data?.map((x) => (
-                <Card
-                  key={x.id}
-                  // a letter is named by its job, an answer or a text by what was asked
-                  title={<span className="line-clamp-2">{x.ask || x.title}</span>}
-                  tone={shown === x.id ? "accent" : undefined}
-                  busy={forget.isPending && forget.variables === x.id}
-                  meta={
-                    <>
-                      <span className="chip chip-caps tone-purple">{KIND_NAME[x.kind] ?? "Letter"}</span>
-                      {x.state === "failed" && <span className="chip chip-caps tone-red">Failed</span>}
-                      {x.state === "running" && (
-                        <span className="chip chip-caps tone-yellow">
-                          <span className="dot pulse" /> Writing
-                        </span>
-                      )}
-                      <span className="ml-auto text-small text-muted">{when(x.started)}</span>
-                    </>
-                  }
-                  onOpen={() => setParams({ try: x.id })}
-                  removeLabel="Delete this try"
-                  onRemove={
-                    x.state === "running"
-                      ? undefined
-                      : async () => {
-                          const yes = await sure({
-                            title: "Delete this try?",
-                            // name only what goes: a failed try wrote nothing, and only a letter can have a PDF
-                            body: x.pdf
-                              ? "Its text and its PDF are deleted too."
-                              : x.state === "done"
-                                ? "Its text is deleted too."
-                                : undefined,
-                            yes: "Delete",
-                            danger: true,
-                          });
-                          if (yes) forget.mutate(x.id);
-                        }
-                  }
-                >
-                  {x.state === "running" ? `${x.step || "Starting"}…` : undefined}
-                </Card>
-              ))}
+              <div className="grid gap-3">
+                {tries.data?.map((x) => (
+                  <Card
+                    key={x.id}
+                    // a letter is named by its job, an answer or a text by what was asked
+                    title={<span className="line-clamp-2">{x.ask || x.title}</span>}
+                    tone={shown === x.id ? "accent" : undefined}
+                    busy={forget.isPending && forget.variables === x.id}
+                    meta={
+                      <>
+                        <span className="chip chip-caps tone-purple">{KIND_NAME[x.kind] ?? "Letter"}</span>
+                        {x.state === "failed" && <span className="chip chip-caps tone-red">Failed</span>}
+                        {x.state === "running" && (
+                          <span className="chip chip-caps tone-yellow">
+                            <span className="dot pulse" /> Writing
+                          </span>
+                        )}
+                        <span className="ml-auto text-small text-muted">{when(x.started)}</span>
+                      </>
+                    }
+                    onOpen={() => setParams({ try: x.id })}
+                    removeLabel="Delete this try"
+                    onRemove={
+                      x.state === "running"
+                        ? undefined
+                        : async () => {
+                            const yes = await sure({
+                              title: "Delete this try?",
+                              // name only what goes: a failed try wrote nothing, and only a letter can have a PDF
+                              body: x.pdf
+                                ? "Its text and its PDF are deleted too."
+                                : x.state === "done"
+                                  ? "Its text is deleted too."
+                                  : undefined,
+                              yes: "Delete",
+                              danger: true,
+                            });
+                            if (yes) forget.mutate(x.id);
+                          }
+                    }
+                  >
+                    {x.state === "running" ? `${x.step || "Starting"}…` : undefined}
+                  </Card>
+                ))}
+              </div>
               {/* a refused delete (a try still being written) says so: the box named what would go */}
               {forget.isError && (
                 <p className="m-0 text-detail text-red">The delete didn't land: {(forget.error as Error).message}</p>
@@ -476,7 +487,7 @@ function ReviewBox({ r }: { r: Review }) {
         <b className="text-body text-strong">{head}</b>
       </div>
       {(off || r.match.note) && (
-        <p className={`m-0 rounded-xl px-3 py-2 text-detail text-ink ${off ? "bg-pink-soft" : "bg-surface-2"}`}>
+        <p className={`m-0 rounded-lg px-3 py-2 text-detail text-ink ${off ? "bg-pink-soft" : "bg-surface-2"}`}>
           <b className={off ? "text-red" : "text-green"}>{off ? "Check the match: " : "The match: "}</b>
           {r.match.note || (off ? "it may name another company or job" : "")}
         </p>
@@ -525,20 +536,14 @@ function YourFiles() {
         Every application writes from these two files. Rework them in Notes: select words, say what should change, and
         turn your notes into an edit you check before it is saved. Every save keeps the previous version.
       </p>
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="flex flex-wrap gap-1.5">
         {(
           [
             ["voice", "Rework my voice"],
             ["stories", "Rework my stories"],
           ] as const
         ).map(([k, label]) => (
-          <button
-            key={k}
-            type="button"
-            className="btn btn-big inline-flex items-center justify-center gap-2"
-            disabled={open.isPending}
-            onClick={() => open.mutate(k)}
-          >
+          <button key={k} type="button" className="btn" disabled={open.isPending} onClick={() => open.mutate(k)}>
             {open.isPending && open.variables === k && <span className="spin" />}
             {label} →
           </button>

@@ -4,8 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import type { DocumentMeta, Draft, PlacedNote } from "../../../src/shared/notes.ts";
-import { Card } from "../ui/card.tsx";
 import { EmptyState } from "../ui/empty.tsx";
+import { List, Row } from "../ui/list.tsx";
 import { Page } from "../ui/page.tsx";
 import { type Pace, Speed, sentence, Writing } from "./parts.tsx";
 import { Review } from "./review.tsx";
@@ -123,15 +123,15 @@ export function NotesSet() {
       back={back}
       line="One ask covers every document here; each one's changes save on their own."
     >
-      <div className="grid gap-3 lg:grid-cols-2">
+      <List cols label="The documents">
         {picked.map((d) => {
           const open = notes.data?.[d.id];
           return (
-            <Card
+            <Row
               key={d.id}
               title={d.name}
               to={`/notes/${d.id}`}
-              meta={
+              end={
                 <span className={`chip chip-caps ${open ? "tone-pink" : "tone-muted"}`}>
                   {open === undefined ? "…" : `${open} open note${open === 1 ? "" : "s"}`}
                 </span>
@@ -139,14 +139,14 @@ export function NotesSet() {
             />
           );
         })}
-      </div>
+      </List>
       <div className="flex flex-wrap items-center gap-2">
         {(!setDraft || setDraft.status === "failed") && (
           <>
+            <Speed value={speed} onChange={setSpeed} />
             <button type="button" className="btn btn-primary" disabled={ask.isPending} onClick={() => ask.mutate()}>
               Ask for changes on {ids.length} documents
             </button>
-            <Speed value={speed} onChange={setSpeed} />
           </>
         )}
         {setDraft?.status === "making" && <Writing model={setDraft.model} />}
@@ -162,7 +162,7 @@ export function NotesSet() {
         )}
       </div>
       {(why || setDraft?.status === "failed") && (
-        <p role="alert" className="m-0 rounded-xl border border-line bg-warn-soft px-4 py-3 text-detail">
+        <p role="alert" className="m-0 rounded-lg border border-line bg-warn-soft px-3 py-2 text-detail">
           {sentence(why || setDraft?.error || "")}
         </p>
       )}

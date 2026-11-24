@@ -2,8 +2,9 @@
 // plain editor: mono, growing with the text; Enter makes a new line; Cmd/Ctrl+S or Cmd/Ctrl+Enter saves; Esc or
 // Cancel goes back to reading and keeps the words. On a computer-wide screen, Side by side shows the source on the
 // left and the preview on the right, as VS Code does. Words not saved yet wait on this device until Save or Discard.
-// Its head holds the switch and Download: the text as a file, Save as PDF (a clean print page), Copy.
-import { useDeferredValue, useEffect, useId, useRef, useState } from "react";
+// Its head holds the switch and Download: the text as a file, Save as PDF (a clean print page), Copy. While reading,
+// a page can put its own buttons there too, before Download (tools: Notes' Careful/Fast and the edit's button).
+import { type ReactNode, useDeferredValue, useEffect, useId, useRef, useState } from "react";
 import { type DocKind, docKind } from "../../../src/shared/markdown.ts";
 import { type Mark, Markdown } from "./markdown.tsx";
 
@@ -95,6 +96,7 @@ export function Doc({
   onSave,
   printHref,
   onMode,
+  tools,
 }: {
   id: string;
   name: string;
@@ -107,6 +109,8 @@ export function Doc({
   onSave?: (text: string, rev: string) => Promise<Saved>;
   printHref?: string;
   onMode?: (mode: DocMode) => void;
+  // the page's own buttons for the document, on the head's right before Download, while reading (Notes' edit)
+  tools?: ReactNode;
 }) {
   const kind = docKind(name);
   const wide = useWide();
@@ -263,6 +267,7 @@ export function Doc({
         {shown === "read" ? (
           <div className="doc-tools">
             {saved && <span className="doc-status">Saved. The earlier text is kept as a version.</span>}
+            {tools}
             <Downloads name={name} text={text} kind={kind} printHref={printHref} />
           </div>
         ) : (

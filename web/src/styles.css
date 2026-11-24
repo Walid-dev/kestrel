@@ -3236,60 +3236,144 @@ body:has(.paper-view) {
     color: inherit;
   }
 }
-/* the Note button by the picked words: where they are is known only at run time (--x, --y, set by the reader) */
+/* the Note button by the picked words: where they are is known only at run time (--x, --y, set by the reader). It
+   floats above the text, so it takes the accent's soft ground (made solid, so the words under it don't show
+   through), an accent edge and a shadow; it is not filled, since the edit's button is the screen's one filled button */
 .note-pick {
   position: fixed;
   left: var(--x);
   top: var(--y);
   z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--h-control);
+  padding: 0 14px;
   transform: translateX(-50%);
   white-space: nowrap;
-  padding: 9px 15px;
-  border: 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--surface));
   border-radius: 999px;
-  background: var(--accent);
-  color: var(--bg);
-  font: 600 var(--text-detail) / 1 var(--sans);
-  box-shadow: 0 8px 22px var(--shade-dock);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--strong);
+  font: 500 var(--text-detail) / var(--text-detail--line-height) var(--sans);
+  box-shadow:
+    0 1px 2px var(--shade-dock),
+    0 10px 28px -6px var(--shade-dock);
   cursor: pointer;
 }
-/* the reader on a short screen (a phone on its side): the bar, the title one step down (a long file name keeps to one
-   line) and the document's own bar, nothing else above it, so the document's first lines show on the first screen.
-   The eyebrow and the line under the title (where the file is, how to leave a note) come back with the room */
+.note-pick-mark {
+  color: var(--accent);
+}
+@media (hover: hover) {
+  .note-pick:hover {
+    background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+  }
+}
+@media (pointer: coarse) {
+  .note-pick::after {
+    content: "";
+    position: absolute;
+    inset: calc(50% - var(--h-hit) / 2) 0;
+  }
+}
+/* the reader's title is the document's own h1: Read leaves that first line out of the text under it (Side by side
+   and Edit keep it, and so does the print page) */
+.note-titled .doc-read > .md > .md-h1:first-child {
+  display: none;
+}
+.note-titled .doc-read > .md > .md-h1:first-child + * {
+  margin-top: 0;
+}
+/* the edit's controls, inside the document's head before Download: one row of controls, 8 apart. On a narrow screen
+   the head takes two rows: Read/Edit and Download on the first, the edit's controls on the second */
+.note-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+@media (max-width: 47.99rem) {
+  .note-reader .doc-bar:not(.doc-bar-editing) > .doc-tools {
+    display: contents;
+  }
+  .note-reader .doc-bar:not(.doc-bar-editing) .doc-menu-button {
+    order: 1;
+    margin-left: auto;
+  }
+  .note-reader .doc-bar:not(.doc-bar-editing) .note-tools {
+    order: 2;
+    flex-basis: 100%;
+  }
+  /* "Saved…" would take a row of its own here; Undo the last save, on the second row, already says it */
+  .note-reader .doc-bar:not(.doc-bar-editing) .doc-status {
+    display: none;
+  }
+}
+/* Earlier versions: a fold-out in the notes' column, its versions as inner blocks under it */
+.note-versions {
+  display: grid;
+  gap: 8px;
+}
+/* a document picked for a set: its tick box in the row's end, the box small, its label the control's size (a thumb's
+   44 on touch) */
+.notes-pick {
+  display: grid;
+  place-items: center;
+  width: var(--h-control);
+  height: var(--h-control);
+  cursor: pointer;
+}
+.notes-pick > input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+@media (pointer: coarse) {
+  .notes-pick {
+    width: var(--h-hit);
+    height: var(--h-hit);
+  }
+}
+/* the reader on a short screen (a phone on its side): the bar, the title (a long one keeps to one line) and the
+   document's own head, nothing else above it, so the document's first lines show on the first screen. The eyebrow
+   and the line under the title (where the file is, how to leave a note) come back with the room */
 @media (max-height: 500px) {
   .note-reader {
     gap: 12px;
   }
   .note-reader > .page-bar {
-    margin-bottom: -6px;
+    margin-bottom: -4px;
   }
   .note-reader .page-head > .eyebrow,
   .note-reader .page-line {
     display: none;
   }
   .note-reader .page-title {
-    font-size: var(--text-lead);
-    line-height: var(--text-lead--line-height);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
-/* and on a phone on its side, the edit's row (Turn my notes into an edit, Review the changes, Undo) beside the title,
-   not a row of its own over the document: the document's column lets go of its parts (contents), so the row joins
-   the head's; everything else spans the page. Not on a short computer window, where the notes column is beside */
-@media (max-height: 500px) and (max-width: 63.99rem) {
-  .note-reader:has(.note-tools) {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-  }
-  .note-reader:has(.note-tools) > :not(.page-head),
-  .note-reader:has(.note-tools) .note-main > :not(.note-tools) {
-    grid-column: 1 / -1;
-  }
-  .note-reader .note-main {
-    display: contents;
-  }
-  .note-reader .note-tools {
-    justify-content: flex-end;
-  }
+/* Research: how deep and Ask me first on one row, the depth's hint under both (its field lets go of its box, so the
+   switch and the button share the row and the hint spans it) */
+.research-how {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 8px;
+}
+.research-how > .seg-field {
+  display: contents;
+}
+.research-how > .btn {
+  grid-area: 1 / 2;
+  justify-self: start;
+  white-space: nowrap;
+}
+.research-how .seg-hint {
+  grid-area: 2 / 1 / 3 / -1;
 }
 /* a research answer's source, inline: the site's name, a small link that opens the page */
 .cite {
