@@ -190,7 +190,8 @@ function startOfDay(now: number, back: number): number {
 
 export const PERIODS = ["1", "7", "30", "all"];
 
-// since the start, and one period with each model apart, and the last 30 days one by one for the chart
+// since the start, and one period with each model apart; for the chart, the last 30 days one by one and today hour
+// by hour (0 to 23, local time)
 export function costReport(omlxHome: string, pricesFile: string, days: string, now = Date.now()) {
   if (!PERIODS.includes(days)) throw new RangeError("send ?days=1, 7, 30 or all");
   const hours = usageHours(omlxHome);
@@ -202,6 +203,12 @@ export function costReport(omlxHome: string, pricesFile: string, days: string, n
   for (let back = 29; back >= 0; back--) daily.set(dayOf(startOfDay(now, back)), []);
   const month = startOfDay(now, 29);
   for (const h of hours) if (h.hour >= month) daily.get(dayOf(h.hour))?.push(h);
+  const today = startOfDay(now, 0);
+  const hourly = Array.from({ length: 24 }, (_, hour) => ({ hour, tokens: 0 }));
+  for (const h of hours) {
+    const at = new Date(h.hour * 1000);
+    if (h.hour >= today) hourly[at.getHours()].tokens += h.prompt + h.output;
+  }
   const first = hours[0]?.hour;
   return {
     at: new Date(now).toISOString(),
@@ -214,6 +221,7 @@ export function costReport(omlxHome: string, pricesFile: string, days: string, n
       const t = summarize(of, null).total;
       return { day, tokens: t.fresh + t.reused + t.out };
     }),
+    hourly,
     prices,
     pricesError: error,
   };

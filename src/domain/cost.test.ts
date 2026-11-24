@@ -82,3 +82,27 @@ test("no home set, or no table: the reason in words", () => {
   assert.throws(() => usageHours(""), /isn't set/);
   assert.throws(() => usageHours(mkdtempSync(join(tmpdir(), "kestrel-none-"))), /isn't there/);
 });
+
+test("today hour by hour: the hours since midnight, local time, and none from yesterday", () => {
+  const home = mkdtempSync(join(tmpdir(), "kestrel-omlx-"));
+  const db = new DatabaseSync(join(home, "usage.sqlite3"));
+  db.exec(`CREATE TABLE model_usage_hourly (timestamp_hour INTEGER, model_id TEXT, requests INTEGER, prompt_tokens INTEGER,
+    cached_tokens INTEGER, completion_tokens INTEGER, prefill_seconds REAL, generation_seconds REAL)`);
+  const at = (day: number, hour: number) => new Date(2026, 10, day, hour).getTime() / 1000;
+  const put = db.prepare("INSERT INTO model_usage_hourly VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+  put.run(at(23, 23), "careful-model", 1, 5_000, 0, 500, 10, 10); // yesterday: not today's
+  put.run(at(24, 9), "careful-model", 2, 1_000, 400, 100, 10, 10);
+  put.run(at(24, 14), "careful-model", 1, 2_000, 0, 200, 10, 10);
+  put.run(at(24, 14), "fast-model", 1, 300, 0, 30, 10, 10);
+  db.close();
+  const prices = join(home, "prices.json");
+  writeFileSync(prices, JSON.stringify(PRICES));
+  const r = costReport(home, prices, "1", new Date(2026, 10, 24, 15, 30).getTime());
+  assert.equal(r.hourly.length, 24);
+  assert.deepEqual(r.hourly[9], { hour: 9, tokens: 1_100 }); // fresh + reused + out: the prompt and the output
+  assert.deepEqual(r.hourly[14], { hour: 14, tokens: 2_530 }); // both models in the hour
+  assert.equal(
+    r.hourly.reduce((a, h) => a + h.tokens, 0),
+    3_630,
+  );
+});
