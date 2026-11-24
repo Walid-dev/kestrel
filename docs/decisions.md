@@ -5,6 +5,18 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-24 · One file per page; a bad request answers 400; test copies never reach the models.**
+  The web app was one 566 KB file: each page is now its own file (React's `lazy`, one table in `web/src/pages.tsx`),
+  so a cold `/searches` sends 108 KB of script instead of 566 (brotli); the tabs' pages are fetched quietly after the
+  first paint. The service worker lists no files: `/assets/` (hashed, so safe) is cache-first, everything else
+  network-first with `cache: "no-cache"`, so a page the browser kept from before a deploy never wins; one visit leaves
+  every page's file in its cache. Its cache is never pruned yet (about 270 KB a deploy). A request the server can't
+  read answers 400 in plain words (malformed JSON, a validator's refusal), every other failure a 500 with no path
+  (`src/server/errors.ts`). Outside the deployed app, a model or voice door that settings.json doesn't name is a dead
+  local address (`DEAD_DOOR`), so a development run, a test or a builder's screen check fails fast instead of asking
+  the computer's models; a live eval reaches the real door on purpose (`liveModels`: MODEL_DEFAULTS, `--url` or
+  `KESTREL_MODEL_URL`). Left: a raw zod error shown as `[object Object]` needs one shared validator hook.
+
 - **2026-11-23 · A last audit of the merged app, and its fixes.**
   One read-only pass over every page at a phone's width, sideways and a computer's found nothing broken and 17 places
   where pages disagreed or read rough; all fixed. One stage map gives Searches' colours (To review muted everywhere);
@@ -385,7 +397,7 @@ technical; the plan and the runbook carry the detail.
   the shape without it. The model door's JSON mode stays off for the big write: its grammar pushed both models into
   top-level arrays; the prompt asks for one object, and the client parses the whole text, falls back to the brace
   slice, and unwraps a one-object array. Defaults live in `src/platform/config.ts` (MODEL_DEFAULTS); settings.json
-  overrides them.
+  overrides them in the deployed app (outside it, a door the file doesn't name is a dead one: 2026-11-24).
   Rejected: the door's JSON mode; thinking off for the fast model.
 
 - **2026-11-21 · The palette is the code palette; the mark is a wolf's face.**
