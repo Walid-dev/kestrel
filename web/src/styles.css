@@ -3580,6 +3580,10 @@ body:has(.paper-view) {
 .try-text .doc-modes:has(> :only-child) {
   display: none;
 }
+/* Writing: the open try's row in the list of tries takes the accent edge a card that matters has */
+.list-row:has(.writing-open) {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
 /* work in progress: a thin bar that sweeps while a list refills, a shimmer where a card is coming, a small spinner on
    the button that was pressed */
 .loading-bar {
