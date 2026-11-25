@@ -5144,6 +5144,11 @@ body:has(.paper-view) {
 .news-starred {
   max-width: 52rem;
 }
+/* a star taken off in the Starred list: still in its place until the page is left, its ★ gives it back */
+.news-unstarred {
+  color: var(--muted);
+  text-decoration: line-through;
+}
 .news-kept {
   display: grid;
   gap: 12px;

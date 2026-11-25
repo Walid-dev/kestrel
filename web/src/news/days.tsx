@@ -17,6 +17,7 @@ import { Field } from "../ui/field.tsx";
 import { List, Row } from "../ui/list.tsx";
 import { Page } from "../ui/page.tsx";
 import { Seg } from "../ui/seg.tsx";
+import { Star } from "../ui/star.tsx";
 import {
   dayName,
   plural,
@@ -28,7 +29,7 @@ import {
   useStar,
   useStars,
 } from "./data.ts";
-import { Links, Star } from "./story.tsx";
+import { Links, STAR_HINT } from "./story.tsx";
 
 const thisYear = (day: string) => day.startsWith(String(new Date().getFullYear()));
 // "November 2026"
@@ -292,7 +293,9 @@ function Found({ words }: { words: string }) {
 
 // the stories starred, the newest starred first. A star whose day's page still shows it opens there, at the story;
 // one whose day's page no longer does (the day deleted, or its brief written again by Make it now) opens the copy it
-// kept, in a box. Unstarring that one asks first: the copy goes for good
+// kept, in a box, and its line says so. Unstarring that one asks first: the copy goes for good. One whose day still
+// shows it unstars at once and stays in its place, struck through, until the page is left: its ★ stars it again
+const keyOf = (s: { brief: string; n: number }) => `${s.brief}:${s.n}`;
 function Starred() {
   const stars = useStars();
   const star = useStar();
@@ -302,6 +305,10 @@ function Starred() {
   const [last, setLast] = useState<NewsStar | null>(null);
   if (open && open !== last) setLast(open);
   const shown = open ?? last;
+  // the live stars unstarred here, kept in sight until the page is left, and each one's first starred time, so a star
+  // given back keeps its place in the list
+  const [left, setLeft] = useState<NewsStar[]>([]);
+  const [first, setFirst] = useState<Record<string, string>>({});
   const going = (s: NewsStar) => star.isPending && star.variables.brief === s.brief && star.variables.n === s.n;
   const failed = (s: NewsStar) => star.isError && star.variables.brief === s.brief && star.variables.n === s.n;
   const unstar = async (s: NewsStar) => {
@@ -315,11 +322,26 @@ function Starred() {
       }))
     )
       return;
-    star.mutate({ brief: s.brief, n: s.n, on: false }, { onSuccess: () => setOpen(null) });
+    // a live one stays in sight from the press on, so the list never drops it while the stars read again
+    const drop = () => setLeft((l) => l.filter((x) => keyOf(x) !== keyOf(s)));
+    if (s.shown) {
+      setLeft((l) => [...l.filter((x) => keyOf(x) !== keyOf(s)), s]);
+      setFirst((f) => ({ [keyOf(s)]: s.starred, ...f }));
+    }
+    star.mutate({ brief: s.brief, n: s.n, on: false }, { onSuccess: () => setOpen(null), onError: drop });
   };
+  const restar = (s: NewsStar) =>
+    star.mutate(
+      { brief: s.brief, n: s.n, on: true },
+      { onSuccess: () => setLeft((l) => l.filter((x) => keyOf(x) !== keyOf(s))) },
+    );
   if (stars.isError) return <p className="m-0 text-detail text-red">{sentence((stars.error as Error).message)}</p>;
   if (!stars.data) return <div className="loading-bar" aria-hidden="true" />;
-  const list = stars.data.stars;
+  const live = new Set(stars.data.stars.map(keyOf));
+  const when = (s: NewsStar) => first[keyOf(s)] ?? s.starred;
+  const list = [...stars.data.stars, ...left.filter((s) => !live.has(keyOf(s)))].sort((a, b) =>
+    when(b).localeCompare(when(a)),
+  );
   if (!list.length)
     return (
       <EmptyState
@@ -332,17 +354,19 @@ function Starred() {
       <List label="Starred stories">
         {list.map((s) => {
           const source = s.story.links[0]?.source;
+          const on = live.has(keyOf(s));
           return (
             <Row
-              key={`${s.brief}:${s.n}`}
+              key={keyOf(s)}
               {...(s.shown ? { to: `/news?day=${s.day}#s${s.n}` } : { onOpen: () => setOpen(s) })}
-              title={<span className="line-clamp-2">{s.story.headline}</span>}
+              title={<span className={cx("line-clamp-2", !on && "news-unstarred")}>{s.story.headline}</span>}
               line={
                 <>
                   <span className="news-found-line">
                     <SectionChip section={s.story.section} />
                     <span>
                       {dayOf(s.day)}
+                      {!s.shown && " · its kept copy"}
                       {source && (
                         <>
                           {" "}
@@ -354,7 +378,7 @@ function Starred() {
                   {/* a refused unstar says so on its own row, as a refused delete does */}
                   {failed(s) && (
                     <span className="block text-red" role="alert">
-                      The unstar didn't land: {(star.error as Error).message}
+                      The {star.variables?.on ? "star" : "unstar"} didn't land: {(star.error as Error).message}
                     </span>
                   )}
                 </>
@@ -362,10 +386,11 @@ function Starred() {
               end={
                 <Star
                   compact
-                  on={!going(s)}
+                  on={going(s) ? star.variables?.on === true : on}
                   busy={going(s)}
-                  label={`Starred: ${s.story.headline}`}
-                  onPress={() => unstar(s)}
+                  label={`Star: ${s.story.headline}`}
+                  hint={STAR_HINT}
+                  onPress={() => (on ? unstar(s) : restar(s))}
                 />
               }
             />
@@ -409,7 +434,7 @@ function Kept({ star, going, onUnstar }: { star: NewsStar; going: boolean; onUns
           <Links key={l.url} link={l} />
         ))}
         <span className="news-story-acts">
-          <Star on={!going} busy={going} onPress={onUnstar} />
+          <Star on={!going} busy={going} hint={STAR_HINT} onPress={onUnstar} />
         </span>
       </div>
       <p className="m-0 text-small text-muted">Its day's page no longer shows it: this is the copy its star kept.</p>

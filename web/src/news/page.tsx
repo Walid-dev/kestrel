@@ -26,6 +26,7 @@ import { cx } from "../ui/cx.ts";
 import { EmptyState } from "../ui/empty.tsx";
 import { List, Row } from "../ui/list.tsx";
 import { Page } from "../ui/page.tsx";
+import { Star } from "../ui/star.tsx";
 import {
   ago,
   clock,
@@ -43,7 +44,7 @@ import {
   useNews,
   useStar,
 } from "./data.ts";
-import { Links, Star } from "./story.tsx";
+import { Links, STAR_HINT } from "./story.tsx";
 
 const DAYS_SHOWN = 7;
 // the first questions a story's Ask offers
@@ -208,7 +209,7 @@ function Today() {
                 Written each morning at <b className="font-mono text-ink">{morningAt(d.time)}</b>
               </>
             ) : (
-              "Off each morning in the settings"
+              "The morning news is off in the settings"
             )}
             ; making it now takes a few minutes on the computer's model
           </span>
@@ -406,7 +407,7 @@ function Story({
           <Links key={l.url} link={l} />
         ))}
         <span className="news-story-acts">
-          <Star on={on} busy={star.isPending} onPress={() => star.mutate({ brief, n, on: !on })} />
+          <Star on={on} busy={star.isPending} hint={STAR_HINT} onPress={() => star.mutate({ brief, n, on: !on })} />
           <button
             type="button"
             className="btn btn-sm btn-quiet news-ask-btn"

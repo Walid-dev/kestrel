@@ -26,7 +26,10 @@ const UP_TO_100 = "a number from 1 to 100";
 const STORY_N = "a story number from 1 to 999";
 const STORY = z.object({
   brief: z.string().regex(/^[\w-]{1,64}$/, "a brief's id"),
-  n: z.coerce.number(STORY_N).int(STORY_N).min(1, STORY_N).max(999, STORY_N),
+  n: z
+    .string()
+    .regex(/^[1-9]\d{0,2}$/, STORY_N)
+    .transform(Number),
 });
 
 // the validator's refusal, as the page shows it: its first reason, not the whole report (the news routes are the first

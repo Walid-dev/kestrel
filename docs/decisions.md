@@ -6,13 +6,18 @@ technical; the plan and the runbook carry the detail.
 ## Decided
 
 - **2026-11-25 · Stars on News: each keeps a copy of its story; All days lists them under Starred.**
-  Each story card has Searches' star (the pill: a yellow ★, Star or Starred) beside Ask and Look deeper. A star keeps
+  Each story card has the star beside Ask and Look deeper: Searches' pill (a yellow ★, Star or Starred), now the
+  shared `Star` in `web/src/ui/star.tsx`, shown on /design; Searches' listing sheet still draws its own copy of the
+  markup and moves to `Star` once its branch lands (both pages are then one part). A star keeps
   a copy of the story as its brief told it (headline, text, section, figure, links) with its day, its brief and its
   number, in `news_stars` (migration 028), with no foreign key: deleting a day keeps its stars, and the day's Confirm
   says how many stay. All days gets a Seg, Days | Starred: the stars newest-starred first, each a row (headline;
   section chip, day, first source) that opens its day at the story while that day's page shows its brief, else the
-  kept copy in a Dialog; the head's line counts them. Unstarring a kept copy asks first (it goes for good). Routes:
-  `PUT` and `DELETE /api/news/stars/:brief/:n` (zod: a brief's id, a number from 1 to 999; 404 past the brief's last
+  kept copy in a Dialog (its line says "its kept copy"); the head's line counts them. Unstarring a kept copy asks
+  first (it goes for good); unstarring a live one from the list doesn't ask, and its row stays in place, struck
+  through, until the page is left, its ★ giving the star back at the same place. Routes:
+  `PUT` and `DELETE /api/news/stars/:brief/:n` (zod: a brief's id, a number from 1 to 999 written plainly, so `0x3`,
+  `1e2` and `01` are 400; 404 past the brief's last
   story), `GET /api/news/stars`; `GET /api/news` carries each story's star and its day's count, `/api/news/days` each
   day's and the total. A copy is about 1.5 KB; the list comes whole. Why one list across days, not a filter: a day
   holds 6 to 10 stories, so a filter inside a day finds little; a starred story is looked for days later. A test now
@@ -20,25 +25,31 @@ technical; the plan and the runbook carry the detail.
   number, and a database already at it would never run the second. Rejected: a flag inside the brief's JSON (gone
   with the day); a star that holds its day against deletion (each delete would ask about stars).
 - **2026-11-25 · Research asks its questions on the research's own model.**
-  `research-ask` leaves the fast list: by default it runs on the careful model, as `research` does, so a research
-  never switches models between its questions and its answer. The two local models don't fit in the computer's memory
-  together: a switch costs about 25 s to swap, and the first answer after it about 25 s more, on every research that
-  asks first. The Models page still picks each use on its own. Rejected: `research-ask` following `research`'s pick
-  when it has none (a rule the Models page would have to explain). Replaces: the 2026-11-22 entry's "the fast model, a
-  few seconds".
+  `research-ask` leaves the fast list and, with no pick of its own, runs on whatever model `research` runs on (its
+  pick, else the careful model), so a research never switches models between its questions and its answer. The two
+  local models don't fit in the computer's memory together: a switch costs about 25 s to swap, and the first answer
+  after it about 25 s more, on every research that asks first. The Models page still picks each use on its own; the
+  questions' description (its hover text) says they follow Research unless picked apart, and their Fallback line shows
+  Research's model.
+  The questions' call gets 6000 tokens with thinking on (was 2000, set for the fast model): the careful model thinks
+  longer, and a call that spends its budget thinking fails, which Research takes as "no questions". No eval covers
+  this call. Rejected: a fixed default on the careful model (a pick on Research alone would bring the swap back).
+  Replaces: the 2026-11-22 entry's "the fast model, a few seconds".
 - **2026-11-25 · Home: the news card without section dots; the head's aside as plain text.**
   The card's headlines lose their section's dot (too much colour on Home); News keeps its indigo word, and the page
   keeps its sections' colours. PageHead's `aside` becomes one statement (any node, no longer two set lines) read as
   plain text: the small step with its own line height, wrapping as words do (balanced: two lines on a narrow phone,
   one from 393 wide), centred on the eyebrow and the title past a thin rule, never stretched to sit level with them.
   Rejected: the statement as the head's line under the title (it reads as well, but adds a row above the news card,
-  and a page's line says where things stand, not what the app is).
+  and a page's line says where things stand, not what the app is). Replaces: the 2026-11-24 entry's aside "level with
+  their two lines" and the card's section dots.
 - **2026-11-25 · The morning news at 08:00; the page says when.**
   The brief's default time moves from 06:30 to 08:00 (`NewsSettings.time`; due from the set time until noon, a failed
   morning retried once, as before). A `news.time` in the data folder's settings.json wins over the default; deploy
   writes only the Tailscale login there, never news defaults. The News page's foot says the time in effect beside
   Make it now ("Written each morning at 8:00 AM"), from `GET /api/news`'s `time`, in the browser's time format, as
-  the empty states and Home's card do; with the news off in the settings, it says so. Replaces: the 2026-11-24
+  the empty states and Home's card do; with the news off in the settings, it says "The morning news is off in the
+  settings". Replaces: the 2026-11-24
   entry's 06:30.
 - **2026-11-24 · The jobspy wrapper is retired; kestrel's job hunts come through the mirror until the cutover.**
   `scripts/collectors/jobspy.mjs` is deleted. Its LinkedIn reads went out from this computer's address outside the

@@ -21,7 +21,7 @@ export const USES: { use: Use; what: string }[] = [
   { use: "ask", what: "Ask, on a page (a lesson, a quiz question): a conversation about what it shows" },
   { use: "search-deep", what: "Searches' deep check: a longer look at one job or one deal" },
   { use: "research", what: "Research: a question answered from the web, quick or deep" },
-  { use: "research-ask", what: "Research: the questions it asks me first, when it needs to" },
+  { use: "research-ask", what: "Research: the questions it asks me first, on Research's model unless picked apart" },
   { use: "quiz", what: "Quiz: marking my answer to a lesson's question" },
   { use: "quiz-explain", what: "Quiz: the rich explanation after each question" },
   { use: "letter", what: "Cover letters: a letter written the way an application writes it" },
@@ -30,17 +30,23 @@ export const USES: { use: Use; what: string }[] = [
 ];
 
 // the fast model for what wants speed: Notes' fast asks, the quiz's explanations (written while I answer), and Ask's
-// conversation (an answer that streams while I wait; docs/eval/2026-11-22-ask.md). Research's questions first run on
-// the careful model, as the research after them does: the two models don't fit in the computer's memory together, so
-// a switch between the two steps cost about 25 s to swap and 25 s more for the first answer
+// conversation (an answer that streams while I wait; docs/eval/2026-11-22-ask.md)
 const FAST: Use[] = ["notes-fast", "quiz-explain", "ask"];
-export const fallbackFor = (settings: Settings, use: Use): string =>
-  FAST.includes(use) ? settings.models.fast : settings.models.careful;
+// a use with no pick of its own that runs on another use's model, picked or not. Research's questions follow the
+// research: the two models don't fit in the computer's memory together, so a switch between the two steps costs about
+// 25 s to swap and 25 s more for the first answer
+const FOLLOWS: Partial<Record<Use, Use>> = { "research-ask": "research" };
+
+export function fallbackFor(db: DatabaseSync, settings: Settings, use: Use): string {
+  const lead = FOLLOWS[use];
+  if (lead) return modelFor(db, settings, lead);
+  return FAST.includes(use) ? settings.models.fast : settings.models.careful;
+}
 
 export function modelFor(db: DatabaseSync, settings: Settings, use: Use): string {
   const row = db.prepare("SELECT model FROM model_settings WHERE use = ?").get(use) as { model: string } | undefined;
   if (row?.model) return row.model;
-  return fallbackFor(settings, use);
+  return fallbackFor(db, settings, use);
 }
 
 export function setModelFor(db: DatabaseSync, use: Use, model: string): void {
@@ -58,7 +64,7 @@ export function listUses(
     use,
     what,
     model: modelFor(db, settings, use),
-    fallback: fallbackFor(settings, use),
+    fallback: fallbackFor(db, settings, use),
   }));
 }
 

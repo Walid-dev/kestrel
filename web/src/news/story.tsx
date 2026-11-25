@@ -1,8 +1,9 @@
-// What a story's card and a starred story's kept copy share: its links as source chips, and the star. The star is
-// Searches' own (the listing sheet's): a pill pressed while starred, a yellow ★ and its word; compact, in a list where
-// every row is starred, the ★ alone, its word in its name.
+// What a story's card and a starred story's kept copy share: its links as source chips, and what its star says on
+// hover (the star itself is the shared one, web/src/ui/star.tsx).
 import type { NewsLink } from "../../../src/shared/news.ts";
 import { points } from "./data.ts";
+
+export const STAR_HINT = "Keep it under All days › Starred, even once its day is deleted";
 
 const LOCK = (
   <svg
@@ -51,37 +52,5 @@ export function Links({ link }: { link: NewsLink }) {
         </a>
       )}
     </>
-  );
-}
-
-// the star: pressed while starred. busy: a press on its way, already drawn in on; another press meanwhile does
-// nothing (the button stays enabled, so the keyboard's focus never drops off it). compact: the ★ alone, label its name
-export function Star({
-  on,
-  busy = false,
-  compact = false,
-  label = "Starred",
-  onPress,
-}: {
-  on: boolean;
-  busy?: boolean;
-  compact?: boolean;
-  label?: string;
-  onPress: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="pill"
-      aria-pressed={on}
-      aria-label={compact ? label : undefined}
-      title={on ? "Unstar" : "Keep it under All days › Starred, even once its day is deleted"}
-      onClick={() => !busy && onPress()}
-    >
-      <span className="text-yellow" aria-hidden="true">
-        ★
-      </span>
-      {!compact && (on ? "Starred" : "Star")}
-    </button>
   );
 }

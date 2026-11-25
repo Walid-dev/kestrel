@@ -52,6 +52,20 @@ test("the settings answer until a pick is made; the pick wins and survives a reo
   );
 });
 
+test("Research's questions follow a pick on Research alone; their own pick wins over it", () => {
+  const base = mkdtempSync(join(tmpdir(), "kestrel-models-"));
+  const file = join(base, "t.db");
+  const db = new DatabaseSync(file);
+  migrate(db, file);
+  setModelFor(db, "research", "research-made-up");
+  assert.equal(modelFor(db, settings, "research-ask"), "research-made-up"); // no swap between the two steps
+  assert.equal(listUses(db, settings).find((u) => u.use === "research-ask")?.fallback, "research-made-up");
+  setModelFor(db, "research-ask", "questions-made-up");
+  assert.equal(modelFor(db, settings, "research-ask"), "questions-made-up");
+  assert.equal(modelFor(db, settings, "research"), "research-made-up");
+  db.close();
+});
+
 test("a pick must be one the door offers; a down door refuses the switch (PF-1)", async () => {
   const { createServer } = await import("node:http");
   const { once } = await import("node:events");

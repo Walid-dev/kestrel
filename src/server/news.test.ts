@@ -99,7 +99,7 @@ test("a day deleted: 400 for a day that isn't one, 404 for one with no brief, 40
 test("a star: 400 for a number that isn't one, 404 past the brief's last story; it outlives its day", async () => {
   const { app } = setup();
   const star = (brief: string, n: string, method = "PUT") => app.request(`/api/news/stars/${brief}/${n}`, { method });
-  for (const n of ["0", "1000", "1.5", "two"])
+  for (const n of ["0", "1000", "1.5", "two", "0x1", "1e0", "%201", "01"])
     assert.deepEqual(await read(await star("b1", n)), { status: 400, body: { error: "a story number from 1 to 999" } });
   assert.deepEqual(await read(await star("b%20b", "1")), { status: 400, body: { error: "a brief's id" } });
   // b1 holds one story: its second is out of range, as is any story of a brief that isn't there

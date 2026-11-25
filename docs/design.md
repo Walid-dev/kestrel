@@ -117,6 +117,10 @@ reading width is 720.
 - `Seg` (`web/src/ui/seg.tsx`) — a choice among two to four, as one bar as wide as its words: `label`, `options` (with
   `hint`), `value`, `onChange`, `modes`. What a pick means goes in its hint line under the bar, never a second line
   inside it. `seg-modes` marks the picked mode with a dot.
+- `Star` (`web/src/ui/star.tsx`) — anything kept for later (a news story; a search's listing once its sheet moves to
+  it): a pill, a yellow ★ and Star or Starred, pressed while starred, beside the item's other actions. Props: `on`,
+  `onPress`, `busy` (a press on its way: drawn in its new state, more presses ignored), `hint` (on hover), `compact`
+  (the ★ alone at a row's end in a list of starred things, named by `label`).
 - `.tile` — a big choice (56 / 60), only when two or more options each need a line under the name; picked, it takes
   the accent edge and a ✓.
 - `Doc` (`web/src/ui/doc.tsx`) — every document: Read, Edit and (1024 px and wider) Side by side, with a Download
@@ -152,9 +156,8 @@ reading width is 720.
   document is Doc without `onSave`; a page whose item is gone says so in plain words and doesn't retry; the listing
   sheet is the wide Dialog, its title and ✕ kept in view on tall screens, Apply at its foot; a stage's colour comes
   from one map (`STAGES`); a history (News' All days) lists by month, a hundred at a time with Show older, a find at
-  its top and a ✕ per row that deletes after Confirm, and a Seg before them for what was starred. A star is Searches'
-  pill: a yellow ★ and Star or Starred, pressed while starred, beside the item's other actions; in a list of starred
-  things, the ★ alone at the row's end, its name in `aria-label`.
+  its top and a ✕ per row that deletes after Confirm, and a Seg before them for what was starred: there a ★ taken
+  off leaves its row in place, struck through, until the page is left, and gives the star back.
 - Home, top to bottom: the head (the date over the wolf and kestrel, the aside beside them), the news card (News in
   indigo, its headlines in words alone), the live line and the figures, the apps (each its own colour), then Cost and
   Models.
