@@ -127,7 +127,11 @@ export function Applications() {
   const s = after.data?.status ?? {};
   const failed = [lists, retry, sent].find((x) => x.isError);
   // the newest attempt's time, the one fact the figures don't say
-  const latest = all.reduce<string>((a, x) => (x.updated > a ? x.updated : a), "");
+  const latest =
+    all
+      .map((x) => x.updated)
+      .sort()
+      .at(-1) ?? "";
   // a filter differs from how the page opens (the state it picks by itself, every period, no words)
   const changed = q !== "" || period !== "all" || pick !== null;
 
