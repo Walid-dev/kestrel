@@ -9,6 +9,7 @@ import { Link, useParams } from "react-router";
 import { Ask } from "../ask.tsx";
 import { Card } from "../ui/card.tsx";
 import { cx } from "../ui/cx.ts";
+import { EmptyState } from "../ui/empty.tsx";
 import { Page } from "../ui/page.tsx";
 import type { Tone } from "../ui/pills.tsx";
 import { block, heard, lines, type Say } from "./blocks.tsx";
@@ -134,9 +135,12 @@ export function LearnLesson() {
     queryKey: ["lesson", id],
     queryFn: async () => {
       const res = await fetch(`/api/learn/lessons/${encodeURIComponent(id)}`);
-      if (!res.ok) throw new Error(`the lesson didn't load (${res.status})`);
+      // the status alone: the page puts it in words
+      if (!res.ok) throw new Error(String(res.status));
       return (await res.json()) as Lesson;
     },
+    // a lesson kestrel doesn't have stays gone: say so at once rather than after three tries
+    retry: (n, e) => e.message !== "404" && n < 3,
   });
   const siblings = useQuery({
     queryKey: ["pack", lesson.data?.pack ?? ""],
@@ -165,10 +169,37 @@ export function LearnLesson() {
       queryClient.invalidateQueries({ queryKey: ["brief"] });
     },
   });
+  // gone (a pack removed, or a lesson's address mistyped), or the computer didn't answer: in words, with the way back
   if (lesson.isError)
     return (
-      <Page width="reading" back={{ to: "/learn", label: "Learn" }} title="Lesson">
-        <p className="m-0 text-detail text-red">{String((lesson.error as Error).message)}</p>
+      <Page
+        width="reading"
+        back={{ to: "/learn", label: "Learn" }}
+        app="Learn"
+        eyebrow="Lessons"
+        title="This lesson didn't open"
+      >
+        {lesson.error.message === "404" ? (
+          <EmptyState
+            title="This lesson isn't here any more."
+            line="Its pack may have been removed, or the address is wrong. Open Learn to find it again."
+            action={
+              <Link to="/learn" className="btn">
+                Open Learn
+              </Link>
+            }
+          />
+        ) : (
+          <EmptyState
+            title="It didn't load."
+            line="Kestrel didn't answer as it should. Try again in a moment."
+            action={
+              <button type="button" className="btn" onClick={() => lesson.refetch()}>
+                Try again
+              </button>
+            }
+          />
+        )}
       </Page>
     );
   if (!lesson.data) return null;
@@ -330,7 +361,9 @@ export function LearnLesson() {
           )}
         </>
       }
-      eyebrow={[b.part, b.eyebrow].filter(Boolean).join(" · ") || undefined}
+      // where the lesson sits (a guide's part and topic, else its pack), in the area's colour, as every Learn page
+      app={L.area === "interview" ? "Interview prep" : "Learn"}
+      eyebrow={[b.part, b.eyebrow].filter(Boolean).join(" · ") || titled(L.packName) || undefined}
       title={title}
       // the state sits under the title, not in the bar: on a phone the bar keeps its room for the back link's name
       line={<span className={`chip chip-caps tone-${state.tone}`}>{state.label}</span>}

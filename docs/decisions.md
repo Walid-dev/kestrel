@@ -5,6 +5,18 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Learn at the Searches standard.**
+  Learn's and Interview prep's pages take the shared parts: the figures are `Figures` (four cells, the cyan edge while
+  a review waits, the bar and Start the review or Next and Continue in its foot), the filter card is `FilterPanel` (the
+  search with its Reset; a row per parent, folding to its name, its All pill opening the parent, then its packs), the
+  sections are `SectionHead` (the state's dot, its count muted). Every Learn page's eyebrow is in the area's colour
+  (Learn purple, Interview prep green): "Lessons" or "Answers to say" on a front page and a page under no parent, the
+  parent on a pack (it was the parent's own colour there, and grey on a lesson), a lesson's part and topic or its pack.
+  A gone lesson says so at once ("This lesson didn't open", "This lesson isn't here any more.", Open Learn), no longer
+  after three tries and a raw red line. Practice's lesson is a quiet link at the card's top-line end (`.card-end-link`),
+  where a card has its source. The interview helper's head is one line; how it hears goes in a hint under the pad.
+  Rejected: Searches' fixed 72 px name column for the filter rows (a parent's name is mine to choose and wrapped).
+
 - **2026-11-25 · The news star is Searches' ★ on the card's top line; Starred is one tap from News.**
   A story card's star leaves its foot (the pill, "★ Star" or "★ Starred") for the right end of its top line, after the
   source, as `Star bare`: the ★ alone, grey while off, yellow while on, the toggle itself (`aria-pressed`, named

@@ -163,7 +163,9 @@ reading width is 720.
   a ring), what it holds under it (one muted subline, facts with only the values bold), then `actions` (`.btn-sm`,
   `.btn-quiet`). `to` or `onOpen` opens it by its title; `onRemove` and `removeLabel` give it the ✕ (it waits out of
   sight under a mouse until hover or focus); `tone` colours its edge; `wide` spans the grid's row. A card built by hand
-  (a question in Practice) spells its top line with the same classes: `.card-meta`, `.card-meta-main`, `.card-end`.
+  (a question in Practice) spells its top line with the same classes: `.card-meta`, `.card-meta-main`, `.card-end`, or
+  `.card-end-link` for a link in the end's place (the lesson a question comes from: quiet, cut short, 44 tall on
+  touch).
 - `Figures` and `Figure` (`web/src/ui/figures.tsx`) — a page's figures, one strip of cells before its detail (Home's
   morning, Learn's lessons, Cost, Applications): each cell its `label` (an eyebrow), a dot in its `tone` and the
   `value` in mono, a `note` beside it or lines under it (`children`); `to` makes the cell a link, `hint` says what it
@@ -180,8 +182,9 @@ reading width is 720.
   opens), `fold` (the button that folds the rows away: `name`, Filters unless said, and the `count` it shows folded),
   `folded` (what a folded card shows: the picks, each opening the rows again), `busy` (a bar sweeps its foot). A row:
   `label` (an eyebrow), `open` and `onToggle` (its own fold, `summary` said while folded), the pills beside it under
-  a mouse, over them on touch. Searches' page spells the same rules with its own classes (`.search-part`). A filter's
-  All comes first in its row.
+  a mouse, over them on touch; the names make one column as wide as the widest, up to 10rem (Searches' page spells
+  the same rules with its own classes, `.search-part`, its names in a column of 72). A filter's All comes first in its
+  row: Learn's rows are its parents, each opening with All (the parent's page), then its packs.
 - `WithRail` and `RailPart` (`web/src/ui/rail.tsx`) — News' layout for a page with secondary things beside its main
   column (the history, the sources, a form, the done ones): from 64rem the main column (52rem at most) and the rail on
   its right (280 to 340, 32 apart); on a phone one column, the rail after the main one, or before it (`railFirst`) where
@@ -198,9 +201,10 @@ reading width is 720.
   yellow, Quiz teal, Applications orange, Writing magenta, Interview prep good; Cost and Models the models' yellow;
   Live none.
 - `EmptyState` (`web/src/ui/empty.tsx`) — nothing here yet, in one voice, plain text in the flow (no box): `title`,
-  `line`, `action`, `detail`. A page whose item is gone says so with it (Notes' reader: its title "This document didn't
-  open", the state's words, the way back) and never retries a 404: its query takes
-  `retry: (n, e) => e.message !== "404" && n < 3`, the error's message being the status alone.
+  `line`, `action`, `detail`. A page whose item is gone says so with it (Notes' reader, a lesson: its title "This
+  lesson didn't open", the state's words "This lesson isn't here any more.", the way back as a plain `.btn`) and never
+  retries a 404: its query takes `retry: (n, e) => e.message !== "404" && n < 3`, the error's message being the
+  status alone; any other failure says "It didn't load." with Try again.
 - `Field` (`web/src/ui/field.tsx`) — a box where Enter sends (Shift+Enter makes a line), its round send button inside,
   a hint under it; `tall` starts at three lines; a long word or a pasted link breaks inside it. Without `onSend` it is
   a search box, and a tap anywhere on it focuses.

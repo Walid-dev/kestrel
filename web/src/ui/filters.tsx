@@ -2,7 +2,8 @@
 // the search box, the round Reset (lit while a filter differs from how the page opens), the button that folds the
 // rows away ("Filters · 2", "Hide filters"), then the rows, each its name as an eyebrow with its own fold, its pills
 // beside it under a mouse (over them on touch). Folded, the card may say what is picked (folded). busy: new results
-// on their way, a bar sweeping along its foot. The look lives in styles.css (.filters), the same rules as Searches'.
+// on their way, a bar sweeping along its foot. The look lives in styles.css (.filters), Searches' own rules, the names
+// in one column as wide as the widest (up to 10rem) since a row's name may be mine to choose.
 import type { ReactNode } from "react";
 import { cx } from "./cx.ts";
 import { Field } from "./field.tsx";

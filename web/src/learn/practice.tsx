@@ -71,6 +71,7 @@ export function LearnPractice() {
     <Page
       width="reading"
       back={{ to: area === "interview" ? "/interview" : "/learn", label: home }}
+      app={area === "interview" ? "Interview prep" : "Learn"}
       eyebrow={
         asking ? (
           <span className="quiz-place">
@@ -121,19 +122,21 @@ export function LearnPractice() {
       ) : (
         next &&
         q && (
-          // the card: the lesson's state on the left and the lesson itself on the right, on one line (a long name
-          // cut, all of it in the title; "The lesson" where the name is the question, as in interview packs), the
-          // question on the section step under the page's title, then the answer once shown, and the grades
+          // the card, a card's top line: the lesson's state as its chip on the left and the lesson itself at the right
+          // end, a quiet link where a card has its source (a long name cut, all of it in the title; "The lesson" where
+          // the name is the question, as in interview packs); the question on the section step under the page's
+          // title, then the answer once shown, and the grades
           <Card>
-            <div className="flex min-w-0 items-center gap-2">
-              {state && <span className={`chip chip-caps shrink-0 tone-${state.tone}`}>{state.label}</span>}
+            <div className="card-meta">
+              <div className="card-meta-main">
+                {state && <span className={`chip chip-caps tone-${state.tone}`}>{state.label}</span>}
+              </div>
               <Link
                 to={`/learn/lesson/${encodeURIComponent(next.id)}`}
-                className="btn btn-sm ml-auto min-w-0"
-                title={next.title}
+                className="card-end-link"
+                title={`Open the lesson: ${next.title}`}
               >
-                <span className="min-w-0 truncate">{next.title.trim() === q.q.trim() ? "The lesson" : next.title}</span>{" "}
-                →
+                <span>{next.title.trim() === q.q.trim() ? "The lesson" : next.title}</span> →
               </Link>
             </div>
             <h2 className="font-cond m-0 text-section">{q.q}</h2>

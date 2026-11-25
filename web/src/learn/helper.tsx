@@ -135,13 +135,17 @@ export function InterviewHelper() {
     <Page
       width="reading"
       back={{ to: "/interview", label: "Interview prep" }}
+      app="Interview prep"
+      eyebrow="Answers to say"
       title="The interview helper"
-      line="Hold the button while the question is asked. The computer's own ears write it down — nothing leaves it — and the nearest prepared answer from Interview prep shows large, the lines to say first."
+      line="Hold to listen; the nearest prepared answer shows large."
     >
+      {/* the rest of how it works under the pad, as its hint: where the words go, and what shows */}
       <button
         type="button"
         className="card hold"
         aria-pressed={holding}
+        aria-describedby="helper-how"
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId);
           held.current = true;
@@ -154,6 +158,10 @@ export function InterviewHelper() {
       >
         {holding ? "Listening…" : ask.isPending ? "Hearing it…" : "Hold to listen"}
       </button>
+      <p id="helper-how" className="-mt-2 m-0 text-small text-muted">
+        The computer's own ears write the question down (nothing leaves it); the answer from Interview prep shows its
+        lines to say first.
+      </p>
       {(why || ask.isError) && (
         <p className="m-0 text-detail text-red">{why || String((ask.error as Error).message)}</p>
       )}

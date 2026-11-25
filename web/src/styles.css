@@ -918,18 +918,26 @@ h3 {
 /* the filter panel's parts. Under a mouse each is one row: its legend (with its fold) in a 72 px column, its pills
    wrapping beside it; folded, the legend and what is picked take the row. On touch the legend sits over its pills,
    drawn 32 with a 44 area, 12 from the pills and from the next part, so no two areas overlap. FilterPanel's rows
-   (web/src/ui/filters.tsx) are the same rules under the shared names */
-.search-parts,
-.filter-rows {
+   (web/src/ui/filters.tsx) are the same, their names in one column as wide as the widest (up to 10rem: a parent's name
+   is mine to choose), not 72 */
+.search-parts {
   display: grid;
   gap: 8px;
 }
-.search-part,
-.filter-row {
+.search-part {
   display: grid;
   grid-template-columns: 72px minmax(0, 1fr);
   align-items: start;
   column-gap: 12px;
+}
+.filter-rows {
+  display: grid;
+  grid-template-columns: fit-content(10rem) minmax(0, 1fr);
+  align-items: start;
+  gap: 8px 12px;
+}
+.filter-row {
+  display: contents;
 }
 .search-part-toggle,
 .filter-row-name {
@@ -956,14 +964,16 @@ span.filter-row-name {
   grid-column: 1 / -1;
 }
 @media (pointer: coarse) {
-  .search-parts,
-  .filter-rows {
+  .search-parts {
     gap: 12px;
   }
-  .search-part,
-  .filter-row {
+  .search-part {
     grid-template-columns: minmax(0, 1fr);
     row-gap: 12px;
+  }
+  .filter-rows {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
   }
   .search-part-toggle::after,
   button.filter-row-name::after {
@@ -1635,7 +1645,7 @@ span.filter-row-name {
 }
 /* Card's two ends (web/src/ui/card.tsx): on the top line, the date or the source at the right end, small and muted (a
    time in mono), cut short before it pushes the chip; on the title's row, the key number beside the title, at the
-   right, as Searches' cards have it. A link there (a practice question's lesson) is as quiet as the words around it */
+   right, as Searches' cards have it */
 .card-end {
   min-width: 0;
   max-width: 65%;
@@ -1646,15 +1656,40 @@ span.filter-row-name {
   line-height: var(--text-small--line-height);
   color: var(--muted);
 }
-.card-end a {
-  color: inherit;
+/* a link in the end's place (a practice question's lesson): the end's quiet words, its name cut short, an underline
+   under the pointer; a 44 tall area on touch */
+.card-end-link {
+  position: relative;
+  display: inline-flex;
+  flex: 0 1 auto;
+  gap: 4px;
+  min-width: 0;
+  max-width: 65%;
+  font-size: var(--text-small);
+  line-height: var(--text-small--line-height);
+  color: var(--muted);
   text-decoration: none;
+  white-space: nowrap;
+}
+.card-end-link > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 @media (hover: hover) {
-  .card-end a:hover {
+  .card-end-link:hover {
     color: var(--strong);
+  }
+  .card-end-link:hover > span {
     text-decoration: underline;
     text-underline-offset: 3px;
+  }
+}
+@media (pointer: coarse) {
+  .card-end-link::after {
+    content: "";
+    position: absolute;
+    inset: calc(50% - var(--h-hit) / 2) -4px;
   }
 }
 .card-head {
@@ -2134,28 +2169,8 @@ details[open] > .disclosure::before {
   width: var(--part);
   background: var(--tone);
 }
-/* Learn's figures (web/src/learn/packs.tsx): the four numbers with their bar under them in one column, then the one
-   action (Start the review, or Next and Continue) at the row's right; a narrow window or a phone wraps the action under
-   the bar, so the numbers and their bar always stay together */
-.learn-sum {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 32px;
-}
-.learn-sum-main {
-  flex: 1 1 auto;
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-}
-/* each figure as wide as its name; the four fit a 393 phone's card in one row and wrap on a narrower one */
-.learn-figs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 32px;
-  margin: 0;
-}
+/* Learn's one action under its figures (web/src/learn/packs.tsx, the strip's foot): Start the review, or Next and
+   Continue, at the bar's right; a narrow window or a phone wraps it under the bar, at the left */
 .learn-figs-action {
   display: flex;
   flex-wrap: wrap;
@@ -2166,18 +2181,14 @@ details[open] > .disclosure::before {
   margin-left: auto;
 }
 @media (pointer: coarse) {
-  .learn-figs {
-    column-gap: 20px;
-  }
   .learn-figs-action {
     justify-content: flex-start;
     margin-left: 0;
   }
 }
-/* Learn's filter rows and a pack's settings: each row a .learn-group (a legend, a parent's pill or an eyebrow, then
-   its pills). Under a mouse the legends make a column as wide as the widest, up to 10rem, the pills wrapping beside
-   them; on touch each legend sits over its pills, 12 apart inside a group and 24 between groups, so one parent's
-   packs never run into the next */
+/* a pack's settings (Learn's filter rows are the shared FilterPanel's): each row a .learn-group (a legend, then its
+   pills or its button). Under a mouse the legends make a column as wide as the widest, up to 10rem, the pills
+   wrapping beside them; on touch each legend sits over its pills, 12 apart inside a group and 24 between groups */
 .learn-rows {
   display: grid;
   grid-template-columns: fit-content(10rem) minmax(0, 1fr);
