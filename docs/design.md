@@ -143,12 +143,15 @@ reading width is 720.
   (Notes' Note button) is a soft accent, never filled.
 - `Page` and `PageHead` (`web/src/ui/page.tsx`) — every page's head: `title`, `eyebrow`, `app`, `line`, `actions`,
   `back` (`{ to, label }`), `sticky`, `width` (`wide`, or `reading`: 720 at most), `titleAs`. Every page has an
-  eyebrow, tinted by `app` in its app's colour (the head's one accent). A top page's eyebrow is the word for what the
-  app holds (Learn "Lessons", Interview prep "Answers to say"); a child page's says where it sits (its parent group,
-  its part and topic), the app's word when it sits nowhere else. Searches tints its own by the hunt's kind; News' is
-  the day, muted; Live's is the view, muted (it has no colour). The line under the title is one line, two at most,
-  never a paragraph: facts with the values bold, or a state chip and facts. A top page's title is the title
-  step; a child page (one with `back`) gets a back row (30 / 44) and its title a step down. Under a mouse at 48rem or
+  eyebrow, tinted by `app` in its app's colour (the head's one accent). A top page's eyebrow names what the app holds,
+  or the area it sits in, in a word or two and never its own title again; a child page's says where it sits (its parent
+  group, its part and topic), the app's word when it sits nowhere else. The words: Learn "Lessons", Interview prep
+  "Answers to say", Quiz "Learn" (it quizzes the lessons), Notes "Documents", Tasks "To do", Research "From the web",
+  Applications and Writing "Jobs", Cost and Models "The models", Chat "Agents". Searches tints its own by the hunt's
+  kind; News' is the day, muted; Live's is the view, muted ("Now", "This week": it has no colour). The line under the
+  title is one line, two at most, never a paragraph: facts with the values bold, or a state chip and facts; what a
+  page needs explained goes in a hint or a title. A top page's title is the title step; a child page (one with
+  `back`) gets a back row (30 / 44) and its title a step down. Under a mouse at 48rem or
   wider a top page's buttons sit on the title row; otherwise they wrap 12 under the line. A page's state chip goes in
   the line under the title. `aside` (Home's "One app, one computer, local models.") sets a short statement beside the
   head, past a thin rule: plain text on the small step with its own line height, centred on the eyebrow and the

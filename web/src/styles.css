@@ -474,7 +474,7 @@ h3 {
 /* a button that stays on (Slow, Record me): its tone's edge and words, the accent unless a tone-* says otherwise */
 .btn[aria-pressed="true"] {
   border-color: var(--tone, var(--accent));
-  color: var(--tone, var(--accent));
+  color: color-mix(in srgb, var(--tone, var(--accent)) var(--tone-text), var(--strong));
 }
 /* a card: flat, on the quiet hairline, never a shadow at rest (only what floats has one). Two levels of enclosure at
    most: the page, then the card; a block inside a card is .inner, never another card */
@@ -595,7 +595,7 @@ h3 {
   border-radius: 6px;
   background: var(--surface);
   box-shadow: inset 0 0 0 1px var(--accent);
-  color: var(--accent);
+  color: color-mix(in srgb, var(--accent) var(--tone-text), var(--strong));
   font: 500 var(--text-label) / var(--text-label--line-height) var(--mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -3813,7 +3813,7 @@ pre.code .f {
   min-width: 0;
 }
 .md-link {
-  color: var(--accent);
+  color: color-mix(in srgb, var(--accent) var(--tone-text), var(--strong));
   text-decoration: underline;
   text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent);
   text-underline-offset: 3px;

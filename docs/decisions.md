@@ -58,7 +58,8 @@ technical; the plan and the runbook carry the detail.
   Measured in light, chips read 2.9 to 4.3:1 on their tint (yellow the lowest), red words 3.7, accent links 4.1 to 4.2;
   dark was 4.5 or more everywhere. `--tone-text` (100% in dark, 70% in light) is how much of the tone small words take,
   the rest the ink: chips, tinted eyebrows, `text-tone`, the colour classes (the theme's `--color-*`), `.btn-danger`,
-  the back link, an action pill and the drawings' labels; 4.6:1 at least in light, dark unchanged. Marks keep the tone
+  a pressed button's words, the back link, an action pill, a document's links, Searches' Last opened tag and the
+  drawings' labels; 4.6:1 at least in light, dark unchanged. Marks keep the tone
   (3:1): dots, edges, bars, icons, the ★, so `text-yellow` stays the tone and a word in yellow is `text-tone
   tone-yellow`. Searches' and News' chips darken a little, in light only. Rejected: darker light tokens (every dot,
   edge and the ★ would darken too).
