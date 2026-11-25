@@ -245,8 +245,8 @@ reading width is 720.
   a meta chip on the left, the date or source on the right; the title with its key number as a pill beside it; one
   muted subline; facts in muted text with only the values bold; the actions last); numbers in mono, on scales and
   tones; a page's figures as one strip of cells (`Figures`) before its detail; sections headed by `SectionHead`;
-  filters in `FilterPanel`; secondary things in a rail on the right (`WithRail`); tables with aligned mono columns;
-  explanations in hints and titles, never a paragraph over two lines.
+  filters in `FilterPanel`; secondary things in a rail on the right (`WithRail`); tables with aligned mono columns
+  (`.data-table`); explanations in hints and titles, never a paragraph over two lines.
 - `/design` shows every shared part in its states, the ladder at real size with its drawn and touch heights measured
   on the device that shows it, and every type step with its roles; a new part is reviewed there first.
 
