@@ -127,7 +127,8 @@ async function setup(t: TestContext) {
 
 test("Search now on a job hunt the old setup runs asks the old setup's own, and passes on each answer", async (t) => {
   const { oldLive, asked, answer, mount } = await setup(t);
-  const kestrel = mount({ oldLive });
+  let now = Date.now();
+  const kestrel = mount({ oldLive }, () => now);
   // the carried job hunt offers it, and reads as mirrored though its spec here is off; so does the deal hunt the
   // mirror brings with its old key, its search here Paused. A deal hunt with no old key, and a hunt of its own, don't
   assert.deepEqual(
@@ -145,6 +146,7 @@ test("Search now on a job hunt the old setup runs asks the old setup's own, and 
   assert.deepEqual(asked, [
     { url: "/api/jobs/search-now", body: '{"hunt":"made-up-hunt"}', origin: undefined, type: "application/json" },
   ]);
+  now += 31_000; // never seen searching there: over, so the next press asks again
 
   answer(409, { code: "busy", error: "A search is already running. Try again in a few minutes." });
   assert.deepEqual(await kestrel.run("jobs", "made-up-hunt"), {
@@ -217,9 +219,35 @@ test("a deal hunt the old setup runs is searched there, and reads as searching u
   liveSays(false);
   assert.deepEqual([(await hunt())?.running, (await hunt())?.oldSearching], [0, false]); // its Live says it ended
 
+  // the old setup's own timer round, not started here: every hunt it runs reads as searching (its lock is one for all,
+  // and its Search now would only answer busy); a hunt kestrel searches itself doesn't (review)
+  now += 3000;
+  liveSays(true);
+  const during = await kestrel.hunts();
+  assert.deepEqual(
+    during.map((h) => [h.key, h.oldSearching]),
+    during.map((h) => [h.key, h.oldSearchNow]),
+  );
+  assert.equal((await hunt())?.running, 1);
+  now += 3000;
+  liveSays(false);
+  assert.equal((await hunt())?.running, 0);
+
   // started but never seen searching: over once half a minute has passed
   await kestrel.run("deals", "Made-up lamp");
   assert.equal((await hunt())?.running, 1);
+  now += 31_000;
+  assert.equal((await hunt())?.running, 0);
+
+  // a quick double press reaches the old setup once; both read as started (review)
+  const knocks = asked.length;
+  assert.deepEqual(
+    (await Promise.all([kestrel.run("deals", "Made-up lamp"), kestrel.run("deals", "Made-up lamp")])).map(
+      (r) => r.body,
+    ),
+    [{ old: "started" }, { old: "started" }],
+  );
+  assert.equal(asked.length, knocks + 1);
   now += 31_000;
   assert.equal((await hunt())?.running, 0);
 

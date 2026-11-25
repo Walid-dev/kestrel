@@ -126,11 +126,14 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings, clo
     return h.old && !on.some((s) => s.auto) ? { key: h.old, door: "/api/search-now" } : null;
   };
   const oldRuns = new Map<string, { asked: number; seen: boolean }>();
-  // the hunts whose old search, started here, still runs (START_MS, above, says how that is known)
-  const oldSearching = async (): Promise<Set<string>> => {
-    if (!oldRuns.size) return new Set();
+  // the hunts whose old search, started here, still runs (START_MS, above, says how that is known), and whether the old
+  // setup searches now at all (its own timer's round too): its lock is one for all its hunts, so while it holds it
+  // every hunt it runs reads as searching, as its Search now would only answer busy
+  const oldSearching = async (): Promise<{ started: Set<string>; now: boolean }> => {
+    if (!settings.oldLive) return { started: new Set(), now: false };
     const now = clock();
-    const live = await readOld(settings.oldLive ?? "", now);
+    const live = await readOld(settings.oldLive, now);
+    const fresh = now - live.at < 60_000 && live.searching === true;
     const mirrored = Date.parse(lastRun(db, "mirror:v1")?.started ?? "") || 0;
     for (const [hunt, r] of oldRuns) {
       // a read made since the press and within the minute that says one way or the other
@@ -139,7 +142,7 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings, clo
       const ended = read ? !live.searching && (r.seen || now - r.asked > START_MS) : mirrored > r.asked;
       if (ended || now - r.asked > LOST_MS) oldRuns.delete(hunt);
     }
-    return new Set(oldRuns.keys());
+    return { started: new Set(oldRuns.keys()), now: fresh };
   };
   app.get("/api/search", async (c) => {
     const { specs, problems } = loadSpecs(specsDir());
@@ -182,7 +185,7 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings, clo
       const first = own[0] ?? byId.get(h.key);
       const runs = own.map((s) => lastRun(db, s.id)).filter((r) => r !== null);
       const old = oldHunt(h, onSearches(specs, h.kind, h.key, h.searches)) !== null;
-      const there = searchingOld.has(`${h.kind}:${h.key}`);
+      const there = searchingOld.started.has(`${h.kind}:${h.key}`) || (old && searchingOld.now);
       return {
         key: h.key,
         kind: h.kind,
@@ -360,11 +363,15 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings, clo
       const on = onSearches(loadSpecs(specsDir()).specs, kind, key, hunt?.searches ?? []);
       const old = hunt ? oldHunt(hunt, on) : null;
       if (old) {
+        // a second press (a quick double tap, another device) while its search runs there reaches the old setup once:
+        // the hunt is marked before the door is asked, and unmarked if it didn't start
+        const hunting = `${kind}:${key}`;
+        await oldSearching(); // a search there that has ended since the last read lets go of the hunt first
+        if (oldRuns.has(hunting)) return c.json({ old: "started" }, 202);
+        oldRuns.set(hunting, { asked: clock(), seen: false });
         const got = await toOldSetup(settings.oldLive ?? "", old.door, { hunt: old.key });
-        if (got.code === 202) {
-          oldRuns.set(`${kind}:${key}`, { asked: clock(), seen: false });
-          return c.json({ old: "started" }, 202);
-        }
+        if (got.code === 202) return c.json({ old: "started" }, 202);
+        oldRuns.delete(hunting);
         const notNow = NotNow.safeParse(got.body);
         if (got.code === 409 && notNow.success) {
           const { code, error, wait, off } = notNow.data;

@@ -614,7 +614,9 @@ export function Searches() {
   const c = counts.data;
   const failed = [hunts, counts, listings, act, queue, runNow, deep, setMode].find((x) => x.isError);
   const spec = hunt?.specs.find((s) => s.enabled);
-  const searching = runNow.isPending || (hunt?.running ?? 0) > 0;
+  // this hunt's press only: a press on another hunt, still waiting on the old setup's door, leaves this one free
+  const pressed = runNow.isPending && runNow.variables?.kind === hunt?.kind && runNow.variables?.key === hunt?.key;
+  const searching = pressed || (hunt?.running ?? 0) > 0;
   const sources = Object.entries(c?.source ?? {}).sort((a, b) => b[1] - a[1]);
   const groups = Object.entries(c?.group ?? {})
     .filter(([g]) => g)
@@ -757,7 +759,9 @@ export function Searches() {
                 <span className={cx(searching && "invisible")}>Search now</span>
                 <span className={cx(!searching && "invisible")} aria-hidden={!searching}>
                   <span className="spin" aria-hidden="true" />
-                  Searching…
+                  <span>
+                    Searching<span className="search-now-dots">…</span>
+                  </span>
                 </span>
               </button>
             )}

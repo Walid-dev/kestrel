@@ -836,6 +836,10 @@ h3 {
     inset: 0;
     grid-area: auto;
   }
+  /* the busy label sits over a button sized for "Search now": without the dots it keeps a few pixels of air */
+  .search-now-dots {
+    display: none;
+  }
 }
 .search-now[aria-busy="true"] {
   color: var(--muted);

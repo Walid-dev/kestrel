@@ -26,24 +26,34 @@ technical; the plan and the runbook carry the detail.
   lock), then not; or not seen searching within 30 s (it ended at once or never started). While its Live can't be
   read, until a mirror lands after the press; never past 2 hours. The old Live was chosen over the mirror because it
   knows within seconds (a mirror lands about 5 minutes after a round, and Searches would stay busy that long). A
-  second press from another device adds nothing to the line. Busy and waiting answers keep their plain line. The
-  idle words keep the width; on touch "Searching…" lies over the padding, so a phone's head row never wraps.
+  second press from another device adds nothing to the line; a second press at the old setup's door (a double tap,
+  another device) is answered "started" without reaching it, as the hunt is marked before the door is asked. The old
+  setup's own timer round counts too: its lock is one for all its hunts, so while its Live says it searches, every
+  hunt whose Search now goes there reads as searching (its Search now would only answer busy). The press is pending
+  for its own hunt only. Busy and waiting answers keep their plain line. The idle words keep the width; on touch the
+  busy word ("Searching", no dots) lies over the padding, so a phone's head row never wraps.
 - **2026-11-25 · Searches opens the last hunt picked on this device.** Opened with no hunt in its address (the tab
   bar, the dock, Home's apps), Searches opens the hunt picked last here (`kestrel-search-hunt` in the browser's
   storage); when that hunt is gone, the first job hunt, as before.
 - **2026-11-25 · Live says what a search is doing.** A run of kestrel's own writes one sentence, as the old Live did:
   its name, its place in the line's round and what its collector found so far ("Model A · Kijiji: 3 of 20, 42 ads
   so far"). The collector's stderr lines stream in (`runCollector`'s `onLine`); only the count travels, never the
-  line's words, and each new count takes the sentence's place (`step(text, again)` in `platform/activity.ts`). The
-  round is the runs the line took since it was last empty, so a scheduled run alone says "searching". The old
-  setup's search shows as one card on Now from its Live (`searching` and its lines): its newest step, timed from its
-  round's first line ("Search time…: N searches to run", else the steps back to a 15-minute pause). Work at work reads
+  line's words, and each new count takes the sentence's place (`step(text, again)` in `platform/activity.ts`). A
+  count is a number before ads, jobs or listings that doesn't follow "of" ("read 4 of 6 job pages" is a total), and
+  it never goes down within a run. The round is the runs the line took since it was last empty: the scheduler's tick
+  queues its due searches together (the line still runs them one at a time), so a scheduled round says "3 of 20"
+  too; a run alone says "searching". The old setup's search shows as one card on Now from its Live (`searching` and
+  its lines): its newest search step, timed from its round's first line ("Search time…: N searches to run", else the
+  steps back to a 15-minute pause); its deep checks' and follow-ups' steps, written to the same log, are left out.
+  Work at work reads
   alike on Live whatever its kind: the green edge and dot, the kind in muted words; the Activity log's search chip is
   muted, never purple.
 - **2026-11-25 · Research's sources read as quiet links.** The site name after a claim is small and regular, in a
   softened accent (60% accent, 40% muted ink: 6.2:1 on a dark card, 4.7:1 on a light one, where the light accent
-  alone is 4.2:1), with the accent and an underline on hover; two in a row part with the facts line's dot. It was a
-  bold blue pill.
+  alone is 4.2:1). On hover an underline, and the accent drawn a quarter toward the body ink (darker in light,
+  lighter in dark: the contrast only grows; the plain accent was 4.2:1 on a light card). Two sources with nothing
+  between them ([1, 3], [2][3]) part with the facts line's dot, drawn by `Inline` (`learn/blocks.tsx`): a CSS
+  sibling rule can't see the words between two links. It was a bold blue pill.
 - **2026-11-25 · The collector door names the browser's failure.** A refused connection to the agent's browser is
   "isn't running"; Playwright's "Browser context management is not supported" is the agent's Chrome open with no
   window ("has no window open: the next run tries again"); another failure at its DevTools door "couldn't connect",
