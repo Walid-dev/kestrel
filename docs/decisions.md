@@ -5,6 +5,17 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · The news star is Searches' ★ on the card's top line; Starred is one tap from News.**
+  A story card's star leaves its foot (the pill, "★ Star" or "★ Starred") for the right end of its top line, after the
+  source, as `Star bare`: the ★ alone, grey while off, yellow while on, the toggle itself (`aria-pressed`, named
+  "Star “<headline>”", 32 round, 44 on touch, the row's height unchanged). The kept copy (All days' Starred, in its
+  box) and the Starred list's rows take the same ★; `compact` (the ★ in a pill's frame) goes, unused. Today's and an
+  earlier day's head show "★ Starred N" beside All days, opening All days' Starred view (`/news/days?view=starred`); N
+  comes from the rail's own days query, so no request is added. Searches' cards keep their ★ as it was. Rejected: the
+  word on the card ("Starred" said twice, the ★ says it); the Starred link only in the rail (the rail follows the
+  stories on a phone, a long scroll away). Replaces: the 2026-11-25 stars entry's pill beside Ask and Look deeper and
+  its compact ★ in the Starred rows.
+
 - **2026-11-25 · One look: Searches and News are the references; the shared parts their pages share.**
   The parts every page repeats move into `web/src/ui/`, each shown on /design: `Figures` (a page's strip of cells;
   Home's look, `.home-figs` renamed `.figs`; three across on a phone, two when three would leave one alone, one row

@@ -773,7 +773,7 @@ export function Design() {
 
         <Part
           title="Star"
-          when="Anything kept for later. On a card, bare: the ★ alone at the right end of the top line, where Searches' cards show theirs, and the toggle itself: grey while off, yellow while on, named for its item, drawn 32 round (44 on touch) without making the row taller. In a sheet, the pill (a ★ and Star or Starred) beside its other actions; at a row's end in a list of starred things, compact."
+          when="Anything kept for later. On a card or a row, bare: the ★ alone at the right end of the top line (where Searches' cards show theirs) or of the row (a list of starred things), and the toggle itself: grey while off, yellow while on, named for its item, drawn 32 round (44 on touch) without making the row taller. In a sheet, the pill (a ★ and Star or Starred) beside its other actions."
         >
           <div className="card card-titled">
             <div className="card-meta">
@@ -805,9 +805,23 @@ export function Design() {
               </span>
             ))}
           </div>
+          <List label="Made-up starred stories">
+            <Row
+              to="/design"
+              title="A made-up hive report"
+              line={
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="chip chip-caps tone-cyan">Building</span>
+                  Tue, Nov 24
+                </span>
+              }
+              end={
+                <Star bare on={starred} label="Star “A made-up hive report”" onPress={() => setStarred((x) => !x)} />
+              }
+            />
+          </List>
           <div className="flex flex-wrap items-center gap-2">
             <Star on={starred} hint="Keep it for later" onPress={() => setStarred((x) => !x)} />
-            <Star compact on={starred} label="Star: a made-up hive report" onPress={() => setStarred((x) => !x)} />
           </div>
         </Part>
 

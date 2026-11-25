@@ -5238,9 +5238,9 @@ body:has(.paper-view) {
   gap: 8px;
   margin: 0;
 }
-/* a story, the Searches card's anatomy: the section's chip and the source on top, the headline with its number as a
-   pill, the story, then its links, its star, Ask and Look deeper, and Ask's conversation while it is open, its parts
-   8 apart */
+/* a story, the Searches card's anatomy: the section's chip, the source and the star (Star bare) on top, the headline
+   with its number as a pill, the story, then its links, Ask and Look deeper, and Ask's conversation while it is open,
+   its parts 8 apart */
 .news-story {
   display: flex;
   flex-direction: column;
@@ -5257,6 +5257,10 @@ body:has(.paper-view) {
 .news-story-meta {
   align-items: center;
   gap: 8px;
+}
+/* the source and the star at the line's right end; a story without a source keeps its star there */
+.news-story-meta > .chip + .star-bare {
+  margin-left: auto;
 }
 .news-story-from {
   margin-left: auto;
@@ -5332,9 +5336,8 @@ body:has(.paper-view) {
     inset: calc(50% - var(--h-hit) / 2) 0;
   }
 }
-/* a story's own actions, at the foot's end (on a line of their own when the links take the row): its star (Searches'
-   pill), Ask, its spark in Ask's purple and, closed, how many questions it took; then Look deeper. Open, Ask keeps
-   the sunk ground */
+/* a story's own actions, at the foot's end (on a line of their own when the links take the row): Ask, its spark in
+   Ask's purple and, closed, how many questions it took; then Look deeper. Open, Ask keeps the sunk ground */
 .news-story-acts {
   display: flex;
   align-items: center;

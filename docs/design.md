@@ -127,12 +127,13 @@ reading width is 720.
 - `Seg` (`web/src/ui/seg.tsx`) — a choice among two to four, as one bar as wide as its words: `label`, `options` (with
   `hint`), `value`, `onChange`, `modes`. What a pick means goes in its hint line under the bar, never a second line
   inside it. `seg-modes` marks the picked mode with a dot.
-- `Star` (`web/src/ui/star.tsx`) — anything kept for later. On a card, `bare`: the ★ alone at the right end of the
-  card's top line, where Searches' cards show theirs, and the toggle itself: grey while off, yellow while on, no word,
-  named by `label` ("Star “<headline>”"), drawn 32 round (44 on touch) with its margins taken back, so the row keeps
-  its height. In a sheet (Searches' listing), the pill: a yellow ★ and Star or Starred, pressed while starred, beside
-  the other actions. `compact`: the ★ in a pill's frame at a row's end, in a list of starred things. Props: `on`,
-  `onPress`, `busy` (a press on its way: drawn in its new state, more presses ignored), `hint` (on hover), `label`.
+- `Star` (`web/src/ui/star.tsx`) — anything kept for later. On a card or a row, `bare`: the ★ alone at the right end
+  of the card's top line (a news story, where Searches' cards show theirs) or of the row (All days' Starred), and the
+  toggle itself: grey while off, yellow while on, no word, named by `label` ("Star “<headline>”"), drawn 32 round (44
+  on touch) with its margins taken back, so the row keeps its height. In a sheet (Searches' listing), the pill: a
+  yellow ★ and Star or Starred, pressed while starred, beside the other actions. Props: `on`, `onPress`, `busy` (a
+  press on its way: drawn in its new state, more presses ignored), `hint` (on hover), `label`. A page that keeps
+  stars says where they are one tap away: News' head has "★ Starred N" beside All days.
 - `.tile` — a big choice (56 / 60), only when two or more options each need a line under the name; picked, it takes
   the accent edge and a ✓, on its own ground (no tint).
 - `Doc` (`web/src/ui/doc.tsx`) — every document: Read, Edit and (1024 px and wider) Side by side, with a Download
@@ -215,8 +216,9 @@ reading width is 720.
   document is Doc without `onSave`; a page whose item is gone says so in plain words and doesn't retry; the listing
   sheet is the wide Dialog, its title and ✕ kept in view on tall screens, Apply at its foot; a stage's colour comes
   from one map (`STAGES`); a history (News' All days) lists by month, a hundred at a time with Show older, a find at
-  its top and a ✕ per row that deletes after Confirm, and a Seg before them for what was starred: there a ★ taken
-  off leaves its row in place, struck through, until the page is left, and gives the star back.
+  its top and a ✕ per row that deletes after Confirm, and a Seg before them for what was starred (the page's head
+  links straight to it, `?view=starred`): there a ★ taken off leaves its row in place, struck through, until the page
+  is left, and gives the star back.
 - Home, top to bottom: the head (the date over the wolf and kestrel, the aside beside them), the news card (News in
   indigo, its headlines in words alone), the live line and the figures (the shared `Figures`), the apps (each its own
   colour, from the app map), then Cost and Models.

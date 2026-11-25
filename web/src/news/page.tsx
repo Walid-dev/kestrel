@@ -1,13 +1,14 @@
 // News: the morning brief in plain words. The opening says what the day is about; the stories follow by section (the
 // industry and its money, models and research, building with AI, the wider tech day, views), each a card at the
-// Searches standard: its section's chip and its source on top, the headline with its key number as a pill, the story
-// in a few sentences, then its links as source chips (a lock where a site wants a subscription, the discussion with
-// its points), its star (Searches' own: kept under All days' Starred, even once its day is deleted), Ask (a
-// conversation about the story, kept per story, with the web) and Look deeper, which hands the headline to Research.
-// On a computer the earlier days and the sources' health sit in a rail beside the stories; on a phone they follow
-// them. Listen reads the brief aloud; All days opens the history (days.tsx); Make it now, at the foot beside the time
-// the brief is written each morning, writes a new one, its five steps in sight while it works, the last brief
-// readable under them. An earlier day's page can be deleted at its foot.
+// Searches standard: its section's chip, its source and its star on top (the ★ alone at the line's right end, as on
+// Searches' cards: kept under All days' Starred, even once its day is deleted), the headline with its key number as a
+// pill, the story in a few sentences, then its links as source chips (a lock where a site wants a subscription, the
+// discussion with its points), Ask (a conversation about the story, kept per story, with the web) and Look deeper,
+// which hands the headline to Research. On a computer the earlier days and the sources' health sit in a rail beside
+// the stories; on a phone they follow them. Listen reads the brief aloud; All days opens the history (days.tsx) and
+// Starred, beside it, its starred stories; Make it now, at the foot beside the time the brief is written each morning,
+// writes a new one, its five steps in sight while it works, the last brief readable under them. An earlier day's page
+// can be deleted at its foot.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useNavigationType, useSearchParams } from "react-router";
@@ -50,12 +51,29 @@ const DAYS_SHOWN = 7;
 // the first questions a story's Ask offers
 const STARTERS = ["Explain it simply", "Why does it matter?", "What's the latest on this?"];
 
-// the history, from the head of every news page: a plain button, beside Listen
-const ALL_DAYS = (
-  <Link to="/news/days" className="btn">
-    All days
-  </Link>
-);
+// the history, from the head of every news page: All days and its Starred view, with how many are starred (the
+// rail's own query, so no request of its own), plain buttons beside Listen
+function History() {
+  const starred = useDays(DAYS_SHOWN + 1).data?.starred;
+  return (
+    <>
+      <Link to="/news/days" className="btn">
+        All days
+      </Link>
+      <Link
+        to="/news/days?view=starred"
+        className="btn"
+        title="The stories I starred, kept even once their day is deleted"
+      >
+        <span className="text-yellow" aria-hidden="true">
+          ★
+        </span>
+        Starred
+        {starred !== undefined && <b className="font-mono text-small text-muted">{starred}</b>}
+      </Link>
+    </>
+  );
+}
 
 export function News() {
   const [params] = useSearchParams();
@@ -158,7 +176,7 @@ function Today() {
         shown && (
           <>
             {shown.brief?.stories.length ? actions : null}
-            {ALL_DAYS}
+            <History />
           </>
         )
       }
@@ -236,7 +254,7 @@ function Day({ day }: { day: string }) {
         back={back}
         title={dayName(day)}
         line={news.isError ? sentence((news.error as Error).message) : "Opening…"}
-        actions={news.isError ? ALL_DAYS : undefined}
+        actions={news.isError ? <History /> : undefined}
       />
     );
   const body = brief(run, news.data, say);
@@ -248,7 +266,7 @@ function Day({ day }: { day: string }) {
       actions={
         <>
           {run.brief.stories.length ? actions : null}
-          {ALL_DAYS}
+          <History />
         </>
       }
     >
@@ -332,11 +350,11 @@ function brief(
   );
 }
 
-// one story, at the Searches standard: section chip and source on top, the headline with its figure, the story, its
-// links, then its star, Ask and Look deeper last. The star shows a press at once and keeps a copy of the story (All
-// days' Starred). Ask opens the story's conversation under its foot, in the same card (Ask's bare look: no box in a
-// box); its button says how many questions the story took while it is closed. A link to the story (#s3) lights its
-// edge in the accent
+// one story, at the Searches standard: section chip, source and star on top, the headline with its figure, the story,
+// its links, then Ask and Look deeper last. The star (the ★ alone at the top line's right end, Searches' card's)
+// shows a press at once and keeps a copy of the story (All days' Starred). Ask opens the story's conversation under
+// its foot, in the same card (Ask's bare look: no box in a box); its button says how many questions the story took
+// while it is closed. A link to the story (#s3) lights its edge in the accent
 function Story({
   n,
   story,
@@ -388,6 +406,14 @@ function Story({
             {main.source} · {ago(main.at)}
           </span>
         )}
+        <Star
+          bare
+          on={on}
+          busy={star.isPending}
+          label={`Star “${story.headline}”`}
+          hint={STAR_HINT}
+          onPress={() => star.mutate({ brief, n, on: !on })}
+        />
       </div>
       <div className="news-story-head">
         <h3 className="news-story-title font-cond text-head">{headline}</h3>
@@ -407,7 +433,6 @@ function Story({
           <Links key={l.url} link={l} />
         ))}
         <span className="news-story-acts">
-          <Star on={on} busy={star.isPending} hint={STAR_HINT} onPress={() => star.mutate({ brief, n, on: !on })} />
           <button
             type="button"
             className="btn btn-sm btn-quiet news-ask-btn"
