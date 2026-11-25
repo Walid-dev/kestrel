@@ -4951,7 +4951,8 @@ body:has(.paper-view) {
   margin: 0;
 }
 /* a story, the Searches card's anatomy: the section's chip and the source on top, the headline with its number as a
-   pill, the story, then its links, Ask and Look deeper, and Ask's conversation while it is open, its parts 8 apart */
+   pill, the story, then its links, its star, Ask and Look deeper, and Ask's conversation while it is open, its parts
+   8 apart */
 .news-story {
   display: flex;
   flex-direction: column;
@@ -5043,8 +5044,9 @@ body:has(.paper-view) {
     inset: calc(50% - var(--h-hit) / 2) 0;
   }
 }
-/* a story's own actions, at the foot's end (on a line of their own when the links take the row): Ask, its spark in
-   Ask's purple and, closed, how many questions it took; then Look deeper. Open, Ask keeps the sunk ground */
+/* a story's own actions, at the foot's end (on a line of their own when the links take the row): its star (Searches'
+   pill), Ask, its spark in Ask's purple and, closed, how many questions it took; then Look deeper. Open, Ask keeps
+   the sunk ground */
 .news-story-acts {
   display: flex;
   align-items: center;
@@ -5112,9 +5114,10 @@ body:has(.paper-view) {
   align-items: center;
   gap: 8px 12px;
 }
-/* All days (web/src/news/days.tsx): the find at the top, as wide as a search box reads well; the months one column on
-   a phone, two side by side from 64rem (as Live's days), each its heading and its list; a match's line its section's
-   chip, then its day */
+/* All days (web/src/news/days.tsx): Days and Starred as a Seg at the top; the find under it, as wide as a search box
+   reads well; the months one column on a phone, two side by side from 64rem (as Live's days), each its heading and its
+   list; a match's line, and a starred story's, its section's chip, then its day. A starred story whose day is gone
+   opens its kept copy in a box: the card's parts, 12 apart */
 .news-find {
   max-width: 36rem;
 }
@@ -5130,14 +5133,21 @@ body:has(.paper-view) {
   }
 }
 .news-month,
-.news-found {
+.news-found,
+.news-starred {
   display: grid;
   gap: 8px;
   align-content: start;
   min-width: 0;
 }
-.news-found {
+.news-found,
+.news-starred {
   max-width: 52rem;
+}
+.news-kept {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
 }
 .news-found-line {
   display: flex;

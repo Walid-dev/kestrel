@@ -85,7 +85,9 @@ export type NewsRun = {
 
 // GET /api/news: the brief to show (the newest written, of the day asked or any), the newest run when it is newer
 // than that one (running now, or today's that failed), and how many questions Ask took on each of the brief's
-// stories, in their order, with whether it is answering on each now
+// stories, in their order, with whether it is answering on each now and whether each is starred; dayStars: the
+// stories starred from its day in all, an earlier brief's too (they stay when the day is deleted). time: when the
+// morning's brief is written, "08:00"
 export type NewsState = {
   enabled: boolean;
   time: string;
@@ -93,12 +95,21 @@ export type NewsState = {
   run: NewsRun | null;
   asked: number[];
   answering: boolean[];
+  starred: boolean[];
+  dayStars: number;
 };
 
 // GET /api/news/days: each day's newest brief, newest day first, a page at a time (?before= the last day of the page
-// above), with how many days are kept in all and the first of them
-export type NewsDay = { day: string; id: string; stories: number; lead: string };
-export type NewsDays = { days: NewsDay[]; total: number; since: string | null };
+// above), with its stories starred; how many days are kept in all, the first of them, and how many stories are
+// starred in all (a deleted day's included)
+export type NewsDay = { day: string; id: string; stories: number; lead: string; starred: number };
+export type NewsDays = { days: NewsDay[]; total: number; since: string | null; starred: number };
+
+// GET /api/news/stars: every story starred, the newest starred first: a copy of the story as its brief told it, its
+// day, its brief and its number there (#s<n>), when it was starred, and whether its day's page still shows that brief
+// (the day not deleted, the brief not replaced by Make it now): then it opens there, else the copy opens itself
+export type NewsStar = { brief: string; n: number; day: string; starred: string; shown: boolean; story: NewsStory };
+export type NewsStars = { stars: NewsStar[] };
 
 // GET /api/news/find: the stories whose headline or text hold every word, newest day first, at most 50 (more: others
 // matched too). n is the story's number on its day's page, #s<n>

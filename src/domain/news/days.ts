@@ -1,6 +1,7 @@
 // The days kept: each day's brief, listed a page at a time for the history; a story found again by its words; a day
-// deleted on my word. A day shows its newest brief written (Make it now writes today's again; the earlier one stays
-// in the database, but no page shows it), so the history and the find read that one only.
+// deleted on my word, its starred stories kept (stars.ts). A day shows its newest brief written (Make it now writes
+// today's again; the earlier one stays in the database, but no page shows it), so the history and the find read that
+// one only.
 import type { DatabaseSync } from "node:sqlite";
 import { tx } from "../../db/db.ts";
 import type { NewsSettings } from "../../platform/config.ts";
@@ -13,14 +14,16 @@ const SHOWN = `SELECT id FROM (
   SELECT id, ROW_NUMBER() OVER (PARTITION BY day ORDER BY started DESC) AS nth FROM news_briefs WHERE state = 'done'
 ) WHERE nth = 1`;
 
-// each day's brief, newest day first, with its count and its first headline; a page at a time: before is the last
-// day of the page above (the rail asks for its first few, the history for a hundred)
+// each day's brief, newest day first, with its count, its first headline and its stories starred (an earlier brief's
+// too: a delete keeps them all); a page at a time: before is the last day of the page above (the rail asks for its
+// first few, the history for a hundred)
 export function newsDays(db: DatabaseSync, limit = 60, before?: string): NewsDay[] {
   return (
     db
       .prepare(
         `SELECT b.id, b.day, json_array_length(b.brief, '$.stories') AS stories,
-                json_extract(b.brief, '$.stories[0].headline') AS lead, json_extract(b.brief, '$.quiet') AS quiet
+                json_extract(b.brief, '$.stories[0].headline') AS lead, json_extract(b.brief, '$.quiet') AS quiet,
+                (SELECT COUNT(*) FROM news_stars s WHERE s.day = b.day) AS starred
          FROM news_briefs b WHERE b.id IN (${SHOWN}) AND b.day < ?
          ORDER BY b.day DESC LIMIT ?`,
       )
@@ -30,16 +33,26 @@ export function newsDays(db: DatabaseSync, limit = 60, before?: string): NewsDay
       stories: number | null;
       lead: string | null;
       quiet: string | null;
+      starred: number;
     }[]
-  ).map((r) => ({ id: r.id, day: r.day, stories: r.stories ?? 0, lead: r.lead ?? r.quiet ?? "" }));
+  ).map((r) => ({
+    id: r.id,
+    day: r.day,
+    stories: r.stories ?? 0,
+    lead: r.lead ?? r.quiet ?? "",
+    starred: r.starred,
+  }));
 }
 
-// how many days have a brief, and the first of them
-export function daysKept(db: DatabaseSync): { total: number; since: string | null } {
+// how many days have a brief, the first of them, and how many stories are starred (a deleted day's too)
+export function daysKept(db: DatabaseSync): { total: number; since: string | null; starred: number } {
   const r = db
-    .prepare("SELECT COUNT(DISTINCT day) AS total, MIN(day) AS since FROM news_briefs WHERE state = 'done'")
-    .get() as { total: number; since: string | null };
-  return { total: r.total, since: r.since };
+    .prepare(
+      `SELECT COUNT(DISTINCT day) AS total, MIN(day) AS since, (SELECT COUNT(*) FROM news_stars) AS starred
+       FROM news_briefs WHERE state = 'done'`,
+    )
+    .get() as { total: number; since: string | null; starred: number };
+  return { total: r.total, since: r.since, starred: r.starred };
 }
 
 export const FOUND_MAX = 50;
@@ -71,10 +84,11 @@ export function findStories(db: DatabaseSync, words: string): NewsFind {
 
 // a day deleted, at once and whole: every run of it (the brief it shows, an earlier one Make it now replaced, the
 // failed tries), the links they told (so one still new may be told again) and what Ask was asked about their
-// stories. Refused while a run of that day is written (it would write into a day that is gone), while Ask answers
-// on one of its stories (as Start over waits for it), and for today while the morning's brief may still be written
-// (news on, before its latest hour): the scheduler would find no brief and write today's again within a minute, from
-// the links just freed, so the day would come back with the same stories. Says how many runs went: none, no such day
+// stories. Its starred stories stay: each star keeps its own copy (stars.ts). Refused while a run of that day is
+// written (it would write into a day that is gone), while Ask answers on one of its stories (as Start over waits for
+// it), and for today while the morning's brief may still be written (news on, before its latest hour): the scheduler
+// would find no brief and write today's again within a minute, from the links just freed, so the day would come back
+// with the same stories. Says how many runs went: none, no such day
 export function deleteDay(db: DatabaseSync, day: string, morning?: { news: NewsSettings; now: Date }): number {
   return tx(db, () => {
     const runs = db.prepare("SELECT id, state FROM news_briefs WHERE day = ?").all(day) as {

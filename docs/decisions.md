@@ -5,6 +5,20 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Stars on News: each keeps a copy of its story; All days lists them under Starred.**
+  Each story card has Searches' star (the pill: a yellow ★, Star or Starred) beside Ask and Look deeper. A star keeps
+  a copy of the story as its brief told it (headline, text, section, figure, links) with its day, its brief and its
+  number, in `news_stars` (migration 028), with no foreign key: deleting a day keeps its stars, and the day's Confirm
+  says how many stay. All days gets a Seg, Days | Starred: the stars newest-starred first, each a row (headline;
+  section chip, day, first source) that opens its day at the story while that day's page shows its brief, else the
+  kept copy in a Dialog; the head's line counts them. Unstarring a kept copy asks first (it goes for good). Routes:
+  `PUT` and `DELETE /api/news/stars/:brief/:n` (zod: a brief's id, a number from 1 to 999; 404 past the brief's last
+  story), `GET /api/news/stars`; `GET /api/news` carries each story's star and its day's count, `/api/news/days` each
+  day's and the total. A copy is about 1.5 KB; the list comes whole. Why one list across days, not a filter: a day
+  holds 6 to 10 stories, so a filter inside a day finds little; a starred story is looked for days later. A test now
+  checks that each migration number is used once, from 1: two branches built side by side may each add the next
+  number, and a database already at it would never run the second. Rejected: a flag inside the brief's JSON (gone
+  with the day); a star that holds its day against deletion (each delete would ask about stars).
 - **2026-11-25 · Research asks its questions on the research's own model.**
   `research-ask` leaves the fast list: by default it runs on the careful model, as `research` does, so a research
   never switches models between its questions and its answer. The two local models don't fit in the computer's memory

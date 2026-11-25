@@ -152,7 +152,9 @@ reading width is 720.
   document is Doc without `onSave`; a page whose item is gone says so in plain words and doesn't retry; the listing
   sheet is the wide Dialog, its title and ✕ kept in view on tall screens, Apply at its foot; a stage's colour comes
   from one map (`STAGES`); a history (News' All days) lists by month, a hundred at a time with Show older, a find at
-  its top and a ✕ per row that deletes after Confirm.
+  its top and a ✕ per row that deletes after Confirm, and a Seg before them for what was starred. A star is Searches'
+  pill: a yellow ★ and Star or Starred, pressed while starred, beside the item's other actions; in a list of starred
+  things, the ★ alone at the row's end, its name in `aria-label`.
 - Home, top to bottom: the head (the date over the wolf and kestrel, the aside beside them), the news card (News in
   indigo, its headlines in words alone), the live line and the figures, the apps (each its own colour), then Cost and
   Models.

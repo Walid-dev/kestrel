@@ -63,16 +63,16 @@ test("the history pages past the rail's 60 days: each day's newest brief, a quie
   run(db, "failed", "2026-11-20", "failed", null);
   const first = newsDays(db, 60);
   assert.equal(first.length, 60);
-  assert.deepEqual(first[0], { id: "later", day: "2026-11-14", stories: 2, lead: "The rewrite's lead" });
+  assert.deepEqual(first[0], { id: "later", day: "2026-11-14", stories: 2, lead: "The rewrite's lead", starred: 0 });
   const rest = newsDays(db, 60, first.at(-1)?.day);
   assert.equal(rest.length, 15);
   assert.equal(rest.at(-1)?.day, "2026-09-01");
   assert.deepEqual(
     rest.find((d) => d.day === "2026-09-10"),
-    { id: "b9", day: "2026-09-10", stories: 0, lead: "A quiet morning." },
+    { id: "b9", day: "2026-09-10", stories: 0, lead: "A quiet morning.", starred: 0 },
   );
   assert.equal(new Set([...first, ...rest].map((d) => d.day)).size, 75);
-  assert.deepEqual(daysKept(db), { total: 75, since: "2026-09-01" });
+  assert.deepEqual(daysKept(db), { total: 75, since: "2026-09-01", starred: 0 });
 });
 
 test("the find: every word in a headline or a story's text, any case; a % _ or quote is itself; the newest 50", () => {

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -22,6 +22,20 @@ test("migrations run once, in order, and a second run changes nothing", () => {
   assert.equal(migrate(db, file, mig).applied, 0);
   assert.equal((db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version, 1);
   db.close();
+});
+
+// two branches built side by side may each add the next number: a fresh database runs both, but one already at that
+// number never runs the second. So each number is used once, from 1, with none skipped
+test("the migrations are numbered once each, from 1, with no gap", () => {
+  const numbers = readdirSync(new URL("./migrations/", import.meta.url))
+    .filter((f) => /^\d+-.*\.sql$/.test(f))
+    .map((f) => Number.parseInt(f, 10))
+    .sort((a, b) => a - b);
+  assert.deepEqual(
+    numbers,
+    numbers.map((_, i) => i + 1),
+    "two migrations share a number, or one is missing: give the newer one the next free number",
+  );
 });
 
 test("the database runs in WAL mode with foreign keys on, and tx rolls back whole", () => {
