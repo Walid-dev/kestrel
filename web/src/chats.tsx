@@ -6,7 +6,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { StopRunning } from "./stop.tsx";
-import { Card } from "./ui/card.tsx";
 import { Dialog } from "./ui/dialog.tsx";
 import { EmptyState } from "./ui/empty.tsx";
 import { Page } from "./ui/page.tsx";
@@ -36,7 +35,7 @@ export function Chats() {
   const { link, loaded } = useChatLink();
   if (loaded && !link)
     return (
-      <Page title="Chat">
+      <Page app="Chat" eyebrow="Agents" title="Chat">
         <EmptyState
           title="No chat app is set yet."
           line="Once its address is in the settings, the chats open here."
@@ -45,23 +44,20 @@ export function Chats() {
       </Page>
     );
   if (!link) return null;
-  // a computer: dsh's own app, signed in at this address
+  // a computer: dsh's own app, signed in at this address, said in the empty state's voice (plain words in the flow,
+  // no box), its one way there the screen's filled button
   if (onComputer())
     return (
-      <Page title="Chat" width="reading">
-        <Card>
-          <p className="m-0 text-ink">
-            On this computer, your chats open in the DeepSeek Harness itself, where this browser is signed in.
-          </p>
-          <a
-            href={link.desktop}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn-primary justify-self-start"
-          >
-            Open the DeepSeek Harness ↗
-          </a>
-        </Card>
+      <Page app="Chat" eyebrow="Agents" title="Chat" width="reading">
+        <EmptyState
+          title="Your chats open in the DeepSeek Harness."
+          line="On this computer they open in its own tab, where this browser is signed in."
+          action={
+            <a href={link.desktop} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+              Open the DeepSeek Harness ↗
+            </a>
+          }
+        />
         <StopRunning className="card" />
       </Page>
     );

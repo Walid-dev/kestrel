@@ -1904,14 +1904,22 @@ span.filter-row-name {
   transform: rotate(90deg);
 }
 /* A page with a rail (web/src/ui/rail.tsx), News' layout: the main column (52rem at most) and, from 64rem, the rail on
-   its right, 280 to 340, 32 apart, never sticky; on a phone one column, the rail after the main one, or before it
-   (with-rail-first) where the rail starts the work. News' page spells its own classes (.news-layout): one rule for
-   both. A rail's part: its eyebrow heading, then its list, 12 apart */
+   its right, 280 to 340, 32 apart, sticky only where its page says so; on a phone one column, the rail after the main
+   one, or before it where the rail starts the work (with-rail-first: the rail comes first in the page, and a computer
+   puts it back on the right). News' page spells its own classes (.news-layout): one rule for both. A rail's part: its
+   eyebrow heading, then its list, 12 apart */
 .news-layout,
 .with-rail {
   display: grid;
   gap: var(--page-gap);
   align-items: start;
+}
+/* each column holds to its width: a wide part inside (a document's table, its code) scrolls or wraps in it, never
+   widens the column past the page */
+.with-rail,
+.rail-main,
+.rail {
+  grid-template-columns: minmax(0, 1fr);
 }
 @media (min-width: 64rem) {
   .news-layout,
@@ -1919,10 +1927,11 @@ span.filter-row-name {
     grid-template-columns: minmax(0, 52rem) minmax(280px, 340px);
     column-gap: 32px;
   }
-}
-@media (max-width: 63.99rem) {
   .with-rail-first > .rail {
-    order: -1;
+    grid-area: 1 / 2;
+  }
+  .with-rail-first > .rail-main {
+    grid-area: 1 / 1;
   }
 }
 .news-main,
@@ -4527,7 +4536,7 @@ body:has(.paper-view) {
   .note-apply-head:has(> .note-apply-how) {
     display: contents;
   }
-  .note-reader > .note-bar:has(> .note-apply-how) {
+  .note-reader .note-bar:has(> .note-apply-how) {
     display: none;
   }
 }
@@ -4795,7 +4804,21 @@ body:has(.paper-view) {
     background: var(--bg);
   }
 }
-/* Earlier versions: a fold-out in the notes' column, its versions as inner blocks under it (spaced once open) */
+/* the reader's rail (WithRail): on a computer my notes stay in view while the document scrolls. Side by side takes
+   the whole width, the notes under it, where they scroll with the page */
+@media (min-width: 64rem) {
+  .note-layout > .rail {
+    position: sticky;
+    top: var(--page-gap);
+  }
+  .note-side .note-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .note-side .note-layout > .rail {
+    position: static;
+  }
+}
+/* Earlier versions: a fold-out in the notes' rail, its versions as inner blocks under it (spaced once open) */
 .note-versions {
   display: grid;
 }

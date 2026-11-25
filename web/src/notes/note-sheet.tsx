@@ -142,7 +142,7 @@ export function NoteSheet({
           <span className="field-hint">Enter saves · Shift+Enter for a new line</span>
         </div>
         {why && (
-          <p role="alert" className="rounded-lg bg-warn-soft px-3 py-2 text-detail">
+          <p role="alert" className="m-0 text-detail text-red">
             {sentence(why.replace(/\.$/, ""))}. Your words are kept here.
           </p>
         )}

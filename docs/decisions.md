@@ -5,6 +5,20 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Notes and Chat at the Searches standard; the rail's first part is first in the page.**
+  Notes' pages take the eyebrow "Documents" in the accent (the list, the reader, Review together); the list's "From
+  your folders" is a `SectionHead` with its count; a failure in Notes (the list, the note's sheet, the review) is one
+  red line in words, no longer on the warning's tint. The reader moves onto `WithRail`: its head runs the page wide,
+  the document takes the main column (52rem at most), my notes the rail ("Your notes · 3", an eyebrow: `RailPart`,
+  whose new `headRef` keeps the heading as the focus's place after a delete), still in view while the document
+  scrolls; Side by side keeps the same parts in one column, the notes under it, so the editor never starts again.
+  Chat's computer page says where the chats open in the empty state's voice (no card), the eyebrow "Agents" in cyan.
+  `WithRail` changes for every page: `railFirst` renders the rail first in the page and a computer sets it back on the
+  right (it was CSS order: a phone showed the rail first while the keyboard and a screen reader met it last), each
+  column is `minmax(0, 1fr)` (a document's wide table widened the main column past the page), and `className` lets a
+  page keep its rail in view. Rejected: the notes column rising beside the head (one layout for every page with a
+  rail); a `sticky` prop (each page's rail stops at its own place: under the page's top, under a sticky bar).
+
 - **2026-11-25 · Live on the shared card and section heading.**
   Live's cards drop their own top line (`Meta`) for Card's: the chip (or, for work at work, the pulsing dot and its
   kind in muted words) on the left, how long in mono at `end`; the idle page's last piece of work says "Last finished"

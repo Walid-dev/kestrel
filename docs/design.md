@@ -190,9 +190,14 @@ reading width is 720.
   row: Learn's rows are its parents, each opening with All (the parent's page), then its packs.
 - `WithRail` and `RailPart` (`web/src/ui/rail.tsx`) — News' layout for a page with secondary things beside its main
   column (the history, the sources, a form, the done ones): from 64rem the main column (52rem at most) and the rail on
-  its right (280 to 340, 32 apart); on a phone one column, the rail after the main one, or before it (`railFirst`) where
-  the rail starts the work. A rail's part is headed by an eyebrow with its count ("Your notes · 3"), never a section
-  heading. News spells the same rules with its own classes (`.news-layout`).
+  its right (280 to 340, 32 apart); on a phone one column, the rail after the main one. `railFirst` where the rail
+  starts the work (Research's question): the rail is first in the page, so a phone shows it first and the keyboard
+  and a screen reader meet it first, and a computer still sets it on the right. Each column holds to its width (a
+  document's wide table scrolls inside it). `className` carries a page's own rules: a rail that stays in view while a
+  long main column scrolls (the reader's notes, a report's sources). A rail's part is headed by an eyebrow with its
+  count ("Your notes · 3"), never a section heading; `headRef` makes that heading where the focus goes when what had
+  it goes (a deleted note). The pages with a rail: News (its own classes, `.news-layout`, one rule with these), the
+  Notes reader, Quiz, Tasks, Research and an answer, Writing.
 - Blocks of words — words set apart inside a page or a card sit on the sunk ground (`.inner`), never on a tint behind
   them. A block in a tone (`.callout`, a guide's; `.read-box`, a verdict; `.quiz-answer`, the lesson's answer; the
   drawings' tip, warning and check) says its meaning with a 3 px edge in its tone (the accent unless a `tone-*` says
