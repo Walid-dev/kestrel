@@ -1141,7 +1141,7 @@ export function Design() {
 
         <Part
           title="A page with a rail"
-          when="News' layout, for a page with secondary things to keep beside its main column (the history, the sources, a form, the done ones): from 64rem the main column (52rem at most) and the rail on its right, 280 to 340, 32 apart; on a phone one column, the rail after the main one (or before it, railFirst, where the rail starts the work). A rail's part is headed by an eyebrow with its count, never a section heading."
+          when="News' layout, for a page with secondary things to keep beside its main column (the history, the sources, a form, the done ones): from 64rem the main column (52rem at most) and the rail on its right, 280 to 340, 32 apart; on a phone one column, the rail after the main one. railFirst, where the rail starts the work (Research's question): first in the page, so first on a phone and for the keyboard, still on the right on a computer. A rail's part is headed by an eyebrow with its count, never a section heading."
           wide
         >
           <Frame label="WithRail and RailPart">
@@ -1159,6 +1159,20 @@ export function Design() {
             >
               <SectionHead title="The industry and its money" tone="yellow" />
               <Card>The main column: what the page is for, read top to bottom.</Card>
+            </WithRail>
+          </Frame>
+          <Frame label="WithRail railFirst">
+            <WithRail
+              railFirst
+              label="A made-up question"
+              rail={
+                <RailPart title="New question" id="design-rail-new">
+                  <Card>The rail starts the work: first on a phone, on the right on a computer.</Card>
+                </RailPart>
+              }
+            >
+              <SectionHead title="Answers" count={2} />
+              <Card>The main column: the answers the question made.</Card>
             </WithRail>
           </Frame>
         </Part>

@@ -2353,6 +2353,11 @@ figure {
   background: var(--surface-2);
   box-shadow: inset 3px 0 0 var(--tone, var(--accent));
 }
+/* a chip on the sunk ground (a verdict's) takes its tint over the card's own surface, as every other chip does: on the
+   darker sunk grey, light's yellow words fell under 4.5:1 */
+.read-box .chip {
+  background: color-mix(in srgb, var(--tone, var(--muted)) 15%, var(--surface));
+}
 .example {
   background: var(--surface);
   border: 1px solid var(--line);

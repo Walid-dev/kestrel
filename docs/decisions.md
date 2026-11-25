@@ -14,9 +14,10 @@ technical; the plan and the runbook carry the detail.
   as a plain button (the first one the screen's filled button) and Archive a small ghost; two across from 48rem. An
   area with no lesson shows "No lessons to quiz on yet." with Open Learn (or Interview prep) where the form was, its
   From switch kept. A gone quiz says so at once ("This quiz isn't here any more.", Open Quiz) instead of a blank page
-  for three tries and a raw red line; every quiz page's eyebrow is Quiz's teal. Rejected: the started quizzes in the
-  rail (on a phone the rail follows the form, and putting it first would put the done ones before the form too); a
-  big Continue in every card (a page of big buttons).
+  for three tries and a raw red line; every quiz page's eyebrow is Quiz's teal. A verdict's chip takes its tint over
+  the card's surface, as other chips do (on the sunk verdict block, light's yellow "Partly" read 4.1:1). Rejected: the
+  started quizzes in the rail (on a phone the rail follows the form, and putting it first would put the done ones
+  before the form too); a big Continue in every card (a page of big buttons).
 
 - **2026-11-25 · Writing on News' layout; a try is one card.**
   The open try takes the main column (first on a phone, as before); the job, what to write and the job's tries take the
@@ -74,8 +75,9 @@ technical; the plan and the runbook carry the detail.
   `WithRail` changes for every page: `railFirst` renders the rail first in the page and a computer sets it back on the
   right (it was CSS order: a phone showed the rail first while the keyboard and a screen reader met it last), each
   column is `minmax(0, 1fr)` (a document's wide table widened the main column past the page), and `className` lets a
-  page keep its rail in view. Rejected: the notes column rising beside the head (one layout for every page with a
-  rail); a `sticky` prop (each page's rail stops at its own place: under the page's top, under a sticky bar).
+  page keep its rail in view; /design shows both orders. Rejected: the notes column rising beside the head (one layout
+  for every page with a rail); a `sticky` prop (each page's rail stops at its own place: under the page's top, under a
+  sticky bar).
 
 - **2026-11-25 · Live on the shared card and section heading.**
   Live's cards drop their own top line (`Meta`) for Card's: the chip (or, for work at work, the pulsing dot and its
