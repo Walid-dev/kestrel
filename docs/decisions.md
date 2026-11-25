@@ -5,6 +5,16 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Writing on News' layout; a try is one card.**
+  The open try takes the main column (first on a phone, as before); the job, what to write and the job's tries take the
+  rail on the right, the tries a `RailPart` ("Tries · 1"); the eyebrow is "Jobs" in magenta. A try was three blocks (its
+  head card, a row holding only Download, the document): it is one Card on Searches' anatomy (the kind and check chips,
+  the date at `end`, the title, what was asked, the facts, the match, the warnings, the folds) with Download, and a
+  letter's Open the PDF, in its `actions`, then the document under it. For that `Doc` gains `bar={false}` (a document
+  only read, its head left out) and exports `Downloads`, whose menu now lines its left edges up with a button near the
+  screen's left (it went off the screen). Rejected: Download kept in the document's head (a row of its own for one
+  button); the document inside the card (a card in a card).
+
 - **2026-11-25 · Applications at the Searches standard.**
   The two lines of figures in a sentence become a `Figures` strip: Interviewing, Offers, Rejected and Waiting (the
   jobs' own stages, each in its stage's colour from `STAGES`), Sent and Stopped with "this week" beside the value; the

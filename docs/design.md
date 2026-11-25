@@ -139,8 +139,10 @@ reading width is 720.
 - `Doc` (`web/src/ui/doc.tsx`) — every document: Read, Edit and (1024 px and wider) Side by side, with a Download
   menu (the text, Save as PDF, Copy). Its Markdown is `src/shared/markdown.ts`, drawn by `web/src/ui/markdown.tsx` in
   `.md`. A note's mark is `.doc-mark` (`--pink-soft`, a `--pink` line under). The editor `.doc-src` is mono, 16 px on
-  touch. `tools` puts a page's own buttons in the document's head while reading. A control that floats over a document
-  (Notes' Note button) is a soft accent, never filled.
+  touch. `tools` puts a page's own buttons in the document's head while reading. A document only read can leave its
+  head out (`bar={false}`) when its page shows `Downloads` itself, in a card's actions (a Writing try: one card for
+  the try, the document under it); the menu opens under its button, right edges lined up, or left edges near the
+  screen's left. A control that floats over a document (Notes' Note button) is a soft accent, never filled.
 - `Page` and `PageHead` (`web/src/ui/page.tsx`) — every page's head: `title`, `eyebrow`, `app`, `line`, `actions`,
   `back` (`{ to, label }`), `sticky`, `width` (`wide`, or `reading`: 720 at most), `titleAs`. Every page has an
   eyebrow, tinted by `app` in its app's colour (the head's one accent). A top page's eyebrow names what the app holds,

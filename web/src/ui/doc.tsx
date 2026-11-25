@@ -3,7 +3,8 @@
 // Cancel goes back to reading and keeps the words. On a computer-wide screen, Side by side shows the source on the
 // left and the preview on the right, as VS Code does. Words not saved yet wait on this device until Save or Discard.
 // Its head holds the switch and Download: the text as a file, Save as PDF (a clean print page), Copy. While reading,
-// a page can put its own buttons there too, before Download (tools: Notes' Apply, on a short screen).
+// a page can put its own buttons there too, before Download (tools: Notes' Apply, on a short screen). A document only
+// read, whose page puts Download in a card of its own (Downloads, a Writing try's card), leaves the head out (bar).
 import { type ReactNode, useDeferredValue, useEffect, useId, useRef, useState } from "react";
 import { type DocKind, docKind } from "../../../src/shared/markdown.ts";
 import { type Mark, Markdown } from "./markdown.tsx";
@@ -97,6 +98,7 @@ export function Doc({
   printHref,
   onMode,
   tools,
+  bar = true,
 }: {
   id: string;
   name: string;
@@ -111,6 +113,8 @@ export function Doc({
   onMode?: (mode: DocMode) => void;
   // the page's own buttons for the document, on the head's right before Download, while reading
   tools?: ReactNode;
+  // false: no head, for a document only read whose page shows Download itself (a document I edit keeps its head)
+  bar?: boolean;
 }) {
   const kind = docKind(name);
   const wide = useWide();
@@ -248,42 +252,44 @@ export function Doc({
 
   return (
     <section className="doc" data-mode={shown}>
-      <div className={`doc-bar ${shown === "read" ? "" : "doc-bar-editing"}`}>
-        <fieldset className="seg seg-modes doc-modes" aria-label="Read or edit">
-          <button type="button" aria-pressed={shown === "read"} onClick={leave}>
-            Read
-          </button>
-          {onSave && (
-            <button type="button" aria-pressed={shown === "edit"} onClick={() => edit("edit")}>
-              Edit
+      {(bar || onSave) && (
+        <div className={`doc-bar ${shown === "read" ? "" : "doc-bar-editing"}`}>
+          <fieldset className="seg seg-modes doc-modes" aria-label="Read or edit">
+            <button type="button" aria-pressed={shown === "read"} onClick={leave}>
+              Read
             </button>
+            {onSave && (
+              <button type="button" aria-pressed={shown === "edit"} onClick={() => edit("edit")}>
+                Edit
+              </button>
+            )}
+            {onSave && wide && (
+              <button type="button" aria-pressed={shown === "side"} onClick={() => edit("side")}>
+                Side by side
+              </button>
+            )}
+          </fieldset>
+          {shown === "read" ? (
+            <div className="doc-tools">
+              {saved && <span className="doc-status">Saved. The earlier text is kept as a version.</span>}
+              {tools}
+              <Downloads name={name} text={text} kind={kind} printHref={printHref} />
+            </div>
+          ) : (
+            <div className="doc-tools">
+              <span className="doc-status">
+                {busy ? "Saving…" : dirty ? "Not saved yet · kept on this device" : "No changes"}
+              </span>
+              <button type="button" className="btn btn-primary" disabled={!dirty || busy} onClick={() => save()}>
+                Save
+              </button>
+              <button type="button" className="btn btn-quiet" onClick={leave}>
+                Cancel
+              </button>
+            </div>
           )}
-          {onSave && wide && (
-            <button type="button" aria-pressed={shown === "side"} onClick={() => edit("side")}>
-              Side by side
-            </button>
-          )}
-        </fieldset>
-        {shown === "read" ? (
-          <div className="doc-tools">
-            {saved && <span className="doc-status">Saved. The earlier text is kept as a version.</span>}
-            {tools}
-            <Downloads name={name} text={text} kind={kind} printHref={printHref} />
-          </div>
-        ) : (
-          <div className="doc-tools">
-            <span className="doc-status">
-              {busy ? "Saving…" : dirty ? "Not saved yet · kept on this device" : "No changes"}
-            </span>
-            <button type="button" className="btn btn-primary" disabled={!dirty || busy} onClick={() => save()}>
-              Save
-            </button>
-            <button type="button" className="btn btn-quiet" onClick={leave}>
-              Cancel
-            </button>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
       {why?.error && (
         <div ref={whyBox} className="doc-why" role="alert">
           {/* the server's reasons start in lower case, as they read in its log */}
@@ -330,8 +336,18 @@ export function Doc({
 }
 
 // Download: the text as a file, Save as PDF (the print page, in a tab of its own), Copy. A small menu under its
-// button; a tap outside, Esc or a scroll closes it.
-function Downloads({ name, text, kind, printHref }: { name: string; text: string; kind: DocKind; printHref?: string }) {
+// button; a tap outside, Esc or a scroll closes it. A page shows it itself beside a Doc without its head
+export function Downloads({
+  name,
+  text,
+  kind,
+  printHref,
+}: {
+  name: string;
+  text: string;
+  kind: DocKind;
+  printHref?: string;
+}) {
   const menuId = `doc-menu-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const menu = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -339,15 +355,17 @@ function Downloads({ name, text, kind, printHref }: { name: string; text: string
   useEffect(() => {
     const m = menu.current;
     if (!m) return;
-    // placed before it shows, right edges lined up with its button: under it when it fits, else above it (on a phone
-    // the button may sit low, and a scroll closes the menu, so a menu cut off at the bottom could never be reached);
-    // with no room either way, it scrolls inside itself
+    // placed before it shows, right edges lined up with its button (left edges for a button too near the screen's
+    // left, as on a card's foot): under it when it fits, else above it (on a phone the button may sit low, and a
+    // scroll closes the menu, so a menu cut off at the bottom could never be reached); with no room either way, it
+    // scrolls inside itself
     const place = (e: Event) => {
       if ((e as ToggleEvent).newState !== "open" || !trigger.current) return;
       const r = trigger.current.getBoundingClientRect();
-      // its height, measured while hidden from sight (a closed popover takes no room)
+      // its size, measured while hidden from sight (a closed popover takes no room)
       m.style.cssText = "display: block; visibility: hidden; max-height: none";
       const tall = m.offsetHeight;
+      const wide = m.offsetWidth;
       m.style.cssText = "";
       const screen = Math.min(window.innerHeight, window.visualViewport?.height ?? Number.POSITIVE_INFINITY);
       const below = screen - r.bottom - 6 - 8;
@@ -356,7 +374,8 @@ function Downloads({ name, text, kind, printHref }: { name: string; text: string
       if (down) m.style.top = `${r.bottom + 6}px`;
       else m.style.bottom = `${window.innerHeight - r.top + 6}px`;
       m.style.maxHeight = `${Math.max(120, down ? below : above)}px`;
-      m.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
+      if (r.right - wide >= 8) m.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
+      else m.style.left = `${Math.max(8, r.left)}px`;
       setCopied("");
     };
     const hide = () => {

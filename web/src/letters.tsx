@@ -7,15 +7,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+import { docKind } from "../../src/shared/markdown.ts";
 import { Ask } from "./ask.tsx";
 import { Card } from "./ui/card.tsx";
 import { useConfirm } from "./ui/confirm.tsx";
 import { cx } from "./ui/cx.ts";
-import { Doc } from "./ui/doc.tsx";
+import { Doc, Downloads } from "./ui/doc.tsx";
 import { EmptyState } from "./ui/empty.tsx";
 import { Field } from "./ui/field.tsx";
 import { List, Row } from "./ui/list.tsx";
 import { Page } from "./ui/page.tsx";
+import { RailPart, WithRail } from "./ui/rail.tsx";
 import { Seg } from "./ui/seg.tsx";
 
 type Job = { id: string; title: string; org: string; state: string; at: string };
@@ -198,6 +200,8 @@ export function Writing() {
 
   return (
     <Page
+      app="Writing"
+      eyebrow="Jobs"
       title="Writing"
       line="Letters and answers for a job, in your voice."
       actions={files.data?.ready && <YourFiles />}
@@ -213,157 +217,159 @@ export function Writing() {
         </p>
       )}
 
-      {/* the side column 320 wide on a computer, 16 from the try; on a phone the open try comes first */}
-      <div className="grid gap-x-4 gap-y-(--page-gap) lg:grid-cols-[320px_minmax(0,1fr)]">
-        {/* the job, what to write, and the job's tries */}
-        <section className="grid content-start gap-(--page-gap)">
-          <Card>
-            {/* the job's part of the card, a box of no layout of its own: only to find what takes the focus */}
-            <div ref={picker} className="contents">
-              <div className="flex items-center gap-2">
-                <h2 className="eyebrow m-0">The job</h2>
-                {folded && (
-                  <button type="button" className="btn btn-sm writing-change ml-auto" onClick={change}>
-                    Change
-                  </button>
+      {/* News' layout: the open try in the main column, first on a phone too; the job, what to write and the job's
+          tries in the rail on its right */}
+      <WithRail
+        label="The job, what to write, and its tries"
+        rail={
+          <>
+            <Card>
+              {/* the job's part of the card, a box of no layout of its own: only to find what takes the focus */}
+              <div ref={picker} className="contents">
+                <div className="flex items-center gap-2">
+                  <h2 className="eyebrow m-0">The job</h2>
+                  {folded && (
+                    <button type="button" className="btn btn-sm writing-change ml-auto" onClick={change}>
+                      Change
+                    </button>
+                  )}
+                </div>
+                {!folded && <Field label="Search your applications" value={q} onChange={setQ} />}
+                {folded && picked ? (
+                  <JobTile j={picked} on onClick={change} />
+                ) : jobs.data && list.length === 0 ? (
+                  <p className="m-0 text-detail text-muted">
+                    {q.trim()
+                      ? "No application has those words."
+                      : "No jobs yet: apply for one, or mark it Interested."}
+                  </p>
+                ) : (
+                  // at most half the screen, so a phone turned sideways still scrolls the page around it
+                  <div className="grid max-h-[min(440px,50vh)] gap-2 overflow-y-auto">
+                    {list.map((j) => (
+                      <JobTile key={j.id} j={j} on={job === j.id} onClick={() => pick(j.id)} />
+                    ))}
+                  </div>
                 )}
               </div>
-              {!folded && <Field label="Search your applications" value={q} onChange={setQ} />}
-              {folded && picked ? (
-                <JobTile j={picked} on onClick={change} />
-              ) : jobs.data && list.length === 0 ? (
-                <p className="m-0 text-detail text-muted">
-                  {q.trim() ? "No application has those words." : "No jobs yet: apply for one, or mark it Interested."}
-                </p>
-              ) : (
-                // at most half the screen, so a phone turned sideways still scrolls the page around it
-                <div className="grid max-h-[min(440px,50vh)] gap-2 overflow-y-auto">
-                  {list.map((j) => (
-                    <JobTile key={j.id} j={j} on={job === j.id} onClick={() => pick(j.id)} />
-                  ))}
-                </div>
-              )}
-            </div>
-            <h2 className="eyebrow m-0">What to write</h2>
-            <Seg
-              label="What to write"
-              options={KINDS.map(([value, label, hint]) => ({ value, label, hint }))}
-              value={kind}
-              onChange={setKind}
-            />
-            {kind === "letter" || !box ? (
-              // the form's one main action: as wide as its words under a mouse, the whole width on touch
-              <button
-                type="button"
-                className="btn btn-primary btn-big justify-self-start pointer-coarse:w-full"
-                disabled={!ready || write.isPending || running}
-                onClick={() => write.mutate()}
-              >
-                {(running || write.isPending) && <span className="spin" />}
-                {running ? "Writing…" : "Write it"}
-              </button>
-            ) : (
-              <Field
-                label={box[3]}
-                placeholder={box[4]}
-                value={ask}
-                onChange={(v) => setAsk(v.slice(0, ASK_MAX))}
-                // the words can be typed before a job is picked; only the send waits for it
-                onSend={() => ready && write.mutate()}
-                sendLabel="Write it"
-                busy={write.isPending || running}
-                hint={
-                  running
-                    ? "Writing…"
-                    : !job
-                      ? "Pick a job above, then Enter writes it"
-                      : "Enter writes it · Shift+Enter for a new line"
-                }
-                tall
+              <h2 className="eyebrow m-0">What to write</h2>
+              <Seg
+                label="What to write"
+                options={KINDS.map(([value, label, hint]) => ({ value, label, hint }))}
+                value={kind}
+                onChange={setKind}
               />
-            )}
-            {write.isError && <p className="m-0 text-detail text-red">{sentence((write.error as Error).message)}</p>}
-          </Card>
-          {job && (tries.data?.length ?? 0) > 0 && (
-            <section className="grid gap-2">
-              <h2 className="eyebrow m-0">
-                Tries <span className="tabular-nums">· {tries.data?.length}</span>
-              </h2>
-              <List label="Tries">
-                {tries.data?.map((x) => (
-                  <Row
-                    key={x.id}
-                    // a letter is named by its job, an answer or a text by what was asked; the open one is marked, and
-                    // one being deleted dims while it waits
-                    title={
-                      <span
-                        className={cx(
-                          "line-clamp-2",
-                          shown === x.id && "writing-open",
-                          forget.isPending && forget.variables === x.id && "writing-busy",
-                        )}
-                      >
-                        {x.ask || x.title}
-                        {shown === x.id && <span className="sr-only">, open</span>}
-                      </span>
-                    }
-                    // the date first, so the dates line up down the list; a failed try says so last, in red: a word,
-                    // not a chip, so the line stays one line in the side column
-                    line={
-                      <>
-                        <span className="font-mono whitespace-nowrap tabular-nums">{when(x.started)}</span> ·{" "}
-                        {KIND_NAME[x.kind] ?? "Letter"}
-                        {x.state === "failed" && <span className="text-red"> · Failed</span>}
-                      </>
-                    }
-                    onOpen={() => {
-                      setParams({ try: x.id });
-                      toTry();
-                    }}
-                    end={
-                      x.state === "running" ? (
-                        <span className="chip chip-caps tone-yellow">
-                          <span className="dot pulse" /> Writing
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          className="card-remove"
-                          aria-label="Delete this try"
-                          title="Delete this try"
-                          disabled={forget.isPending && forget.variables === x.id}
-                          onClick={async () => {
-                            const yes = await sure({
-                              title: "Delete this try?",
-                              // name only what goes: a failed try wrote nothing, and only a letter can have a PDF
-                              body: x.pdf
-                                ? "Its text and its PDF are deleted too."
-                                : x.state === "done"
-                                  ? "Its text is deleted too."
-                                  : undefined,
-                              yes: "Delete",
-                              danger: true,
-                            });
-                            if (yes) forget.mutate(x.id);
-                          }}
-                        >
-                          ✕
-                        </button>
-                      )
-                    }
-                  />
-                ))}
-              </List>
-              {/* a refused delete (a try still being written) says so: the box named what would go */}
-              {forget.isError && (
-                <p className="m-0 text-detail text-red">The delete didn't land: {(forget.error as Error).message}</p>
+              {kind === "letter" || !box ? (
+                // the form's one main action: as wide as its words under a mouse, the whole width on touch
+                <button
+                  type="button"
+                  className="btn btn-primary btn-big justify-self-start pointer-coarse:w-full"
+                  disabled={!ready || write.isPending || running}
+                  onClick={() => write.mutate()}
+                >
+                  {(running || write.isPending) && <span className="spin" />}
+                  {running ? "Writing…" : "Write it"}
+                </button>
+              ) : (
+                <Field
+                  label={box[3]}
+                  placeholder={box[4]}
+                  value={ask}
+                  onChange={(v) => setAsk(v.slice(0, ASK_MAX))}
+                  // the words can be typed before a job is picked; only the send waits for it
+                  onSend={() => ready && write.mutate()}
+                  sendLabel="Write it"
+                  busy={write.isPending || running}
+                  hint={
+                    running
+                      ? "Writing…"
+                      : !job
+                        ? "Pick a job above, then Enter writes it"
+                        : "Enter writes it · Shift+Enter for a new line"
+                  }
+                  tall
+                />
               )}
-            </section>
-          )}
-        </section>
-
+              {write.isError && <p className="m-0 text-detail text-red">{sentence((write.error as Error).message)}</p>}
+            </Card>
+            {job && (tries.data?.length ?? 0) > 0 && (
+              <RailPart id="writing-tries" title="Tries" count={tries.data?.length}>
+                <List label="Tries">
+                  {tries.data?.map((x) => (
+                    <Row
+                      key={x.id}
+                      // a letter is named by its job, an answer or a text by what was asked; the open one is marked, and
+                      // one being deleted dims while it waits
+                      title={
+                        <span
+                          className={cx(
+                            "line-clamp-2",
+                            shown === x.id && "writing-open",
+                            forget.isPending && forget.variables === x.id && "writing-busy",
+                          )}
+                        >
+                          {x.ask || x.title}
+                          {shown === x.id && <span className="sr-only">, open</span>}
+                        </span>
+                      }
+                      // the date first, so the dates line up down the list; a failed try says so last, in red: a word,
+                      // not a chip, so the line stays one line in the side column
+                      line={
+                        <>
+                          <span className="font-mono whitespace-nowrap tabular-nums">{when(x.started)}</span> ·{" "}
+                          {KIND_NAME[x.kind] ?? "Letter"}
+                          {x.state === "failed" && <span className="text-red"> · Failed</span>}
+                        </>
+                      }
+                      onOpen={() => {
+                        setParams({ try: x.id });
+                        toTry();
+                      }}
+                      end={
+                        x.state === "running" ? (
+                          <span className="chip chip-caps tone-yellow">
+                            <span className="dot pulse" /> Writing
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="card-remove"
+                            aria-label="Delete this try"
+                            title="Delete this try"
+                            disabled={forget.isPending && forget.variables === x.id}
+                            onClick={async () => {
+                              const yes = await sure({
+                                title: "Delete this try?",
+                                // name only what goes: a failed try wrote nothing, and only a letter can have a PDF
+                                body: x.pdf
+                                  ? "Its text and its PDF are deleted too."
+                                  : x.state === "done"
+                                    ? "Its text is deleted too."
+                                    : undefined,
+                                yes: "Delete",
+                                danger: true,
+                              });
+                              if (yes) forget.mutate(x.id);
+                            }}
+                          >
+                            ✕
+                          </button>
+                        )
+                      }
+                    />
+                  ))}
+                </List>
+                {/* a refused delete (a try still being written) says so: the box named what would go */}
+                {forget.isError && (
+                  <p className="m-0 text-detail text-red">The delete didn't land: {(forget.error as Error).message}</p>
+                )}
+              </RailPart>
+            )}
+          </>
+        }
+      >
         {/* the try: what it is and what the check and the review said, then the text and a letter's PDF */}
-        <section className={cx("grid content-start gap-3", shown && "max-lg:order-first")}>
+        <section className="grid content-start gap-3" aria-label="The open try">
           {!shown &&
             (!job ? (
               <EmptyState title="Pick a job to write for." line="Then choose what to write, and write it." />
@@ -374,7 +380,7 @@ export function Writing() {
             ))}
           {t && <TryView t={t} />}
         </section>
-      </div>
+      </WithRail>
       {/* Ask, the page wide under it: about this job's writing, its latest try and what the check said */}
       {job && (
         <Ask
@@ -477,15 +483,30 @@ function TryView({ t }: { t: Try }) {
   if (r?.held) warns.push(["text-warn", `The check said of the review's version: ${r.held}`]);
   if (t.kind === "letter" && !n.pdf) warns.push(["text-warn", `No PDF: ${n.pdfNote || "the PDF tool made none"}`]);
   if (n.pdf && n.pdfNote) warns.push(["text-warn", `The PDF tool said: ${n.pdfNote}`]);
+  const name = `${t.title} ${KIND_NAME[t.kind].toLowerCase()}.txt`;
+  const pdf = t.kind === "letter" && n.pdf ? `/api/letters/${t.id}/pdf` : null;
   return (
     <>
-      <Card>
-        <div className="flex flex-wrap items-center gap-2">
-          <Chips t={t} />
-          <span className="ml-auto font-mono text-small text-muted tabular-nums">{when(t.started)}</span>
-        </div>
-        <div className="grid gap-1">
-          <h2 className="font-cond m-0 text-head">{t.title}</h2>
+      {/* one card, Searches' anatomy: the chips and the date on top, the title, what was asked, the facts with their
+          values bold, the match, what went wrong, the folds; Download (and a letter's PDF) as its actions */}
+      <Card
+        title={t.title}
+        meta={<Chips t={t} />}
+        end={<span className="font-mono">{when(t.started)}</span>}
+        actions={
+          t.state === "done" && (
+            <>
+              <Downloads name={name} text={t.text} kind={docKind(name)} />
+              {pdf && (
+                <a href={pdf} target="_blank" rel="noopener noreferrer" className="btn btn-quiet">
+                  Open the PDF ↗
+                </a>
+              )}
+            </>
+          )
+        }
+      >
+        <div className="grid gap-2">
           {t.state === "running" ? (
             <p className="m-0 text-detail text-muted">{t.step || "Starting"}…</p>
           ) : t.state === "failed" ? (
@@ -499,70 +520,51 @@ function TryView({ t }: { t: Try }) {
               </p>
             )
           )}
-        </div>
-        {t.state === "done" && facts.length > 0 && (
-          <p className="m-0 text-small text-muted">
-            {facts.map((f, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: the facts are fixed once the try is done
-              <span key={i}>
-                {i > 0 && " · "}
-                {f}
+          {t.state === "done" && facts.length > 0 && (
+            <p className="m-0 text-small text-muted">
+              {facts.map((f, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: the facts are fixed once the try is done
+                <span key={i}>
+                  {i > 0 && " · "}
+                  {f}
+                </span>
+              ))}
+            </p>
+          )}
+          {r && (off || r.match.note) && (
+            // the match, as the hunt cards say theirs: a ring in its colour, the verdict bold, why after it
+            <div className="flex items-start gap-2 text-detail">
+              <span className={`match-ring ${off ? "tone-red" : "tone-green"}`} aria-hidden="true" />
+              <span>
+                <b className={off ? "text-red" : "text-strong"}>{off ? "Check the match" : "Match"}</b>
+                {(r.match.note || off) && (
+                  <span className="text-muted"> · {r.match.note || "it may name another company or job"}</span>
+                )}
               </span>
-            ))}
-          </p>
-        )}
-        {r && (off || r.match.note) && (
-          // the match, as the hunt cards say theirs: a ring in its colour, the verdict bold, why after it
-          <div className="flex items-start gap-2 text-detail">
-            <span className={`match-ring ${off ? "tone-red" : "tone-green"}`} aria-hidden="true" />
-            <span>
-              <b className={off ? "text-red" : "text-strong"}>{off ? "Check the match" : "Match"}</b>
-              {(r.match.note || off) && (
-                <span className="text-muted"> · {r.match.note || "it may name another company or job"}</span>
-              )}
-            </span>
-          </div>
-        )}
-        {t.state === "done" && warns.length > 0 && (
-          <ul className="m-0 grid list-none gap-1 p-0">
-            {warns.map(([tone, said]) => (
-              <li key={said} className={`line-clamp-2 text-small ${tone}`} title={said}>
-                {said}
-              </li>
-            ))}
-          </ul>
-        )}
-        {t.state === "done" && <Folds t={t} r={r} needs={needs} />}
+            </div>
+          )}
+          {t.state === "done" && warns.length > 0 && (
+            <ul className="m-0 grid list-none gap-1 p-0">
+              {warns.map(([tone, said]) => (
+                <li key={said} className={`line-clamp-2 text-small ${tone}`} title={said}>
+                  {said}
+                </li>
+              ))}
+            </ul>
+          )}
+          {t.state === "done" && <Folds t={t} r={r} needs={needs} />}
+        </div>
       </Card>
       {t.state === "done" && (
-        <div className={cx("grid gap-3", t.kind === "letter" && n.pdf && "xl:grid-cols-2")}>
-          {/* the text as a document: read, copied or downloaded; it is written again, never edited here */}
-          <div className="try-text min-w-0">
-            <Doc
-              id={`writing:${t.id}`}
-              name={`${t.title} ${KIND_NAME[t.kind].toLowerCase()}.txt`}
-              text={t.text}
-              rev=""
-            />
+        // the text as a document, read only (it is written again, never edited here: Download is on the card), and a
+        // letter's PDF beside it on a wide screen, both starting level
+        <div className={cx("grid gap-3", pdf && "xl:grid-cols-2")}>
+          <div className="min-w-0">
+            <Doc id={`writing:${t.id}`} name={name} text={t.text} rev="" bar={false} />
           </div>
-          {t.kind === "letter" && n.pdf && (
-            // its link in a bar on top, the height of the Doc's bar beside it, so the letter and the PDF start level
-            <div className="grid content-start gap-3">
-              <a
-                href={`/api/letters/${t.id}/pdf`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-quiet justify-self-end"
-              >
-                Open the PDF ↗
-              </a>
-              {/* the PDF as an employer gets it: a white page in both themes */}
-              <iframe
-                title="The PDF"
-                src={`/api/letters/${t.id}/pdf`}
-                className="h-[70vh] w-full rounded-xl border border-line bg-white"
-              />
-            </div>
+          {pdf && (
+            // the PDF as an employer gets it: a white page in both themes
+            <iframe title="The PDF" src={pdf} className="h-[70vh] w-full rounded-xl border border-line bg-white" />
           )}
         </div>
       )}

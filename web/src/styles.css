@@ -4945,11 +4945,6 @@ body:has(.paper-view) {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-/* Writing: a try's text is a document only to read (a try is written again, never edited), so the switch, holding
-   Read alone, stays out of sight and Download keeps its place on the right */
-.try-text .doc-modes:has(> :only-child) {
-  display: none;
-}
 /* Writing: the open try's row in the list of tries takes the accent edge a card that matters has */
 .list-row:has(.writing-open) {
   box-shadow: inset 2px 0 0 var(--accent);
