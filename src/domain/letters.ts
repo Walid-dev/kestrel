@@ -8,7 +8,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
-import { callModel } from "../ai/client.ts";
+import { callModel, failureWords } from "../ai/client.ts";
 import {
   fixPrompt,
   type Kind,
@@ -104,7 +104,7 @@ async function reviewText(
     LetterReview,
   );
   recordCall(db, `letter-review:v${REVIEW_VERSION}`, got);
-  if (!got.ok) return { ok: false, why: `${got.why} (${got.detail})`.slice(0, 200) };
+  if (!got.ok) return { ok: false, why: failureWords(got.why) };
   const r = got.value;
   const named = !input.org || kind !== "letter" || text.toLowerCase().includes(input.org.toLowerCase());
   return {
@@ -152,7 +152,7 @@ export async function reviewForApplication(
   );
   try {
     const got = await reviewText(db, settings.models, model, input, tidy(given.text), kind, given.ask ?? "");
-    if (!got.ok) throw new Refused(`the model didn't review it: ${got.why}`);
+    if (!got.ok) throw new Refused(got.why);
     let findings = "";
     if (check && got.review.verdict === "better") {
       live.step("Checking the better version");
@@ -259,8 +259,7 @@ export function startLetter(
         LetterDraft,
       );
       recordCall(db, `letter:v${LETTER_VERSION}`, draft);
-      if (!draft.ok)
-        return finish("failed", "", { model }, `the model didn't write it well: ${draft.why} (${draft.detail})`);
+      if (!draft.ok) return finish("failed", "", { model }, failureWords(draft.why, "Write it again"));
       let letter = tidy(draft.value.text);
       const fixed: string[] = []; // what each check named before a fix
       let findings = "";

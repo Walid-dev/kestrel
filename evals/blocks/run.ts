@@ -3,7 +3,7 @@
 // (docs/eval/). Both local models: --model both.
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { type AskPage, askMessages } from "../../src/ai/ask/prompt.ts";
+import { ASK_MAX_TOKENS, type AskPage, askMessages } from "../../src/ai/ask/prompt.ts";
 import { chatModel, type ModelSettings } from "../../src/ai/client.ts";
 import { startStandIn } from "../../src/ai/stand-in.ts";
 import { liveModels } from "../../src/platform/config.ts";
@@ -32,7 +32,7 @@ const only = values.case ? new Set(values.case.split(",")) : null;
 
 async function runCase(c: Case, settings: ModelSettings, model: string, run: number) {
   const { system, messages } = askMessages(page, [], c.question);
-  const got = await chatModel(settings, { model, system, messages, maxTokens: 6000, thinking: true }); // the app's own
+  const got = await chatModel(settings, { model, system, messages, maxTokens: ASK_MAX_TOKENS, thinking: true }); // the app's own
   if (!got.ok)
     return { name: c.name, model, run, pass: false, why: `${got.why}: ${got.detail.slice(0, 60)}`, ms: got.ms };
   const judged = score(c, got.value);

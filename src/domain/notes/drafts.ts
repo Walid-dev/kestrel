@@ -196,8 +196,9 @@ export function startDraft(
     live.end(got.ok ? "done" : "failed", got.ok ? "" : got.why);
     recordCall(db, `changes:v${PROMPT_VERSION}`, got);
     if (!got.ok) {
+      // Notes' page words each kind itself (web/src/notes/parts.tsx): an answer out of room keeps the kind it knows
       db.prepare("UPDATE drafts SET status = 'failed', error = ? WHERE id = ?").run(
-        `the model didn't answer well: ${got.why} — ${got.detail}`,
+        `the model didn't answer well: ${got.why === "out-of-room" ? "refusal" : got.why} — ${got.detail}`,
         id,
       );
       return;

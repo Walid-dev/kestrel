@@ -1,9 +1,10 @@
 // The Ask eval on a hunt's page, end to end: the made-up hunt made into the page the app builds, through Ask's real
-// prompt and the conversation client, scored on the blocks it writes (a find, a change, none); --stand-in inside the
-// check, --live for the record (docs/eval/).
+// prompt and the conversation client, scored on the blocks it writes (a find, a change, a rule for many, none);
+// --stand-in inside the check, --live for the record (docs/eval/). A case asks on the job hunt unless it names the
+// deal hunt.
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { askMessages } from "../../src/ai/ask/prompt.ts";
+import { ASK_MAX_TOKENS, askMessages } from "../../src/ai/ask/prompt.ts";
 import { chatModel, type ModelSettings } from "../../src/ai/client.ts";
 import { startStandIn } from "../../src/ai/stand-in.ts";
 import { searchAskPage } from "../../src/domain/search/ask.ts";
@@ -12,33 +13,47 @@ import { liveModels } from "../../src/platform/config.ts";
 import { type Case, score } from "./score.ts";
 
 type Made = { id: string; score: number; match: string } & Record<string, unknown>;
-const { cases, listings } = JSON.parse(readFileSync(new URL("./cases.json", import.meta.url), "utf8")) as {
+const { cases, listings, dealListings } = JSON.parse(
+  readFileSync(new URL("./cases.json", import.meta.url), "utf8"),
+) as {
   cases: Case[];
   listings: Made[];
+  dealListings: Made[];
 };
-const rows: ListingRow[] = listings.map(({ id, score: s, match, ...data }) => ({
-  id,
-  search: "beekeeping",
-  source: "made-up-board",
-  link: `https://example.com/${id}`,
-  dedupe: id,
-  status: "new",
-  starred: null,
-  found: "2026-11-20T00:00:00Z",
-  updated: "2026-11-20T00:00:00Z",
-  score: s,
-  match,
-  data,
-  kind: "jobs",
-  priority: false,
-  leftOut: null,
-}));
-const page = searchAskPage(
-  { kind: "jobs", key: "beekeeping", name: "Beekeeping roles", count: 40 },
-  { review: 6, possible: 9, leftout: 25 },
-  rows,
-);
-const ids = rows.map((r) => r.id);
+const rowsOf = (made: Made[], kind: "jobs" | "deals", search: string): ListingRow[] =>
+  made.map(({ id, score: s, match, ...data }) => ({
+    id,
+    search,
+    source: "made-up-board",
+    link: `https://example.com/${id}`,
+    dedupe: id,
+    status: "new",
+    starred: null,
+    found: "2026-11-20T00:00:00Z",
+    updated: "2026-11-20T00:00:00Z",
+    score: s,
+    match,
+    data,
+    kind,
+    priority: false,
+    leftOut: null,
+    mine: {},
+  }));
+const jobs = rowsOf(listings, "jobs", "beekeeping");
+const deals = rowsOf(dealListings, "deals", "made-up-chairs");
+const pages = {
+  jobs: searchAskPage(
+    { kind: "jobs", key: "beekeeping", name: "Beekeeping roles", count: 40 },
+    { review: 6, possible: 9, leftout: 25 },
+    jobs,
+  ),
+  deals: searchAskPage(
+    { kind: "deals", key: "Made-up chairs", name: "Made-up chairs", count: 12 },
+    { review: 4, possible: 3, leftout: 5 },
+    deals,
+  ),
+};
+const ids = [...jobs, ...deals].map((r) => r.id);
 const { values } = parseArgs({
   options: {
     live: { type: "boolean", default: false },
@@ -50,8 +65,8 @@ const { values } = parseArgs({
 });
 
 async function runCase(c: Case, settings: ModelSettings, model: string, run: number) {
-  const { system, messages } = askMessages(page, [], c.question);
-  const got = await chatModel(settings, { model, system, messages, maxTokens: 6000, thinking: true }); // the app's own
+  const { system, messages } = askMessages(pages[c.page ?? "jobs"], [], c.question);
+  const got = await chatModel(settings, { model, system, messages, maxTokens: ASK_MAX_TOKENS, thinking: true }); // the app's own
   if (!got.ok)
     return { name: c.name, model, run, pass: false, why: `${got.why}: ${got.detail.slice(0, 60)}`, ms: got.ms };
   const judged = score(c, got.value, ids);

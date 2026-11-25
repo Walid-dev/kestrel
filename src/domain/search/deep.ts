@@ -4,7 +4,7 @@
 // is written as it happens, so Live can show it.
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import { callModel } from "../../ai/client.ts";
+import { callModel, failureWords } from "../../ai/client.ts";
 import { DEEP_VERSION, dealPrompt, jobPrompt, SYSTEM, type Wants } from "../../ai/deep/prompt.ts";
 import { DealReport, JobReport } from "../../ai/deep/shape.ts";
 import { fetchPage, searchWeb } from "../../ai/web.ts";
@@ -148,7 +148,7 @@ export function startDeepCheck(
           DealReport,
         );
         recordCall(db, `deep-deal:v${DEEP_VERSION}`, got);
-        if (!got.ok) return finish("failed", null, `the model didn't answer well: ${got.why}`);
+        if (!got.ok) return finish("failed", null, failureWords(got.why, "Check again"));
         return finish("done", { ...got.value, read: { ad: ad.length > 0, ad_note: adNote, web: hits.length, model } });
       }
       // a job: the posting, the company and its news, the pay around here, then the report
@@ -200,7 +200,7 @@ export function startDeepCheck(
         JobReport,
       );
       recordCall(db, `deep-job:v${DEEP_VERSION}`, got);
-      if (!got.ok) return finish("failed", null, `the model didn't answer well: ${got.why}`);
+      if (!got.ok) return finish("failed", null, failureWords(got.why, "Check again"));
       finish("done", {
         ...got.value,
         read: { posting: posting.length > 0, posting_note: postingNote, web: hits.length, model },

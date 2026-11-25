@@ -141,7 +141,12 @@ reading width is 720.
   before the title does.
 - `Ask` (`web/src/ask.tsx`) — the same box on every app: its head, the conversation, starters, a line to ask. `bare`
   puts it inside a card that belongs to the page (a news story): no card and no head of its own, the page opens and
-  closes it, Start over beside the line to ask.
+  closes it, Start over beside the line to ask. A change the model proposes is a card under its answer (`.ask-card`):
+  what it does, and Do it; done (green) it says what happened, a stage or a delete with Undo (`.btn-sm`) until used;
+  failed in red; undone quiet, on the card's own line and ground. A change to many says under its words, on the small
+  step in muted ink, what it leaves out, and folds out the titles it covers ("The listings 37", a `.disclosure`), each
+  a quiet link as an inline source, in a list that scrolls inside 240 at most. A failed answer is one plain sentence
+  in red with what to do, never a developer's hint.
 - `Card` (`web/src/ui/card.tsx`) — plain; `to` makes the whole card a link; `title` adds `meta`, `to` or `onOpen`,
   `onRemove` and `removeLabel` (the ✕ waits out of sight under a mouse until hover or focus); `tone` colours its edge;
   `wide` spans the grid's row.
@@ -160,7 +165,9 @@ reading width is 720.
   a quarter toward the ink. Two with nothing between them part with a dot (`.cite-sep`).
 - Patterns the pages share: a page's view switch (Live's Now and Activity, Applications' period) is a Seg; a read-only
   document is Doc without `onSave`; a page whose item is gone says so in plain words and doesn't retry; the listing
-  sheet is the wide Dialog, its title and ✕ kept in view on tall screens, Apply at its foot; a stage's colour comes
+  sheet is the wide Dialog, its title and ✕ kept in view on tall screens, Apply at its foot, and on its left a quiet
+  Delete (`btn-quiet btn-danger`, after Confirm); deleted, the sheet says so first on an inner block, shows the
+  listing as it was with nothing to change, and offers Restore in Apply's place; a stage's colour comes
   from one map (`STAGES`); a history (News' All days) lists by month, a hundred at a time with Show older, a find at
   its top and a ✕ per row that deletes after Confirm, and a Seg before them for what was starred: there a ★ taken
   off leaves its row in place, struck through, until the page is left, and gives the star back.

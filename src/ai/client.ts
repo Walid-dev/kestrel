@@ -7,10 +7,27 @@
 import type { z } from "zod";
 
 export type ModelSettings = { url: string; careful: string; fast: string; contextChars: number };
-export type Outcome = "unlisted" | "too-long" | "down" | "timeout" | "refusal" | "shape";
+// out-of-room: the answer's whole room went on thinking (the stream stopped for its length with nothing to show);
+// refusal: it ended with nothing to show for another reason
+export type Outcome = "unlisted" | "too-long" | "down" | "timeout" | "refusal" | "out-of-room" | "shape";
 export type ModelAnswer<T> =
   | { ok: true; value: T; ms: number; model: string; tokensIn: number | null; tokensOut: number | null }
   | { ok: false; why: Outcome; detail: string; ms: number; model: string };
+
+// A model's failure as a screen says it, the one mapping every screen uses (Ask, Research, the quiz, the deep checks,
+// Writing): what happened, in plain words, then what to do. `again` is the screen's own next step for a failure that
+// another try can pass ("Ask again, or ask in fewer words" on Ask, "Check again" on a deep check). The detail, a
+// developer's hint, stays in the calls log (domain/calls.ts) and never reaches a screen.
+const SAID: Record<Outcome, (again: string) => string> = {
+  "out-of-room": (again) => `The model ran out of room while it thought. ${again}.`,
+  refusal: (again) => `The model answered nothing. ${again}.`,
+  timeout: (again) => `The model took too long, so kestrel stopped it. ${again}.`,
+  shape: (again) => `The model's answer came back in a form kestrel can't read. ${again}.`,
+  down: () => "The computer's model isn't answering: is oMLX open?",
+  "too-long": () => "That is more than the model can read at once.",
+  unlisted: () => "The model picked for this isn't one kestrel's settings list: pick another on the Models page.",
+};
+export const failureWords = (why: Outcome, again = "Try again"): string => SAID[why](again);
 
 export type Call = {
   model: string;
@@ -119,10 +136,12 @@ async function stream(settings: ModelSettings, chat: Chat, onText?: (soFar: stri
   return { ok: true, text, finish, tokensIn, tokensOut };
 }
 
-const outOfRoom = (finish: string) =>
+// an answer with nothing to show: its room spent on thinking (the stream stopped for its length), or nothing at all;
+// the detail is for the calls log
+const empty = (finish: string): { why: Outcome; detail: string } =>
   finish === "length"
-    ? "the model spent its whole answer thinking: raise the call's max tokens"
-    : "the model answered nothing";
+    ? { why: "out-of-room", detail: "the model spent its whole answer thinking: raise the call's max tokens" }
+    : { why: "refusal", detail: "the model answered nothing" };
 
 export async function callModel<T>(settings: ModelSettings, call: Call, shape: z.ZodType<T>): Promise<ModelAnswer<T>> {
   const started = Date.now();
@@ -148,7 +167,10 @@ export async function callModel<T>(settings: ModelSettings, call: Call, shape: z
   if (!got.ok) return fail(got.why, got.detail);
   const { finish, tokensIn, tokensOut } = got;
   const text = visible(got.text);
-  if (text.trim() === "") return fail("refusal", outOfRoom(finish));
+  if (text.trim() === "") {
+    const nothing = empty(finish);
+    return fail(nothing.why, nothing.detail);
+  }
   let raw: unknown;
   const object = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
   try {
@@ -188,7 +210,7 @@ export async function chatModel(
   const ms = Date.now() - started;
   if (!got.ok) return { ok: false, why: got.why, detail: got.detail, ms, model: chat.model };
   const text = visible(got.text).trim();
-  if (!text) return { ok: false, why: "refusal", detail: outOfRoom(got.finish), ms, model: chat.model };
+  if (!text) return { ok: false, ...empty(got.finish), ms, model: chat.model };
   return {
     ok: true,
     value: got.finish === "length" ? `${text}\n\n*(cut short: ask me to go on)*` : text,

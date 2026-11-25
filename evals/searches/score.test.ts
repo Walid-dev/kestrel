@@ -4,11 +4,14 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { type Case, score } from "./score.ts";
 
-const { cases, listings } = JSON.parse(readFileSync(new URL("./cases.json", import.meta.url), "utf8")) as {
+const { cases, listings, dealListings } = JSON.parse(
+  readFileSync(new URL("./cases.json", import.meta.url), "utf8"),
+) as {
   cases: Case[];
   listings: { id: string }[];
+  dealListings: { id: string }[];
 };
-const ids = listings.map((l) => l.id);
+const ids = [...listings, ...dealListings].map((l) => l.id);
 
 for (const c of cases) {
   test(`${c.name}: good passes, bad fails (${c.badWhy})`, () => {

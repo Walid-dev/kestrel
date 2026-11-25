@@ -1,4 +1,5 @@
-// Dedupe never double-lists (a fresh run after an import included), Priority follows its rule, filters combine.
+// Dedupe never double-lists (a fresh run after an import included), Priority follows its rule, filters combine. A
+// listing deleted leaves every view and count, a run never brings it back, and it comes back whole.
 import assert from "node:assert/strict";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -6,14 +7,20 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { migrate } from "../../db/migrate.ts";
+import { morningBrief } from "../brief.ts";
 import type { Item } from "./collect.ts";
 import {
+  deleteListings,
+  getDeletedListing,
+  getListing,
   isPriority,
   keepItems,
+  listHunts,
   listingCounts,
   listListings,
   normalizeDedupe,
   rescoreSearch,
+  restoreListings,
   setListingStar,
   setListingStatus,
 } from "./listings.ts";
@@ -240,4 +247,50 @@ test("left to do: a review view hides a job with an application of any state; Al
   assert.equal(listingCounts(db, { stage: "all", todo: true }).stages.all, 2);
   setListingStatus(db, tried.id, "interested");
   assert.equal(listListings(db, { stage: "interested", todo: true }).length, 1); // its own status view keeps it
+});
+
+test("a deleted listing leaves every view and count, no run brings it back, and it comes back whole", () => {
+  const db = setup();
+  keepItems(
+    db,
+    "s1",
+    [item(), item({ url: "https://example.com/2", title: "Wax Lead", org: "Other Co" })],
+    scoring,
+    NOW,
+  );
+  const [a, b] = listListings(db, {}, 10);
+  setListingStar(db, a.id, 1);
+  const was = getListing(db, a.id);
+  assert.deepEqual(deleteListings(db, [a.id, "nope"], "me", NOW), [a.id]);
+  assert.deepEqual(
+    listListings(db).map((r) => r.id),
+    [b.id],
+  );
+  assert.equal(listingCounts(db, {}).all, 1);
+  assert.equal(listingCounts(db, {}).priority, 0);
+  assert.equal(listHunts(db)[0].count, 1);
+  assert.doesNotMatch(morningBrief(db, NOW).join(" "), /Priority list holds/); // Home's brief counts it no more
+  // a run that finds it again, under its link or reposted under a new one, never lands it
+  assert.equal(keepItems(db, "s1", [item()], scoring, NOW).kept, 0);
+  assert.equal(keepItems(db, "s1", [item({ url: "https://example.com/repost" })], scoring, NOW).kept, 0);
+  assert.equal(listingCounts(db, {}).all, 1);
+  // its tombstone holds it as it was; back, it is the same listing, star and all
+  assert.equal(getDeletedListing(db, a.id)?.deleted.by, "me");
+  assert.deepEqual(restoreListings(db, [a.id]), { back: [a.id], stayed: [] });
+  assert.deepEqual(getListing(db, a.id), was);
+  assert.equal(getDeletedListing(db, a.id), null);
+  // one the old setup deleted comes back as mine, so its delete doesn't reach it again
+  deleteListings(db, [b.id], "old", NOW);
+  restoreListings(db, [b.id], NOW);
+  assert.equal(getListing(db, b.id)?.mine.deleted, NOW.toISOString());
+});
+
+test("my stage, star and note are my marks, each with when I made it", () => {
+  const db = setup();
+  keepItems(db, "s1", [item()], scoring, NOW);
+  const [a] = listListings(db);
+  assert.deepEqual(a.mine, {});
+  setListingStatus(db, a.id, "passed");
+  setListingStar(db, a.id, 0);
+  assert.deepEqual(Object.keys(getListing(db, a.id)?.mine ?? {}).sort(), ["starred", "status"]);
 });

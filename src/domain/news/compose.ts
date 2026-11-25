@@ -54,6 +54,7 @@ const WHY: Record<Outcome, string> = {
   timeout: "the model took too long",
   shape: "the model's answer wasn't in the asked shape",
   refusal: "the model answered nothing",
+  "out-of-room": "the model ran out of room while it thought",
   "too-long": "the day was too much for the model to read in one go",
   unlisted: "the model picked for the news isn't one my settings list",
 };

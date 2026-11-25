@@ -92,14 +92,27 @@ test("one answer at a time; an unknown app or page is refused; start over clears
   assert.deepEqual(conversation(db, "learn", "spout"), []);
 });
 
-test("a failed answer says why; a restart ends an answer left writing", async () => {
+test("a failed answer says why in plain words; a restart ends an answer left writing", async () => {
   const db = setup();
-  const s = await startStandIn(() => ({ status: 503 }));
+  let plan: { status?: number; content?: string; finish?: string } = { status: 503 };
+  const s = await startStandIn(() => plan);
   await askPage(db, settings(s.url), { app: "learn", ref: "spout", text: "What does it do?" }).done;
-  await s.close();
   const failed = conversation(db, "learn", "spout")[1];
   assert.equal(failed.state, "failed");
-  assert.match(failed.error, /^down: the model door answered 503/);
+  assert.equal(failed.error, "The computer's model isn't answering: is oMLX open?");
+  // an answer whose whole room went on thinking: what to do, and the developer's hint in the calls log alone
+  plan = { content: "", finish: "length" };
+  await askPage(db, settings(s.url), { app: "learn", ref: "lid", text: "And a lid?" }).done;
+  await s.close();
+  assert.equal(
+    conversation(db, "learn", "lid")[1].error,
+    "The model ran out of room while it thought. Ask again, or ask in fewer words.",
+  );
+  assert.deepEqual(
+    { ...db.prepare("SELECT outcome, detail FROM model_calls ORDER BY rowid DESC LIMIT 1").get() },
+    { outcome: "out-of-room", detail: "the model spent its whole answer thinking: raise the call's max tokens" },
+  );
+  db.prepare("DELETE FROM ask_messages WHERE ref = 'lid'").run();
   db.prepare(
     "INSERT INTO ask_messages (id, app, ref, role, text, state, at) VALUES ('m9', 'learn', 'lid', 'model', 'Half', 'writing', ?)",
   ).run(new Date().toISOString());

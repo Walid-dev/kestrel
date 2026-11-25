@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
-import { callModel } from "../ai/client.ts";
+import { callModel, failureWords } from "../ai/client.ts";
 import {
   askPrompt,
   type Level,
@@ -194,7 +194,7 @@ export function startResearch(
         ResearchReport,
       );
       recordCall(db, `research:v${RESEARCH_VERSION}`, got);
-      if (!got.ok) return finish("failed", null, `the model didn't answer well: ${got.why} (${got.detail})`);
+      if (!got.ok) return finish("failed", null, failureWords(got.why, "Ask it again"));
       finish("done", {
         ...got.value,
         refs: hits.map((h, i) => ({ n: i + 1, title: h.title, url: h.url })),

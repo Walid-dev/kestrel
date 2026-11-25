@@ -119,7 +119,7 @@ async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promis
         const j = counts.landed;
         const d = counts.deals.landed;
         found = j.new + j.updated + j.unchanged + d.new + d.updated + d.unchanged;
-        kept = j.new + j.updated + d.new + d.updated;
+        kept = j.new + j.updated + d.new + d.updated + counts.removed;
       } catch (e) {
         problem = `the mirror failed: ${plainWords((e as Error).message)}`;
       }

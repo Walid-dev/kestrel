@@ -846,7 +846,8 @@ export function Searches() {
                   "What is a fair price here?",
                 ]
           }
-          onChange={refresh}
+          // a card's change may delete listings: the hunts' counts change too
+          onChange={() => Promise.all([refresh(), queryClient.invalidateQueries({ queryKey: ["searches"] })])}
         />
       )}
 

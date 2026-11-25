@@ -5,7 +5,11 @@
 import { catalogLines } from "../../shared/blocks.ts";
 import type { Turn } from "../client.ts";
 
-export const ASK_VERSION = 4;
+export const ASK_VERSION = 5;
+// an answer's room, its thinking and its words together (the evals use it too). 12,000, as Writing's calls, where 6,000
+// ran out while the fast model thought about a change to many listings; the time limit (client.ts) already stops a
+// call at ten minutes, so the room adds no wait beyond it
+export const ASK_MAX_TOKENS = 12_000;
 
 // what a page shows the model: which app, what the page is, its title and link (for Live), its content in words, and
 // what the model may do there (find, a change to propose), in the app's own words
