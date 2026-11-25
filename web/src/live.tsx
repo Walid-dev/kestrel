@@ -17,6 +17,7 @@ import { EmptyState } from "./ui/empty.tsx";
 import { List, Row } from "./ui/list.tsx";
 import { Page } from "./ui/page.tsx";
 import { Pills, type Tone } from "./ui/pills.tsx";
+import { SectionHead } from "./ui/section.tsx";
 import { Seg } from "./ui/seg.tsx";
 
 type Item = {
@@ -123,7 +124,7 @@ function ChatState({ chat, open, timed = false }: { chat: AgentChat; open: (id: 
         {chat.working ? (
           <b className="text-green">Working</b>
         ) : chat.waiting ? (
-          <b className={chat.waiting === "you" ? "text-pink" : "text-yellow"}>Waiting for {chat.waiting}</b>
+          <b className={chat.waiting === "you" ? "text-pink" : "text-tone tone-yellow"}>Waiting for {chat.waiting}</b>
         ) : (
           <span className="text-muted">
             Ended <b className="text-ink">{clock(chat.updated)}</b>
@@ -219,16 +220,9 @@ function Steps({ steps }: { steps: { at: string; text: string }[] }) {
   );
 }
 
-// a card's meta row, as a listing's: the state or the kind as a chip on the left, how long in mono on the right; the
-// title gets the next line whole, so a long job's name is read, not cut, on a phone
-function Meta({ chip, time }: { chip: ReactNode; time: ReactNode }) {
-  return (
-    <>
-      {chip}
-      <span className="ml-auto flex items-center gap-2 font-mono text-small text-muted tabular-nums">{time}</span>
-    </>
-  );
-}
+// how long, at a card's top-line end (Card's end), in mono; the title gets the next line whole, so a long job's name
+// is read, not cut, on a phone
+const took = (text: string) => <span className="font-mono tabular-nums">{text}</span>;
 
 // a finished piece of work, as one row of the day's list: what it was (a tap opens the work itself); under it the
 // kind's chip, Failed when it failed, and its note; when it ended, and how long it took, at the end in mono
@@ -400,16 +394,12 @@ export function LivePage() {
           tone="green"
           title={clamped(shortTitle(a))}
           meta={
-            <Meta
-              chip={<span className="text-small text-muted">{kindName(a.kind)}</span>}
-              time={
-                <>
-                  <span className="dot tone-green pulse" />
-                  {length(a.started, Date.now())}
-                </>
-              }
-            />
+            <>
+              <span className="dot tone-green pulse" aria-hidden="true" />
+              <span className="text-small text-muted">{kindName(a.kind)}</span>
+            </>
           }
+          end={took(length(a.started, Date.now()))}
         >
           <div className="grid gap-3">
             <Steps steps={a.steps} />
@@ -436,12 +426,8 @@ export function LivePage() {
           key={a.id}
           tone={needs ? "pink" : a.state === "applying" ? "green" : undefined}
           title={clamped(a.title || a.link)}
-          meta={
-            <Meta
-              chip={<span className={`chip chip-caps tone-${tone}`}>{words}</span>}
-              time={length(a.updated, Date.now())}
-            />
-          }
+          meta={<span className={`chip chip-caps tone-${tone}`}>{words}</span>}
+          end={took(length(a.updated, Date.now()))}
         >
           <div className="grid gap-3">
             {a.org && <span>{a.org}</span>}
@@ -478,18 +464,12 @@ export function LivePage() {
           tone={tone}
           title={clamped(c.job?.title || c.title || "A chat")}
           meta={
-            <Meta
-              chip={
-                <span className={`chip chip-caps tone-${tone ?? "muted"}`}>{c.applying ? "Application" : "Agent"}</span>
-              }
-              time={
-                <>
-                  {c.working && <span className="dot tone-green pulse" />}
-                  {length(c.started, c.working || c.waiting ? Date.now() : Date.parse(c.updated))}
-                </>
-              }
-            />
+            <>
+              {c.working && <span className="dot tone-green pulse" aria-hidden="true" />}
+              <span className={`chip chip-caps tone-${tone ?? "muted"}`}>{c.applying ? "Application" : "Agent"}</span>
+            </>
           }
+          end={took(length(c.started, c.working || c.waiting ? Date.now() : Date.parse(c.updated)))}
         >
           <div className="grid gap-3">
             {c.job?.company && <span>{c.job.company}</span>}
@@ -504,6 +484,8 @@ export function LivePage() {
 
   return (
     <Page
+      // the view, muted (Live has no colour of its own: its colours are the status's), as News' eyebrow is its day
+      eyebrow={view === "now" ? "Now" : "This week"}
       title="Live"
       line={line}
       // the view switch sits in the head's button place: beside the title under a mouse, under the line on touch;
@@ -552,17 +534,8 @@ export function LivePage() {
             <Card
               title={clamped(shortTitle(last))}
               onOpen={last.link ? () => go(last.link) : undefined}
-              meta={
-                <Meta
-                  chip={
-                    <>
-                      <span className="eyebrow">Last finished</span>
-                      {kindChip(last.kind)}
-                    </>
-                  }
-                  time={clock(last.ended ?? last.started)}
-                />
-              }
+              meta={kindChip(last.kind)}
+              end={<>Last finished {took(clock(last.ended ?? last.started))}</>}
             >
               {last.note && <span className={last.outcome === "failed" ? "text-red" : undefined}>{last.note}</span>}
               <div className="card-actions">
@@ -595,9 +568,7 @@ export function LivePage() {
           <div className={cx("grid items-start gap-6", days.length > 1 && "lg:grid-cols-2")}>
             {days.map(([name, items]) => (
               <section key={name} className="live-log grid gap-2" aria-label={name}>
-                <h2 className="font-cond m-0 text-section">
-                  {name} <span className="font-mono text-small text-muted">{items.length}</span>
-                </h2>
+                <SectionHead title={name} count={items.length} />
                 <List label={name}>
                   {items.map((a) => (
                     <LogRow key={a.id} a={a} go={go} />

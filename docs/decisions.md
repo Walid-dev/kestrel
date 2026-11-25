@@ -5,6 +5,15 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Live on the shared card and section heading.**
+  Live's cards drop their own top line (`Meta`) for Card's: the chip (or, for work at work, the pulsing dot and its
+  kind in muted words) on the left, how long in mono at `end`; the idle page's last piece of work says "Last finished"
+  and its time at the end, its kind as the only chip (it had an eyebrow and a chip side by side). Activity's days take
+  `SectionHead` with their count. The eyebrow is the view, muted ("Now", "This week"): Live has no colour of its own.
+  A wait on something else is a yellow word, so it reads `text-tone tone-yellow` (text-safe), in Live and in the
+  running chats under Chat (stop.tsx). Rejected: the pulsing dot at the time's end (the end cuts what overflows, and
+  the dot's ring would be cut with it).
+
 - **2026-11-25 · Learn at the Searches standard.**
   Learn's and Interview prep's pages take the shared parts: the figures are `Figures` (four cells, the cyan edge while
   a review waits, the bar and Start the review or Next and Continue in its foot), the filter card is `FilterPanel` (the

@@ -123,7 +123,7 @@ export function StopRunning({ className = "" }: { className?: string }) {
         return (
           <div key={c.id} className="flex flex-wrap items-center gap-2 text-detail">
             <span className={`dot tone-${tone} ${c.working ? "pulse" : ""}`} />
-            <b className={tone === "green" ? "text-green" : tone === "pink" ? "text-pink" : "text-yellow"}>
+            <b className={tone === "green" ? "text-green" : tone === "pink" ? "text-pink" : "text-tone tone-yellow"}>
               {c.working ? "Working" : "Waiting"}
             </b>
             <span className="min-w-0 flex-1 truncate text-ink">
