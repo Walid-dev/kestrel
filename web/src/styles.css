@@ -18,28 +18,31 @@
   --color-ink: var(--text);
   --color-strong: var(--strong);
   --color-muted: var(--muted);
-  --color-accent: var(--accent);
+  /* a working colour as a class is a word's colour: text-safe (--tone-text), so in light it is drawn toward the ink
+     and small words read 4.5:1; dark keeps the tone itself. Yellow stays the tone: its class draws the ★ and the
+     moon, marks (3:1 is a mark's bar); a word in yellow is text-tone tone-yellow */
+  --color-accent: color-mix(in srgb, var(--accent) var(--tone-text), var(--strong));
   --color-accent-soft: var(--accent-soft);
-  --color-green: var(--green);
-  --color-red: var(--red);
-  --color-orange: var(--orange);
+  --color-green: color-mix(in srgb, var(--green) var(--tone-text), var(--strong));
+  --color-red: color-mix(in srgb, var(--red) var(--tone-text), var(--strong));
+  --color-orange: color-mix(in srgb, var(--orange) var(--tone-text), var(--strong));
   --color-yellow: var(--yellow);
-  --color-purple: var(--purple);
-  --color-pink: var(--pink);
+  --color-purple: color-mix(in srgb, var(--purple) var(--tone-text), var(--strong));
+  --color-pink: color-mix(in srgb, var(--pink) var(--tone-text), var(--strong));
   --color-pink-soft: var(--pink-soft);
-  --color-cyan: var(--cyan);
-  --color-teal: var(--teal);
-  --color-magenta: var(--magenta);
-  --color-indigo: var(--indigo);
+  --color-cyan: color-mix(in srgb, var(--cyan) var(--tone-text), var(--strong));
+  --color-teal: color-mix(in srgb, var(--teal) var(--tone-text), var(--strong));
+  --color-magenta: color-mix(in srgb, var(--magenta) var(--tone-text), var(--strong));
+  --color-indigo: color-mix(in srgb, var(--indigo) var(--tone-text), var(--strong));
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
   --color-add-soft: var(--add-soft);
   --color-del-soft: var(--del-soft);
-  --color-great: var(--great);
-  --color-good: var(--good);
-  --color-fair: var(--fair);
-  --color-poor: var(--poor);
+  --color-great: color-mix(in srgb, var(--great) var(--tone-text), var(--strong));
+  --color-good: color-mix(in srgb, var(--good) var(--tone-text), var(--strong));
+  --color-fair: color-mix(in srgb, var(--fair) var(--tone-text), var(--strong));
+  --color-poor: color-mix(in srgb, var(--poor) var(--tone-text), var(--strong));
   /* the colour of the nearest tone-* class: text-tone, bg-tone/15, border-tone */
   --color-tone: var(--tone, var(--muted));
   --font-sans: var(--sans);
@@ -143,6 +146,9 @@
   --magenta: #e88bd6;
   /* News' own blue: a periwinkle, between the accent's sky and the purple, 5.5:1 on the surface (measured) */
   --indigo: #818cf8;
+  /* how much of a working colour small words take (a chip, a tinted eyebrow, text-tone, a colour's class): all of it
+     here, where every tone reads 4.5:1 on the grounds; light takes less (its block below) */
+  --tone-text: 100%;
   --ok: #c3e88d;
   --warn: #ff966c;
   --warn-soft: rgba(255, 150, 108, 0.14);
@@ -233,6 +239,9 @@
     --teal: #0e8a7f;
     --magenta: #a8327f;
     --indigo: #4f46e5;
+    /* light's tones read 2.9 to 4.3:1 as small words on their tint or the page; 70% of the tone and 30% of the ink
+       reads 4.6:1 at least (yellow's chip, the lowest), each colour still its own */
+    --tone-text: 70%;
     --ok: #1a7f37;
     --warn: #b35900;
     --warn-soft: rgba(179, 89, 0, 0.1);
@@ -291,7 +300,7 @@ h3 {
   color: var(--muted);
 }
 .btn-danger {
-  color: var(--red);
+  color: color-mix(in srgb, var(--red) var(--tone-text), var(--strong));
 }
 /* under the pointer: a plain button's ground comes up a step, a filled one deepens a hair toward the ink, a ghost
    takes the sunk ground and the ink */
@@ -528,6 +537,13 @@ h3 {
 .tone-indigo {
   --tone: var(--indigo);
 }
+/* two apps' own colours, as tones for their eyebrow and icon: Quiz and Writing */
+.tone-teal {
+  --tone: var(--teal);
+}
+.tone-magenta {
+  --tone: var(--magenta);
+}
 /* the money scale's tones: a match or a deal, from great to poor */
 .tone-great {
   --tone: var(--great);
@@ -551,7 +567,7 @@ h3 {
   padding: 0 7px;
   border-radius: 6px;
   font: 500 var(--text-small) / 1 var(--sans);
-  color: var(--tone, var(--muted));
+  color: color-mix(in srgb, var(--tone, var(--muted)) var(--tone-text), var(--strong));
   background: color-mix(in srgb, var(--tone, var(--muted)) 15%, transparent);
   white-space: nowrap;
 }
@@ -896,26 +912,27 @@ h3 {
   margin-top: calc((var(--text-small--line-height) - 7px) / 2);
 }
 /* the round Reset, lit in the accent's words while a filter differs from how the page opens (else it is disabled) */
-.search-reset:not([disabled]) {
+:is(.search-reset, .filters-reset):not([disabled]) {
   color: var(--accent);
 }
 /* the filter panel's parts. Under a mouse each is one row: its legend (with its fold) in a 72 px column, its pills
    wrapping beside it; folded, the legend and what is picked take the row. On touch the legend sits over its pills,
-   drawn 32 with a 44 area, 12 from the pills and from the next part, so no two areas overlap */
-.search-parts {
+   drawn 32 with a 44 area, 12 from the pills and from the next part, so no two areas overlap. FilterPanel's rows
+   (web/src/ui/filters.tsx) are the same rules under the shared names */
+.search-parts,
+.filter-rows {
   display: grid;
   gap: 8px;
 }
-.search-part {
+.search-part,
+.filter-row {
   display: grid;
   grid-template-columns: 72px minmax(0, 1fr);
   align-items: start;
   column-gap: 12px;
 }
-.search-part-folded > .search-part-toggle {
-  grid-column: 1 / -1;
-}
-.search-part-toggle {
+.search-part-toggle,
+.filter-row-name {
   position: relative;
   display: flex;
   align-items: center;
@@ -930,15 +947,26 @@ h3 {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
+/* a row without a fold: its name alone */
+span.filter-row-name {
+  cursor: default;
+}
+.search-part-folded > .search-part-toggle,
+.filter-row-folded > .filter-row-name {
+  grid-column: 1 / -1;
+}
 @media (pointer: coarse) {
-  .search-parts {
+  .search-parts,
+  .filter-rows {
     gap: 12px;
   }
-  .search-part {
+  .search-part,
+  .filter-row {
     grid-template-columns: minmax(0, 1fr);
     row-gap: 12px;
   }
-  .search-part-toggle::after {
+  .search-part-toggle::after,
+  button.filter-row-name::after {
     content: "";
     position: absolute;
     inset: calc(50% - var(--h-hit) / 2) 0;
@@ -1132,7 +1160,7 @@ h3 {
 /* an action among the pills (Show all): the accent's words on no ground, so it reads as a button, not a choice */
 .pills .pill-action {
   background: transparent;
-  color: var(--accent);
+  color: color-mix(in srgb, var(--accent) var(--tone-text), var(--strong));
 }
 /* the action that can't be undone, filled: Confirm's Delete */
 .btn-primary.btn-danger {
@@ -1306,7 +1334,7 @@ h3 {
   min-height: var(--h-control);
   padding-right: 8px;
   font: 500 var(--text-detail) / var(--text-detail--line-height) var(--sans);
-  color: var(--accent);
+  color: color-mix(in srgb, var(--accent) var(--tone-text), var(--strong));
 }
 .page-back svg {
   flex: none;
@@ -1604,6 +1632,295 @@ h3 {
   .list-cols > .list-row:nth-child(odd):not(:last-child) {
     box-shadow: 1px 0 0 var(--line);
   }
+}
+/* Card's two ends (web/src/ui/card.tsx): on the top line, the date or the source at the right end, small and muted (a
+   time in mono), cut short before it pushes the chip; on the title's row, the key number beside the title, at the
+   right, as Searches' cards have it. A link there (a practice question's lesson) is as quiet as the words around it */
+.card-end {
+  min-width: 0;
+  max-width: 65%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-small);
+  line-height: var(--text-small--line-height);
+  color: var(--muted);
+}
+.card-end a {
+  color: inherit;
+  text-decoration: none;
+}
+@media (hover: hover) {
+  .card-end a:hover {
+    color: var(--strong);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+.card-head > .card-title {
+  flex: 1;
+}
+/* Star bare (web/src/ui/star.tsx): the ★ alone at the right end of a card's top line, where Searches' cards show
+   theirs, and the toggle itself: grey while off, yellow while on (a mark: the tone itself). Drawn 32 round, its
+   margins taken back so the row keeps its height and the ★ sits where a plain one would; 44 on touch */
+.star-bare {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin: -6px -10px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: var(--text-small) / 1 var(--sans);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color var(--t-fast),
+    background-color var(--t-fast);
+}
+.star-bare[aria-pressed="true"] {
+  color: var(--yellow);
+}
+@media (hover: hover) {
+  .star-bare:hover {
+    background: var(--surface-2);
+  }
+}
+@media (pointer: coarse) {
+  .star-bare::after {
+    content: "";
+    position: absolute;
+    inset: calc(50% - var(--h-hit) / 2);
+  }
+}
+/* Figures (web/src/ui/figures.tsx): a page's figures as one strip of cells split by hairlines (the line shows through
+   a 1 px gap): three across on a phone (two when three would leave one alone, --figs-phone), all of them in one row
+   from 48rem (--figs). A cell: its label as an eyebrow over its value in mono on the head step, a dot in its tone
+   before it, a few quiet words beside it or lines under it; a cell that opens a page takes a row's hover. A tone draws
+   the strip's left edge (2 px), as a card's; the foot (a bar, the one action) runs under all the cells */
+.figs {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--figs-phone, 3), minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--line);
+}
+@media (min-width: 48rem) {
+  .figs {
+    grid-template-columns: repeat(var(--figs, 6), minmax(0, 1fr));
+  }
+}
+.figs-tone::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--tone);
+}
+.fig {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 12px;
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+  transition: background-color var(--t-fast);
+}
+.fig-wide {
+  grid-column: 1 / -1;
+}
+@media (min-width: 48rem) {
+  .fig-wide {
+    grid-column: auto;
+  }
+}
+.fig-label,
+.fig-note {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fig-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.fig-number {
+  font: 500 var(--text-head) / var(--text-head--line-height) var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.fig-note,
+.fig-lines {
+  font-size: var(--text-small);
+  line-height: var(--text-small--line-height);
+  color: var(--muted);
+}
+.fig-lines {
+  display: grid;
+}
+@media (hover: hover) {
+  .fig-link:hover {
+    background: var(--surface-hover);
+  }
+}
+.fig-link:active {
+  background: color-mix(in srgb, var(--strong) 5%, var(--surface));
+}
+.figs-foot {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  min-width: 0;
+  padding: 10px 12px;
+  background: var(--surface);
+}
+/* SectionHead (web/src/ui/section.tsx): a section's words on the section step, a dot in its tone before them, its
+   count after them in small muted mono, on the words' baseline; a hint, small and muted, right under it */
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+}
+.section-head > .dot {
+  align-self: center;
+}
+.section-count {
+  font: 500 var(--text-small) / 1 var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.section-head-hinted {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.section-hint {
+  margin: 0;
+  font-size: var(--text-small);
+  line-height: var(--text-small--line-height);
+  color: var(--muted);
+}
+/* FilterPanel (web/src/ui/filters.tsx), Searches' filter card for every list that filters: the search box, the round
+   Reset and the fold on one row, the rows under them, 12 apart; results on their way sweep a bar along its foot. Its
+   rows are Searches' own rules, below (.filter-row beside .search-part) */
+.filters {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  overflow: hidden;
+}
+.filters-busy {
+  position: absolute;
+  inset: auto 0 0;
+  border-radius: 0;
+}
+.filters-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.filters-find {
+  flex: 1;
+  min-width: 0;
+}
+.filters-top > .btn {
+  flex: none;
+}
+.filter-row-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+@media (pointer: coarse) {
+  .filter-row-pills {
+    row-gap: 12px;
+  }
+}
+.filter-row-mark {
+  font: var(--text-label) / 1 var(--sans);
+  color: var(--muted);
+  transition: transform var(--t-move);
+}
+.filter-row-mark-open {
+  transform: rotate(90deg);
+}
+/* A page with a rail (web/src/ui/rail.tsx), News' layout: the main column (52rem at most) and, from 64rem, the rail on
+   its right, 280 to 340, 32 apart, never sticky; on a phone one column, the rail after the main one, or before it
+   (with-rail-first) where the rail starts the work. News' page spells its own classes (.news-layout): one rule for
+   both. A rail's part: its eyebrow heading, then its list, 12 apart */
+.news-layout,
+.with-rail {
+  display: grid;
+  gap: var(--page-gap);
+  align-items: start;
+}
+@media (min-width: 64rem) {
+  .news-layout,
+  .with-rail {
+    grid-template-columns: minmax(0, 52rem) minmax(280px, 340px);
+    column-gap: 32px;
+  }
+}
+@media (max-width: 63.99rem) {
+  .with-rail-first > .rail {
+    order: -1;
+  }
+}
+.news-main,
+.news-rail,
+.news-section,
+.news-rail-part,
+.rail-main,
+.rail,
+.rail-part {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+}
+.news-main,
+.rail-main {
+  gap: var(--page-gap);
+}
+.news-rail,
+.rail {
+  gap: 16px;
+}
+.news-section,
+.news-rail-part,
+.rail-part {
+  gap: 12px;
+}
+.rail-count {
+  font-variant-numeric: tabular-nums;
+}
+/* an app's icon in its colour (web/src/ui/apps.tsx): a mark, so the tone itself, never a word's darker shade */
+.app-mark {
+  display: grid;
+  color: var(--tone, currentColor);
 }
 /* EmptyState: nothing here yet, said once and plainly in the flow (no box around it), with the next step; the setting
    it needs, if any, small */
@@ -1924,7 +2241,7 @@ details[open] > .disclosure::before {
   color: var(--muted);
 }
 /* a big choice, only when two or more options each need a line under the name (one option is a pill): a topic, its
-   name over what it holds, the height from its words; picked, the accent's edge and tint and a check */
+   name over what it holds, the height from its words; picked, the accent's edge and a check, on its own ground */
 .tile {
   position: relative;
   display: grid;
@@ -1956,7 +2273,6 @@ details[open] > .disclosure::before {
 }
 .tile[aria-pressed="true"] {
   border-color: var(--accent);
-  background: var(--accent-soft);
 }
 .tile[aria-pressed="true"]::after {
   content: "✓";
@@ -1986,7 +2302,12 @@ details[open] > .disclosure::before {
 /* an eyebrow in a colour takes a tone on itself (eyebrow tone-accent: "Check yourself"); a tone on a parent card
    leaves it muted */
 .eyebrow[class*="tone-"] {
-  color: var(--tone);
+  color: color-mix(in srgb, var(--tone) var(--tone-text), var(--strong));
+}
+/* a word in the nearest tone (Searches' JOBS, a yellow word): the text-safe shade, as a chip's. bg-tone, border-tone,
+   fill-tone and stroke-tone keep the tone itself (they draw marks) */
+.text-tone {
+  color: color-mix(in srgb, var(--tone, var(--muted)) var(--tone-text), var(--strong));
 }
 
 /* a grid's items may shrink below their content: a wide diagram, table or code block scrolls inside its own frame
@@ -2002,26 +2323,20 @@ figure {
   max-width: 100%;
 }
 
-/* reading: the guides' blocks */
-.callout {
-  background: var(--accent-soft);
-  border: 1px solid var(--line);
+/* reading: the guides' blocks. A block of words in a tone (a guide's callout, the quiz's verdict and its Remember,
+   Research's Not settled, a quote in Ask) is an inner block: the sunk ground, never a tint behind the words; its
+   meaning is its edge (3 px, in its tone, the accent unless a tone-* says otherwise) and its tinted eyebrow or chip */
+.callout,
+.read-box {
   border-radius: 8px;
   padding: 12px 14px;
+  background: var(--surface-2);
+  box-shadow: inset 3px 0 0 var(--tone, var(--accent));
 }
 .example {
   background: var(--surface);
   border: 1px solid var(--line);
   border-left: 3px solid var(--green);
-  border-radius: 8px;
-  padding: 12px 14px;
-}
-/* a box of words to read in a tone (the quiz's verdict): its edge in the tone, its ground a faint mix of the same,
-   so a red verdict never sits on a blue ground */
-.read-box {
-  background: color-mix(in srgb, var(--tone, var(--accent)) 7%, var(--surface));
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--tone, var(--accent));
   border-radius: 8px;
   padding: 12px 14px;
 }
@@ -2153,53 +2468,6 @@ pre.code .f {
 }
 .home-live .list-title {
   font: 600 var(--text-detail) / var(--text-detail--line-height) var(--sans);
-}
-/* Home's brief: one small strip of figures split by hairlines, as Cost's (the line shows through a 1 px gap): three
-   across on a phone, six in a row from 48rem. Each figure a link to its page, its label as an eyebrow over its value
-   in mono on the head step, a dot in its tone before it; its hover is a row's */
-.home-figs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--line);
-}
-@media (min-width: 48rem) {
-  .home-figs {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-}
-.home-fig {
-  display: grid;
-  align-content: start;
-  gap: 2px;
-  min-width: 0;
-  padding: 8px 12px;
-  background: var(--surface);
-  color: inherit;
-  text-decoration: none;
-  transition: background-color var(--t-fast);
-}
-.home-fig .eyebrow {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-@media (hover: hover) {
-  .home-fig:hover {
-    background: var(--surface-hover);
-  }
-}
-.home-fig:active {
-  background: color-mix(in srgb, var(--strong) 5%, var(--surface));
-}
-/* a sentence of the brief that no figure says, a row of its own under them all */
-.home-figs-more {
-  grid-column: 1 / -1;
-  padding: 8px 12px;
-  background: var(--surface);
 }
 /* Live's head line: where things stand, a few facts 12 apart (no dots, so a wrapped line never starts on one), a
    chip among them */
@@ -2791,8 +3059,10 @@ pre.code .f {
   color: var(--muted);
   -webkit-tap-highlight-color: transparent;
 }
+/* the open place: its name in ink, its icon in its app's colour (Home's wolf pink, Live in ink: its colours are the
+   status's); the others quiet */
 .tabbar-item[aria-current="page"] {
-  color: var(--accent);
+  color: var(--strong);
 }
 /* an icon's box: the wolf (Home) is drawn a little smaller in it, so it weighs what the line icons weigh */
 .nav-icon {
@@ -2801,6 +3071,9 @@ pre.code .f {
   place-items: center;
   width: 22px;
   height: 22px;
+}
+:is(.tabbar-item[aria-current="page"], .dock-item.active) > .nav-icon {
+  color: var(--tone, var(--strong));
 }
 /* Live's badge, the status where the eye goes for it: a dot (asleep, orange; working, green and pulsing) or the count
    of what needs me (pink). Nothing when all is well */
@@ -2880,9 +3153,9 @@ pre.code .f {
   color: var(--strong);
   background: var(--surface-2);
 }
+/* the open app: its icon in its colour, no ground behind it */
 .dock-item.active {
-  color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--strong);
 }
 .dock-label {
   position: absolute;
@@ -3146,9 +3419,9 @@ pre.code .f {
   font-size: var(--text-body);
   line-height: var(--text-body--line-height);
 }
+/* the lesson's answer: the same sunk block, the accent's edge on its left (its eyebrow says what it is) */
 .quiz-answer {
-  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 /* a quiz's Archive beside its ✕: the same quiet round button, lit in the accent rather than red, since it keeps */
 @media (hover: hover) {
@@ -3418,24 +3691,22 @@ pre.code .f {
   border-radius: 999px;
   background: var(--accent);
 }
-/* a tip in green, a warning in amber, each with its label */
+/* a tip in green, a warning in amber, each with its label: a block of words in a tone (the sunk ground, its edge and
+   its label in the tone), as the guides' callouts */
 .d-callout {
+  --tone: var(--green);
   display: grid;
   gap: 4px;
   padding: 12px 14px;
   border-radius: 8px;
-  border-left: 3px solid var(--green);
-  background: color-mix(in srgb, var(--green) 8%, var(--surface));
+  background: var(--surface-2);
+  box-shadow: inset 3px 0 0 var(--tone);
 }
 .d-callout .eyebrow {
-  color: var(--green);
+  color: color-mix(in srgb, var(--tone) var(--tone-text), var(--strong));
 }
 .d-callout.d-warn {
-  border-left-color: var(--yellow);
-  background: color-mix(in srgb, var(--yellow) 9%, var(--surface));
-}
-.d-callout.d-warn .eyebrow {
-  color: var(--yellow);
+  --tone: var(--yellow);
 }
 /* a question to test myself, its answer behind a button */
 .d-check {
@@ -3443,11 +3714,11 @@ pre.code .f {
   gap: 8px;
   padding: 12px 14px;
   border-radius: 8px;
-  border: 1px dashed color-mix(in srgb, var(--purple) 55%, var(--line));
-  background: color-mix(in srgb, var(--purple) 6%, var(--surface));
+  background: var(--surface-2);
+  box-shadow: inset 3px 0 0 var(--purple);
 }
 .d-check-label {
-  color: var(--purple);
+  color: color-mix(in srgb, var(--purple) var(--tone-text), var(--strong));
 }
 /* options side by side, each a column of point blocks under its name; stacked when narrow */
 .ask-compare {
@@ -3477,26 +3748,25 @@ pre.code .f {
   font-size: var(--text-body);
   line-height: var(--text-body--line-height);
 }
-/* a change the model proposed: what it would do, and the button that does it; done, it says what happened */
+/* a change the model proposed: what it would do, and the button that does it; done, it says what happened. An inner
+   block (no tint behind the words): its state is its 2 px edge, the accent while it waits, green once done */
 .ask-card {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
-  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  background: var(--surface-2);
+  box-shadow: inset 2px 0 0 var(--accent);
   font-size: var(--text-body);
   line-height: var(--text-body--line-height);
 }
 .ask-card.done {
-  border-color: color-mix(in srgb, var(--green) 40%, var(--line));
-  background: color-mix(in srgb, var(--green) 6%, var(--surface));
+  box-shadow: inset 2px 0 0 var(--green);
 }
 /* a change that didn't go through: red, as done is green, so it doesn't still look like one to tap */
 .ask-card.failed {
-  border-color: color-mix(in srgb, var(--red) 40%, var(--line));
-  background: color-mix(in srgb, var(--red) 6%, var(--surface));
+  box-shadow: inset 2px 0 0 var(--red);
 }
 /* on a phone, the head that opens Ask takes a thumb's height, without making the row taller (Start over is a
    btn-icon, with its own touch area) */
@@ -4890,36 +5160,8 @@ body:has(.paper-view) {
 /* News, the page (web/src/news/page.tsx): the brief in one reading column (52rem at most: a brief is read top to
    bottom, and a section of one or three stories left holes in a grid) and, from 64rem, a rail of 280 to 340 beside it
    (the earlier days, the sources; never sticky, so an open sources table can always be read to its end); on a phone
-   the rail's parts follow the stories. The head's line is a report's (.research-line) */
-.news-layout {
-  display: grid;
-  gap: var(--page-gap);
-  align-items: start;
-}
-@media (min-width: 64rem) {
-  .news-layout {
-    grid-template-columns: minmax(0, 52rem) minmax(280px, 340px);
-    column-gap: 32px;
-  }
-}
-.news-main,
-.news-rail,
-.news-section,
-.news-rail-part {
-  display: grid;
-  align-content: start;
-  min-width: 0;
-}
-.news-main {
-  gap: var(--page-gap);
-}
-.news-rail {
-  gap: 16px;
-}
-.news-section,
-.news-rail-part {
-  gap: 12px;
-}
+   the rail's parts follow the stories. The layout is the shared rail's (.with-rail, with the parts). The head's line
+   is a report's (.research-line) */
 .news-stories {
   display: grid;
   gap: 12px;

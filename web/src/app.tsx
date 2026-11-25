@@ -9,9 +9,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
 import { useChatLink } from "./chats.tsx";
 import { useEvents } from "./events.ts";
-import { ICONS, STROKE } from "./home.tsx";
 import { Mark } from "./mark.tsx";
-import { NEWS_ICON } from "./news/card.tsx";
+import { APPS, type AppName, appTone } from "./ui/apps.tsx";
 import { ConfirmProvider } from "./ui/confirm.tsx";
 import { cx } from "./ui/cx.ts";
 
@@ -175,7 +174,7 @@ function Shell() {
       {/* on a touch screen, the main places one tap away under the thumb: Home, the wolf, is always the first */}
       <nav className="tabbar" aria-label="The main places">
         {BAR.map((b) => (
-          <NavLink key={b.to} to={b.to} end={b.to === "/"} className="tabbar-item">
+          <NavLink key={b.to} to={b.to} end={b.to === "/"} className={cx("tabbar-item", b.tone)}>
             <span className="nav-icon">
               {b.icon}
               {b.to === "/live" && <LiveBadge status={status} />}
@@ -189,38 +188,36 @@ function Shell() {
   );
 }
 
-export const LIVE_ICON = (
-  <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-    <path d="M3 12h4l2.5-6 4 12 2.5-6H21" />
-  </svg>
-);
+// a place in the tab bar or the dock: an app from the map (its address, icon and colour: the open one's icon takes its
+// colour), or Home, the wolf cropped to its own shape and centred, so it weighs what the line icons beside it weigh,
+// pink as on Home's title
+type Place = { to: string; label: string; icon: React.ReactNode; tone: string };
+const HOME: Place = { to: "/", label: "Home", icon: <Mark size={22} fill="currentColor" tight />, tone: "tone-pink" };
+const place = (app: AppName): Place => ({ to: APPS[app].to, label: app, icon: APPS[app].icon, tone: appTone(app) });
 
-const BAR = [
-  // the wolf cropped to its own shape and centred, so it weighs what the line icons beside it weigh
-  { to: "/", label: "Home", icon: <Mark size={22} fill="currentColor" tight /> },
-  { to: "/searches", label: "Searches", icon: ICONS.Searches },
-  { to: "/chats", label: "Chat", icon: ICONS.Chat },
-  { to: "/learn", label: "Learn", icon: ICONS.Learn },
-  { to: "/live", label: "Live", icon: LIVE_ICON },
-];
+const BAR: Place[] = [HOME, ...(["Searches", "Chat", "Learn", "Live"] as const).map(place)];
 
 // under a mouse or a trackpad, every app at the screen's right edge, the old pages' dock: the pointer at the edge
 // slides it in, a click goes there, leaving lets it slide away. The wolf first, as Home; Live last, with its badge.
 // Touch screens keep the tab bar.
-const DOCK: { to: string; label: string; icon: React.ReactNode }[] = [
-  { to: "/", label: "Home", icon: <Mark size={22} fill="currentColor" tight /> },
-  { to: "/searches", label: "Searches", icon: ICONS.Searches },
-  { to: "/chats", label: "Chat", icon: ICONS.Chat },
-  { to: "/learn", label: "Learn", icon: ICONS.Learn },
-  { to: "/notes", label: "Notes", icon: ICONS.Notes },
-  { to: "/tasks", label: "Tasks", icon: ICONS.Tasks },
-  { to: "/research", label: "Research", icon: ICONS.Research },
-  { to: "/news", label: "News", icon: NEWS_ICON },
-  { to: "/quiz", label: "Quiz", icon: ICONS.Quiz },
-  { to: "/applications", label: "Applications", icon: ICONS.Applications },
-  { to: "/writing", label: "Writing", icon: ICONS.Writing },
-  { to: "/interview", label: "Interview prep", icon: ICONS["Interview prep"] },
-  { to: "/live", label: "Live", icon: LIVE_ICON },
+const DOCK: Place[] = [
+  HOME,
+  ...(
+    [
+      "Searches",
+      "Chat",
+      "Learn",
+      "Notes",
+      "Tasks",
+      "Research",
+      "News",
+      "Quiz",
+      "Applications",
+      "Writing",
+      "Interview prep",
+      "Live",
+    ] as const
+  ).map(place),
 ];
 
 function Dock({ status }: { status: Status }) {
@@ -264,7 +261,7 @@ function Dock({ status }: { status: Status }) {
               key={d.to}
               to={d.to}
               end={d.to === "/"}
-              className="dock-item"
+              className={cx("dock-item", d.tone)}
               onClick={() => setShown(false)}
               title={d.label}
             >

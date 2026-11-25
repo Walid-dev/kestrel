@@ -16,7 +16,12 @@ The look since 2026-11-24: small, calm and precise under a mouse, comfortable on
 - **The lead:** `--accent` — One Dark's blue. The one filled button, links, focus rings.
 - **The working colours**, the editor's neon shades: `--pink` (the wolf, the note marks, needs me), `--purple`,
   `--green` (ok, done, diff plus), `--orange` (warnings, asleep), `--yellow` (the moon), `--red` (danger), `--indigo`
-  (News' own blue, between the accent and the purple: each app has its own colour and the accent is Notes').
+  (News' own blue, between the accent and the purple: each app has its own colour and the accent is Notes'),
+  `--teal` (Quiz) and `--magenta` (Writing).
+- **Words in a colour:** `--tone-text` is how much of a working colour small words take: 100% in dark, 70% in light
+  (the rest is `--strong`), so a chip, a tinted eyebrow, `text-tone` and a colour's class (`text-red`) read 4.5:1 in
+  both themes (light's tones alone read 2.9 to 4.3). Marks keep the tone itself, 3:1 being their bar: a dot, an edge, a
+  bar, an icon (`.app-mark`), the ★ (`text-yellow` stays the tone for it; a word in yellow is `text-tone tone-yellow`).
 - **Shades** for what floats: `--shade-dialog`, `--shade-dock`, `--shade-pip`, `--shade-seg`, `--backdrop`.
 - **Fonts:** IBM Plex Sans for text, Sans Condensed for headings and the wordmark, Mono for numbers, paths, labels and
   chips. All served from `web/public/fonts`. Only the weights that ship: Sans 400–600, Condensed 600/700, Mono
@@ -24,8 +29,9 @@ The look since 2026-11-24: small, calm and precise under a mouse, comfortable on
 
 The role variables stay on `:root` (dark by default, light with the system); `@theme inline` names them as classes
 read at run time: `bg-page`, `bg-surface`, `bg-surface-2`, `bg-surface-hover`, `border-line`, `border-line-strong`,
-`text-ink`, `text-strong`, `text-muted`, `text-accent`, the working colours and their soft grounds. `text-tone`,
-`bg-tone` and `border-tone` read the nearest `tone-*`. No `dark:` classes.
+`text-ink`, `text-strong`, `text-muted`, `text-accent`, the working colours (their text-safe shade) and their soft
+grounds. `text-tone` reads the nearest `tone-*` as words; `bg-tone`, `border-tone`, `fill-tone` and `stroke-tone` as
+marks. No `dark:` classes.
 
 ## The type
 
@@ -77,7 +83,8 @@ asks for reduced motion.
 
 No bar on top: each page starts at its own title, under the safe area (a strip under the phone's status bar stays as
 the page scrolls). The wolf is Home: first in the tab bar on touch and in the dock under a mouse (Mark's `tight`
-option). Live carries the status as a badge: an orange dot when the computer is asleep, a pink count when something
+option). The open place's icon takes its app's colour (the wolf pink, Live in ink), its name in ink, the others grey;
+no ground behind it. Live carries the status as a badge: an orange dot when the computer is asleep, a pink count when something
 needs me, a pulsing green dot while something works, nothing when all is idle. Under a mouse the same mark sits in the
 bottom-right corner (never on `/live`), in a lane the shell keeps free; its words open on hover or focus, and it opens
 Live. The asleep strip leads every page. Gutters 16 / 24 / 32; the page gap is 24 under a mouse, 20 on touch; the
@@ -120,19 +127,26 @@ reading width is 720.
 - `Seg` (`web/src/ui/seg.tsx`) — a choice among two to four, as one bar as wide as its words: `label`, `options` (with
   `hint`), `value`, `onChange`, `modes`. What a pick means goes in its hint line under the bar, never a second line
   inside it. `seg-modes` marks the picked mode with a dot.
-- `Star` (`web/src/ui/star.tsx`) — anything kept for later (a news story; a search's listing, in its
-  sheet): a pill, a yellow ★ and Star or Starred, pressed while starred, beside the item's other actions. Props: `on`,
-  `onPress`, `busy` (a press on its way: drawn in its new state, more presses ignored), `hint` (on hover), `compact`
-  (the ★ alone at a row's end in a list of starred things, named by `label`).
+- `Star` (`web/src/ui/star.tsx`) — anything kept for later. On a card, `bare`: the ★ alone at the right end of the
+  card's top line, where Searches' cards show theirs, and the toggle itself: grey while off, yellow while on, no word,
+  named by `label` ("Star “<headline>”"), drawn 32 round (44 on touch) with its margins taken back, so the row keeps
+  its height. In a sheet (Searches' listing), the pill: a yellow ★ and Star or Starred, pressed while starred, beside
+  the other actions. `compact`: the ★ in a pill's frame at a row's end, in a list of starred things. Props: `on`,
+  `onPress`, `busy` (a press on its way: drawn in its new state, more presses ignored), `hint` (on hover), `label`.
 - `.tile` — a big choice (56 / 60), only when two or more options each need a line under the name; picked, it takes
-  the accent edge and a ✓.
+  the accent edge and a ✓, on its own ground (no tint).
 - `Doc` (`web/src/ui/doc.tsx`) — every document: Read, Edit and (1024 px and wider) Side by side, with a Download
   menu (the text, Save as PDF, Copy). Its Markdown is `src/shared/markdown.ts`, drawn by `web/src/ui/markdown.tsx` in
   `.md`. A note's mark is `.doc-mark` (`--pink-soft`, a `--pink` line under). The editor `.doc-src` is mono, 16 px on
   touch. `tools` puts a page's own buttons in the document's head while reading. A control that floats over a document
   (Notes' Note button) is a soft accent, never filled.
-- `Page` and `PageHead` (`web/src/ui/page.tsx`) — every page's head: `title`, `eyebrow`, `line`, `actions`, `back`
-  (`{ to, label }`), `sticky`, `width` (`wide`, or `reading`: 720 at most), `titleAs`. A top page's title is the title
+- `Page` and `PageHead` (`web/src/ui/page.tsx`) — every page's head: `title`, `eyebrow`, `app`, `line`, `actions`,
+  `back` (`{ to, label }`), `sticky`, `width` (`wide`, or `reading`: 720 at most), `titleAs`. Every page has an
+  eyebrow, tinted by `app` in its app's colour (the head's one accent). A top page's eyebrow is the word for what the
+  app holds (Learn "Lessons", Interview prep "Answers to say"); a child page's says where it sits (its parent group,
+  its part and topic), the app's word when it sits nowhere else. Searches tints its own by the hunt's kind; News' is
+  the day, muted; Live's is the view, muted (it has no colour). The line under the title is one line, two at most,
+  never a paragraph: facts with the values bold, or a state chip and facts. A top page's title is the title
   step; a child page (one with `back`) gets a back row (30 / 44) and its title a step down. Under a mouse at 48rem or
   wider a top page's buttons sit on the title row; otherwise they wrap 12 under the line. A page's state chip goes in
   the line under the title. `aside` (Home's "One app, one computer, local models.") sets a short statement beside the
@@ -142,11 +156,50 @@ reading width is 720.
 - `Ask` (`web/src/ask.tsx`) — the same box on every app: its head, the conversation, starters, a line to ask. `bare`
   puts it inside a card that belongs to the page (a news story): no card and no head of its own, the page opens and
   closes it, Start over beside the line to ask.
-- `Card` (`web/src/ui/card.tsx`) — plain; `to` makes the whole card a link; `title` adds `meta`, `to` or `onOpen`,
-  `onRemove` and `removeLabel` (the ✕ waits out of sight under a mouse until hover or focus); `tone` colours its edge;
-  `wide` spans the grid's row.
+- `Card` (`web/src/ui/card.tsx`) — plain; `to` makes the whole card a link; `title` gives it the Searches card's
+  anatomy: `meta` (the top line's left: a chip first, then a muted group), `end` (its right end: the date or the
+  source, small and muted, a time in `font-mono`), the title with `figure` beside it (its key number: a `.money` pill,
+  a ring), what it holds under it (one muted subline, facts with only the values bold), then `actions` (`.btn-sm`,
+  `.btn-quiet`). `to` or `onOpen` opens it by its title; `onRemove` and `removeLabel` give it the ✕ (it waits out of
+  sight under a mouse until hover or focus); `tone` colours its edge; `wide` spans the grid's row. A card built by hand
+  (a question in Practice) spells its top line with the same classes: `.card-meta`, `.card-meta-main`, `.card-end`.
+- `Figures` and `Figure` (`web/src/ui/figures.tsx`) — a page's figures, one strip of cells before its detail (Home's
+  morning, Learn's lessons, Cost, Applications): each cell its `label` (an eyebrow), a dot in its `tone` and the
+  `value` in mono, a `note` beside it or lines under it (`children`); `to` makes the cell a link, `hint` says what it
+  counts on hover, `quiet` greys a value with nothing to count, `pulse` a figure at work, `wide` gives a cell a phone's
+  whole row. Three across on a phone (two when three would leave one alone), one row from 48rem. On `Figures`: `label`
+  (read out), `tone` (the strip's 2 px left edge, for what matters now: lessons to review), `foot` (a row under all
+  the cells for what reads them: Learn's bar and its one action).
+- `SectionHead` (`web/src/ui/section.tsx`) — every section's heading: `title` on the section step, `count` in small
+  muted mono beside it, `tone` a dot before it when the colour means something (News' sections, a lesson's state),
+  `hint` one quiet line under it, `id` for the section's `aria-labelledby`. Never the count in the section's colour,
+  never "Name · 12".
+- `FilterPanel` and `FilterRow` (`web/src/ui/filters.tsx`) — Searches' filter card for every list that filters:
+  `find` (the search box), `onReset` and `changed` (the round Reset, lit while a filter differs from how the page
+  opens), `fold` (the button that folds the rows away: `name`, Filters unless said, and the `count` it shows folded),
+  `folded` (what a folded card shows: the picks, each opening the rows again), `busy` (a bar sweeps its foot). A row:
+  `label` (an eyebrow), `open` and `onToggle` (its own fold, `summary` said while folded), the pills beside it under
+  a mouse, over them on touch. Searches' page spells the same rules with its own classes (`.search-part`). A filter's
+  All comes first in its row.
+- `WithRail` and `RailPart` (`web/src/ui/rail.tsx`) — News' layout for a page with secondary things beside its main
+  column (the history, the sources, a form, the done ones): from 64rem the main column (52rem at most) and the rail on
+  its right (280 to 340, 32 apart); on a phone one column, the rail after the main one, or before it (`railFirst`) where
+  the rail starts the work. A rail's part is headed by an eyebrow with its count ("Your notes · 3"), never a section
+  heading. News spells the same rules with its own classes (`.news-layout`).
+- Blocks of words — words set apart inside a page or a card sit on the sunk ground (`.inner`), never on a tint behind
+  them. A block in a tone (`.callout`, a guide's; `.read-box`, a verdict; `.quiz-answer`, the lesson's answer; the
+  drawings' tip, warning and check) says its meaning with a 3 px edge in its tone (the accent unless a `tone-*` says
+  otherwise) and its tinted eyebrow or chip. A change Ask proposes (`.ask-card`): its 2 px edge, the accent while it
+  waits, green done, red failed.
+- The app map (`web/src/ui/apps.tsx`) — each app's address, icon and colour, set once: `APPS`, `appTone(app)`,
+  `AppIcon` (the icon in its colour, a mark). Home's rows, the tab bar and the dock, PageHead's `app` and the Models
+  page's groups read it. Searches green, Chat cyan, Learn purple, Notes the accent, Tasks pink, News indigo, Research
+  yellow, Quiz teal, Applications orange, Writing magenta, Interview prep good; Cost and Models the models' yellow;
+  Live none.
 - `EmptyState` (`web/src/ui/empty.tsx`) — nothing here yet, in one voice, plain text in the flow (no box): `title`,
-  `line`, `action`, `detail`.
+  `line`, `action`, `detail`. A page whose item is gone says so with it (Notes' reader: its title "This document didn't
+  open", the state's words, the way back) and never retries a 404: its query takes
+  `retry: (n, e) => e.message !== "404" && n < 3`, the error's message being the status alone.
 - `Field` (`web/src/ui/field.tsx`) — a box where Enter sends (Shift+Enter makes a line), its round send button inside,
   a hint under it; `tall` starts at three lines; a long word or a pasted link breaks inside it. Without `onSend` it is
   a search box, and a tap anywhere on it focuses.
@@ -165,19 +218,23 @@ reading width is 720.
   its top and a ✕ per row that deletes after Confirm, and a Seg before them for what was starred: there a ★ taken
   off leaves its row in place, struck through, until the page is left, and gives the star back.
 - Home, top to bottom: the head (the date over the wolf and kestrel, the aside beside them), the news card (News in
-  indigo, its headlines in words alone), the live line and the figures, the apps (each its own colour), then Cost and
-  Models.
-- The Searches standard, for every page: one card anatomy repeated (a meta chip on the left, the date or source on
-  the right; the title with its key number as a pill beside it; one muted subline; facts in muted text with only the
-  values bold; the actions last); numbers in mono, on scales and tones; a page's figures as one strip of cells (label,
-  mono value, one quiet line) before its detail; tables with aligned mono columns; explanations in hints and titles,
-  never a paragraph over two lines.
+  indigo, its headlines in words alone), the live line and the figures (the shared `Figures`), the apps (each its own
+  colour, from the app map), then Cost and Models.
+- The Searches standard, for every page (Searches and News are the references): one card anatomy repeated (`Card`:
+  a meta chip on the left, the date or source on the right; the title with its key number as a pill beside it; one
+  muted subline; facts in muted text with only the values bold; the actions last); numbers in mono, on scales and
+  tones; a page's figures as one strip of cells (`Figures`) before its detail; sections headed by `SectionHead`;
+  filters in `FilterPanel`; secondary things in a rail on the right (`WithRail`); tables with aligned mono columns;
+  explanations in hints and titles, never a paragraph over two lines.
 - `/design` shows every shared part in its states, the ladder at real size with its drawn and touch heights measured
   on the device that shows it, and every type step with its roles; a new part is reviewed there first.
 
 ## The rules
 
 - **One filled button per screen.** Everything else is a plain, quiet or small button.
+- **Colour with meaning, small:** each app's colour on its eyebrow and icon, status tones on chips, dots and edges,
+  numbers in mono; never a tint behind words. Small coloured words read 4.5:1 in both themes (`--tone-text`); a page
+  in one grey goes back.
 - **A choice is pills or a Seg**, never a dropdown.
 - **Ask before an action with Confirm**, never the browser's pop-up.
 - **A document reads rendered**, never as its raw Markdown: Doc, everywhere a document shows.

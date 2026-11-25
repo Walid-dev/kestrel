@@ -8,25 +8,6 @@
 import { Link } from "react-router";
 import { morningAt, plural, runOf, sentence, useNews, writtenAt } from "./data.ts";
 
-// a newspaper, drawn by hand on the icons' grid (the dock's News)
-export const NEWS_ICON = (
-  <svg
-    viewBox="0 0 24 24"
-    width="22"
-    height="22"
-    aria-hidden="true"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.7"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M4.5 5.5h11V18a1.5 1.5 0 0 0 1.5 1.5H6A1.5 1.5 0 0 1 4.5 18z" />
-    <path d="M15.5 9h3v9a1.5 1.5 0 0 1-3 0" />
-    <path d="M7.5 9h5M7.5 12.5h5M7.5 16h3" />
-  </svg>
-);
-
 export function NewsCard() {
   const news = useNews();
   const d = news.data;

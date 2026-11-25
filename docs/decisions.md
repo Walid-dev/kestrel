@@ -5,6 +5,37 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · One look: Searches and News are the references; the shared parts their pages share.**
+  The parts every page repeats move into `web/src/ui/`, each shown on /design: `Figures` (a page's strip of cells;
+  Home's look, `.home-figs` renamed `.figs`; three across on a phone, two when three would leave one alone, one row
+  from 48rem), `SectionHead` (the section step, its count in small muted mono, a tone dot when the colour means
+  something), `Card`'s `end` (the top line's right end: the date or the source), `figure` (the key number beside the
+  title) and `actions`, `FilterPanel` and `FilterRow` (Searches' filter card), `WithRail` and `RailPart` (News'
+  main column and right rail, a part headed by an eyebrow). Searches' and News' own files stay as they are: the filter
+  rows and the rail are one rule each in styles.css, under both the shared names and theirs (`.search-part`,
+  `.news-layout`). Rejected: renaming the references' classes in the same change (their pages would change for no
+  look); a part per page (three figure strips, two filter cards, six two-column grids were the cause).
+- **2026-11-25 · One app map; each page's eyebrow and the open tab in its app's colour.**
+  `web/src/ui/apps.tsx` holds each app's address, icon and colour (Home's colours, moved from home.tsx; the icons from
+  home.tsx, app.tsx and news/card.tsx). PageHead's `app` tints the eyebrow; the tab bar and the dock draw the open
+  place's icon in its colour (the wolf pink, Live in ink) with its name in ink and no ground behind it, the others
+  grey. `Tone` gains teal (Quiz) and magenta (Writing). Every page gets an eyebrow: a top page's says what the app
+  holds, a child page's where it sits. Rejected: the accent for the open tab (one blue for every app, and a ground
+  behind the icon).
+- **2026-11-25 · Small coloured words read 4.5:1 in light too; marks keep the tone.**
+  Measured in light, chips read 2.9 to 4.3:1 on their tint (yellow the lowest), red words 3.7, accent links 4.1 to 4.2;
+  dark was 4.5 or more everywhere. `--tone-text` (100% in dark, 70% in light) is how much of the tone small words take,
+  the rest the ink: chips, tinted eyebrows, `text-tone`, the colour classes (the theme's `--color-*`), `.btn-danger`,
+  the back link, an action pill and the drawings' labels; 4.6:1 at least in light, dark unchanged. Marks keep the tone
+  (3:1): dots, edges, bars, icons, the ★, so `text-yellow` stays the tone and a word in yellow is `text-tone
+  tone-yellow`. Searches' and News' chips darken a little, in light only. Rejected: darker light tokens (every dot,
+  edge and the ★ would darken too).
+- **2026-11-25 · No tint behind words.**
+  A block of words in a tone sits on the sunk ground with a 3 px edge in its tone and its tinted eyebrow or chip:
+  `.callout`, `.read-box`, `.quiz-answer`, the drawings' tip, warning and check. Ask's proposed changes (`.ask-card`)
+  keep a 2 px edge (the accent, green done, red failed) on the sunk ground; a picked `.tile` keeps the accent's edge and
+  ✓ on its own ground. Rejected: lighter tints (still a coloured ground, and a red verdict on a blue page reads wrong).
+
 - **2026-11-25 · Stars on News: each keeps a copy of its story; All days lists them under Starred.**
   Each story card has the star beside Ask and Look deeper: Searches' pill (a yellow ★, Star or Starred), now the
   shared `Star` in `web/src/ui/star.tsx`, shown on /design; Searches' listing sheet uses it too, so both pages draw
