@@ -6,7 +6,7 @@
 // or when today's failed, the head says so in place of the time (the card never grows); a new brief that failed after
 // this morning's is the page's to say. Before any brief, one quiet line says when the first comes.
 import { Link } from "react-router";
-import { plural, runOf, sentence, useNews, writtenAt } from "./data.ts";
+import { morningAt, plural, runOf, sentence, useNews, writtenAt } from "./data.ts";
 
 // a newspaper, drawn by hand on the icons' grid (the dock's News)
 export const NEWS_ICON = (
@@ -77,7 +77,7 @@ export function NewsCard() {
       {!shown && !note && (
         <span className="news-card-note text-muted">
           {d.enabled
-            ? `The first brief comes at ${d.time}, or open it to write one now.`
+            ? `The first brief comes at ${morningAt(d.time)}, or open it to write one now.`
             : "Off in settings: open it to write one now."}
         </span>
       )}

@@ -104,6 +104,11 @@ const pad = (n: number) => String(n).padStart(2, "0");
 export const localDay = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 // "6:34 AM", as Live and Research say a time
 export const clock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+// the morning's set time, "08:00" in the settings, as every time on the page reads: 8:00 AM
+export const morningAt = (time: string) => {
+  const [h, m] = time.split(":").map(Number);
+  return new Date(2026, 0, 1, h, m).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+};
 // "Tue, Nov 24", in the order the browser says dates, as every date in the app
 export const dayName = (day: string) =>
   new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });

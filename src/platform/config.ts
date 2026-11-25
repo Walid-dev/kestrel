@@ -28,14 +28,15 @@ const onThisComputer = (u: string): boolean => {
   }
 };
 
-// the morning news (src/domain/news/): the time its brief is written, how often the feeds are read in between (some
-// hold only a few hours), and the hour after which a morning missed (the computer asleep) waits for the next one
+// the morning news (src/domain/news/): the time its brief is written (08:00 unless settings.json's news.time says
+// another), how often the feeds are read in between (some hold only a few hours), and the hour after which a morning
+// missed (the computer asleep) waits for the next one
 export const NewsSettings = z.object({
   enabled: z.boolean().default(true),
   time: z
     .string()
-    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "a time like 06:30")
-    .default("06:30"),
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "a time like 08:00")
+    .default("08:00"),
   collectEveryMinutes: z.number().int().min(30).max(1440).default(120),
   latestHour: z.number().int().min(1).max(24).default(12),
   // what the brief follows; a few plain lines, replaced whole when set

@@ -19,6 +19,13 @@ technical; the plan and the runbook carry the detail.
   one from 393 wide), centred on the eyebrow and the title past a thin rule, never stretched to sit level with them.
   Rejected: the statement as the head's line under the title (it reads as well, but adds a row above the news card,
   and a page's line says where things stand, not what the app is).
+- **2026-11-25 · The morning news at 08:00; the page says when.**
+  The brief's default time moves from 06:30 to 08:00 (`NewsSettings.time`; due from the set time until noon, a failed
+  morning retried once, as before). A `news.time` in the data folder's settings.json wins over the default; deploy
+  writes only the Tailscale login there, never news defaults. The News page's foot says the time in effect beside
+  Make it now ("Written each morning at 8:00 AM"), from `GET /api/news`'s `time`, in the browser's time format, as
+  the empty states and Home's card do; with the news off in the settings, it says so. Replaces: the 2026-11-24
+  entry's 06:30.
 - **2026-11-24 · The jobspy wrapper is retired; kestrel's job hunts come through the mirror until the cutover.**
   `scripts/collectors/jobspy.mjs` is deleted. Its LinkedIn reads went out from this computer's address outside the
   old setup's LinkedIn cap; its Indeed reader used Indeed's private app API, a way past the site's bot check; and it

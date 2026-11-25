@@ -5,8 +5,8 @@
 // its points), Ask (a conversation about the story, kept per story, with the web) and Look deeper, which hands the
 // headline to Research. On a computer the earlier days and the sources' health sit in a rail beside the stories; on a
 // phone they follow them. Listen reads the brief aloud; All days opens the history (days.tsx); Make it now, at the
-// foot, writes a new one, its five steps in sight while it works, the last brief readable under them. An earlier
-// day's page can be deleted at its foot.
+// foot beside the time the brief is written each morning, writes a new one, its five steps in sight while it works,
+// the last brief readable under them. An earlier day's page can be deleted at its foot.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useNavigationType, useSearchParams } from "react-router";
@@ -32,6 +32,7 @@ import {
   dayName,
   getJson,
   localDay,
+  morningAt,
   plural,
   points,
   runOf,
@@ -180,7 +181,7 @@ function Today() {
               title="No brief yet."
               line={
                 d.enabled
-                  ? `The first one is written at ${d.time}, or now.`
+                  ? `The first one is written at ${morningAt(d.time)}, or now.`
                   : "The morning news is off in the settings; one can still be written now."
               }
               action={makeIt("primary")}
@@ -196,12 +197,19 @@ function Today() {
           <SourcesFold />
         </aside>
       </div>
-      {/* the rare action last, at the page's foot */}
+      {/* the rare action last, at the page's foot, with when the brief comes by itself: the time in effect */}
       {shown && (
         <div className="news-foot">
           {makeIt("plain")}
           <span className="text-small text-muted">
-            Reads the sources again and writes a new brief: a few minutes on the computer's model
+            {d.enabled ? (
+              <>
+                Written each morning at <b className="font-mono text-ink">{morningAt(d.time)}</b>
+              </>
+            ) : (
+              "Off each morning in the settings"
+            )}
+            ; making it now takes a few minutes on the computer's model
           </span>
           {make.isError && <span className="text-small text-red">{sentence((make.error as Error).message)}</span>}
         </div>

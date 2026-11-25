@@ -316,29 +316,33 @@ test("the model's words lose every address, and keep their sentence's stop", () 
   assert.equal(clean("Claude.ai and Node.js stay, as names."), "Claude.ai and Node.js stay, as names.");
 });
 
-test("due once a morning from its time, caught up when the computer wakes, never chased before it or past noon", () => {
+test("due once a morning from its time (08:00 unless set), caught up on waking, never before it or past noon", () => {
   const db = memory();
   const n = NewsSettings.parse({});
+  assert.equal(n.time, "08:00");
   const at = (day: number, h: number, m = 0) => new Date(2026, 10, day, h, m);
-  assert.equal(briefDue(db, n, at(24, 6, 0)), false);
-  assert.equal(briefDue(db, n, at(24, 6, 30)), true);
+  assert.equal(briefDue(db, n, at(24, 6, 30)), false); // the old time
+  assert.equal(briefDue(db, n, at(24, 7, 59)), false);
+  assert.equal(briefDue(db, n, at(24, 8, 0)), true);
   db.prepare("INSERT INTO news_briefs (id, day, state, started) VALUES ('b1', '2026-11-24', 'done', ?)").run(
-    at(24, 6, 31).toISOString(),
+    at(24, 8, 1).toISOString(),
   );
   assert.equal(briefDue(db, n, at(24, 9)), false);
-  // asleep from before 06:30 until 09:40 the next day: due the minute it wakes
+  // asleep from before 08:00 until 09:40 the next day: due the minute it wakes
   assert.equal(briefDue(db, n, at(25, 9, 40)), true);
   // woken after noon: that morning waits for the next
   assert.equal(briefDue(db, n, at(25, 13, 10)), false);
   assert.equal(briefDue(db, n, at(26, 3)), false);
-  assert.equal(briefDue(db, n, at(26, 6, 30)), true);
+  assert.equal(briefDue(db, n, at(26, 8, 0)), true);
   // a morning cut short (a restart, the door not up yet) is tried once more, 15 minutes on; then it waits for me
   const failed = db.prepare("INSERT INTO news_briefs (id, day, state, started) VALUES (?, '2026-11-26', 'failed', ?)");
-  failed.run("f1", at(26, 6, 31).toISOString());
-  assert.equal(briefDue(db, n, at(26, 6, 40)), false);
-  assert.equal(briefDue(db, n, at(26, 6, 46)), true);
-  failed.run("f2", at(26, 6, 46).toISOString());
+  failed.run("f1", at(26, 8, 1).toISOString());
+  assert.equal(briefDue(db, n, at(26, 8, 10)), false);
+  assert.equal(briefDue(db, n, at(26, 8, 16)), true);
+  failed.run("f2", at(26, 8, 16).toISOString());
   assert.equal(briefDue(db, n, at(26, 9)), false);
+  // a time in settings.json wins over the default
+  assert.equal(briefDue(memory(), NewsSettings.parse({ time: "06:30" }), at(27, 6, 30)), true);
 });
 
 test("a good answer: links only from each story's own items, a web address cut, a number its sources lack flagged", async () => {
@@ -634,17 +638,18 @@ test("the tick: the brief when due, the feeds every two hours between, a Live li
   const settings = settingsFor("http://127.0.0.1:9/v1");
   const at = (h: number, m = 0) => new Date(2026, 10, 24, h, m);
   const deps = (t: Date, read = reader({ wire: [] })): NewsDeps => ({ sources: [WIRE], read, clock: () => t });
-  assert.equal(newsTick(db, settings, at(6, 0), deps(at(6, 0))), "collect");
+  assert.equal(newsTick(db, settings, at(7, 30), deps(at(7, 30))), "collect");
   await newsSettled();
-  assert.equal(newsTick(db, settings, at(6, 10), deps(at(6, 10))), null);
-  // an application at work has the model: the brief waits (nothing else is due at 06:30)
-  assert.equal(newsTick(db, settings, at(6, 30), deps(at(6, 30)), true), null);
-  assert.equal(newsTick(db, settings, at(6, 30), deps(at(6, 30))), "brief");
+  assert.equal(newsTick(db, settings, at(7, 40), deps(at(7, 40))), null);
+  // an application at work has the model: the brief waits (nothing else is due at 08:00)
+  assert.equal(newsTick(db, settings, at(8, 0), deps(at(8, 0)), true), null);
+  assert.equal(newsTick(db, settings, at(8, 0), deps(at(8, 0))), "brief");
   await newsSettled();
-  assert.equal(newsTick(db, settings, at(8, 0), deps(at(8, 0))), null);
+  // the brief read the feeds at 08:00: the next read is two hours after it
+  assert.equal(newsTick(db, settings, at(9, 30), deps(at(9, 30))), null);
   const three = [source("a"), source("b"), source("c")];
   const down = reader({ a: "timed out", b: "answered 403", c: "not a feed" });
-  assert.equal(newsTick(db, settings, at(8, 31), { sources: three, read: down, clock: () => at(8, 31) }), "collect");
+  assert.equal(newsTick(db, settings, at(10, 1), { sources: three, read: down, clock: () => at(10, 1) }), "collect");
   await newsSettled();
   const line = finished().find((a) => a.kind === "news" && a.title === "Reading the news feeds");
   assert.equal(line?.outcome, "failed");
