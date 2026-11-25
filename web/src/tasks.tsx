@@ -113,9 +113,17 @@ export function Tasks() {
       }
     >
       <WithRail
-        label="The done tasks, and Ask"
+        label="Ask, and the done tasks"
         rail={
           <>
+            <Ask
+              app="tasks"
+              refId="tasks"
+              title="Ask about my tasks"
+              placeholder="Add, change or close tasks in words"
+              starters={["What should I do first?", "Group what is open by theme", "Which ones look done already?"]}
+              onChange={refresh}
+            />
             {done.length > 0 && (
               <details>
                 <summary className="disclosure">
@@ -130,14 +138,6 @@ export function Tasks() {
                 </div>
               </details>
             )}
-            <Ask
-              app="tasks"
-              refId="tasks"
-              title="Ask about my tasks"
-              placeholder="Add, change or close tasks in words"
-              starters={["What should I do first?", "Group what is open by theme", "Which ones look done already?"]}
-              onChange={refresh}
-            />
           </>
         }
       >

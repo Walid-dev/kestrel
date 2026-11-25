@@ -20,8 +20,12 @@ The look since 2026-11-24: small, calm and precise under a mouse, comfortable on
   `--teal` (Quiz) and `--magenta` (Writing).
 - **Words in a colour:** `--tone-text` is how much of a working colour small words take: 100% in dark, 70% in light
   (the rest is `--strong`), so a chip, a tinted eyebrow, `text-tone` and a colour's class (`text-red`) read 4.5:1 in
-  both themes (light's tones alone read 2.9 to 4.3). Marks keep the tone itself, 3:1 being their bar: a dot, an edge, a
-  bar, an icon (`.app-mark`), the ★ (`text-yellow` stays the tone for it; a word in yellow is `text-tone tone-yellow`).
+  both themes (light's tones alone read 2.9 to 4.3). Every rule that colours words reads it (Ask's failed line, the
+  code's words, the drawings' labels), never a raw tone. Dark's muted, red, indigo and poor read just under 4.5 on
+  their tint, so those four classes set it to 88% in dark. The filled button's accent takes a tenth of the ink in light
+  (white words at 4.65:1). Marks keep the tone itself, 3:1 being their bar: a dot, an edge, a bar, an icon
+  (`.app-mark`), the ★ (`text-yellow` stays the tone for it; a word in yellow is `text-tone tone-yellow`). Measure
+  with `scripts/contrast-probe.js` (every visible text, in both themes, against the dev server; its header says how).
 - **Shades** for what floats: `--shade-dialog`, `--shade-dock`, `--shade-pip`, `--shade-seg`, `--backdrop`.
 - **Fonts:** IBM Plex Sans for text, Sans Condensed for headings and the wordmark, Mono for numbers, paths, labels and
   chips. All served from `web/public/fonts`. Only the weights that ship: Sans 400–600, Condensed 600/700, Mono
@@ -200,7 +204,9 @@ reading width is 720.
   starts the work (Research's question): the rail is first in the page, so a phone shows it first and the keyboard
   and a screen reader meet it first, and a computer still sets it on the right. Each column holds to its width (a
   document's wide table scrolls inside it). `className` carries a page's own rules: a rail that stays in view while a
-  long main column scrolls (the reader's notes, a report's sources). A rail's part is headed by an eyebrow with its
+  long main column scrolls (Research's question, where the screen is tall enough; a report's sources). A rail that
+  can outgrow the window (the reader's notes) scrolls with the page. A block after the layout on its page (Ask under Writing's try or a report) is as wide as
+  the layout, so a screen has one right edge. A rail's part is headed by an eyebrow with its
   count ("Your notes · 3"), never a section heading; `headRef` makes that heading where the focus goes when what had
   it goes (a deleted note). The pages with a rail: News (its own classes, `.news-layout`, one rule with these), the
   Notes reader, Quiz, Tasks, Research and an answer, Writing.

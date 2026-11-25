@@ -453,7 +453,7 @@ h3 {
   cursor: pointer;
 }
 .stop-choice b {
-  color: var(--red);
+  color: color-mix(in srgb, var(--red) var(--tone-text), var(--strong));
   font-size: var(--text-body);
 }
 .stop-choice span {
@@ -556,6 +556,17 @@ h3 {
 }
 .tone-poor {
   --tone: var(--poor);
+}
+/* dark: four tones read just under 4.5:1 as small words on their own tint (muted 4.16, red 4.21, indigo 4.39, poor
+   4.48, measured); their words take 12% of the ink, which reads 4.6:1 at least. Dots, edges and icons keep the tone */
+@media not (prefers-color-scheme: light) {
+  :is(.tone-muted, .tone-red, .tone-indigo, .tone-poor) {
+    --tone-text: 88%;
+  }
+  /* the money pill draws the tone itself (light's pills read 4.5:1 as they are); only poor's needs the step here */
+  .money.tone-poor {
+    color: color-mix(in srgb, var(--tone) var(--tone-text), var(--strong));
+  }
 }
 
 /* a chip: a small coloured label (a state, a match, a source), the tone's words on a tint of it */
@@ -1158,9 +1169,11 @@ span.filter-row-name {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+/* a pill's second words (a lesson's minutes) take the count's colour: muted, the ink once picked (muted on the
+   picked ground reads 4.47:1) */
 .pills .pill small {
   font: 400 var(--text-small) / var(--text-small--line-height) var(--sans);
-  color: var(--muted);
+  color: var(--count, var(--muted));
 }
 @media (hover: hover) {
   .pill:hover:not([aria-pressed="true"], .pill-action, [disabled]) {
@@ -1177,8 +1190,12 @@ span.filter-row-name {
   --fill: var(--red);
   color: var(--bg);
 }
-/* light's --red under white words reads 3.5:1; the deeper --poor reads 4.7:1, enough for the box's main word */
+/* light's --red under white words reads 3.5:1; the deeper --poor reads 4.7:1, enough for the box's main word. The
+   accent's fill under them reads 4.06:1; a tenth of the ink brings it to 4.65:1, still the accent's blue */
 @media (prefers-color-scheme: light) {
+  .btn-primary {
+    --fill: color-mix(in srgb, var(--accent) 90%, var(--strong));
+  }
   .btn-primary.btn-danger {
     --fill: var(--poor);
   }
@@ -1933,6 +1950,11 @@ span.filter-row-name {
   .with-rail-first > .rail-main {
     grid-area: 1 / 1;
   }
+  /* what follows the layout on its page (Ask under Writing's try or a report, a foot) ends where the rail ends, so a
+     screen has one right edge */
+  .with-rail ~ * {
+    max-width: calc(52rem + 32px + 340px);
+  }
 }
 .news-main,
 .news-rail,
@@ -2384,21 +2406,22 @@ pre.code {
   overflow-x: auto;
   margin: 0;
 }
+/* the code's words are small words too: the text-safe share of their colour (light 70%) */
 pre.code .k {
-  color: var(--purple);
+  color: color-mix(in srgb, var(--purple) var(--tone-text), var(--strong));
 }
 pre.code .s {
-  color: var(--green);
+  color: color-mix(in srgb, var(--green) var(--tone-text), var(--strong));
 }
 pre.code .n {
-  color: var(--orange);
+  color: color-mix(in srgb, var(--orange) var(--tone-text), var(--strong));
 }
 pre.code .c {
   color: var(--muted);
   font-style: italic;
 }
 pre.code .f {
-  color: var(--accent);
+  color: color-mix(in srgb, var(--accent) var(--tone-text), var(--strong));
 }
 /* the line Listen is saying */
 .reading {
@@ -3340,7 +3363,7 @@ pre.code .f {
   margin: 0;
   font-size: var(--text-detail);
   line-height: var(--text-detail--line-height);
-  color: var(--red);
+  color: color-mix(in srgb, var(--red) var(--tone-text), var(--strong));
 }
 /* the direct answer: read slowly, on an inner block */
 .ask-lead {
@@ -3506,7 +3529,7 @@ pre.code .f {
   border-radius: 999px;
   border: 1.5px solid color-mix(in srgb, var(--c) 75%, transparent);
   background: color-mix(in srgb, var(--c) 14%, var(--surface));
-  color: var(--c);
+  color: color-mix(in srgb, var(--c) var(--tone-text), var(--strong));
   font: 500 var(--text-small) / 1 var(--mono);
 }
 @container (min-width: 560px) {
@@ -3597,7 +3620,7 @@ pre.code .f {
   line-height: var(--text-detail--line-height);
 }
 .d-tree li b {
-  color: var(--c);
+  color: color-mix(in srgb, var(--c) var(--tone-text), var(--strong));
   font: 600 var(--text-body) / var(--text-body--line-height) var(--cond);
 }
 .d-tree li span {
@@ -3622,7 +3645,7 @@ pre.code .f {
 }
 .d-when {
   min-width: 52px;
-  color: var(--c);
+  color: color-mix(in srgb, var(--c) var(--tone-text), var(--strong));
   font: 500 var(--text-small) / var(--text-body--line-height) var(--mono);
   text-align: right;
 }
@@ -4764,18 +4787,12 @@ body:has(.paper-view) {
     background: var(--bg);
   }
 }
-/* the reader's rail (WithRail): on a computer my notes stay in view while the document scrolls. Side by side takes
-   the whole width, the notes under it, where they scroll with the page */
+/* the reader's rail (WithRail) scrolls with the page, never sticky: a long list of notes is taller than the window,
+   and a sticky rail would hide its last notes until the document's end. Side by side takes the whole width, the
+   notes under it */
 @media (min-width: 64rem) {
-  .note-layout > .rail {
-    position: sticky;
-    top: var(--page-gap);
-  }
   .note-side .note-layout {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .note-side .note-layout > .rail {
-    position: static;
   }
 }
 /* Earlier versions: a fold-out in the notes' rail, its versions as inner blocks under it (spaced once open) */

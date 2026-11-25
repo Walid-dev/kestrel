@@ -5,6 +5,21 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Every small coloured word at 4.5:1, measured on every text; one right edge under a rail.**
+  The first pass measured only chips and eyebrows; a probe over every visible text node found more. Light: Ask's
+  failed line, Stop's red word and the code's words read raw tones (3.7 to 4.2) and now take `--tone-text`, as do the
+  drawings' labels and step numbers (3.7 to 4.5); the filled button's white words read 4.06 on the accent, so in light
+  its fill takes a tenth of the ink (4.65; the danger fill already used `--poor`); a picked pill's minutes read 4.47 and
+  take the count's colour. Dark: the muted, red, indigo and poor chips read 4.16 to 4.48 on their tint, so those four
+  classes set `--tone-text` to 88% in dark (4.6 at least), and poor's money pill reads it too. The probe is
+  `scripts/contrast-probe.js`, run with playwright-cli on the dev server; every page passes in both themes. A block
+  after `WithRail` on its page (Ask under Writing's try and under a report, the report's foot) is as wide as the layout
+  from 64rem, so a screen has one right edge. Open for my yes: the light-theme change darkens Searches' and News'
+  chips, tinted eyebrows, red words, links and the Listen button a little; the old look is one line back
+  (`--tone-text: 100%` and no `.btn-primary` fill in the light block), at the price of 2.9 to 4.3:1 words. Rejected:
+  the probe inside `node --run check` (it needs a browser and a running server); Ask moved into the main column
+  (its order on a phone would change).
+
 - **2026-11-25 · Quiz on News' layout; a started quiz is a card.**
   The head's line keeps one fact (the lessons to review today, the count in cyan mono); how a quiz works becomes the
   hint under the new quiz's `SectionHead`. The quizzes I started and the new quiz take the main column, in that order
@@ -42,7 +57,7 @@ technical; the plan and the runbook carry the detail.
   as links to Searches (a new way somewhere, not a look).
 
 - **2026-11-25 · Tasks and Research on News' layout.**
-  Tasks: the open list in the main column, the done ones (a fold, "Done 2") and Ask in the rail on the right, 280 to
+  Tasks: the open list in the main column, Ask and then the done ones (a fold, "Done 2") in the rail on the right, 280 to
   340 wide where it had 360; the eyebrow "To do" in pink. Research's landing turns around: the answers in the main
   column (`SectionHead` "Answers" with its count), the question in the rail (`RailPart` "New question", About me under
   it), first in the page with `railFirst`, so a phone and the keyboard meet it first as before; it stays in view while
@@ -69,8 +84,8 @@ technical; the plan and the runbook carry the detail.
   your folders" is a `SectionHead` with its count; a failure in Notes (the list, the note's sheet, the review) is one
   red line in words, no longer on the warning's tint. The reader moves onto `WithRail`: its head runs the page wide,
   the document takes the main column (52rem at most), my notes the rail ("Your notes · 3", an eyebrow: `RailPart`,
-  whose new `headRef` keeps the heading as the focus's place after a delete), still in view while the document
-  scrolls; Side by side keeps the same parts in one column, the notes under it, so the editor never starts again.
+  whose new `headRef` keeps the heading as the focus's place after a delete), scrolling with the page as before (a
+  sticky rail hid the notes past the window's height until the document's end); Side by side keeps the same parts in one column, the notes under it, so the editor never starts again.
   Chat's computer page says where the chats open in the empty state's voice (no card), the eyebrow "Agents" in cyan.
   `WithRail` changes for every page: `railFirst` renders the rail first in the page and a computer sets it back on the
   right (it was CSS order: a phone showed the rail first while the keyboard and a screen reader met it last), each

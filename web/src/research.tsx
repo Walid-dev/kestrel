@@ -526,22 +526,26 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
               title="Nothing asked yet."
               line="Each answer is kept here, to read or hear again. Try one of these:"
               action={
-                // plain pills, as Ask's starters: a tap puts the question in the box (the accent is for acting)
-                <div className="pills-row">
-                  {STARTERS.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      className="pill"
-                      onClick={() => {
-                        setQuestion(s);
-                        askBox.current?.querySelector("textarea")?.focus();
-                      }}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
+                // plain pills, as Ask's starters: a tap puts the question in the box (the accent is for acting); the
+                // group keeps its name for a screen reader, as Pills' fieldset does
+                <fieldset className="pills">
+                  <legend className="sr-only">Questions to start with</legend>
+                  <div className="pills-row">
+                    {STARTERS.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        className="pill"
+                        onClick={() => {
+                          setQuestion(s);
+                          askBox.current?.querySelector("textarea")?.focus();
+                        }}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
               }
             />
           )}

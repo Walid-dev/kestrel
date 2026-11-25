@@ -144,8 +144,8 @@ export function Applications() {
         lists.data &&
         (all.length ? (
           <>
-            <b className="font-mono text-ink">{all.length}</b> {all.length === 1 ? "application" : "applications"} · the
-            last <b className="text-ink">{ago(latest)}</b>
+            <b className="font-mono text-ink">{all.length}</b> {all.length === 1 ? "application" : "applications"} ·
+            last one <b className="text-ink">{ago(latest)}</b>
           </>
         ) : (
           "No applications yet."
