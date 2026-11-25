@@ -1,6 +1,7 @@
 // The collector door: a collector is an executable in the data folder that prints its items as JSON. The engine runs
 // it with a time limit and a size cap, reads the items, and turns every bad ending into a problem in plain words —
 // exit code 3 means the site wants a login again (the old setup's convention, so existing scripts work unchanged).
+// What it prints to stderr as it goes (the old collectors' progress lines) reaches onLine, one line at a time.
 import { execFile } from "node:child_process";
 import { z } from "zod";
 
@@ -43,12 +44,18 @@ export function browserProblem(stderr: string): string | null {
 export function runCollector(
   script: string,
   args: string[],
-  opts: { timeoutMs?: number; maxBytes?: number; cwd?: string; env?: Record<string, string> } = {},
+  opts: {
+    timeoutMs?: number;
+    maxBytes?: number;
+    cwd?: string;
+    env?: Record<string, string>;
+    onLine?: (line: string) => void;
+  } = {},
 ): Promise<Collected> {
   const timeoutMs = opts.timeoutMs ?? 180_000;
   const maxBytes = opts.maxBytes ?? 20_000_000;
   return new Promise((resolve) => {
-    execFile(
+    const child = execFile(
       script,
       args,
       {
@@ -98,5 +105,15 @@ export function runCollector(
         });
       },
     );
+    // the progress lines as they come (execFile still keeps the whole of stderr for the ending above); a line cut by a
+    // chunk's edge waits for the rest of itself
+    if (opts.onLine) {
+      let partial = "";
+      child.stderr?.on("data", (chunk: string | Buffer) => {
+        const lines = (partial + String(chunk)).split("\n");
+        partial = lines.pop() ?? "";
+        for (const l of lines) if (l.trim()) opts.onLine?.(l.trim());
+      });
+    }
   });
 }

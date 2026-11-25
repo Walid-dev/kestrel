@@ -59,6 +59,10 @@ const DEAL_STATUS: Record<string, string> = {
 };
 
 type Head = { hunt: string; category: string; min?: number; max?: number; maxAge?: number };
+// the old setup's own key for a deal hunt (its review page's tab, the name its Search now takes): its hunt: line,
+// lowercased (the old modes.ts huntKey). A search with no hunt: line is grouped there by its words (title_like, term),
+// which a head here doesn't keep, so its deals carry no key
+const oldHuntKey = (hunt: string) => (hunt ? `hunt:${hunt.toLowerCase()}` : "");
 // an old spec's head: `hunt: Office chair`, `category: Aeron`, its price limits and how old an ad may be
 function specHeads(dir: string | undefined): Map<string, Head> {
   const out = new Map<string, Head>();
@@ -271,6 +275,7 @@ function importDeals(db: DatabaseSync, old: DatabaseSync, write: boolean, opts: 
       prices: prices.get(String(r.id)) ?? [],
       hunt: head?.hunt ?? "",
       category: head?.category ?? "",
+      oldHunt: oldHuntKey(head?.hunt ?? ""),
       fit: r.fit,
       fitWhy: r.fit_reason ?? "",
       leftOut,

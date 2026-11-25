@@ -806,6 +806,40 @@ h3 {
 .search-answer > .dot {
   margin-top: calc((var(--text-detail--line-height) - 7px) / 2);
 }
+/* Search now: its words and, while it searches, "Searching…" with a small spinner share one cell, so the button keeps
+   the wider one's width either way. On touch a phone's row of switch, Search now and settings has no room for a wider
+   button: there its own words set the width and "Searching…" lies over the padding too. Searching, the words stay
+   readable (muted, not faded) on the waiting ground */
+.search-now {
+  display: inline-grid;
+}
+.search-now > span {
+  display: inline-flex;
+  grid-area: 1 / 1;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.search-now .spin {
+  width: 10px;
+  height: 10px;
+}
+/* unseen while idle, it doesn't turn */
+.search-now .invisible .spin {
+  animation: none;
+}
+@media (pointer: coarse) {
+  /* out of the cell (an absolute child placed in a grid area would take the cell as its box), over the padding box */
+  .search-now > span + span {
+    position: absolute;
+    inset: 0;
+    grid-area: auto;
+  }
+}
+.search-now[aria-busy="true"] {
+  color: var(--muted);
+}
 .search-flag,
 .search-more {
   position: relative;

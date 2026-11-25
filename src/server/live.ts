@@ -1,8 +1,8 @@
 // Live: what runs now, step by step, and the Activity log. Running work comes from the activity list (searches, deep
 // checks, model asks, the mirror, the nightly copy); applications in flight come from the database, and the agent's
-// chats (an application's, step by step) from the old setup's Live. Every piece of
-// work that ends, and every mark I make (a lesson graded, a task done, a stage set, an application sent), lands in
-// the activity table with where to open it. Every change rings the live stream.
+// chats (an application's, step by step) and the old setup's searches (its current step) from the old setup's Live.
+// Every piece of work that ends, and every mark I make (a lesson graded, a task done, a stage set, an application
+// sent), lands in the activity table with where to open it. Every change rings the live stream.
 import type { DatabaseSync } from "node:sqlite";
 import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
@@ -40,38 +40,100 @@ const Chat = z.object({
     .catch(null),
 });
 type Chat = z.infer<typeof Chat>;
-const OldLive = z.object({ chats: z.array(z.unknown()).catch([]), queuePaused: z.boolean().nullable().catch(null) });
+// one of the old setup's own steps, as its searches write them ("model-a-kijiji: searching Kijiji")
+const Line = z.object({ at: z.string(), text: z.string() });
+type Line = z.infer<typeof Line>;
+const OldLive = z.object({
+  chats: z.array(z.unknown()).catch([]),
+  queuePaused: z.boolean().nullable().catch(null),
+  // its searches: whether one runs now (its timer's round or a Search now: one at a time), and the day's steps
+  searching: z.boolean().nullable().catch(null),
+  lines: z
+    .array(z.unknown())
+    .catch([])
+    .transform((lines) => lines.slice(-200).flatMap((l) => Line.safeParse(l).data ?? [])),
+});
 const RECENT_MS = 2 * 3600_000; // an ended chat stays on Live this long
 
-// the agent's chats at work, waiting on me or ended lately, and whether the queue is paused, from the old setup's Live;
-// a second's reads of one address are shared
-type Agents = { chats: Chat[]; paused: boolean | null };
-let cache: { at: number; url: string } & Agents = { at: 0, url: "", chats: [], paused: null };
-async function agentChats(url: string): Promise<Agents> {
-  if (!url) return { chats: [], paused: null };
-  if (cache.url === url && Date.now() - cache.at < 2000) return cache;
-  // a failed read keeps this address's last read; another address's chats never stand in for it
-  const last: Agents = cache.url === url ? cache : { chats: [], paused: null };
+// the old setup's search now, as one line: its newest step, and when its round began. A round opens with "Search time…:
+// N searches to run" and ends with "Search time done" (or a Stop, or giving up); a job search writes neither, so its
+// steps count back until a pause of 15 minutes
+export type OldSearch = { started: string; step: Line };
+const ROUND_OPENS = /^Search time\b.*\bto run$/;
+const ROUND_ENDS = /^(Search time done|Search time gave up|Stopped: you pressed Stop)/;
+const PAUSE_MS = 15 * 60_000;
+export function oldRound(lines: Line[], at = new Date().toISOString()): OldSearch {
+  const last = lines.at(-1);
+  if (!last) return { started: at, step: { at, text: "Starting" } };
+  let start = lines.length - 1;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (i < lines.length - 1 && ROUND_ENDS.test(lines[i].text)) break;
+    if (i < lines.length - 1 && Date.parse(lines[i + 1].at) - Date.parse(lines[i].at) > PAUSE_MS) break;
+    start = i;
+    if (ROUND_OPENS.test(lines[i].text)) break;
+  }
+  return { started: lines[start].at, step: { at: last.at, text: last.text.slice(0, 240) } };
+}
+
+// the old setup's Live as kestrel reads it: the agent's chats at work, waiting on me or ended lately, whether the
+// queue is paused, and its search now (null when none runs; searching null when its Live doesn't say). A second's reads
+// of one address are shared; at is when this read came
+export type OldRead = {
+  at: number;
+  chats: Chat[];
+  paused: boolean | null;
+  searching: boolean | null;
+  search: OldSearch | null;
+};
+const NONE: OldRead = { at: 0, chats: [], paused: null, searching: null, search: null };
+let cache: { url: string } & OldRead = { url: "", ...NONE };
+let reuse = 0; // the last read answers until then
+export async function readOld(url: string, now = Date.now()): Promise<OldRead> {
+  if (!url) return NONE;
+  if (cache.url === url && now < reuse) return cache;
+  // a failed read keeps this address's last read (its at says how old it is); another address's never stands in
+  const last: OldRead = cache.url === url ? cache : NONE;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
     const data = OldLive.safeParse(await res.json());
     if (!data.success) return last; // not the old Live's shape: the last read stands
-    const now = Date.now();
     const chats = data.data.chats
       .flatMap((c) => Chat.safeParse(c).data ?? [])
       .filter((c) => c.working || c.waiting || now - Date.parse(c.updated) < RECENT_MS)
       .slice(0, 6);
-    cache = { at: now, url, chats, paused: data.data.queuePaused };
+    const { searching, lines } = data.data;
+    const search = searching ? oldRound(lines, new Date(now).toISOString()) : null;
+    cache = { url, at: now, chats, paused: data.data.queuePaused, searching, search };
+    reuse = now + 2000;
     return cache;
   } catch {
     return last; // the old setup not answering: the last read stands until it does
   }
 }
+// the old setup's search on Live's Now, as one of kestrel's own: its current step, and Open goes to Searches. A read
+// older than a minute (the old server stopped answering) shows none: its search may have ended since
+const OLD_SEARCH_ID = "old-setup-search";
+const oldSearchCard = (old: OldRead): Activity[] =>
+  old.search && Date.now() - old.at < 60_000
+    ? [
+        {
+          id: OLD_SEARCH_ID,
+          kind: "search",
+          title: "Search: The old setup's searches",
+          link: "/searches",
+          started: old.search.started,
+          steps: [old.search.step],
+          ended: null,
+          outcome: null,
+          note: "",
+        },
+      ]
+    : [];
 
 // Stop and Pause go to the old setup's server, which runs the applications (its queue claims kestrel's too): Stop
-// ends the chat's running turn in dsh, Pause keeps the next queued application from starting until Play. A job hunt's
-// Search now goes there too while the old setup runs the job search (search.ts). JSON, with no Origin header: the old
-// server refuses a write that names another page's origin
+// ends the chat's running turn in dsh, Pause keeps the next queued application from starting until Play. A hunt's
+// Search now goes there too while the old setup runs that hunt (search.ts). JSON, with no Origin header: the old server
+// refuses a write that names another page's origin
 export async function toOldSetup(
   oldLive: string,
   path: string,
@@ -85,7 +147,7 @@ export async function toOldSetup(
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(8000),
     });
-    cache.at = 0; // the next read shows the change
+    reuse = 0; // the next read shows the change
     return { code: res.status, body: await res.json().catch(() => ({})) };
   } catch {
     return { code: 502, body: { error: "the old setup's server didn't answer: is hunt serve running?" } };
@@ -183,11 +245,13 @@ export function mountLive(app: Hono, db: DatabaseSync, oldLive = "") {
          WHERE state IN ('applying', 'needs-me', 'queued') ORDER BY updated DESC`,
       )
       .all();
+    const old = await readOld(oldLive);
     return c.json({
       at: new Date().toISOString(),
-      now: running(),
+      now: [...running(), ...oldSearchCard(old)],
       apps,
-      ...(({ chats, paused }) => ({ chats, paused }))(await agentChats(oldLive)),
+      chats: old.chats,
+      paused: old.paused,
       recent: log(1).slice(0, 30),
     });
   });

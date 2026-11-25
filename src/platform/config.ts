@@ -112,9 +112,9 @@ export const Settings = z.object({
       page: z.string().default(""),
     })
     .optional(),
-  // the old setup's Live (its /api/live, on this computer): the agent's chats and their steps, which Live shows until
-  // kestrel reads the chats itself. Its server also takes Live's Stop and Pause and, for a job hunt it runs, Search now.
-  // Empty: Live shows kestrel's own work only, and Search now shows only for a hunt with a search of its own here
+  // the old setup's Live (its /api/live, on this computer): the agent's chats and their steps, and its search now, which
+  // Live shows until kestrel does both itself. Its server also takes Live's Stop and Pause and, for a hunt it runs, Search
+  // now. Empty: Live shows kestrel's own work only, and Search now shows only for a hunt with a search of its own here
   oldLive: z.string().optional(),
   // the morning news (NewsSettings, above; newsOf reads it with its defaults)
   news: NewsSettings.optional(),

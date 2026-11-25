@@ -300,20 +300,23 @@ export function listingCounts(db: DatabaseSync, filters: ListingFilters) {
 }
 
 // the hunts, for the tabs: each with its kind, name, count and searches
-export function listHunts(
-  db: DatabaseSync,
-): { key: string; kind: "jobs" | "deals"; count: number; searches: string[] }[] {
+// each hunt with its listings' count and searches; old: the old setup's key for a deal hunt the mirror brings (the
+// import keeps it on each deal it carries, import-v1.ts), so Search now can ask the old setup for it
+export type HuntRow = { key: string; kind: "jobs" | "deals"; count: number; searches: string[]; old: string | null };
+export function listHunts(db: DatabaseSync): HuntRow[] {
   const rows = db
     .prepare(
-      `SELECT kind, ${HUNT} AS hunt, search, COUNT(*) AS n FROM listings GROUP BY kind, hunt, search ORDER BY kind, hunt`,
+      `SELECT kind, ${HUNT} AS hunt, search, COUNT(*) AS n, MAX(NULLIF(json_extract(data, '$.oldHunt'), '')) AS old
+       FROM listings GROUP BY kind, hunt, search ORDER BY kind, hunt`,
     )
-    .all() as { kind: "jobs" | "deals"; hunt: string; search: string; n: number }[];
-  const out = new Map<string, { key: string; kind: "jobs" | "deals"; count: number; searches: string[] }>();
+    .all() as { kind: "jobs" | "deals"; hunt: string; search: string; n: number; old: string | null }[];
+  const out = new Map<string, HuntRow>();
   for (const r of rows) {
     const k = `${r.kind}:${r.hunt}`;
-    const h = out.get(k) ?? { key: r.hunt, kind: r.kind, count: 0, searches: [] };
+    const h = out.get(k) ?? { key: r.hunt, kind: r.kind, count: 0, searches: [], old: null };
     h.count += r.n;
     h.searches.push(r.search);
+    h.old ??= r.kind === "deals" ? r.old : null;
     out.set(k, h);
   }
   return [...out.values()];

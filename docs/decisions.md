@@ -5,6 +5,41 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · The old setup searches the chair hunt again for two weeks; Search now asks it for a deal hunt too.**
+  For two weeks the old setup runs the chair searches on its clock (its hunt On) and kestrel's chair hunt is Paused;
+  kestrel shows the ads through the mirror. Later kestrel takes all searching over, its collectors and browser its
+  own (a plan of its own). A deal hunt whose searches here are all Paused or off, and that the
+  mirror brings, sends Search now to the old setup's `POST /api/search-now` (`{"hunt": <its key there>}`). The key
+  is the old setup's own rule, `hunt:` and the spec's hunt line lowercased; the import keeps it on each deal it
+  carries (`data.oldHunt`), and `listHunts` reports it as the hunt's `old`. Its answers: started; paused; busy;
+  waiting until the soonest of its searches is free; every search off (`off`); no such hunt, and any other answer, an
+  error. Such a hunt keeps its On/Quiet/Paused switch (the switch shows when the hunt has a search here that is on),
+  so it can be turned On here when the two weeks end; its facts come from the mirror, not from its last run here. A deal hunt
+  without that key keeps kestrel's own Search now. The rows carry the key from the first mirror after the deploy.
+  Rejected: deriving the key from the hunt's name alone (a Paused hunt of kestrel's own would be sent to the old
+  setup and refused); reading the old specs folder at each request.
+- **2026-11-25 · Search now can't be pressed while its search runs.**
+  From the press until the run ends the button says "Searching…" with a small spinner and is disabled: kestrel's own
+  runs while any of the hunt's searches is in the line; the press stays pending until the hunts are read again, so
+  there is no gap. A run of the old setup started here counts as one of the hunt's searches (`running`, and
+  `oldSearching`) until the old setup's Live, read through `settings.oldLive`, shows it ended: seen searching (its
+  lock), then not; or not seen searching within 30 s (it ended at once or never started). While its Live can't be
+  read, until a mirror lands after the press; never past 2 hours. The old Live was chosen over the mirror because it
+  knows within seconds (a mirror lands about 5 minutes after a round, and Searches would stay busy that long). A
+  second press from another device adds nothing to the line. Busy and waiting answers keep their plain line. The
+  idle words keep the width; on touch "Searching…" lies over the padding, so a phone's head row never wraps.
+- **2026-11-25 · Searches opens the last hunt picked on this device.** Opened with no hunt in its address (the tab
+  bar, the dock, Home's apps), Searches opens the hunt picked last here (`kestrel-search-hunt` in the browser's
+  storage); when that hunt is gone, the first job hunt, as before.
+- **2026-11-25 · Live says what a search is doing.** A run of kestrel's own writes one sentence, as the old Live did:
+  its name, its place in the line's round and what its collector found so far ("Model A · Kijiji: 3 of 20, 42 ads
+  so far"). The collector's stderr lines stream in (`runCollector`'s `onLine`); only the count travels, never the
+  line's words, and each new count takes the sentence's place (`step(text, again)` in `platform/activity.ts`). The
+  round is the runs the line took since it was last empty, so a scheduled run alone says "searching". The old
+  setup's search shows as one card on Now from its Live (`searching` and its lines): its newest step, timed from its
+  round's first line ("Search time…: N searches to run", else the steps back to a 15-minute pause). Work at work reads
+  alike on Live whatever its kind: the green edge and dot, the kind in muted words; the Activity log's search chip is
+  muted, never purple.
 - **2026-11-25 · Research's sources read as quiet links.** The site name after a claim is small and regular, in a
   softened accent (60% accent, 40% muted ink: 6.2:1 on a dark card, 4.7:1 on a light one, where the light accent
   alone is 4.2:1), with the accent and an underline on hover; two in a row part with the facts line's dot. It was a
