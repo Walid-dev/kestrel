@@ -12,7 +12,8 @@ const KINDS: Record<string, string> = {
   timeout: "the model took too long",
   "too-long": "the document is too long for the model",
   unlisted: "the picked model isn't offered any more (see Models)",
-  refusal: "the model stopped before it finished",
+  "out-of-room": "the model ran out of room while it thought",
+  refusal: "the model answered nothing",
   shape: "the model's answer wasn't in the expected form",
 };
 export function plainWhy(error: string): string {

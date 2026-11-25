@@ -197,9 +197,9 @@ export function startDraft(
     recordCall(db, `changes:v${PROMPT_VERSION}`, got);
     if (!got.ok) {
       // Notes' page words each kind itself (web/src/notes/parts.tsx), so the row keeps the kind and never the detail
-      // (that stays in the calls log); an answer out of room keeps the kind the page knows until it knows this one
+      // (that stays in the calls log)
       db.prepare("UPDATE drafts SET status = 'failed', error = ? WHERE id = ?").run(
-        `the model didn't answer well: ${got.why === "out-of-room" ? "refusal" : got.why}`,
+        `the model didn't answer well: ${got.why}`,
         id,
       );
       return;

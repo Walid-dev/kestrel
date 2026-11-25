@@ -66,8 +66,7 @@ technical; the plan and the runbook carry the detail.
   do, each screen naming its own next step: Ask ("Ask again, or ask in fewer words"), Research, the quiz, the deep
   checks ("Check again"), Writing, News' brief ("Make it now to try again") and Live's line for Notes' changes. The
   developer's detail stays in the calls log. A failed Notes draft stores only its kind (Notes' page,
-  `web/src/notes/parts.tsx`, words each kind itself); until that page knows `out-of-room`, the draft keeps the kind
-  `refusal` ("the model stopped before it finished"). An
+  `web/src/notes/parts.tsx`, words each kind itself in the same words, `out-of-room` included). An
   answer kept from before this says only that it didn't finish. Replaces: the 2026-11-22 entry's out-of-room
   message, which reached the screen as a developer's hint.
 - **2026-11-25 · Every small coloured word at 4.5:1, measured on every text; one right edge under a rail.**

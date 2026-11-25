@@ -188,7 +188,8 @@ function Today() {
             <div className="news-failed" role="status">
               <span className="dot tone-orange news-failed-mark" aria-hidden="true" />
               <p className="m-0">
-                {failed.title}: {/[.!?]$/.test(failed.run.error) ? failed.run.error : `${failed.run.error}.`}
+                {failed.title} didn't finish.{" "}
+                {/[.!?]$/.test(failed.run.error) ? failed.run.error : `${failed.run.error}.`}
                 {shown ? (failed.again ? " This morning's is below." : " The last one is below.") : ""}
               </p>
               {/* its fix beside it: the foot's button is a whole brief away on a phone */}

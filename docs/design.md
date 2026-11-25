@@ -167,7 +167,7 @@ reading width is 720.
   puts it inside a card that belongs to the page (a news story): no card and no head of its own, the page opens and
   closes it, Start over beside the line to ask. A change the model proposes is a card under its answer (`.ask-card`):
   what it does, and Do it; done (green) it says what happened, a stage or a delete with Undo (`.btn-sm`) until used;
-  failed in red; undone quiet, on the card's own line and ground. A change to many says under its words, on the small
+  failed in red; undone quiet, its edge the line's grey. A change to many says under its words, on the small
   step in muted ink, what it leaves out, and folds out the titles it covers ("The listings 37", a `.disclosure`), each
   a quiet link as an inline source, in a list that scrolls inside 240 at most. A failed answer is one plain sentence
   in red with what to do, never a developer's hint.
