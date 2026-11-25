@@ -128,9 +128,10 @@ reading width is 720.
   (`{ to, label }`), `sticky`, `width` (`wide`, or `reading`: 720 at most), `titleAs`. A top page's title is the title
   step; a child page (one with `back`) gets a back row (30 / 44) and its title a step down. Under a mouse at 48rem or
   wider a top page's buttons sit on the title row; otherwise they wrap 12 under the line. A page's state chip goes in
-  the line under the title. `aside` (Home's "One app, one computer, / local models.") sets two short lines beside the
-  head, past a thin rule, its first level with the eyebrow and its last with the title at every width; it needs an
-  eyebrow and takes the place of `line`, and the title's column gives way first when room runs short.
+  the line under the title. `aside` (Home's "One app, one computer, local models.") sets a short statement beside the
+  head, past a thin rule: plain text on the small step with its own line height, centred on the eyebrow and the
+  title, wrapping as words do (balanced), never stretched to their height. It takes the place of `line`, and it wraps
+  before the title does.
 - `Ask` (`web/src/ask.tsx`) — the same box on every app: its head, the conversation, starters, a line to ask. `bare`
   puts it inside a card that belongs to the page (a news story): no card and no head of its own, the page opens and
   closes it, Start over beside the line to ask.
@@ -153,8 +154,8 @@ reading width is 720.
   from one map (`STAGES`); a history (News' All days) lists by month, a hundred at a time with Show older, a find at
   its top and a ✕ per row that deletes after Confirm.
 - Home, top to bottom: the head (the date over the wolf and kestrel, the aside beside them), the news card (News in
-  indigo, each headline with its section's dot), the live line and the figures, the apps (each its own colour), then
-  Cost and Models.
+  indigo, its headlines in words alone), the live line and the figures, the apps (each its own colour), then Cost and
+  Models.
 - The Searches standard, for every page: one card anatomy repeated (a meta chip on the left, the date or source on
   the right; the title with its key number as a pill beside it; one muted subline; facts in muted text with only the
   values bold; the actions last); numbers in mono, on scales and tones; a page's figures as one strip of cells (label,

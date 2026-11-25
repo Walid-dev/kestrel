@@ -12,6 +12,13 @@ technical; the plan and the runbook carry the detail.
   asks first. The Models page still picks each use on its own. Rejected: `research-ask` following `research`'s pick
   when it has none (a rule the Models page would have to explain). Replaces: the 2026-11-22 entry's "the fast model, a
   few seconds".
+- **2026-11-25 · Home: the news card without section dots; the head's aside as plain text.**
+  The card's headlines lose their section's dot (too much colour on Home); News keeps its indigo word, and the page
+  keeps its sections' colours. PageHead's `aside` becomes one statement (any node, no longer two set lines) read as
+  plain text: the small step with its own line height, wrapping as words do (balanced: two lines on a narrow phone,
+  one from 393 wide), centred on the eyebrow and the title past a thin rule, never stretched to sit level with them.
+  Rejected: the statement as the head's line under the title (it reads as well, but adds a row above the news card,
+  and a page's line says where things stand, not what the app is).
 - **2026-11-24 · The jobspy wrapper is retired; kestrel's job hunts come through the mirror until the cutover.**
   `scripts/collectors/jobspy.mjs` is deleted. Its LinkedIn reads went out from this computer's address outside the
   old setup's LinkedIn cap; its Indeed reader used Indeed's private app API, a way past the site's bot check; and it

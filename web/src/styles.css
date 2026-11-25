@@ -1323,12 +1323,12 @@ h3 {
   color: var(--muted);
   text-wrap: pretty;
 }
-/* a head with an aside (Home's): the eyebrow and the title on the left, a short statement on the right past a thin
-   rule, as tall as they are, its first line level with the eyebrow and its last with the title. The two blocks sit
-   side by side at every width. Each of its two lines stays one line, so it keeps two; when room runs short the
-   title's column gives way, not the statement's */
+/* a head with an aside (Home's): the eyebrow and the title on the left, a short statement beside them past a thin
+   rule, centred on them, read as plain text: the small step's own line height, wrapping as words do (two balanced
+   lines when narrow, one where there is room). The two blocks sit side by side at every width; the statement's
+   column takes the rest of the row, so it wraps before the title does */
 .page-head-aside {
-  grid-template-columns: minmax(0, max-content) max-content;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
   column-gap: 16px;
 }
 .page-head-aside > .eyebrow,
@@ -1337,19 +1337,20 @@ h3 {
 }
 .page-aside {
   grid-column: 2;
-  grid-row: 1 / span 2;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  grid-row: 1;
+  align-self: center;
+  justify-self: start;
   min-width: 0;
+  max-width: 40ch;
   margin: 0;
   padding-left: 16px;
   border-left: 1px solid var(--line);
   font: var(--text-small) / var(--text-small--line-height) var(--sans);
   color: var(--muted);
+  text-wrap: balance;
 }
-.page-aside > span {
-  white-space: nowrap;
+.page-head-aside:has(> .eyebrow) > .page-aside {
+  grid-row: 1 / span 2;
 }
 /* the page's own buttons: on touch, or in a narrow window, one wrapping row 12 under the line; under a mouse with the
    room, on the title's row, at its right, centred on it, the line going under both */
@@ -4703,9 +4704,9 @@ body:has(.paper-view) {
 }
 /* News on Home (web/src/news/card.tsx): one small card, Home's first, the whole card one link to the page. On a
    phone: the head (News in its indigo, when, the count) with the chevron beside it, then the three headlines one line
-   each, its section's dot before it and the source after it in mono, the headline giving way first. From 48rem, as
-   the figures under it: one row of columns, the head first, each headline over its source, so the card is no taller
-   than they. Colour only in marks and words, never a ground */
+   each, the source after it in mono, the headline giving way first. From 48rem, as the figures under it: one row of
+   columns, the head first, each headline over its source, so the card is no taller than they. The one colour is
+   News' own word, never a ground */
 .news-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -4784,14 +4785,6 @@ body:has(.paper-view) {
   font: 500 var(--text-detail) / var(--text-detail--line-height) var(--sans);
   color: var(--text);
 }
-/* the section's dot leads the headline, inside it, so the line still ends in … as one; small, as a pill's */
-.news-card-headline > .dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-right: 6px;
-  vertical-align: 0.1em;
-}
 /* the source keeps its name: the longest short name is 12 letters */
 .news-card-src {
   flex: none;
@@ -4833,10 +4826,6 @@ body:has(.paper-view) {
     flex-direction: column;
     align-items: stretch;
     gap: 2px;
-  }
-  /* the source under its headline's words, past the dot (6 + 6) */
-  .news-card-line > .news-card-src {
-    margin-left: 12px;
   }
   .news-card-note {
     grid-column: 2 / -2;

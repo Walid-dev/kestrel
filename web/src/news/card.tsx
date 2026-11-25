@@ -1,12 +1,12 @@
 // The news on Home: one small card, the page's first, the whole card one link to the page. Its head says News in the
 // app's own blue (the indigo), when the brief was written and how many stories it holds, both in mono as the figures
-// read; then the day's three biggest headlines, each after its section's dot (the colours the page gives its
-// sections) and with its source. On a phone the headlines are lines under the head; on a computer the head and the
-// three headlines are one row of columns, as the figures under it are, so the card is no taller than they. While a
-// brief is written, or when today's failed, the head says so in place of the time (the card never grows); a new brief
-// that failed after this morning's is the page's to say. Before any brief, one quiet line says when the first comes.
+// read; then the day's three biggest headlines, each with its source, in words alone (no colour per section: the
+// page has those). On a phone the headlines are lines under the head; on a computer the head and the three headlines
+// are one row of columns, as the figures under it are, so the card is no taller than they. While a brief is written,
+// or when today's failed, the head says so in place of the time (the card never grows); a new brief that failed after
+// this morning's is the page's to say. Before any brief, one quiet line says when the first comes.
 import { Link } from "react-router";
-import { plural, runOf, SECTION_TONE, sentence, useNews, writtenAt } from "./data.ts";
+import { plural, runOf, sentence, useNews, writtenAt } from "./data.ts";
 
 // a newspaper, drawn by hand on the icons' grid (the dock's News)
 export const NEWS_ICON = (
@@ -67,10 +67,7 @@ export function NewsCard() {
           className={i === 2 ? "news-card-line news-card-third" : "news-card-line"}
           title={s.headline}
         >
-          <span className="news-card-headline">
-            <span className={`dot tone-${SECTION_TONE[s.section]}`} aria-hidden="true" />
-            {s.headline}
-          </span>
+          <span className="news-card-headline">{s.headline}</span>
           <span className="news-card-src">{s.links[0]?.source}</span>
         </span>
       ))}
