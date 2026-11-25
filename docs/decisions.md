@@ -5,6 +5,18 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Applications at the Searches standard.**
+  The two lines of figures in a sentence become a `Figures` strip: Interviewing, Offers, Rejected and Waiting (the
+  jobs' own stages, each in its stage's colour from `STAGES`), Sent and Stopped with "this week" beside the value; the
+  head's line keeps one fact (how many, and when the last one moved). The search, the states and the period float no
+  more: they are a `FilterPanel` (a State row of pills with their counts, a Period row with its Seg), its Reset lit
+  while the words, the period or a picked state differ from how the page opens. The state's heading is a `SectionHead`
+  with its dot, its count and its line. A card is Searches': the state's chip on the left, the time at `end`, the
+  company, the agent in the facts ("By agent-2", the value bold), the reason in an inner block, the posting and the one
+  step it needs as small buttons in `actions`. Notify this phone is a plain button at the foot, as News' Make it now,
+  without the margins that pulled a ghost button to the edge. The eyebrow is "Jobs" in orange. Rejected: the figures
+  as links to Searches (a new way somewhere, not a look).
+
 - **2026-11-25 · Tasks and Research on News' layout.**
   Tasks: the open list in the main column, the done ones (a fold, "Done 2") and Ask in the rail on the right, 280 to
   340 wide where it had 360; the eyebrow "To do" in pink. Research's landing turns around: the answers in the main

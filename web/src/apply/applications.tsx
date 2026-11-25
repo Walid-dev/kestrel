@@ -1,20 +1,23 @@
-// Applications: what happened after sending (the job stages: interviewing, offers, rejections) and this week's count in
-// one line under the title; then the words, the period and the states with their numbers — sent, not sent, waiting
-// on me, being applied, queued — and the attempts of the state I pick, newest first. An attempt opens its listing
-// whole. Live through the events stream; the phone can ask to be told, from the page's foot.
+// Applications: what happened after sending (the job stages: interviewing, offers, rejections, waiting) and this
+// week's sent and stopped, as one strip of figures under the title; then the filter card (the words, the states with
+// their numbers — needs me, being applied, queued, not sent, sent — and the period) and the attempts of the state I
+// pick, newest first, each a card on Searches' anatomy. An attempt opens its listing whole. Live through the events
+// stream; the phone can ask to be told, from the page's foot.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
 import { Ask } from "../ask.tsx";
 import { useEvents } from "../events.ts";
-import { ago, day } from "../search/cards.tsx";
+import { ago, day, stageOf } from "../search/cards.tsx";
 import { ListingSheet } from "../search/sheet.tsx";
 import { Card } from "../ui/card.tsx";
 import { EmptyState } from "../ui/empty.tsx";
-import { Field } from "../ui/field.tsx";
+import { Figure, Figures } from "../ui/figures.tsx";
+import { FilterPanel, FilterRow } from "../ui/filters.tsx";
 import { Page } from "../ui/page.tsx";
 import { Pills, type Tone } from "../ui/pills.tsx";
+import { SectionHead } from "../ui/section.tsx";
 import { Seg } from "../ui/seg.tsx";
 
 type Application = {
@@ -45,9 +48,14 @@ const PERIODS = [
   ["all", "All time"],
 ] as const;
 const PAGE = 60;
-
-// a count in the line under the title: mono, in the ink
-const Num = ({ n }: { n: number | undefined }) => <b className="font-mono text-ink">{n ?? 0}</b>;
+// what happened after sending, from the jobs' own stages: each figure in its stage's colour (Searches' STAGES), the
+// waiting ones being the jobs still at Applied
+const AFTER: { status: string; label: string; hint: string }[] = [
+  { status: "interviewing", label: "Interviewing", hint: "Jobs at the Interviewing stage" },
+  { status: "offer", label: "Offers", hint: "Jobs at the Offer stage" },
+  { status: "rejected", label: "Rejected", hint: "Jobs at the Rejected stage" },
+  { status: "applied", label: "Waiting", hint: "Sent, still waiting for an answer" },
+];
 
 export function Applications() {
   const queryClient = useQueryClient();
@@ -118,22 +126,26 @@ export function Applications() {
   const stoppedWeek = all.filter((a) => a.state === "not-sent" && Date.parse(a.updated) >= week).length;
   const s = after.data?.status ?? {};
   const failed = [lists, retry, sent].find((x) => x.isError);
+  // the newest attempt's time, the one fact the figures don't say
+  const latest = all.reduce<string>((a, x) => (x.updated > a ? x.updated : a), "");
+  // a filter differs from how the page opens (the state it picks by itself, every period, no words)
+  const changed = q !== "" || period !== "all" || pick !== null;
 
   return (
     <Page
+      app="Applications"
+      eyebrow="Jobs"
       title="Applications"
-      // what happened after sending, then this week, quiet: each sentence its own line where there is room, one flow
-      // on a phone; this week's words never part, so a wrap never leaves a word or two alone
       line={
-        <span className="block text-small">
-          <span className="md:block">
-            After sending: <Num n={s.interviewing} /> interviewing · <Num n={s.offer} /> offers · <Num n={s.rejected} />{" "}
-            rejected · <Num n={s.applied} /> waiting for an answer.
-          </span>{" "}
-          <span className="whitespace-nowrap">
-            This week: <Num n={sentWeek} /> sent, <Num n={stoppedWeek} /> stopped.
-          </span>
-        </span>
+        lists.data &&
+        (all.length ? (
+          <>
+            <b className="font-mono text-ink">{all.length}</b> {all.length === 1 ? "application" : "applications"} · the
+            last <b className="text-ink">{ago(latest)}</b>
+          </>
+        ) : (
+          "No applications yet."
+        ))
       }
       actions={
         <Link to="/searches" className="btn">
@@ -141,46 +153,79 @@ export function Applications() {
         </Link>
       }
     >
-      {/* the words and the period on one row (wrapping on a phone), the states under them */}
-      <div className="grid gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="min-w-0 flex-[1_1_16rem]">
-            <Field
-              label="Search title, company or reason"
-              value={q}
-              onChange={(v) => {
-                setQ(v);
-                setLimit(PAGE);
-              }}
-            />
-          </div>
+      {/* what happened after sending, then this week: one strip, each figure in its stage's or its state's colour */}
+      <Figures label="After sending, and this week">
+        {AFTER.map((f) => (
+          <Figure
+            key={f.status}
+            label={f.label}
+            tone={stageOf("jobs", f.status).tone}
+            value={s[f.status] ?? 0}
+            quiet={!s[f.status]}
+            hint={f.hint}
+          />
+        ))}
+        <Figure
+          label="Sent"
+          tone="accent"
+          value={sentWeek}
+          quiet={!sentWeek}
+          note="this week"
+          hint="Applications sent in the last 7 days"
+        />
+        <Figure
+          label="Stopped"
+          tone="orange"
+          value={stoppedWeek}
+          quiet={!stoppedWeek}
+          note="this week"
+          hint="Applications stopped before sending in the last 7 days"
+        />
+      </Figures>
+
+      {/* Searches' filter card: the words, then the states with their numbers and the period, a row each */}
+      <FilterPanel
+        find={{
+          label: "Search title, company or reason",
+          value: q,
+          onChange: (v) => {
+            setQ(v);
+            setLimit(PAGE);
+          },
+        }}
+        changed={changed}
+        onReset={() => {
+          setQ("");
+          setPeriod("all");
+          setPick(null);
+          setLimit(PAGE);
+        }}
+      >
+        <FilterRow label="State">
+          <Pills
+            label="State"
+            options={STATES.map((x) => ({ value: x.state, label: x.title, tone: x.tone, count: counts[x.state] ?? 0 }))}
+            value={state}
+            onChange={(v) => {
+              setPick(v);
+              setLimit(PAGE);
+            }}
+          />
+        </FilterRow>
+        <FilterRow label="Period">
           <Seg
             label="Period"
             options={PERIODS.map(([k, label]) => ({ value: k, label }))}
             value={period}
             onChange={setPeriod}
           />
-        </div>
-        <Pills
-          label="State"
-          options={STATES.map((x) => ({ value: x.state, label: x.title, tone: x.tone, count: counts[x.state] ?? 0 }))}
-          value={state}
-          onChange={(v) => {
-            setPick(v);
-            setLimit(PAGE);
-          }}
-        />
-      </div>
+        </FilterRow>
+      </FilterPanel>
 
       {failed && <p className="m-0 text-detail text-red">{String((failed.error as Error).message)}</p>}
 
-      <section className="grid gap-3">
-        <div className="grid gap-1">
-          <h2 className="font-cond m-0 text-section">
-            {shown?.title} <span className="font-mono text-small text-muted">{rows.length}</span>
-          </h2>
-          {shown && <p className="m-0 text-small text-muted">{shown.what}</p>}
-        </div>
+      <section className="grid gap-3" aria-labelledby="apply-state">
+        <SectionHead id="apply-state" title={shown?.title} count={rows.length} tone={shown?.tone} hint={shown?.what} />
         {lists.data && rows.length === 0 && (
           <EmptyState
             title="Nothing here right now."
@@ -199,51 +244,56 @@ export function Applications() {
           {rows.slice(0, limit).map((a) => {
             const st = STATES.find((x) => x.state === a.state);
             return (
+              // Searches' card: the state's chip on the left, when at the right end; the company, who works on it
+              // (its agent, the value bold) and why it stopped or waits; the posting and the one step it needs last
               <Card
                 key={a.id}
                 tone={a.state === "needs-me" ? "pink" : undefined}
                 title={a.title || a.link}
                 // the title opens the listing whole, here; the posting has its own button
                 onOpen={a.listing ? () => a.listing && setOpen(a.listing) : undefined}
-                meta={
-                  <>
-                    <span className={`chip chip-caps tone-${st?.tone ?? "muted"}`}>{st?.title ?? a.state}</span>
-                    <span className="text-small text-muted">
-                      {ago(a.updated)} · {day(a.updated)}
-                    </span>
-                    {a.agent && <span className="eyebrow ml-auto truncate">{a.agent}</span>}
-                  </>
+                meta={<span className={`chip chip-caps tone-${st?.tone ?? "muted"}`}>{st?.title ?? a.state}</span>}
+                end={
+                  <span title={new Date(a.updated).toLocaleString()}>
+                    {ago(a.updated)} · {day(a.updated)}
+                  </span>
                 }
-              >
-                <div className="grid gap-3">
-                  {(a.org || a.reason) && (
-                    <div className="grid gap-2">
-                      {a.org && <p className="m-0 text-ink">{a.org}</p>}
-                      {/* why it stopped or waits: an inner block (the card's edge already says it needs me) */}
-                      {a.reason && <p className="inner m-0 text-ink">{a.reason}</p>}
-                    </div>
-                  )}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <a href={a.link} target="_blank" rel="noopener noreferrer" className="btn">
+                actions={
+                  <>
+                    <a href={a.link} target="_blank" rel="noopener noreferrer" className="btn btn-sm">
                       The posting ↗
                     </a>
                     {a.state === "needs-me" && (
-                      <button type="button" className="btn" disabled={sent.isPending} onClick={() => sent.mutate(a.id)}>
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        disabled={sent.isPending}
+                        onClick={() => sent.mutate(a.id)}
+                      >
                         I sent it
                       </button>
                     )}
                     {a.state === "not-sent" && (
                       <button
                         type="button"
-                        className="btn"
+                        className="btn btn-sm"
                         disabled={retry.isPending}
                         onClick={() => retry.mutate(a.id)}
                       >
                         Retry
                       </button>
                     )}
-                  </div>
-                </div>
+                  </>
+                }
+              >
+                {a.org && <p className="m-0 text-ink">{a.org}</p>}
+                {a.agent && (
+                  <p className="m-0 text-small">
+                    By <b className="font-mono text-ink">{a.agent}</b>
+                  </p>
+                )}
+                {/* why it stopped or waits: an inner block (the card's edge already says it needs me) */}
+                {a.reason && <p className="inner m-0 mt-2 text-ink">{a.reason}</p>}
               </Card>
             );
           })}
@@ -267,12 +317,11 @@ export function Applications() {
         ]}
         onChange={() => queryClient.invalidateQueries({ queryKey: ["apply"] })}
       />
-      {/* the rare action, at the page's foot: a ghost, its words on the page's edge (pulled back by its padding, 12,
-          or 14 on touch, and its 1 px edge) */}
+      {/* the rare action, at the page's foot, as News' Make it now: a plain button */}
       {!told && typeof Notification !== "undefined" && (
         <button
           type="button"
-          className="btn btn-quiet -ms-[13px] justify-self-start pointer-coarse:-ms-[15px]"
+          className="btn justify-self-start"
           onClick={async () => setTold((await Notification.requestPermission()) === "granted")}
         >
           Notify this phone
