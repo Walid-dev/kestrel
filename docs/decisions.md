@@ -5,6 +5,17 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Cost and Models at the Searches standard; one table look.**
+  Cost's strip is the shared `Figures` (its own `.cost-figures` goes): values on the head step as Home's, the cloud a
+  phone's whole row with its lines, Saved a green dot rather than green figures, the strip dimmed while another period
+  loads (`Figures` gains `busy`). A phone's columns count only the cells that share rows, so a wide cell no longer
+  leaves one alone (with six figures, Compute takes its own row too). Cost's table class becomes the shared
+  `.data-table`, and the Models page's calls use it: Job, Model, Calls, Each, Failed in aligned mono columns, a failed
+  count in red, the model under the job on a phone; its heading is a `SectionHead` with the Cost link in its hint.
+  Each group's eyebrow on Models takes its app's colour from the app map (Ask purple, as its mark). Both pages' eyebrow
+  is "The models" in the models' yellow. Rejected: a figure strip of Cost's own (a third build of one part); the calls
+  as rows with stacked figures (numbers that don't line up across rows).
+
 - **2026-11-25 · Notes and Chat at the Searches standard; the rail's first part is first in the page.**
   Notes' pages take the eyebrow "Documents" in the accent (the list, the reader, Review together); the list's "From
   your folders" is a `SectionHead` with its count; a failure in Notes (the list, the note's sheet, the review) is one

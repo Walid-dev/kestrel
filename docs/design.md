@@ -173,9 +173,13 @@ reading width is 720.
   morning, Learn's lessons, Cost, Applications): each cell its `label` (an eyebrow), a dot in its `tone` and the
   `value` in mono, a `note` beside it or lines under it (`children`); `to` makes the cell a link, `hint` says what it
   counts on hover, `quiet` greys a value with nothing to count, `pulse` a figure at work, `wide` gives a cell a phone's
-  whole row. Three across on a phone (two when three would leave one alone), one row from 48rem. On `Figures`: `label`
-  (read out), `tone` (the strip's 2 px left edge, for what matters now: lessons to review), `foot` (a row under all
-  the cells for what reads them: Learn's bar and its one action).
+  whole row (Cost's cloud, with its lines). Three across on a phone (two when the cells that share rows would leave one
+  alone), one row from 48rem. On `Figures`: `label` (read out), `tone` (the strip's 2 px left edge, for what matters
+  now: lessons to review), `foot` (a row under all the cells for what reads them: Learn's bar and its one action),
+  `busy` (dimmed while another period's figures come).
+- `.data-table` — figures compared row by row (Cost's models and prices, the Models page's calls), in a card: names
+  on the left, every figure in mono and right-aligned in its column, eyebrows for heads, rows 40 tall on hairlines; a
+  count that means trouble in red, a nothing in grey.
 - `SectionHead` (`web/src/ui/section.tsx`) — every section's heading: `title` on the section step, `count` in small
   muted mono beside it, `tone` a dot before it when the colour means something (News' sections, a lesson's state),
   `hint` one quiet line under it, `id` for the section's `aria-labelledby`. Never the count in the section's colour,
@@ -205,7 +209,7 @@ reading width is 720.
   waits, green done, red failed.
 - The app map (`web/src/ui/apps.tsx`) — each app's address, icon and colour, set once: `APPS`, `appTone(app)`,
   `AppIcon` (the icon in its colour, a mark). Home's rows, the tab bar and the dock, PageHead's `app` and the Models
-  page's groups read it. Searches green, Chat cyan, Learn purple, Notes the accent, Tasks pink, News indigo, Research
+  page's groups (their eyebrows; Ask's group purple, as Ask's mark) read it. Searches green, Chat cyan, Learn purple, Notes the accent, Tasks pink, News indigo, Research
   yellow, Quiz teal, Applications orange, Writing magenta, Interview prep good; Cost and Models the models' yellow;
   Live none.
 - `EmptyState` (`web/src/ui/empty.tsx`) — nothing here yet, in one voice, plain text in the flow (no box): `title`,

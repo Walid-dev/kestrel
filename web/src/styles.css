@@ -2710,72 +2710,38 @@ pre.code .f {
   align-items: center;
   gap: 4px 8px;
 }
-/* the calls' figures in columns of their own (calls, time each, failed), so they line up from row to row */
-.models-figs {
-  display: grid;
-  grid-template-columns: 9ch 9ch 10ch;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  font: 400 var(--text-small) / var(--text-small--line-height) var(--mono);
-  font-variant-numeric: tabular-nums;
-}
-/* a row's end (a model's whole name, the calls' figures) drops under the words, at their left edge, only when the
-   words would get narrower than 12rem: on a phone, or for a long name */
-:is(.models-uses, .models-calls) li {
+/* a row's end (a model's short name) drops under the words, at their left edge, only when the words would get
+   narrower than 12rem: on a phone, or for a long name */
+.models-uses li {
   flex-wrap: wrap;
   row-gap: 4px;
 }
-:is(.models-uses, .models-calls) .list-text {
+.models-uses .list-text {
   flex-basis: 12rem;
 }
-/* Cost: the period's figures as one strip of cells split by hairlines (the line shows through a 1 px gap): two
-   columns on a phone, the cloud and what it saved first; three from 48rem; six side by side from 64rem, the figures
-   with longer lines given more room */
-.cost-figures {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--line);
-}
-.cost-figure {
-  display: grid;
-  align-content: start;
-  gap: 4px;
-  padding: 12px 14px;
-  background: var(--surface);
-}
-/* five figures (no saving of its own): the cloud across both columns on a phone, then one row of five */
-.cost-figure-wide {
-  grid-column: 1 / -1;
-}
-@media (pointer: coarse) {
-  .cost-figure {
-    padding: 12px 16px;
-  }
+/* the calls (a .data-table): the model in a column of its own from 48rem; on a phone a quiet line under the job's
+   name, so the three figures keep their columns */
+.models-model-under {
+  display: block;
+  font: 400 var(--text-small) / var(--text-small--line-height) var(--mono);
+  color: var(--muted);
 }
 @media (min-width: 48rem) {
-  .cost-figures {
-    grid-template-columns:
-      minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 0.75fr)
-      minmax(0, 0.75fr);
+  .models-model-under {
+    display: none;
   }
-  .cost-figure-wide {
-    grid-column: auto;
+  /* a model is a name: it reads from the left, in a column of its own; the figures keep 6rem each at the right */
+  .models-calls .models-model {
+    width: 12rem;
+    text-align: left;
   }
-  /* six figures (the saving its own, when the electricity is in US$): three across, six from 64rem */
-  .cost-figures-six {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .models-calls :where(thead th:nth-child(n + 3)) {
+    width: 6rem;
   }
 }
-@media (min-width: 64rem) {
-  .cost-figures-six {
-    grid-template-columns:
-      minmax(0, 1.3fr) minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 0.7fr)
-      minmax(0, 0.7fr);
+@media (max-width: 47.99rem) {
+  .models-calls .models-model {
+    display: none;
   }
 }
 /* the chart's frame: its height is set here, and the drawing fills it */
@@ -2787,27 +2753,28 @@ pre.code .f {
     height: 160px;
   }
 }
-/* each model, and the prices: the names on the left, the numbers in mono, right-aligned in their columns, rows at
-   least 40 tall on a hairline (8 above and under, so a name that wraps still has room) */
-.cost-table {
+/* a table of figures (.data-table: Cost's models and prices, the Models page's calls): the names on the left, the
+   numbers in mono, right-aligned in their columns, eyebrows for heads, rows at least 40 tall on a hairline (8 above
+   and under, so a name that wraps still has room) */
+.data-table {
   width: 100%;
   border-collapse: collapse;
 }
-.cost-table :where(th, td) {
+.data-table :where(th, td) {
   padding: 0 12px;
   text-align: right;
   white-space: nowrap;
 }
-.cost-table :where(th:first-child, td:first-child) {
+.data-table :where(th:first-child, td:first-child) {
   padding-left: 0;
   text-align: left;
   white-space: normal;
 }
-.cost-table :where(th:last-child, td:last-child) {
+.data-table :where(th:last-child, td:last-child) {
   padding-right: 0;
 }
 /* a head may take two lines on a narrower screen (a reference's long name), its last line on the rows' edge */
-.cost-table :where(thead th) {
+.data-table :where(thead th) {
   padding-bottom: 8px;
   vertical-align: bottom;
   white-space: normal;
@@ -2831,21 +2798,21 @@ pre.code .f {
 .cost-models :where(td:first-child) {
   min-width: 13rem;
 }
-.cost-table :where(td) {
+.data-table :where(td) {
   height: 40px;
   padding-block: 8px;
   border-top: 1px solid var(--line);
   font: 400 var(--text-detail) / var(--text-detail--line-height) var(--mono);
   font-variant-numeric: tabular-nums;
 }
-.cost-table :where(td:first-child) {
+.data-table :where(td:first-child) {
   font-family: var(--sans);
 }
-.cost-table :where(tfoot td) {
+.data-table :where(tfoot td) {
   font-weight: 500;
   color: var(--strong);
 }
-.cost-table :where(tfoot td:first-child) {
+.data-table :where(tfoot td:first-child) {
   font-weight: 600;
 }
 .cost-model {
@@ -2951,7 +2918,7 @@ pre.code .f {
     width: auto;
   }
 }
-.cost-table .cost-group {
+.data-table .cost-group {
   padding: 12px 0 4px;
   font: 600 var(--text-detail) / var(--text-detail--line-height) var(--sans);
   color: var(--strong);

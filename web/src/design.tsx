@@ -895,6 +895,41 @@ export function Design() {
         </Part>
 
         <Part
+          title="Table"
+          when="Figures that compare row by row, in one card: .data-table. The names on the left, every figure in mono, right-aligned in its column, the heads as eyebrows, rows 40 tall on hairlines; a count that means trouble in red, a nothing in grey. Cost's models and prices, the Models page's calls."
+          wide
+        >
+          <div className="card">
+            <table className="data-table">
+              <caption className="sr-only">Made-up calls</caption>
+              <thead>
+                <tr>
+                  <th className="eyebrow">Job</th>
+                  <th className="eyebrow">Calls</th>
+                  <th className="eyebrow">Each</th>
+                  <th className="eyebrow">Failed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(
+                  [
+                    ["Hive check", 12, "4.1 s", 0],
+                    ["Wax prices", 3, "9.8 s", 1],
+                  ] as const
+                ).map(([job, calls, each, failed]) => (
+                  <tr key={job}>
+                    <td className="font-medium text-strong">{job}</td>
+                    <td>{calls}</td>
+                    <td>{each}</td>
+                    <td className={failed ? "text-red" : "text-muted"}>{failed}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Part>
+
+        <Part
           title="Card"
           when="A surface block, flat on its hairline. With a title, the Searches card's anatomy: the top line (a chip on the left, then a muted group; the date or the source at the right end, a time in mono; the ✕ last), the title with its key number beside it, one muted subline, facts with only the values bold, the actions last. The title opens it (its ground comes up under the pointer); the ✕ asks first, with Confirm. A tone marks what matters now with an edge on its left. Never a card in a card: a block inside one is .inner."
         >

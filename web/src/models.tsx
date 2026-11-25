@@ -1,15 +1,19 @@
 // The Models screen: which model each job runs on, grouped by app (Notes, Searches, Research…), a group per card in a
-// grid that uses the width. A row is a job: its name, what it does in a few words, and at its end its model, by a
-// short name (Qwen 27B), which opens the picker: the door's models as pills, one tap switches the job; the settings
-// file stays the fallback, shown in the picker. The head's line says the door's state as a chip. Under them, the calls
-// each made, their figures in aligned columns, with Cost a tap away for what they'd cost.
+// grid that uses the width, each group's name in its app's colour. A row is a job: its name, what it does in a few
+// words, and at its end its model, by a short name (Qwen 27B), which opens the picker: the door's models as pills, one
+// tap switches the job; the settings file stays the fallback, shown in the picker. The head's line says the door's
+// state as a chip. Under them, the calls each made as one table, Cost's look (aligned mono columns), with Cost a tap
+// away for what they'd cost.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
+import { APPS, type AppName, appTone } from "./ui/apps.tsx";
+import { cx } from "./ui/cx.ts";
 import { Dialog } from "./ui/dialog.tsx";
 import { List, Row } from "./ui/list.tsx";
 import { Page } from "./ui/page.tsx";
 import { Pills } from "./ui/pills.tsx";
+import { SectionHead } from "./ui/section.tsx";
 
 type UseRow = { use: string; what: string; model: string; fallback: string };
 
@@ -71,6 +75,9 @@ const PURPOSES: Record<string, string> = {
   "letter-review": "Cover letters, the review",
   "letter-fix": "Cover letters, a fix",
 };
+// a group's colour: its app's (the app map), Ask's purple (Ask is on every page, its mark purple); a group kestrel
+// doesn't know stays grey
+const groupTone = (app: string) => (app === "Ask" ? "tone-purple" : app in APPS ? appTone(app as AppName) : "");
 const purposeOf = (purpose: string) => {
   const [id = "", version = ""] = purpose.split(":");
   const name = id.startsWith("ask-") ? `Ask, on ${words(id.slice(4))}` : (PURPOSES[id] ?? words(id));
@@ -113,13 +120,13 @@ export function Models() {
   });
   if (state.isError)
     return (
-      <Page title="Models">
+      <Page app="Models" eyebrow="The models" title="Models">
         <p className="m-0 text-detail text-red">The picks didn't load: {String((state.error as Error).message)}</p>
       </Page>
     );
   if (!state.data)
     return (
-      <Page title="Models">
+      <Page app="Models" eyebrow="The models" title="Models">
         <p className="m-0 text-detail text-muted">Reading the picks…</p>
       </Page>
     );
@@ -139,6 +146,8 @@ export function Models() {
   }
   return (
     <Page
+      app="Models"
+      eyebrow="The models"
       title="Models"
       line={
         <span className="models-facts">
@@ -173,7 +182,7 @@ export function Models() {
       <div className="models-uses grid items-start gap-x-3 gap-y-6 md:grid-cols-2 lg:grid-cols-3">
         {groups.map(([app, rows]) => (
           <section key={app} className="grid gap-2" aria-label={app}>
-            <span className="eyebrow">{app}</span>
+            <span className={cx("eyebrow", groupTone(app))}>{app}</span>
             <List label={`${app}: the jobs and their models`}>
               {rows.map((u) => (
                 <Row
@@ -236,55 +245,59 @@ export function Models() {
         )}
       </Dialog>
       {calls.length > 0 && (
-        <section className="grid gap-2">
-          <h2 className="font-cond m-0 text-section">
-            The calls they made <span className="font-mono text-small text-muted">{calls.length}</span>
-          </h2>
-          <p className="m-0 text-small text-muted">
-            Newest first. Local models cost time only;{" "}
-            <Link to="/cost" className="text-accent underline underline-offset-2">
-              Cost
-            </Link>{" "}
-            prices them in the cloud.
-          </p>
-          <div className="models-calls">
-            {/* two columns only when there are two calls or more: one call takes the card's whole width */}
-            <List cols={calls.length > 1} label="The calls they made">
-              {calls.map((r) => {
-                const p = purposeOf(r.purpose);
-                return (
-                  <Row
-                    key={`${r.purpose}:${r.model}`}
-                    // the prompt's version tells two rows of one job apart
-                    title={
-                      <>
-                        {p.name}
+        <section className="grid gap-3" aria-labelledby="models-calls">
+          <SectionHead
+            id="models-calls"
+            title="The calls they made"
+            count={calls.length}
+            hint={
+              <>
+                Newest first. Local models cost time only;{" "}
+                <Link to="/cost" className="text-accent underline underline-offset-2">
+                  Cost
+                </Link>{" "}
+                prices them in the cloud.
+              </>
+            }
+          />
+          {/* one table, as Cost's: the job and its model on the left, the figures in mono columns, right-aligned. On a
+              phone the model goes under the job's name, so the figures keep their columns */}
+          <div className="card">
+            <table className="data-table models-calls">
+              <caption className="sr-only">The calls each job made</caption>
+              <thead>
+                <tr>
+                  <th className="eyebrow">Job</th>
+                  <th className="eyebrow models-model">Model</th>
+                  <th className="eyebrow">Calls</th>
+                  <th className="eyebrow">Each</th>
+                  <th className="eyebrow">Failed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {calls.map((r) => {
+                  const p = purposeOf(r.purpose);
+                  return (
+                    <tr key={`${r.purpose}:${r.model}`}>
+                      <td>
+                        {/* the prompt's version tells two rows of one job apart */}
+                        <span className="font-medium text-strong">{p.name}</span>
                         {p.version && <span className="font-mono ml-2 text-small text-muted">{p.version}</span>}
-                      </>
-                    }
-                    line={
-                      <span className="font-mono" title={r.model}>
+                        <span className="models-model-under" title={r.model}>
+                          {short(r.model)}
+                        </span>
+                      </td>
+                      <td className="models-model" title={r.model}>
                         {short(r.model)}
-                      </span>
-                    }
-                    // the figures in columns of their own, so they line up from row to row
-                    end={
-                      <span className="models-figs">
-                        <span>
-                          <b className="text-ink">{r.calls}</b> call{r.calls === 1 ? "" : "s"}
-                        </span>
-                        <span>
-                          <b className="text-ink">{r.seconds} s</b> each
-                        </span>
-                        <span>
-                          {r.failed > 0 && <span className="chip chip-caps tone-red">{r.failed} failed</span>}
-                        </span>
-                      </span>
-                    }
-                  />
-                );
-              })}
-            </List>
+                      </td>
+                      <td>{r.calls}</td>
+                      <td>{r.seconds} s</td>
+                      <td className={r.failed > 0 ? "text-red" : "text-muted"}>{r.failed}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </section>
       )}
