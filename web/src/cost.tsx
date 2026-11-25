@@ -8,6 +8,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { type CSSProperties, type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { cx } from "./ui/cx.ts";
 import { EmptyState } from "./ui/empty.tsx";
+import { Figure, Figures as FigureStrip } from "./ui/figures.tsx";
 import { Page } from "./ui/page.tsx";
 import { Seg } from "./ui/seg.tsx";
 
@@ -155,6 +156,8 @@ export function Cost() {
   const failed = report.isError && !r;
   return (
     <Page
+      app="Cost"
+      eyebrow="The models"
       title="Cost"
       line={
         r ? (
@@ -257,10 +260,10 @@ function NotSetUp({ reason }: { reason: string }) {
   );
 }
 
-// the period in figures, one cell each: a label, the value in mono, one quiet line with the parts in bold. Six when the
-// electricity is in US$ (what was saved a figure of its own, beside the cloud's: two columns on a phone, three from
-// 48rem, six from 64rem); else five, the cloud across a phone's two columns with what it saved a green line in it,
-// then one row of five. The cloud's value carries its place on the money scale as a dot; what was saved is green
+// the period in figures, the shared strip (one cell each: a label, a dot, the value in mono, quiet lines with the parts
+// in bold). Six when the electricity is in US$ (what was saved a figure of its own, beside the cloud's); else five,
+// what it saved a green line in the cloud's cell. On a phone the cloud takes a row of its own (with six, Compute too,
+// so the rest pair up). The cloud's dot is its place on the money scale; what was saved has a green one
 function Strip({ r, days, loading }: { r: Report; days: string; loading: boolean }) {
   const p = r.period;
   const [lead, ...others] = p.cloud;
@@ -273,17 +276,14 @@ function Strip({ r, days, loading }: { r: Report; days: string; loading: boolean
   // Without a rate it is a green line in the cloud's cell, the electricity named beside it, never converted
   const saved = lead?.usd != null && power?.currency === "USD" ? Math.max(0, lead.usd - power.cost) : null;
   return (
-    <section
-      aria-label="The period"
-      aria-busy={loading}
-      className={cx("cost-figures", saved != null && "cost-figures-six", loading && "busy")}
-    >
+    <FigureStrip label="The period" busy={loading}>
       <Figure
         label="Cloud would cost"
-        wide={saved == null}
+        wide
         value={lead?.usd != null ? money(lead.usd) : "—"}
         tone={tier ?? undefined}
-        title={
+        quiet={lead?.usd == null}
+        hint={
           r.pricesError ??
           (lead
             ? `The same use at ${lead.name}'s prices${tier && month != null ? `: ${TIER_WORD[tier]}, about ${money(month)} a month at this pace` : ""}${lead.unpriced.length ? `; not counted, no reference price: ${lead.unpriced.join(", ")}` : ""}`
@@ -293,10 +293,10 @@ function Strip({ r, days, loading }: { r: Report; days: string; loading: boolean
         {r.pricesError ? (
           <span className="line-clamp-2 text-orange">{r.pricesError}</span>
         ) : !lead ? (
-          "No reference in prices.json"
+          <span>No reference in prices.json</span>
         ) : (
           <>
-            <span className="block">
+            <span>
               {brief(lead.name)}
               {lead.usd == null
                 ? ": no reference price"
@@ -304,12 +304,12 @@ function Strip({ r, days, loading }: { r: Report; days: string; loading: boolean
             </span>
             {/* over a full 30 days the pace is the figure itself */}
             {month != null && month > 0 && Math.abs(span - 30) > 0.01 && (
-              <span className="block">
+              <span>
                 <b className="text-ink">≈{money(month)}</b> a month
               </span>
             )}
             {saved == null && lead.usd != null && lead.usd > 0 && (
-              <span className="block">
+              <span>
                 <span className="text-green">
                   saved <b>{money(lead.usd)}</b>
                 </span>
@@ -325,7 +325,6 @@ function Strip({ r, days, loading }: { r: Report; days: string; loading: boolean
             {others.map((c) => (
               <span
                 key={c.id}
-                className="block"
                 title={
                   c.unpriced.length ? `${c.name}; not counted, no reference price: ${c.unpriced.join(", ")}` : c.name
                 }
@@ -343,71 +342,37 @@ function Strip({ r, days, loading }: { r: Report; days: string; loading: boolean
         <Figure
           label="Saved"
           value={money(saved)}
-          good={saved > 0}
-          title={`What running on this computer saved against ${lead?.name ?? "the cloud"}, less the electricity`}
+          tone={saved > 0 ? "green" : undefined}
+          hint={`What running on this computer saved against ${lead?.name ?? "the cloud"}, less the electricity`}
         >
-          the cloud, less the electricity
+          <span>the cloud, less the electricity</span>
         </Figure>
       )}
       <Figure
         label="Electricity"
         value={power ? money(power.cost, power.currency) : "—"}
-        title="What the computer drew while the models worked, at my price per kWh"
+        quiet={!power}
+        hint="What the computer drew while the models worked, at my price per kWh"
       >
         {power && (
-          <>
+          <span>
             <b className="text-ink">{kwh(power.kwh)}</b> kWh · <b className="text-ink">{watts}</b> W
-          </>
+          </span>
         )}
       </Figure>
       <Figure
         label="Tokens"
         value={short(tokensOf(p))}
-        title={`${n(tokensOf(p))} tokens. In: what the models read, fresh or reused from oMLX's cache. Out: what they wrote.`}
+        hint={`${n(tokensOf(p))} tokens. In: what the models read, fresh or reused from oMLX's cache. Out: what they wrote.`}
       >
-        <b className="text-ink">{short(p.fresh)}</b> fresh · <b className="text-ink">{short(p.reused)}</b> reused ·{" "}
-        <b className="text-ink">{short(p.out)}</b> out
+        <span>
+          <b className="text-ink">{short(p.fresh)}</b> fresh · <b className="text-ink">{short(p.reused)}</b> reused ·{" "}
+          <b className="text-ink">{short(p.out)}</b> out
+        </span>
       </Figure>
       <Figure label="Requests" value={n(p.requests)} />
-      <Figure label="Compute" value={hours(p.computeHours)} title="The time the models worked" />
-    </section>
-  );
-}
-
-function Figure({
-  label,
-  value,
-  title,
-  tone,
-  good = false,
-  wide = false,
-  children,
-}: {
-  label: string;
-  value: string;
-  title?: string;
-  // the value's place on the money scale, as a dot before it
-  tone?: Tier;
-  // a saving: the value in green
-  good?: boolean;
-  // across both columns on a phone, when the strip has five figures
-  wide?: boolean;
-  children?: ReactNode;
-}) {
-  return (
-    <div className={cx("cost-figure", wide && "cost-figure-wide")} title={title}>
-      <span className="eyebrow">{label}</span>
-      <span
-        className={cx(
-          "flex items-center gap-2 font-mono text-lead font-medium tabular-nums",
-          good ? "text-green" : "text-strong",
-        )}
-      >
-        {tone && <span className={`dot tone-${tone}`} aria-hidden="true" />}
-        {value}
-      </span>
-      {children && <span className="text-small text-muted tabular-nums">{children}</span>}
-    </div>
+      <Figure label="Compute" value={hours(p.computeHours)} hint="The time the models worked" wide={saved != null} />
+    </FigureStrip>
   );
 }
 
@@ -605,7 +570,7 @@ function Models({ r, days, loading }: { r: Report; days: string; loading: boolea
         <p className="m-0 text-detail text-muted">{NONE[days]}</p>
       ) : (
         <>
-          <table className="cost-table cost-models">
+          <table className="data-table cost-models">
             <caption className="sr-only">Each model in the period</caption>
             <thead>
               <tr>
@@ -787,7 +752,7 @@ function Sources({ prices }: { prices: NonNullable<Report["prices"]> }) {
       <summary className="disclosure" title={prices.about}>
         Prices and sources
       </summary>
-      <table className="cost-table cost-prices">
+      <table className="data-table cost-prices">
         <caption className="cost-caption">US$ per million tokens</caption>
         <thead>
           <tr>

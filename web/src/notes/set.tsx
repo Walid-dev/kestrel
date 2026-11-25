@@ -145,7 +145,7 @@ export function NotesSet() {
   const back = { to: "/notes?list=1", label: "Notes" };
   if (docs.data && picked.length === 0)
     return (
-      <Page title="Review together" back={back}>
+      <Page app="Notes" eyebrow="Documents" title="Review together" back={back}>
         <EmptyState
           title="No documents picked."
           line="Tick two documents or more in Notes, then Review them together."
@@ -159,6 +159,8 @@ export function NotesSet() {
     );
   return (
     <Page
+      app="Notes"
+      eyebrow="Documents"
       title="Review together"
       back={back}
       line="One Apply covers every document here; each one's changes save on their own."

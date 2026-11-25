@@ -70,6 +70,159 @@ technical; the plan and the runbook carry the detail.
   `refusal` ("the model stopped before it finished"). An
   answer kept from before this says only that it didn't finish. Replaces: the 2026-11-22 entry's out-of-room
   message, which reached the screen as a developer's hint.
+- **2026-11-25 · Every small coloured word at 4.5:1, measured on every text; one right edge under a rail.**
+  The first pass measured only chips and eyebrows; a probe over every visible text node found more. Light: Ask's
+  failed line, Stop's red word and the code's words read raw tones (3.7 to 4.2) and now take `--tone-text`, as do the
+  drawings' labels and step numbers (3.7 to 4.5); the filled button's white words read 4.06 on the accent, so in light
+  its fill takes a tenth of the ink (4.65; the danger fill already used `--poor`); a picked pill's minutes read 4.47 and
+  take the count's colour. Dark: the muted, red, indigo and poor chips read 4.16 to 4.48 on their tint, so those four
+  classes set `--tone-text` to 88% in dark (4.6 at least), and poor's money pill reads it too. The probe is
+  `scripts/contrast-probe.js`, run with playwright-cli on the dev server; every page passes in both themes. A block
+  after `WithRail` on its page (Ask under Writing's try and under a report, the report's foot) is as wide as the layout
+  from 64rem, so a screen has one right edge. Open for my yes: the light-theme change darkens Searches' and News'
+  chips, tinted eyebrows, red words, links and the Listen button a little; the old look is one line back
+  (`--tone-text: 100%` and no `.btn-primary` fill in the light block), at the price of 2.9 to 4.3:1 words. Rejected:
+  the probe inside `node --run check` (it needs a browser and a running server); Ask moved into the main column
+  (its order on a phone would change).
+
+- **2026-11-25 · Quiz on News' layout; a started quiz is a card.**
+  The head's line keeps one fact (the lessons to review today, the count in cyan mono); how a quiz works becomes the
+  hint under the new quiz's `SectionHead`. The quizzes I started and the new quiz take the main column, in that order
+  (first on a phone and for the keyboard, as before); the ended ones (`RailPart` "Done · 10") and Archived take the rail.
+  A started quiz is a Card on Searches' anatomy: its area's chip (Lessons purple, Interview prep green), the time at
+  `end`, the ring beside its name as the key figure (44, the count inside), the facts with the values bold, Continue
+  as a plain button (the first one the screen's filled button) and Archive a small ghost; two across from 48rem. An
+  area with no lesson shows "No lessons to quiz on yet." with Open Learn (or Interview prep) where the form was, its
+  From switch kept. A gone quiz says so at once ("This quiz isn't here any more.", Open Quiz) instead of a blank page
+  for three tries and a raw red line; every quiz page's eyebrow is Quiz's teal. A verdict's chip takes its tint over
+  the card's surface, as other chips do (on the sunk verdict block, light's yellow "Partly" read 4.1:1). Rejected: the
+  started quizzes in the rail (on a phone the rail follows the form, and putting it first would put the done ones
+  before the form too); a big Continue in every card (a page of big buttons).
+
+- **2026-11-25 · Writing on News' layout; a try is one card.**
+  The open try takes the main column (first on a phone, as before); the job, what to write and the job's tries take the
+  rail on the right, the tries a `RailPart` ("Tries · 1"); the eyebrow is "Jobs" in magenta. A try was three blocks (its
+  head card, a row holding only Download, the document): it is one Card on Searches' anatomy (the kind and check chips,
+  the date at `end`, the title, what was asked, the facts, the match, the warnings, the folds) with Download, and a
+  letter's Open the PDF, in its `actions`, then the document under it. For that `Doc` gains `bar={false}` (a document
+  only read, its head left out) and exports `Downloads`, whose menu now lines its left edges up with a button near the
+  screen's left (it went off the screen). Rejected: Download kept in the document's head (a row of its own for one
+  button); the document inside the card (a card in a card).
+
+- **2026-11-25 · Applications at the Searches standard.**
+  The two lines of figures in a sentence become a `Figures` strip: Interviewing, Offers, Rejected and Waiting (the
+  jobs' own stages, each in its stage's colour from `STAGES`), Sent and Stopped with "this week" beside the value; the
+  head's line keeps one fact (how many, and when the last one moved). The search, the states and the period float no
+  more: they are a `FilterPanel` (a State row of pills with their counts, a Period row with its Seg), its Reset lit
+  while the words, the period or a picked state differ from how the page opens. The state's heading is a `SectionHead`
+  with its dot, its count and its line. A card is Searches': the state's chip on the left, the time at `end`, the
+  company, the agent in the facts ("By agent-2", the value bold), the reason in an inner block, the posting and the one
+  step it needs as small buttons in `actions`. Notify this phone is a plain button at the foot, as News' Make it now,
+  without the margins that pulled a ghost button to the edge. The eyebrow is "Jobs" in orange. Rejected: the figures
+  as links to Searches (a new way somewhere, not a look).
+
+- **2026-11-25 · Tasks and Research on News' layout.**
+  Tasks: the open list in the main column, Ask and then the done ones (a fold, "Done 2") in the rail on the right, 280 to
+  340 wide where it had 360; the eyebrow "To do" in pink. Research's landing turns around: the answers in the main
+  column (`SectionHead` "Answers" with its count), the question in the rail (`RailPart` "New question", About me under
+  it), first in the page with `railFirst`, so a phone and the keyboard meet it first as before; it stays in view while
+  the answers scroll unless the questions round is open. The answers' filter is the shared `FilterPanel` (the search,
+  Reset, a "Show" row of pills); a card's date is Card's `end`; the empty page's starters are plain pills, as Ask's,
+  not the accent's action pills. An answer: the report in the main column, its words and what wasn't settled as folds
+  in the rail (they fold on a phone), its sources a `RailPart` ("Sources · 3", always open: the fold added nothing); a
+  gone answer says so at once with Open Research, any other failure Try again. Rejected: the question on the left (the
+  rail is on the right on every page); Words and Not settled as always-open parts (a phone would lose their folds).
+
+- **2026-11-25 · Cost and Models at the Searches standard; one table look.**
+  Cost's strip is the shared `Figures` (its own `.cost-figures` goes): values on the head step as Home's, the cloud a
+  phone's whole row with its lines, Saved a green dot rather than green figures, the strip dimmed while another period
+  loads (`Figures` gains `busy`). A phone's columns count only the cells that share rows, so a wide cell no longer
+  leaves one alone (with six figures, Compute takes its own row too). Cost's table class becomes the shared
+  `.data-table`, and the Models page's calls use it: Job, Model, Calls, Each, Failed in aligned mono columns, a failed
+  count in red, the model under the job on a phone; its heading is a `SectionHead` with the Cost link in its hint.
+  Each group's eyebrow on Models takes its app's colour from the app map (Ask purple, as its mark). Both pages' eyebrow
+  is "The models" in the models' yellow. Rejected: a figure strip of Cost's own (a third build of one part); the calls
+  as rows with stacked figures (numbers that don't line up across rows).
+
+- **2026-11-25 · Notes and Chat at the Searches standard; the rail's first part is first in the page.**
+  Notes' pages take the eyebrow "Documents" in the accent (the list, the reader, Review together); the list's "From
+  your folders" is a `SectionHead` with its count; a failure in Notes (the list, the note's sheet, the review) is one
+  red line in words, no longer on the warning's tint. The reader moves onto `WithRail`: its head runs the page wide,
+  the document takes the main column (52rem at most), my notes the rail ("Your notes · 3", an eyebrow: `RailPart`,
+  whose new `headRef` keeps the heading as the focus's place after a delete), scrolling with the page as before (a
+  sticky rail hid the notes past the window's height until the document's end); Side by side keeps the same parts in one column, the notes under it, so the editor never starts again.
+  Chat's computer page says where the chats open in the empty state's voice (no card), the eyebrow "Agents" in cyan.
+  `WithRail` changes for every page: `railFirst` renders the rail first in the page and a computer sets it back on the
+  right (it was CSS order: a phone showed the rail first while the keyboard and a screen reader met it last), each
+  column is `minmax(0, 1fr)` (a document's wide table widened the main column past the page), and `className` lets a
+  page keep its rail in view; /design shows both orders. Rejected: the notes column rising beside the head (one layout
+  for every page with a rail); a `sticky` prop (each page's rail stops at its own place: under the page's top, under a
+  sticky bar).
+
+- **2026-11-25 · Live on the shared card and section heading.**
+  Live's cards drop their own top line (`Meta`) for Card's: the chip (or, for work at work, the pulsing dot and its
+  kind in muted words) on the left, how long in mono at `end`; the idle page's last piece of work says "Last finished"
+  and its time at the end, its kind as the only chip (it had an eyebrow and a chip side by side). Activity's days take
+  `SectionHead` with their count. The eyebrow is the view, muted ("Now", "This week"): Live has no colour of its own.
+  A wait on something else is a yellow word, so it reads `text-tone tone-yellow` (text-safe), in Live and in the
+  running chats under Chat (stop.tsx). Rejected: the pulsing dot at the time's end (the end cuts what overflows, and
+  the dot's ring would be cut with it).
+
+- **2026-11-25 · Learn at the Searches standard.**
+  Learn's and Interview prep's pages take the shared parts: the figures are `Figures` (four cells, the cyan edge while
+  a review waits, the bar and Start the review or Next and Continue in its foot), the filter card is `FilterPanel` (the
+  search with its Reset; a row per parent, folding to its name, its All pill opening the parent, then its packs), the
+  sections are `SectionHead` (the state's dot, its count muted). Every Learn page's eyebrow is in the area's colour
+  (Learn purple, Interview prep green): "Lessons" or "Answers to say" on a front page and a page under no parent, the
+  parent on a pack (it was the parent's own colour there, and grey on a lesson), a lesson's part and topic or its pack.
+  A gone lesson says so at once ("This lesson didn't open", "This lesson isn't here any more.", Open Learn), no longer
+  after three tries and a raw red line. Practice's lesson is a quiet link at the card's top-line end (`.card-end-link`),
+  where a card has its source. The interview helper's head is one line; how it hears goes in a hint under the pad.
+  Rejected: Searches' fixed 72 px name column for the filter rows (a parent's name is mine to choose and wrapped).
+
+- **2026-11-25 · The news star is Searches' ★ on the card's top line; Starred is one tap from News.**
+  A story card's star leaves its foot (the pill, "★ Star" or "★ Starred") for the right end of its top line, after the
+  source, as `Star bare`: the ★ alone, grey while off, yellow while on, the toggle itself (`aria-pressed`, named
+  "Star “<headline>”", 32 round, 44 on touch, the row's height unchanged). The kept copy (All days' Starred, in its
+  box) and the Starred list's rows take the same ★; `compact` (the ★ in a pill's frame) goes, unused. Today's and an
+  earlier day's head show "★ Starred N" beside All days, opening All days' Starred view (`/news/days?view=starred`); N
+  comes from the rail's own days query, so no request is added. Searches' cards keep their ★ as it was. Rejected: the
+  word on the card ("Starred" said twice, the ★ says it); the Starred link only in the rail (the rail follows the
+  stories on a phone, a long scroll away). Replaces: the 2026-11-25 stars entry's pill beside Ask and Look deeper and
+  its compact ★ in the Starred rows.
+
+- **2026-11-25 · One look: Searches and News are the references; the shared parts their pages share.**
+  The parts every page repeats move into `web/src/ui/`, each shown on /design: `Figures` (a page's strip of cells;
+  Home's look, `.home-figs` renamed `.figs`; three across on a phone, two when three would leave one alone, one row
+  from 48rem), `SectionHead` (the section step, its count in small muted mono, a tone dot when the colour means
+  something), `Card`'s `end` (the top line's right end: the date or the source), `figure` (the key number beside the
+  title) and `actions`, `FilterPanel` and `FilterRow` (Searches' filter card), `WithRail` and `RailPart` (News'
+  main column and right rail, a part headed by an eyebrow). Searches' and News' own files stay as they are: the filter
+  rows and the rail are one rule each in styles.css, under both the shared names and theirs (`.search-part`,
+  `.news-layout`). Rejected: renaming the references' classes in the same change (their pages would change for no
+  look); a part per page (three figure strips, two filter cards, six two-column grids were the cause).
+- **2026-11-25 · One app map; each page's eyebrow and the open tab in its app's colour.**
+  `web/src/ui/apps.tsx` holds each app's address, icon and colour (Home's colours, moved from home.tsx; the icons from
+  home.tsx, app.tsx and news/card.tsx). PageHead's `app` tints the eyebrow; the tab bar and the dock draw the open
+  place's icon in its colour (the wolf pink, Live in ink) with its name in ink and no ground behind it, the others
+  grey. `Tone` gains teal (Quiz) and magenta (Writing). Every page gets an eyebrow: a top page's says what the app
+  holds, a child page's where it sits. Rejected: the accent for the open tab (one blue for every app, and a ground
+  behind the icon).
+- **2026-11-25 · Small coloured words read 4.5:1 in light too; marks keep the tone.**
+  Measured in light, chips read 2.9 to 4.3:1 on their tint (yellow the lowest), red words 3.7, accent links 4.1 to 4.2;
+  dark was 4.5 or more everywhere. `--tone-text` (100% in dark, 70% in light) is how much of the tone small words take,
+  the rest the ink: chips, tinted eyebrows, `text-tone`, the colour classes (the theme's `--color-*`), `.btn-danger`,
+  a pressed button's words, the back link, an action pill, a document's links, Searches' Last opened tag and the
+  drawings' labels; 4.6:1 at least in light, dark unchanged. Marks keep the tone
+  (3:1): dots, edges, bars, icons, the ★, so `text-yellow` stays the tone and a word in yellow is `text-tone
+  tone-yellow`. Searches' and News' chips darken a little, in light only. Rejected: darker light tokens (every dot,
+  edge and the ★ would darken too).
+- **2026-11-25 · No tint behind words.**
+  A block of words in a tone sits on the sunk ground with a 3 px edge in its tone and its tinted eyebrow or chip:
+  `.callout`, `.read-box`, `.quiz-answer`, the drawings' tip, warning and check. Ask's proposed changes (`.ask-card`)
+  keep a 2 px edge (the accent, green done, red failed) on the sunk ground; a picked `.tile` keeps the accent's edge and
+  ✓ on its own ground. Rejected: lighter tints (still a coloured ground, and a red verdict on a blue page reads wrong).
+
 - **2026-11-25 · Stars on News: each keeps a copy of its story; All days lists them under Starred.**
   Each story card has the star beside Ask and Look deeper: Searches' pill (a yellow ★, Star or Starred), now the
   shared `Star` in `web/src/ui/star.tsx`, shown on /design; Searches' listing sheet uses it too, so both pages draw

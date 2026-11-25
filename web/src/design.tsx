@@ -5,18 +5,22 @@
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import type { Drawing as D } from "../../src/shared/blocks.ts";
-import { LIVE_ICON, LiveBadge, PipBody, type Status } from "./app.tsx";
+import { LiveBadge, PipBody, type Status } from "./app.tsx";
 import { Drawing } from "./drawing.tsx";
-import { ICONS } from "./home.tsx";
+import { APPS, AppIcon, type AppName } from "./ui/apps.tsx";
 import { Card } from "./ui/card.tsx";
 import { useConfirm } from "./ui/confirm.tsx";
 import { cx } from "./ui/cx.ts";
 import { Dialog } from "./ui/dialog.tsx";
 import { EmptyState } from "./ui/empty.tsx";
 import { Field } from "./ui/field.tsx";
+import { Figure, Figures } from "./ui/figures.tsx";
+import { FilterPanel, FilterRow } from "./ui/filters.tsx";
 import { List, Row } from "./ui/list.tsx";
 import { Page, PageHead } from "./ui/page.tsx";
 import { Pills, type Tone } from "./ui/pills.tsx";
+import { RailPart, WithRail } from "./ui/rail.tsx";
+import { SectionHead } from "./ui/section.tsx";
 import { Seg } from "./ui/seg.tsx";
 import { Star } from "./ui/star.tsx";
 
@@ -54,7 +58,7 @@ const COLOURS: { group: string; when: string; tokens: [string, string, string][]
     when: "one colour that means act here",
     tokens: [
       ["--accent", "the one filled button, links, focus", "text-accent, bg-accent"],
-      ["--accent-soft", "a picked tile, my lines in Ask", "bg-accent-soft"],
+      ["--accent-soft", "my lines in Ask, the line being read aloud", "bg-accent-soft"],
     ],
   },
   {
@@ -69,6 +73,8 @@ const COLOURS: { group: string; when: string; tokens: [string, string, string][]
       ["--pink", "needs me, the wolf, note marks", "tone-pink, text-pink"],
       ["--cyan", "review today, drawings' fifth colour", "tone-cyan"],
       ["--indigo", "News: its word, its icon", "tone-indigo, text-indigo"],
+      ["--teal", "Quiz: its eyebrow, its icon", "tone-teal"],
+      ["--magenta", "Writing: its eyebrow, its icon", "tone-magenta"],
     ],
   },
   {
@@ -151,7 +157,37 @@ const STEPS: { cls: string; mouse: string; touch: string; roles: string; font: s
   },
 ];
 
-const TONES: Tone[] = ["accent", "green", "yellow", "orange", "red", "purple", "pink", "cyan", "indigo", "muted"];
+const TONES: Tone[] = [
+  "accent",
+  "green",
+  "yellow",
+  "orange",
+  "red",
+  "purple",
+  "pink",
+  "cyan",
+  "indigo",
+  "teal",
+  "magenta",
+  "muted",
+];
+// every app with its colour, as the map has them (Home's order)
+const APP_ORDER: AppName[] = [
+  "Searches",
+  "Chat",
+  "Learn",
+  "Notes",
+  "Tasks",
+  "News",
+  "Research",
+  "Quiz",
+  "Applications",
+  "Writing",
+  "Interview prep",
+  "Cost",
+  "Models",
+  "Live",
+];
 
 // a made-up topic's lessons: the long list the quiz will show
 const LESSONS = [
@@ -310,6 +346,14 @@ export function Design() {
   const [mode, setMode] = useState("on");
   const [tile, setTile] = useState("bees");
   const [starred, setStarred] = useState(false);
+  const [cardStar, setCardStar] = useState(true);
+  const [words, setWords] = useState("");
+  const [stage, setStage] = useState<string | null>(null);
+  const [order, setOrder] = useState("best");
+  const [filtersShown, setFiltersShown] = useState(true);
+  const [closedRows, setClosedRows] = useState<string[]>([]);
+  const flipRow = (name: string) =>
+    setClosedRows((all) => (all.includes(name) ? all.filter((n) => n !== name) : [...all, name]));
   const [dialog, setDialog] = useState<"" | "plain" | "wide">("");
   const [typed, setTyped] = useState("");
   const [saved, setSaved] = useState("");
@@ -339,7 +383,7 @@ export function Design() {
     <Page
       eyebrow="The design system"
       title="The parts"
-      line="Every shared part in its states, at its real size. A new part is reviewed here before a page uses it. Each takes a few props, never a style: the look lives in styles.css, the parts in web/src/ui/."
+      line="Every shared part in its states, at its real size; a new part is reviewed here first. The look lives in styles.css, the parts in web/src/ui/."
     >
       <div className="grid gap-3 lg:grid-cols-2">
         <Part
@@ -506,6 +550,33 @@ export function Design() {
         </Part>
 
         <Part
+          title="The apps' colours"
+          when="Each app has its own colour, set once in the app map (web/src/ui/apps.tsx): its icon on Home, in the dock and the tab bar (the open app's icon in its colour, the rest grey), and its page's eyebrow (PageHead's app). Small accents only: an icon, an eyebrow, never a ground. An icon is a mark, drawn in the tone itself; an eyebrow is words, in the tone's text-safe shade. Live has none: its colours are the status's."
+        >
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-3">
+            {APP_ORDER.map((a) => (
+              <span key={a} className="flex min-w-0 items-center gap-2 text-detail">
+                <AppIcon app={a} />
+                <span className="truncate">{a}</span>
+              </span>
+            ))}
+          </div>
+          <Frame label="A page's eyebrow, in its app's colour">
+            <PageHead
+              titleAs="div"
+              app="Learn"
+              eyebrow="Lessons"
+              title="Learn"
+              line={
+                <>
+                  <b className="text-ink">5</b> packs · <b className="text-ink">33</b> lessons
+                </>
+              }
+            />
+          </Frame>
+        </Part>
+
+        <Part
           title="The shell's status"
           when="Where the eye goes for it. On touch, Live's tab carries a badge; under a mouse, the dock's Live item does too, and a pip sits in the bottom-right corner, in the lane the shell keeps free: its mark at rest, its words under the pointer (never on Live, which it opens). Asleep first, then needs me, then at work; when all is well, nothing. Asleep, the strip leads every page."
         >
@@ -513,7 +584,7 @@ export function Design() {
             {STATES.map((s) => (
               <div key={s.kind} className="grid justify-items-center gap-1 text-muted">
                 <span className="nav-icon">
-                  {LIVE_ICON}
+                  {APPS.Live.icon}
                   <LiveBadge status={s} />
                 </span>
                 <span className="font-mono text-label">{s.kind}</span>
@@ -586,11 +657,18 @@ export function Design() {
 
         <Part
           title="Chips, money and tones"
-          when="A small coloured label: a state, a match, a source; one tone per meaning, its words on a tint of it. Money is mono and tabular, in its place on the money scale."
+          when="A small coloured label: a state, a match, a source; one tone per meaning, its words on a tint of it. Small coloured words (a chip, a tinted eyebrow, text-tone, a colour's class) read 4.5:1 in both themes: in light they take 30% of the ink (--tone-text), in dark the tone itself. Marks (a dot, an edge, an icon, the ★) keep the tone. Money is mono and tabular, in its place on the money scale."
         >
           <div className="flex flex-wrap gap-2">
             {TONES.map((t) => (
               <span key={t} className={`chip tone-${t}`}>
+                {t}
+              </span>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            {TONES.map((t) => (
+              <span key={t} className={`eyebrow tone-${t}`}>
                 {t}
               </span>
             ))}
@@ -695,17 +773,61 @@ export function Design() {
 
         <Part
           title="Star"
-          when="Anything kept for later: a search's listing, a news story. A pill pressed while starred, beside the item's other actions; compact (the ★ alone, named for its item) in a list of starred things, where it takes the star off and gives it back."
+          when="Anything kept for later. On a card or a row, bare: the ★ alone at the right end of the top line (where Searches' cards show theirs) or of the row (a list of starred things), and the toggle itself: grey while off, yellow while on, named for its item, drawn 32 round (44 on touch) without making the row taller. In a sheet, the pill (a ★ and Star or Starred) beside its other actions."
         >
+          <div className="card card-titled">
+            <div className="card-meta">
+              <div className="card-meta-main">
+                <span className="chip chip-caps tone-yellow">Money</span>
+              </div>
+              <span className="card-end font-mono">Wire · 6 h</span>
+              <Star
+                bare
+                on={cardStar}
+                label="Star “A made-up hive fund raises $2m”"
+                hint="Keep it under Starred"
+                onPress={() => setCardStar((x) => !x)}
+              />
+            </div>
+            <h3 className="card-title">A made-up hive fund raises $2m</h3>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            {(
+              [
+                ["off", false, false],
+                ["on", true, false],
+                ["busy: a press on its way", true, true],
+              ] as const
+            ).map(([name, on, busy]) => (
+              <span key={name} className="flex items-center gap-3 text-small text-muted">
+                <Star bare on={on} busy={busy} label={`Star, ${name}`} onPress={() => {}} />
+                {name}
+              </span>
+            ))}
+          </div>
+          <List label="Made-up starred stories">
+            <Row
+              to="/design"
+              title="A made-up hive report"
+              line={
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="chip chip-caps tone-cyan">Building</span>
+                  Tue, Nov 24
+                </span>
+              }
+              end={
+                <Star bare on={starred} label="Star “A made-up hive report”" onPress={() => setStarred((x) => !x)} />
+              }
+            />
+          </List>
           <div className="flex flex-wrap items-center gap-2">
             <Star on={starred} hint="Keep it for later" onPress={() => setStarred((x) => !x)} />
-            <Star compact on={starred} label="Star: a made-up hive report" onPress={() => setStarred((x) => !x)} />
           </div>
         </Part>
 
         <Part
           title="Tile"
-          when="A big choice, only when two or more options each need a line under the name (one option is a pill): a topic, a pack. Picked: the accent's edge and tint, and a check."
+          when="A big choice, only when two or more options each need a line under the name (one option is a pill): a topic, a pack. Picked: the accent's edge and a check, on its own ground (no tint)."
         >
           <div className="grid gap-2 sm:grid-cols-2">
             {[
@@ -730,7 +852,7 @@ export function Design() {
               <Row
                 key={name}
                 to="/design"
-                icon={<span className="text-accent">{ICONS.Notes}</span>}
+                icon={<AppIcon app="Notes" />}
                 title={name}
                 line={
                   <>
@@ -755,16 +877,16 @@ export function Design() {
           <List cols label="Made-up apps">
             {(
               [
-                ["Searches", "text-great", "Hunts that run on their own"],
-                ["Learn", "text-purple", "One lesson per page, read aloud"],
-                ["Notes", "text-accent", "A document and my notes on it"],
-                ["Tasks", "text-pink", "One line each"],
+                ["Searches", "Hunts that run on their own"],
+                ["Learn", "One lesson per page, read aloud"],
+                ["Notes", "A document and my notes on it"],
+                ["Tasks", "One line each"],
               ] as const
-            ).map(([name, colour, what]) => (
+            ).map(([name, what]) => (
               <Row
                 key={name}
                 to="/design"
-                icon={<span className={colour}>{ICONS[name]}</span>}
+                icon={<AppIcon app={name} />}
                 title={name}
                 line={<span className="block truncate">{what}</span>}
               />
@@ -773,9 +895,71 @@ export function Design() {
         </Part>
 
         <Part
-          title="Card"
-          when="A surface block, flat on its hairline. A link card opens a page (its ground comes up under the pointer); a card with a title opens by it, and its ✕ asks first, with Confirm. A tone marks what matters now with an edge on its left. Never a card in a card: a block inside one is .inner."
+          title="Table"
+          when="Figures that compare row by row, in one card: .data-table. The names on the left, every figure in mono, right-aligned in its column, the heads as eyebrows, rows 40 tall on hairlines; a count that means trouble in red, a nothing in grey. Cost's models and prices, the Models page's calls."
+          wide
         >
+          <div className="card">
+            <table className="data-table">
+              <caption className="sr-only">Made-up calls</caption>
+              <thead>
+                <tr>
+                  <th className="eyebrow">Job</th>
+                  <th className="eyebrow">Calls</th>
+                  <th className="eyebrow">Each</th>
+                  <th className="eyebrow">Failed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(
+                  [
+                    ["Hive check", 12, "4.1 s", 0],
+                    ["Wax prices", 3, "9.8 s", 1],
+                  ] as const
+                ).map(([job, calls, each, failed]) => (
+                  <tr key={job}>
+                    <td className="font-medium text-strong">{job}</td>
+                    <td>{calls}</td>
+                    <td>{each}</td>
+                    <td className={failed ? "text-red" : "text-muted"}>{failed}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Part>
+
+        <Part
+          title="Card"
+          when="A surface block, flat on its hairline. With a title, the Searches card's anatomy: the top line (a chip on the left, then a muted group; the date or the source at the right end, a time in mono; the ✕ last), the title with its key number beside it, one muted subline, facts with only the values bold, the actions last. The title opens it (its ground comes up under the pointer); the ✕ asks first, with Confirm. A tone marks what matters now with an edge on its left. Never a card in a card: a block inside one is .inner."
+        >
+          <Card
+            tone="pink"
+            title="Made-up hive inspector"
+            onOpen={() => setDialog("plain")}
+            meta={
+              <>
+                <span className="chip chip-caps tone-pink">Needs me</span>
+                <span className="truncate text-small text-muted">Bees</span>
+              </>
+            }
+            end={<span className="font-mono">2 h ago</span>}
+            figure={<span className="money tone-great">$52k</span>}
+            actions={
+              <>
+                <button type="button" className="btn btn-sm">
+                  The listing
+                </button>
+                <button type="button" className="btn btn-sm btn-quiet">
+                  The page ↗
+                </button>
+              </>
+            }
+          >
+            <span className="text-ink">Made-up Apiary</span> · Hiveton
+            <br />
+            Asked <b className="text-ink">the start date</b> · waiting <b className="text-ink">34 min</b>
+          </Card>
           <Card>A plain card: a block of the page, its parts 12 px apart.</Card>
           <Card to="/design">A link card: the whole card opens a page.</Card>
           {cards.map((c) => (
@@ -783,12 +967,8 @@ export function Design() {
               key={c}
               title={c}
               onOpen={() => setDialog("plain")}
-              meta={
-                <>
-                  <span className="chip chip-caps tone-accent">quick</span>
-                  <span className="eyebrow ml-auto">today</span>
-                </>
-              }
+              meta={<span className="chip chip-caps tone-accent">quick</span>}
+              end="today"
               onRemove={async () => {
                 const yes = await sure({
                   title: "Delete this card?",
@@ -799,13 +979,13 @@ export function Design() {
                 if (yes) setCards((all) => all.filter((x) => x !== c));
               }}
               removeLabel={`Delete “${c}”`}
-            >
-              A tap anywhere on it opens it; the ✕ sits above.
-              <div className="card-actions">
+              actions={
                 <button type="button" className="btn btn-sm">
                   The page ↗
                 </button>
-              </div>
+              }
+            >
+              A tap anywhere on it opens it; the ✕ sits above.
             </Card>
           ))}
           {cards.length < 2 && (
@@ -825,6 +1005,200 @@ export function Design() {
             <p className="inner m-0 text-detail">An inner block: the sunk ground, no edge, inside a card.</p>
           </Card>
           <Card title="Anunbrokenwordtoolongforanyphonescreenwrapsinsideitscard">The title breaks where it must.</Card>
+        </Part>
+
+        <Part
+          title="Figures"
+          when="A page's figures, one strip of cells before its detail: each its label, a dot in its tone and the value in mono, a few quiet words beside it or lines under it; a cell opens its page when it has one, and its hover is a row's. Three across on a phone (two when three would leave one alone, a wide cell taking its row), all in one row from 48rem. A tone draws the strip's left edge for what matters now; its foot, under all the cells, holds what reads them (a bar, the one action)."
+          wide
+        >
+          <Figures label="A made-up morning">
+            <Figure label="Great jobs" tone="great" value={3} to="/design" hint="Great matches still to review" />
+            <Figure label="Priority" tone="yellow" value={0} quiet to="/design" hint="Starred listings" />
+            <Figure label="Lessons due" tone="cyan" value={12} to="/design" hint="Lessons due for review today" />
+            <Figure label="Tasks open" tone="accent" value={5} to="/design" hint="Tasks not done yet" />
+            <Figure
+              label="Next search"
+              tone="green"
+              pulse
+              value="Now"
+              to="/design"
+              hint="A made-up hunt searches now"
+            />
+            <Figure label="Needs me" tone="pink" value={1} note="1 queued" to="/design" hint="An application waits" />
+          </Figures>
+          <Figures
+            label="Made-up lessons"
+            tone="cyan"
+            foot={
+              <>
+                <div className="meter min-w-40 flex-1" aria-hidden="true">
+                  <span className="tone-green" style={{ "--part": "9%" } as CSSProperties} />
+                  <span className="tone-purple" style={{ "--part": "24%" } as CSSProperties} />
+                  <span className="tone-cyan" style={{ "--part": "36%" } as CSSProperties} />
+                </div>
+                <button type="button" className="btn">
+                  Start the review
+                </button>
+              </>
+            }
+          >
+            <Figure label="Review today" tone="cyan" value={12} />
+            <Figure label="New" value={10} />
+            <Figure label="Learning" tone="purple" value={8} />
+            <Figure label="Known" tone="green" value={3} />
+          </Figures>
+          <Figures label="A made-up period">
+            <Figure label="Cloud would cost" tone="yellow" value="$4.20" wide>
+              <span>at a cloud model's prices</span>
+              <span>for 312 calls this week</span>
+            </Figure>
+            <Figure label="Calls" value={312} />
+            <Figure label="Failed" tone="red" value={2} />
+            <Figure label="Tokens" value="1.2M" />
+            <Figure label="Hours" value="3.5" />
+          </Figures>
+        </Part>
+
+        <Part
+          title="SectionHead"
+          when="A section's heading, one way on every page: its words on the section step, how many it holds in small muted mono beside them, a dot in its tone before them when the colour means something, one quiet line under it when the section needs a why. A rail's part is headed by an eyebrow instead (RailPart)."
+        >
+          <SectionHead title="Plain" />
+          <SectionHead title="November 2026" count={24} />
+          <SectionHead title="Review today" count={12} tone="cyan" />
+          <SectionHead
+            title="Needs me"
+            count={1}
+            tone="pink"
+            hint="An application waits on an answer only I can give."
+          />
+        </Part>
+
+        <Part
+          title="FilterPanel"
+          when="Every list that filters, in Searches' card: the search box, the round Reset (lit while a filter differs from how the page opens), the button that folds the rows away (with how many are picked), then the rows: each its name as an eyebrow with its own fold, its pills beside it under a mouse, over them on touch. Folded, the card says what is picked, each pick opening the rows again."
+          wide
+        >
+          <FilterPanel
+            find={{ label: "Search the made-up listings", value: words, onChange: setWords }}
+            changed={words !== "" || stage !== null || order !== "best"}
+            onReset={() => {
+              setWords("");
+              setStage(null);
+              setOrder("best");
+            }}
+            fold={{
+              shown: filtersShown,
+              onToggle: () => setFiltersShown(!filtersShown),
+              count: (stage ? 1 : 0) + (order !== "best" ? 1 : 0),
+            }}
+            folded={
+              stage && (
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className="pill" aria-pressed onClick={() => setFiltersShown(true)}>
+                    {stage}
+                  </button>
+                </div>
+              )
+            }
+          >
+            <FilterRow
+              label="Stage"
+              summary={stage ?? "any"}
+              open={!closedRows.includes("stage")}
+              onToggle={() => flipRow("stage")}
+            >
+              <Pills
+                label="Stage"
+                options={[
+                  { value: "To review", label: "To review", tone: "muted", count: 12 },
+                  { value: "Interested", label: "Interested", tone: "green", count: 4 },
+                  { value: "Applied", label: "Applied", tone: "accent", count: 2 },
+                ]}
+                value={stage}
+                onChange={(v) => setStage(stage === v ? null : v)}
+              />
+            </FilterRow>
+            <FilterRow
+              label="Order"
+              summary={order === "best" ? "Best first" : "Newest first"}
+              open={!closedRows.includes("order")}
+              onToggle={() => flipRow("order")}
+            >
+              <Pills
+                label="Order"
+                options={[
+                  { value: "best", label: "Best first" },
+                  { value: "newest", label: "Newest first" },
+                ]}
+                value={order}
+                onChange={setOrder}
+              />
+            </FilterRow>
+          </FilterPanel>
+        </Part>
+
+        <Part
+          title="A page with a rail"
+          when="News' layout, for a page with secondary things to keep beside its main column (the history, the sources, a form, the done ones): from 64rem the main column (52rem at most) and the rail on its right, 280 to 340, 32 apart; on a phone one column, the rail after the main one. railFirst, where the rail starts the work (Research's question): first in the page, so first on a phone and for the keyboard, still on the right on a computer. A rail's part is headed by an eyebrow with its count, never a section heading."
+          wide
+        >
+          <Frame label="WithRail and RailPart">
+            <WithRail
+              label="Made-up earlier days"
+              rail={
+                <RailPart title="Earlier days" count={3} id="design-rail-days">
+                  <List>
+                    {["A quiet Sunday", "The hive fund's first year", "Wax prices rise"].map((t, i) => (
+                      <Row key={t} to="/design" title={t} line={`Nov ${22 - i} · ${4 + i} stories`} />
+                    ))}
+                  </List>
+                </RailPart>
+              }
+            >
+              <SectionHead title="The industry and its money" tone="yellow" />
+              <Card>The main column: what the page is for, read top to bottom.</Card>
+            </WithRail>
+          </Frame>
+          <Frame label="WithRail railFirst">
+            <WithRail
+              railFirst
+              label="A made-up question"
+              rail={
+                <RailPart title="New question" id="design-rail-new">
+                  <Card>The rail starts the work: first on a phone, on the right on a computer.</Card>
+                </RailPart>
+              }
+            >
+              <SectionHead title="Answers" count={2} />
+              <Card>The main column: the answers the question made.</Card>
+            </WithRail>
+          </Frame>
+        </Part>
+
+        <Part
+          title="Blocks of words"
+          when="Words set apart inside a page or a card sit on the sunk ground (.inner), never on a tint behind the words. A block in a tone (a guide's callout, a verdict, the lesson's answer) says its meaning with a 3 px edge in the tone and its tinted eyebrow or chip."
+        >
+          <div className="callout grid gap-2">
+            <span className="eyebrow tone-accent">The picture</span>
+            <p className="m-0">A hive is a city of one family: the queen lays, the workers do everything else.</p>
+          </div>
+          <div className="grid gap-2.5 md:grid-cols-2">
+            <div className="quiz-said">
+              <span className="eyebrow">You said</span>
+              <p className="m-0">The workers fan to cool it.</p>
+            </div>
+            <div className="quiz-said quiz-answer">
+              <span className="eyebrow tone-accent">The answer</span>
+              <p className="m-0 text-strong">They fan to dry the nectar and cool the brood.</p>
+            </div>
+          </div>
+          <div className="read-box tone-green grid gap-2">
+            <span className="chip chip-caps tone-green justify-self-start">Partly right</span>
+            <p className="m-0 text-body">The cooling is right; the nectar was missed.</p>
+          </div>
         </Part>
 
         <Part

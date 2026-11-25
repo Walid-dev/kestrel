@@ -4,176 +4,36 @@
 // its page, then the apps as one list of rows (two columns on a computer), each in a few words and opening its app,
 // then Cost and Models, the two pages about the models.
 import { useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
-import { Link } from "react-router";
 import { useChatLink } from "./chats.tsx";
 import { LiveStrip } from "./live-strip.tsx";
 import { Mark } from "./mark.tsx";
-import { NEWS_ICON, NewsCard } from "./news/card.tsx";
-import { cx } from "./ui/cx.ts";
+import { NewsCard } from "./news/card.tsx";
+import { APPS, AppIcon, type AppName } from "./ui/apps.tsx";
+import { Figure, Figures } from "./ui/figures.tsx";
 import { List, Row } from "./ui/list.tsx";
 import { Page } from "./ui/page.tsx";
 import type { Tone } from "./ui/pills.tsx";
 
-export const STROKE = {
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 1.7,
-  strokeLinecap: "round",
-  strokeLinejoin: "round",
-} as const;
-export const ICONS: Record<string, ReactNode> = {
-  Notes: (
-    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-      <path d="M6 3.5h8.5L19 8v12.5H6z" />
-      <path d="M14.5 3.5V8H19" />
-      <path d="M9 12.5h7M9 16h5" />
-    </svg>
-  ),
-  Searches: (
-    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-      <circle cx="10.5" cy="10.5" r="6" />
-      <path d="m15.2 15.2 5.3 5.3" />
-    </svg>
-  ),
-  Applications: (
-    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-      <path d="m12 3 9 5-9 5-9-5z" />
-      <path d="m4.5 12.8 7.5 4.2 7.5-4.2" />
-      <path d="m4.5 16.8 7.5 4.2 7.5-4.2" />
-    </svg>
-  ),
-  Learn: (
-    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-      <path d="M12 6c-1.8-1.6-4.4-2-8-2v14.5c3.6 0 6.2.4 8 2 1.8-1.6 4.4-2 8-2V4c-3.6 0-6.2.4-8 2z" />
-      <path d="M12 6v14.5" />
-    </svg>
-  ),
-  "Interview prep": (
-    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-      <path d="M5 5.5h14v9.5H9.5L5 19z" />
-      <path d="M9 9.5h6M9 12h4" />
-    </svg>
-  ),
-  Tasks: (
-    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-      <rect x="4" y="4" width="16" height="16" rx="3" />
-      <path d="m8.5 12.5 2.5 2.5 4.5-5" />
-    </svg>
-  ),
-  News: NEWS_ICON,
-  Chat: (
-    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-      <path d="M4.5 5.5h15v10h-9L6 19v-3.5H4.5z" />
-    </svg>
-  ),
-  Research: (
-    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M3.5 12h17M12 3.5c2.4 2.3 3.6 5.1 3.6 8.5s-1.2 6.2-3.6 8.5c-2.4-2.3-3.6-5.1-3.6-8.5s1.2-6.2 3.6-8.5z" />
-    </svg>
-  ),
-  Quiz: (
-    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.6" />
-      <path d="M12 16.6v.1" />
-    </svg>
-  ),
-  Writing: (
-    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-      <path d="M4 20h4L19 9l-4-4L4 16z" />
-      <path d="m13.5 6.5 4 4" />
-    </svg>
-  ),
-};
-
-// each app its own colour, no two alike (Searches green, my pick), as a colour class so it follows the theme
-const APP_COLOR: Record<string, string> = {
-  Searches: "text-great",
-  Chat: "text-cyan",
-  Learn: "text-purple",
-  Notes: "text-accent",
-  Tasks: "text-pink",
-  News: "text-indigo",
-  Research: "text-yellow",
-  Quiz: "text-teal",
-  Applications: "text-orange",
-  Writing: "text-magenta",
-  "Interview prep": "text-good",
-};
-
-// the order is mine: Searches, Chat, Learn, Notes, Tasks, News, then the rest
-const APPS: { name: string; what: string; to: string }[] = [
-  {
-    name: "Searches",
-    what: "Job and deal hunts",
-    to: "/searches",
-  },
-  {
-    name: "Chat",
-    what: "The agent's chats, live",
-    to: "/chats",
-  },
-  { name: "Learn", what: "Lessons, read aloud", to: "/learn" },
-  {
-    name: "Notes",
-    what: "Documents and my notes on them",
-    to: "/notes",
-  },
-  { name: "Tasks", what: "My list, and the agents'", to: "/tasks" },
-  { name: "News", what: "The morning's AI and tech news", to: "/news" },
-  {
-    name: "Research",
-    what: "Questions answered from the web",
-    to: "/research",
-  },
-  {
-    name: "Quiz",
-    what: "Questions from my lessons",
-    to: "/quiz",
-  },
-  {
-    name: "Applications",
-    what: "Every application, by state",
-    to: "/applications",
-  },
-  {
-    name: "Writing",
-    what: "Cover letters and answers",
-    to: "/writing",
-  },
-  {
-    name: "Interview prep",
-    what: "Answers to say, and the helper",
-    to: "/interview",
-  },
+// the apps in my order (Searches, Chat, Learn, Notes, Tasks, News, then the rest), each in a few words; its address,
+// icon and colour come from the app map (web/src/ui/apps.tsx)
+const LIST: [AppName, string][] = [
+  ["Searches", "Job and deal hunts"],
+  ["Chat", "The agent's chats, live"],
+  ["Learn", "Lessons, read aloud"],
+  ["Notes", "Documents and my notes on them"],
+  ["Tasks", "My list, and the agents'"],
+  ["News", "The morning's AI and tech news"],
+  ["Research", "Questions answered from the web"],
+  ["Quiz", "Questions from my lessons"],
+  ["Applications", "Every application, by state"],
+  ["Writing", "Cover letters and answers"],
+  ["Interview prep", "Answers to say, and the helper"],
 ];
 
 // Cost and Models, the two pages about the models themselves, in a list of their own under the apps
-const TOOLS: { name: string; what: string; to: string; icon: ReactNode }[] = [
-  {
-    name: "Cost",
-    what: "What the models cost",
-    to: "/cost",
-    icon: (
-      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-        <circle cx="9" cy="9" r="5.5" />
-        <path d="M14.5 9.6a5.5 5.5 0 1 1-4.9 4.9" />
-      </svg>
-    ),
-  },
-  {
-    name: "Models",
-    what: "Which model runs each job",
-    to: "/models",
-    icon: (
-      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...STROKE}>
-        <circle cx="12" cy="12" r="8.5" />
-        <path d="M12 7.5v4.5l3 2" />
-      </svg>
-    ),
-  },
+const TOOLS: [AppName, string][] = [
+  ["Cost", "What the models cost"],
+  ["Models", "Which model runs each job"],
 ];
 
 // the morning brief as figures, each the count its page shows when tapped. Great matches and Priority are the job
@@ -228,40 +88,6 @@ const soon = (iso: string) => {
     : `${d.toLocaleDateString(undefined, { weekday: "short" })} ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
 };
 
-// one figure: its label over its value in mono, a dot in its tone before it, the whole cell a link to its page
-function Fig({
-  label,
-  to,
-  hint,
-  tone,
-  value,
-  quiet = false,
-  pulse = false,
-  extra,
-}: {
-  label: string;
-  to: string;
-  hint: string;
-  tone: Tone;
-  value: ReactNode;
-  quiet?: boolean;
-  pulse?: boolean;
-  extra?: ReactNode;
-}) {
-  return (
-    <Link to={to} className="home-fig" title={hint}>
-      <span className="eyebrow">{label}</span>
-      <span className="flex min-w-0 items-center gap-2">
-        <span className={cx("dot", `tone-${tone}`, pulse && "pulse")} aria-hidden="true" />
-        <span className={cx("font-mono text-head font-medium tabular-nums", quiet ? "text-muted" : "text-strong")}>
-          {value}
-        </span>
-        {extra && <span className="truncate text-small text-muted">{extra}</span>}
-      </span>
-    </Link>
-  );
-}
-
 // Searches' "Not applied yet" switch, on unless this browser turned it off (search/searches.tsx keeps it under this key)
 const notApplied = () => {
   try {
@@ -286,6 +112,8 @@ export function Home() {
     refetchInterval: 5 * 60_000,
   });
   const lines = brief.data?.lines ?? [];
+  // what the brief says that no figure and no live row says: a sentence of its own, so a new one is never lost
+  const more = lines.filter((l) => !FIGURES.some((f) => f.words.test(l)) && !LIVE_ROW.test(l));
   // the job hunt Searches opens on, and its counts as the Searches page asks for them (the same query keys, so either
   // page's answer serves the other)
   const hunts = useQuery({
@@ -337,7 +165,21 @@ export function Home() {
       <NewsCard />
       <LiveStrip />
       {brief.data && (
-        <section className="home-figs" aria-label="This morning">
+        // a sentence of the brief that no figure says runs under them all
+        <Figures
+          label="This morning"
+          foot={
+            more.length > 0 && (
+              <div className="grid gap-1">
+                {more.map((l) => (
+                  <p key={l} className="m-0 text-small text-muted">
+                    {l}
+                  </p>
+                ))}
+              </div>
+            )
+          }
+        >
           {FIGURES.map((f) => {
             // a hunt figure is 0 when there is no job hunt, and waits for its counts (a dash) rather than show a wrong 0
             const n = f.hunt
@@ -346,7 +188,7 @@ export function Home() {
                 : hunts.data && 0
               : countIn(lines.find((l) => f.words.test(l)) ?? "");
             return (
-              <Fig
+              <Figure
                 key={f.label}
                 label={f.label}
                 to={f.hunt && hunt ? `${f.to}&hunt=jobs:${encodeURIComponent(hunt.key)}` : f.to}
@@ -357,7 +199,7 @@ export function Home() {
               />
             );
           })}
-          <Fig
+          <Figure
             label="Next search"
             to={nextHunt ? `/searches?hunt=${nextHunt.kind}:${encodeURIComponent(nextHunt.key)}` : "/searches"}
             hint={
@@ -372,44 +214,37 @@ export function Home() {
             value={running ? "Now" : next?.next ? soon(next.next) : "–"}
             quiet={!running && !next}
           />
-          <Fig
+          <Figure
             label="Needs me"
             to="/live"
             hint={`Applications that wait on me${queued ? `; ${queued} queued to apply` : ""}`}
             tone={needs ? "pink" : "muted"}
             value={apply.data ? needs : "–"}
             quiet={!needs}
-            extra={queued > 0 && `${queued} queued`}
+            note={queued > 0 && `${queued} queued`}
           />
-          {lines
-            .filter((l) => !FIGURES.some((f) => f.words.test(l)) && !LIVE_ROW.test(l))
-            .map((l) => (
-              <p key={l} className="home-figs-more m-0 text-small text-muted">
-                {l}
-              </p>
-            ))}
-        </section>
+        </Figures>
       )}
       <List cols label="The apps">
-        {APPS.map((app) => (
+        {LIST.map(([app, what]) => (
           <Row
-            key={app.name}
+            key={app}
             // on a computer, Chat opens the chat app itself, in its own tab, where this browser is signed in
-            {...(app.to === "/chats" && chat.external ? { href: chat.href } : { to: app.to })}
-            icon={<span className={`grid ${APP_COLOR[app.name]}`}>{ICONS[app.name]}</span>}
-            title={app.name}
-            line={<span className="block truncate">{app.what}</span>}
+            {...(app === "Chat" && chat.external ? { href: chat.href } : { to: APPS[app].to })}
+            icon={<AppIcon app={app} />}
+            title={app}
+            line={<span className="block truncate">{what}</span>}
           />
         ))}
       </List>
       <List cols label="The models">
-        {TOOLS.map((tool) => (
+        {TOOLS.map(([app, what]) => (
           <Row
-            key={tool.name}
-            to={tool.to}
-            icon={<span className="grid text-yellow">{tool.icon}</span>}
-            title={tool.name}
-            line={<span className="block truncate">{tool.what}</span>}
+            key={app}
+            to={APPS[app].to}
+            icon={<AppIcon app={app} />}
+            title={app}
+            line={<span className="block truncate">{what}</span>}
           />
         ))}
       </List>

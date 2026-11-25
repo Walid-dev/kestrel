@@ -10,6 +10,7 @@ import { useConfirm } from "../ui/confirm.tsx";
 import { EmptyState } from "../ui/empty.tsx";
 import { List, Row } from "../ui/list.tsx";
 import { Page } from "../ui/page.tsx";
+import { SectionHead } from "../ui/section.tsx";
 import { sentence, shortPath, sourceOf } from "./parts.tsx";
 import { LAST_DOC } from "./reader.tsx";
 
@@ -113,6 +114,8 @@ export function NotesList() {
 
   return (
     <Page
+      app="Notes"
+      eyebrow="Documents"
       title="Notes"
       line="Read a document and leave notes on its words."
       // with nothing here yet, Upload is the empty state's own button; Select as soon as there is one to forget
@@ -155,8 +158,9 @@ export function NotesList() {
           e.target.value = "";
         }}
       />
+      {/* what went wrong: one red line in words, no ground behind it */}
       {why && (
-        <p role="alert" className="m-0 rounded-lg border border-line bg-warn-soft px-3 py-2 text-detail">
+        <p role="alert" className="m-0 text-detail text-red">
           {sentence(why)}
         </p>
       )}
@@ -231,10 +235,8 @@ export function NotesList() {
         )
       )}
       {offered.length > 0 && (
-        <section className="grid gap-2" aria-labelledby="notes-folders">
-          <h2 id="notes-folders" className="font-cond m-0 text-section">
-            From your folders
-          </h2>
+        <section className="grid gap-3" aria-labelledby="notes-folders">
+          <SectionHead id="notes-folders" title="From your folders" count={offered.length} />
           <List cols>
             {offered.map((f) => (
               <Row

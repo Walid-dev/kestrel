@@ -1,8 +1,9 @@
 // A card: the .card ground (a surface, a hairline, room inside), in three uses. Plain: a block of the page. A link:
-// the whole card opens a page. With a title: its meta row on top (chips, a date), the title in the heading voice, what
-// it holds under it, muted; the title opens it (a page, or something on this page) and stretches over the whole card,
-// and the ✕ at the end of the meta row deletes it, the page asking first with Confirm. A tone marks its edge for what
-// matters now (needs me, review today).
+// the whole card opens a page. With a title, the Searches card's anatomy: its top line (the meta on the left, a chip
+// first; the date or the source at its right end; the ✕ last), the title in the heading voice with its key number
+// beside it, what it holds under it, muted, then its actions. The title opens it (a page, or something on this page)
+// and stretches over the whole card, and the ✕ deletes it, the page asking first with Confirm. A tone marks its edge
+// for what matters now (needs me, review today).
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { cx } from "./cx.ts";
@@ -24,8 +25,14 @@ type Block = Base & {
 };
 type Titled = Base & {
   title: ReactNode;
-  // chips, a date: the row over the title
+  // the top line's left: a chip first (the state, the kind), then a muted group
   meta?: ReactNode;
+  // the top line's right end: when (in mono) or where from, small and muted
+  end?: ReactNode;
+  // the key number beside the title (a .money pill, a ring), at the title row's right
+  figure?: ReactNode;
+  // the card's buttons, last (.btn-sm, .btn-quiet; a plain .btn for the one that matters)
+  actions?: ReactNode;
   // the title opens a page (to) or something on this page (onOpen)
   to?: string;
   onOpen?: () => void;
@@ -47,12 +54,28 @@ export function Card(props: Block | Titled) {
     ) : (
       <div className={cx(look(false), "card-stack")}>{children}</div>
     );
-  const { title, meta, to, onOpen, onRemove, removeLabel = "Delete" } = props;
+  const { title, meta, end, figure, actions, to, onOpen, onRemove, removeLabel = "Delete" } = props;
+  const heading = (
+    <h3 className="card-title">
+      {to ? (
+        <Link to={to} className="card-open">
+          {title}
+        </Link>
+      ) : onOpen ? (
+        <button type="button" className="card-open" onClick={onOpen}>
+          {title}
+        </button>
+      ) : (
+        title
+      )}
+    </h3>
+  );
   return (
     <div className={cx(look(Boolean(to || onOpen)), "card-titled")}>
-      {(meta || onRemove) && (
+      {(meta || end || onRemove) && (
         <div className="card-meta">
           <div className="card-meta-main">{meta}</div>
+          {end && <span className="card-end">{end}</span>}
           {onRemove && (
             <button
               type="button"
@@ -66,20 +89,16 @@ export function Card(props: Block | Titled) {
           )}
         </div>
       )}
-      <h3 className="card-title">
-        {to ? (
-          <Link to={to} className="card-open">
-            {title}
-          </Link>
-        ) : onOpen ? (
-          <button type="button" className="card-open" onClick={onOpen}>
-            {title}
-          </button>
-        ) : (
-          title
-        )}
-      </h3>
+      {figure ? (
+        <div className="card-head">
+          {heading}
+          {figure}
+        </div>
+      ) : (
+        heading
+      )}
       {children && <div className="card-body">{children}</div>}
+      {actions && <div className="card-actions">{actions}</div>}
     </div>
   );
 }

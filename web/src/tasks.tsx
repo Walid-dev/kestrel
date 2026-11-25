@@ -2,9 +2,9 @@
 // it is for (any agent, Claude Code, dsh, me: a choice for the new task, not a filter); Enter adds and the newest comes
 // first. The tasks are one list of rows: a tap on a task's words edits them in place (Enter or leaving saves, Escape
 // puts them back); its note under them, then one meta line, whom it is for (a tap changes it) and when, at every
-// width; a round box ticks it off. On a computer the list keeps the wide column and the done tasks and Ask take a
-// rail beside it; on a phone they follow under it. Agents read the same list through the kestrel command and close one
-// with a note (the box's hint says so).
+// width; a round box ticks it off. On a computer the list keeps the main column and the done tasks and Ask take the
+// rail on its right (News' layout); on a phone they follow under it. Agents read the same list through the kestrel
+// command and close one with a note (the box's hint says so).
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -17,6 +17,7 @@ import { Field } from "./ui/field.tsx";
 import { List } from "./ui/list.tsx";
 import { Page } from "./ui/page.tsx";
 import { Pills, type Tone } from "./ui/pills.tsx";
+import { WithRail } from "./ui/rail.tsx";
 
 type Task = {
   id: string;
@@ -96,6 +97,8 @@ export function Tasks() {
   return (
     <Page
       width="wide"
+      app="Tasks"
+      eyebrow="To do"
       title="Tasks"
       line={
         <span>
@@ -109,64 +112,67 @@ export function Tasks() {
         </span>
       }
     >
-      <div className="tasks-layout">
-        <div className="grid gap-6">
-          {/* the new task: its words, whom it is for; Enter adds. The pills choose, they don't filter: no counts */}
-          <div className="grid gap-3">
-            <Field
-              label="New task"
-              placeholder="What needs doing?"
-              value={text}
-              onChange={setText}
-              onSend={() => add.mutate()}
-              busy={add.isPending}
-              sendLabel="Add"
-              hint="Enter adds · tap a task to edit it · agents take one only when I ask, and close it with a note"
+      <WithRail
+        label="Ask, and the done tasks"
+        rail={
+          <>
+            <Ask
+              app="tasks"
+              refId="tasks"
+              title="Ask about my tasks"
+              placeholder="Add, change or close tasks in words"
+              starters={["What should I do first?", "Group what is open by theme", "Which ones look done already?"]}
+              onChange={refresh}
             />
-            <Pills
-              label="For"
-              showLabel
-              options={WHO.map(([value, label, tone]) => ({ value, label, tone }))}
-              value={who}
-              onChange={setWho}
-            />
-          </div>
-
-          {failed && <p className="m-0 text-detail text-red">{(failed.error as Error).message}</p>}
-
-          {tasks.data && open.length === 0 && <EmptyState title="Nothing open." line="Write the next thing above." />}
-          {open.length > 0 && (
-            <List label="Open tasks">
-              {open.map((t) => (
-                <Row key={t.id} t={t} act={act.mutate} busy={act.isPending && act.variables?.id === t.id} />
-              ))}
-            </List>
-          )}
-        </div>
-
-        <div className="grid gap-6">
-          {done.length > 0 && (
-            <details>
-              <summary className="disclosure">Done · {done.length}</summary>
-              <div className="mt-2">
-                <List label="Done tasks">
-                  {done.map((t) => (
-                    <Row key={t.id} t={t} act={act.mutate} busy={act.isPending && act.variables?.id === t.id} />
-                  ))}
-                </List>
-              </div>
-            </details>
-          )}
-          <Ask
-            app="tasks"
-            refId="tasks"
-            title="Ask about my tasks"
-            placeholder="Add, change or close tasks in words"
-            starters={["What should I do first?", "Group what is open by theme", "Which ones look done already?"]}
-            onChange={refresh}
+            {done.length > 0 && (
+              <details>
+                <summary className="disclosure">
+                  Done <span className="font-mono text-small text-muted tabular-nums">{done.length}</span>
+                </summary>
+                <div className="mt-2">
+                  <List label="Done tasks">
+                    {done.map((t) => (
+                      <Row key={t.id} t={t} act={act.mutate} busy={act.isPending && act.variables?.id === t.id} />
+                    ))}
+                  </List>
+                </div>
+              </details>
+            )}
+          </>
+        }
+      >
+        {/* the new task: its words, whom it is for; Enter adds. The pills choose, they don't filter: no counts */}
+        <div className="grid gap-3">
+          <Field
+            label="New task"
+            placeholder="What needs doing?"
+            value={text}
+            onChange={setText}
+            onSend={() => add.mutate()}
+            busy={add.isPending}
+            sendLabel="Add"
+            hint="Enter adds · tap a task to edit it · agents take one only when I ask, and close it with a note"
+          />
+          <Pills
+            label="For"
+            showLabel
+            options={WHO.map(([value, label, tone]) => ({ value, label, tone }))}
+            value={who}
+            onChange={setWho}
           />
         </div>
-      </div>
+
+        {failed && <p className="m-0 text-detail text-red">{(failed.error as Error).message}</p>}
+
+        {tasks.data && open.length === 0 && <EmptyState title="Nothing open." line="Write the next thing above." />}
+        {open.length > 0 && (
+          <List label="Open tasks">
+            {open.map((t) => (
+              <Row key={t.id} t={t} act={act.mutate} busy={act.isPending && act.variables?.id === t.id} />
+            ))}
+          </List>
+        )}
+      </WithRail>
     </Page>
   );
 }

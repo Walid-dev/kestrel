@@ -1,18 +1,21 @@
 // Learn's front page, and Interview prep's, in one column as wide as the page: the switch between the two in the head,
-// the figures (to review, new, learning, known) over the progress bar with Start the review, one filter card (the
-// search, the packs as pills under their parents), the lessons by state, the way to learn here at the
-// foot. A pack (or a parent) is a page under it: its own figures with Continue, its lessons in order (a guide's as its
-// contents, parts folded), and its settings at the foot (its parent, the move to the other area), so nothing has to
-// be decided for good.
+// the figures (to review, new, learning, known: the shared strip) with the progress bar and Start the review under
+// them, one filter card (Searches': the search, a row per parent, its All and its packs as pills), the lessons by
+// state, the way to learn here at the foot. A pack (or a parent) is a page under it: its own figures with Continue, its
+// lessons in order (a guide's as its contents, parts folded), and its settings at the foot (its parent, the move to
+// the other area), so nothing has to be decided for good. Every page's eyebrow is in the area's colour (Learn purple,
+// Interview prep green): the area's word on its front page, a pack's parent on a pack.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, type ReactNode, useEffect, useId, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
-import { Card } from "../ui/card.tsx";
+import type { AppName } from "../ui/apps.tsx";
 import { EmptyState } from "../ui/empty.tsx";
-import { Field } from "../ui/field.tsx";
+import { Figure, Figures as Strip } from "../ui/figures.tsx";
+import { FilterPanel, FilterRow } from "../ui/filters.tsx";
 import { List, Row as ListRow } from "../ui/list.tsx";
 import { Page } from "../ui/page.tsx";
 import { Pills, type Tone } from "../ui/pills.tsx";
+import { SectionHead } from "../ui/section.tsx";
 import { Seg } from "../ui/seg.tsx";
 import { STATE, titled } from "./lesson.tsx";
 
@@ -42,6 +45,10 @@ type Area = "learn" | "interview";
 
 const AREA_NAME: Record<Area, string> = { learn: "Learn", interview: "Interview prep" };
 const AREA_PATH: Record<Area, string> = { learn: "/learn", interview: "/interview" };
+// each area's app (its colour on the eyebrows) and the word for what it holds, the front page's eyebrow and the
+// eyebrow of a page that sits under no parent
+export const AREA_APP: Record<Area, AppName> = { learn: "Learn", interview: "Interview prep" };
+export const AREA_WORD: Record<Area, string> = { learn: "Lessons", interview: "Answers to say" };
 const lessonPath = (id: string) => `/learn/lesson/${encodeURIComponent(id)}`;
 // a part of the progress bar: its length is data, so it reaches the class as a variable
 const share = (n: number, total: number) => ({ "--part": `${(n / total) * 100}%` }) as CSSProperties;
@@ -63,42 +70,32 @@ function StateChip({ state }: { state: string }) {
   return <span className={`chip chip-caps tone-${s.tone}`}>{s.label}</span>;
 }
 
-// the figures: each state in its one colour and its one name (the same as its chip, its heading and its part of the
-// bar), the number in mono under its name, the bar under them; the page's one filled button on their right, or under
-// the bar when the row is too narrow
+// the figures, the shared strip: each state in its one colour and its one name (the same as its chip, its heading and
+// its part of the bar), the number in mono; under them the bar and the page's one filled button (or what Continue
+// opens), wrapping under the bar when the row is too narrow. A review waiting today is what matters now: the strip
+// takes its edge
 const FIGS = ["due", "new", "learning", "known"] as const;
 function Figures({ counts, action }: { counts: Counts; action?: ReactNode }) {
   const total = counts.due + counts.new + counts.learning + counts.known || 1;
   return (
-    // a review waiting today is what matters now: the card takes its edge
-    <Card tone={counts.due > 0 ? "cyan" : undefined}>
-      <div className="learn-sum">
-        {/* the numbers and their bar in one column, so a wrapped action never comes between them */}
-        <div className="learn-sum-main">
-          <dl className="learn-figs">
-            {FIGS.map((st) => (
-              <div key={st} className="grid gap-1">
-                <dt className="eyebrow flex items-center gap-1.5">
-                  <span className={`dot tone-${STATE[st].tone}`} aria-hidden="true" />
-                  {STATE[st].label}
-                </dt>
-                <dd
-                  className={`font-mono m-0 text-lead font-medium tabular-nums ${counts[st] ? "text-strong" : "text-muted"}`}
-                >
-                  {counts[st]}
-                </dd>
-              </div>
-            ))}
-          </dl>
-          <div className="meter" aria-hidden="true">
+    <Strip
+      label="The lessons, by state"
+      tone={counts.due > 0 ? "cyan" : undefined}
+      foot={
+        <>
+          <div className="meter min-w-40 flex-1" aria-hidden="true">
             <span className="tone-green" style={share(counts.known, total)} />
             <span className="tone-purple" style={share(counts.learning, total)} />
             <span className="tone-cyan" style={share(counts.due, total)} />
           </div>
-        </div>
-        {action && <div className="learn-figs-action">{action}</div>}
-      </div>
-    </Card>
+          {action && <div className="learn-figs-action">{action}</div>}
+        </>
+      }
+    >
+      {FIGS.map((st) => (
+        <Figure key={st} label={STATE[st].label} tone={STATE[st].tone} value={counts[st]} quiet={!counts[st]} />
+      ))}
+    </Strip>
   );
 }
 
@@ -144,20 +141,15 @@ function ByState({ rows, packName }: { rows: Row[]; packName: (id: string) => st
       g.st === "known" ? (
         <details key={g.st}>
           <summary className="disclosure">
-            Known · <span className="font-mono tabular-nums">{g.rows.length}</span>
+            Known <span className="font-mono text-small text-muted">{g.rows.length}</span>
           </summary>
           <div className="mt-2">
             <Lessons label="Known" rows={g.rows} packName={packName} />
           </div>
         </details>
       ) : (
-        <section key={g.st} className="grid gap-3">
-          <h2 className="font-cond m-0 text-section">
-            {STATE[g.st].label} ·{" "}
-            <span className={`font-mono tabular-nums ${g.st === "due" ? "text-cyan" : "text-muted"}`}>
-              {g.rows.length}
-            </span>
-          </h2>
+        <section key={g.st} className="grid gap-3" aria-labelledby={`learn-${g.st}`}>
+          <SectionHead id={`learn-${g.st}`} title={STATE[g.st].label} count={g.rows.length} tone={STATE[g.st].tone} />
           <Lessons label={STATE[g.st].label} rows={g.rows} packName={packName} />
         </section>
       ),
@@ -289,6 +281,9 @@ export function LearnPacks({ area = "learn" }: { area?: Area }) {
   const [newGroup, setNewGroup] = useState("");
   const newGroupHint = useId();
   const [showPacks, setShowPacks] = useState(packsOpenAtFirst);
+  // the parents folded to their name in the filter card, for this visit
+  const [closedRows, setClosedRows] = useState<string[]>([]);
+  const flipRow = (g: string) => setClosedRows((all) => (all.includes(g) ? all.filter((x) => x !== g) : [...all, g]));
   const foldPacks = (v: boolean) => {
     setShowPacks(v);
     try {
@@ -385,7 +380,7 @@ export function LearnPacks({ area = "learn" }: { area?: Area }) {
   if (pick) {
     if (!chosen)
       return (
-        <Page title={o ? "This pack is gone" : ""} back={back}>
+        <Page title={o ? "This pack is gone" : ""} back={back} app={AREA_APP[area]} eyebrow={AREA_WORD[area]}>
           {errors}
           {loading ||
             (o && (
@@ -413,9 +408,8 @@ export function LearnPacks({ area = "learn" }: { area?: Area }) {
     const groupNow = regroup.isPending ? regroup.variables.group : chosen.group;
     return (
       <Page
-        eyebrow={
-          chosen.group ? <span className={`text-tone tone-${groupTone(chosen.group)}`}>{chosen.group}</span> : undefined
-        }
+        app={AREA_APP[area]}
+        eyebrow={chosen.group || AREA_WORD[area]}
         title={titled(chosen.name)}
         back={back}
         // what the figures don't say: a guide's topics read so far, or how many lessons the pack holds
@@ -526,6 +520,8 @@ export function LearnPacks({ area = "learn" }: { area?: Area }) {
     const mine = packs.filter((p) => p.group === pickGroup);
     return (
       <Page
+        app={AREA_APP[area]}
+        eyebrow={AREA_WORD[area]}
         title={pickGroup}
         back={back}
         line={
@@ -571,6 +567,8 @@ export function LearnPacks({ area = "learn" }: { area?: Area }) {
   const searching = q.trim().length > 1;
   return (
     <Page
+      app={AREA_APP[area]}
+      eyebrow={AREA_WORD[area]}
       title={home}
       line={
         o && (
@@ -619,63 +617,52 @@ export function LearnPacks({ area = "learn" }: { area?: Area }) {
               </Link>
             }
           />
-          {/* every filter in one card, as on Searches: the search (its own ✕ clears it, so no Reset beside it), and the
-              packs under their parents (a parent's pill opens the parent, a pack's the pack; a count is the lessons to
-              review there) */}
-          <section className="card grid gap-3">
-            <div className="flex items-center gap-2">
-              <div className="min-w-0 flex-1">
-                <Field label="Search the lessons" placeholder="Search" value={q} onChange={setQ} />
-              </div>
-              <button
-                type="button"
-                className="btn shrink-0"
-                aria-expanded={showPacks}
-                onClick={() => foldPacks(!showPacks)}
+          {/* every filter in one card, as on Searches: the search with its Reset, then a row per parent, folding to its
+              name: its All (opening the parent) first, then its packs (each opening the pack); a count is the lessons
+              to review there. The packs not grouped have a row of their own, last */}
+          <FilterPanel
+            find={{ label: "Search the lessons", value: q, onChange: setQ }}
+            changed={q !== ""}
+            onReset={() => setQ("")}
+            fold={{ shown: showPacks, onToggle: () => foldPacks(!showPacks), name: "Packs", count: packs.length }}
+          >
+            {parents.map(([g, list]) => (
+              <FilterRow
+                key={g || "none"}
+                label={g || "Not grouped"}
+                summary={`${list.length} ${plural(list.length, "pack")}`}
+                open={!closedRows.includes(g)}
+                onToggle={() => flipRow(g)}
               >
-                {showPacks ? "Hide packs" : `Packs · ${packs.length}`}
-              </button>
-            </div>
-            {showPacks && (
-              <div className="learn-rows">
-                {parents.map(([g, list]) => (
-                  <div key={g || "none"} className="learn-group">
-                    {g ? (
-                      <NavPills
-                        label={`All of ${g}`}
-                        items={[
+                <NavPills
+                  label={g ? `${g}: all of it, and its packs` : "The packs not grouped"}
+                  items={[
+                    ...(g
+                      ? [
                           {
                             to: `${AREA_PATH[area]}?group=${encodeURIComponent(g)}`,
-                            label: g,
+                            label: "All",
                             count: dueIn(list) || undefined,
                           },
-                        ]}
-                      />
-                    ) : (
-                      <span className="eyebrow">Not grouped</span>
-                    )}
-                    <NavPills
-                      label={g ? `The packs under ${g}` : "The packs not grouped"}
-                      items={list.map((p) => ({
-                        to: `${AREA_PATH[area]}?pack=${encodeURIComponent(p.id)}`,
-                        label: titled(p.name),
-                        tone: groupTone(g),
-                        count: dueIn([p]) || undefined,
-                      }))}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+                        ]
+                      : []),
+                    ...list.map((p) => ({
+                      to: `${AREA_PATH[area]}?pack=${encodeURIComponent(p.id)}`,
+                      label: titled(p.name),
+                      tone: groupTone(g),
+                      count: dueIn([p]) || undefined,
+                    })),
+                  ]}
+                />
+              </FilterRow>
+            ))}
+          </FilterPanel>
           {searching ? (
             found.data && found.data.lessons.length === 0 ? (
               <EmptyState title="No lesson has those words." line="Try another word, or fewer of them." />
             ) : (
-              <section className={found.isFetching ? "grid gap-3 busy" : "grid gap-3"}>
-                <h2 className="font-cond m-0 text-section">
-                  Found · <span className="font-mono text-muted tabular-nums">{found.data?.lessons.length ?? "…"}</span>
-                </h2>
+              <section className={found.isFetching ? "grid gap-3 busy" : "grid gap-3"} aria-labelledby="learn-found">
+                <SectionHead id="learn-found" title="Found" count={found.data?.lessons.length ?? "…"} />
                 {found.data && (
                   <Lessons
                     label="Lessons found"

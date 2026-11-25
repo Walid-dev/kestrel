@@ -19,6 +19,7 @@ import { Doc, type DocMode, downloadText, type Saved } from "../ui/doc.tsx";
 import { EmptyState } from "../ui/empty.tsx";
 import { blockAt, sourceAt } from "../ui/markdown.tsx";
 import { Page, PageHead } from "../ui/page.tsx";
+import { WithRail } from "../ui/rail.tsx";
 import { type AppliedSave, Apply } from "./apply.tsx";
 import { NoteSheet, type SheetTarget } from "./note-sheet.tsx";
 import { NotesList } from "./notes-list.tsx";
@@ -409,19 +410,15 @@ export function Reader() {
     if (yes) removeNote(n.id);
   };
   return (
-    // the page's frame and head by hand (PageHead, not Page): on a computer the notes column rises beside the head,
-    // so it shows whole beside the text, as it did before the shared parts. Rows: the bar, the head, the document;
-    // the column spans all three, and the last row takes what the column needs past them, so the head's rows never
-    // stretch. Side by side takes the whole width, and the notes go under it.
-    <main
-      className={cx(
-        "page note-reader",
-        titled && "note-titled",
-        !side && "lg:grid-cols-[minmax(0,1fr)_340px] lg:grid-rows-[auto_auto_1fr] lg:items-start",
-      )}
-    >
+    // the page's frame and head by hand (PageHead, not Page: the Note button and the Ask under everything are the
+    // page's own). Under the head, News' layout: the document in the main column, my notes in the rail on its right
+    // on a computer, staying in view while the document scrolls (styles.css, .note-layout), under it on a phone. Side
+    // by side takes the whole width, and the notes go under it: the same parts, so the editor never starts again.
+    <main className={cx("page note-reader", titled && "note-titled", side && "note-side")}>
       <PageHead
         back={back}
+        app="Notes"
+        eyebrow="Documents"
         // the document's own h1 when it starts with one; then its file shows under it, by path or, for an upload,
         // by name
         title={titled || d.name}
@@ -473,7 +470,74 @@ export function Reader() {
           )
         }
       />
-      <div className="grid min-w-0 gap-3">
+      <WithRail
+        className="note-layout"
+        label="Your notes"
+        rail={
+          <>
+            <NotesList
+              notes={placed}
+              headRef={notesHead}
+              apply={
+                <div className="note-apply-col">
+                  <Apply {...applyProps} />
+                </div>
+              }
+              onOpen={(n) => setSheet({ kind: "edit", note: n })}
+              onDelete={deleteNote}
+            />
+            {(versions.data?.versions.length ?? 0) > 0 && (
+              // a fold-out in the rail, not a card of its own: closed, it is one quiet row under the notes
+              <details className="note-versions">
+                <summary className="disclosure">
+                  Earlier versions{" "}
+                  <span className="font-mono text-small text-muted tabular-nums">{versions.data?.versions.length}</span>
+                </summary>
+                <p className="m-0 text-small text-muted">
+                  The text as it was before each save, here in kestrel. Restore brings one back.
+                </p>
+                <ul className="m-0 grid list-none gap-2 p-0">
+                  {versions.data?.versions.map((v) => (
+                    <li key={v.id} className="inner flex items-center gap-3">
+                      <span className="min-w-0 flex-1">
+                        <span className="font-mono block text-small text-strong tabular-nums">
+                          {new Date(v.savedAt).toLocaleString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                        <span className="block truncate text-small text-muted">{v.start}</span>
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-sm shrink-0"
+                        disabled={restore.isPending}
+                        onClick={async () => {
+                          const yes = await sure({
+                            title: "Bring this version back?",
+                            body: "What the document says now is kept as a version too.",
+                            yes: "Restore",
+                          });
+                          if (yes) restore.mutate(v.id);
+                        }}
+                      >
+                        Restore
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {restore.isError && (
+                  <p role="alert" className="m-0 text-detail text-red">
+                    {sentence((restore.error as Error).message)}
+                  </p>
+                )}
+              </details>
+            )}
+          </>
+        }
+      >
         <Doc
           key={id}
           id={id}
@@ -498,72 +562,11 @@ export function Reader() {
             </span>
           }
         />
-      </div>
-      {/* the phone's Apply: held at the screen's foot while I read, at rest above the notes at the document's end */}
-      <div className="note-bar">
-        <Apply {...applyProps} bar />
-      </div>
-      <div className={cx("grid gap-4", !side && "lg:sticky lg:top-6 lg:col-start-2 lg:row-span-3 lg:row-start-1")}>
-        <NotesList
-          notes={placed}
-          headRef={notesHead}
-          apply={
-            <div className="note-apply-col">
-              <Apply {...applyProps} />
-            </div>
-          }
-          onOpen={(n) => setSheet({ kind: "edit", note: n })}
-          onDelete={deleteNote}
-        />
-        {(versions.data?.versions.length ?? 0) > 0 && (
-          // a fold-out in the column, not a card of its own: closed, it is one quiet row under the notes
-          <details className="note-versions">
-            <summary className="disclosure">
-              Earlier versions · <span className="font-mono tabular-nums">{versions.data?.versions.length}</span>
-            </summary>
-            <p className="m-0 text-small text-muted">
-              The text as it was before each save, here in kestrel. Restore brings one back.
-            </p>
-            <ul className="m-0 grid list-none gap-2 p-0">
-              {versions.data?.versions.map((v) => (
-                <li key={v.id} className="inner flex items-center gap-3">
-                  <span className="min-w-0 flex-1">
-                    <span className="font-mono block text-small text-strong tabular-nums">
-                      {new Date(v.savedAt).toLocaleString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                    <span className="block truncate text-small text-muted">{v.start}</span>
-                  </span>
-                  <button
-                    type="button"
-                    className="btn btn-sm shrink-0"
-                    disabled={restore.isPending}
-                    onClick={async () => {
-                      const yes = await sure({
-                        title: "Bring this version back?",
-                        body: "What the document says now is kept as a version too.",
-                        yes: "Restore",
-                      });
-                      if (yes) restore.mutate(v.id);
-                    }}
-                  >
-                    Restore
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {restore.isError && (
-              <p role="alert" className="m-0 text-detail text-red">
-                {sentence((restore.error as Error).message)}
-              </p>
-            )}
-          </details>
-        )}
-      </div>
+        {/* the phone's Apply: held at the screen's foot while I read, at rest above the notes at the document's end */}
+        <div className="note-bar">
+          <Apply {...applyProps} bar />
+        </div>
+      </WithRail>
       {pick && reading && (
         <button
           type="button"
@@ -584,7 +587,7 @@ export function Reader() {
         </button>
       )}
       {/* Ask, about this document, the whole page wide under it: it proposes notes as cards, which join mine on a tap */}
-      <div className="min-w-0 lg:col-span-full">
+      <div className="min-w-0">
         <Ask
           app="notes"
           refId={id}

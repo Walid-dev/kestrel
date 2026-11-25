@@ -5,7 +5,8 @@
 // brief kept, each match opening its day at the story. The words stay in the address, so Back from a day finds the
 // matches as they were. Starred: every story starred, the newest starred first, each row its headline, its section's
 // chip, its day and its first source, opening its day at the story while that day's page shows it, else the copy its
-// star kept, in a box; its ★ unstars it (after Confirm when that copy is all that is left).
+// star kept, in a box; its ★ (the card's, alone at the row's end) unstars it (after Confirm when that copy is all that
+// is left).
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigationType, useSearchParams } from "react-router";
 import { type NewsDay, type NewsStar, SECTIONS, type Section } from "../../../src/shared/news.ts";
@@ -385,10 +386,10 @@ function Starred() {
               }
               end={
                 <Star
-                  compact
+                  bare
                   on={going(s) ? star.variables?.on === true : on}
                   busy={going(s)}
-                  label={`Star: ${s.story.headline}`}
+                  label={`Star “${s.story.headline}”`}
                   hint={STAR_HINT}
                   onPress={() => (on ? unstar(s) : restar(s))}
                 />
@@ -409,8 +410,8 @@ function Starred() {
   );
 }
 
-// a starred story's kept copy, as its card read: its section's chip, its number and its source, the story, its links
-// and its star
+// a starred story's kept copy, as its card read: its section's chip, its number, its source and its star (the ★ at
+// the top line's right end), the story, its links
 function Kept({ star, going, onUnstar }: { star: NewsStar; going: boolean; onUnstar: () => void }) {
   const s = star.story;
   return (
@@ -426,6 +427,7 @@ function Kept({ star, going, onUnstar }: { star: NewsStar; going: boolean; onUns
           </span>
         )}
         {s.links[0] && <span className="news-story-from">{s.links[0].source}</span>}
+        <Star bare on={!going} busy={going} label={`Star “${s.headline}”`} hint={STAR_HINT} onPress={onUnstar} />
       </div>
       <p className="m-0 text-body text-ink">{s.text}</p>
       {s.unsure && <p className="m-0 text-small text-muted">A number here wasn't found in its sources.</p>}
@@ -433,9 +435,6 @@ function Kept({ star, going, onUnstar }: { star: NewsStar; going: boolean; onUns
         {s.links.map((l) => (
           <Links key={l.url} link={l} />
         ))}
-        <span className="news-story-acts">
-          <Star on={!going} busy={going} hint={STAR_HINT} onPress={onUnstar} />
-        </span>
       </div>
       <p className="m-0 text-small text-muted">Its day's page no longer shows it: this is the copy its star kept.</p>
     </div>

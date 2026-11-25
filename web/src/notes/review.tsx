@@ -220,7 +220,7 @@ export function Review({
           </section>
         )}
         {saveWhy && (
-          <p role="alert" className="m-0 rounded-lg bg-warn-soft px-3 py-2 text-detail">
+          <p role="alert" className="m-0 text-detail text-red">
             {sentence(saveWhy)}
           </p>
         )}

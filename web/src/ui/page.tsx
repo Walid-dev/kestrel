@@ -7,12 +7,16 @@
 // reading for text; both start at the shell's left edge, so a title never jumps between pages.
 import type { ReactNode } from "react";
 import { Link } from "react-router";
+import { type AppName, appTone } from "./apps.tsx";
 import { cx } from "./cx.ts";
 
 export type HeadProps = {
   title: ReactNode;
   // a few words over the title: where the page sits (a part, a topic)
   eyebrow?: ReactNode;
+  // the app the page belongs to: its eyebrow takes the app's colour (Learn purple), the one accent a head carries.
+  // Searches and News leave it out: Searches tints its eyebrow by the hunt's kind, News' is the day, muted
+  app?: AppName;
   // one line under the title: what the page is for, or where things stand
   line?: ReactNode;
   // a short statement beside the head (Home's "One app, one computer, local models."): plain text past a thin rule,
@@ -32,6 +36,7 @@ export type HeadProps = {
 export function PageHead({
   title,
   eyebrow,
+  app,
   line,
   aside,
   actions,
@@ -69,7 +74,7 @@ export function PageHead({
         </div>
       )}
       <header className={cx("page-head", side && "page-head-aside")}>
-        {eyebrow && <span className="eyebrow">{eyebrow}</span>}
+        {eyebrow && <span className={cx("eyebrow", app && appTone(app))}>{eyebrow}</span>}
         {/* read in this order (title, line, buttons), as a phone shows it; a wider screen moves the buttons up beside
             the title (styles.css) */}
         <div className="page-title-row">

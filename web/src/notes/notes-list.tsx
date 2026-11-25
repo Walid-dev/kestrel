@@ -1,11 +1,13 @@
-// The document's notes: the open ones first, each with its words (or "the whole document"), a tap to open, and the
-// card's ✕ to delete it right here; Apply heads them (apply.tsx, passed in). The notes a save answered fold away
-// under Done, so a good save never looks like an error: only an open note says it is detached.
+// The document's notes, a part of the reader's rail (headed by its eyebrow, "Your notes · 3", as News' Earlier days):
+// the open ones first, each with its words (or "the whole document"), a tap to open, and the card's ✕ to delete it
+// right here; Apply heads them (apply.tsx, passed in). The notes a save answered fold away under Done, so a good save
+// never looks like an error: only an open note says it is detached.
 import type { ReactNode, Ref } from "react";
 import { bare } from "../../../src/shared/markdown.ts";
 import type { PlacedNote } from "../../../src/shared/notes.ts";
 import { Card } from "../ui/card.tsx";
 import { EmptyState } from "../ui/empty.tsx";
+import { RailPart } from "../ui/rail.tsx";
 
 const quoted = (n: PlacedNote) => {
   if (n.quote === "") return "The whole document";
@@ -47,10 +49,7 @@ export function NotesList({
     />
   );
   return (
-    <section className="grid gap-3" aria-labelledby="notes-mine">
-      <h2 id="notes-mine" ref={headRef} tabIndex={-1} className="font-cond m-0 text-head">
-        Your notes{open.length > 0 && <span className="font-mono ml-2 text-small text-muted">{open.length}</span>}
-      </h2>
+    <RailPart id="notes-mine" headRef={headRef} title="Your notes" count={open.length || undefined}>
       {apply}
       {/* none open: the column says how a note starts, so it never stands empty */}
       {open.length === 0 ? (
@@ -64,11 +63,11 @@ export function NotesList({
       {done.length > 0 && (
         <details className="note-fold">
           <summary className="disclosure">
-            Done · <span className="font-mono tabular-nums">{done.length}</span>
+            Done <span className="font-mono text-small text-muted tabular-nums">{done.length}</span>
           </summary>
           {done.map(card)}
         </details>
       )}
-    </section>
+    </RailPart>
   );
 }
