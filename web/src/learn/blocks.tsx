@@ -58,34 +58,44 @@ export function Inline({ text }: { text: string }) {
   const re =
     /`([^`]+)`|\*\*([^*]+)\*\*|\s?\[(\d+(?:\s*[,–-]\s*\d+)*)\]|\[([^\]\n]+)\]\(((?:lesson:|listing:|https?:\/\/)[^)\s]+)\)|(?<![\w*])\*(?![\s*])([^*\n]+?)(?<![\s*])\*(?![\w*])/g;
   let last = 0;
+  let citeEnd = -1; // where the last source link ended: one right after it parts from it with a dot
   let m: RegExpExecArray | null = re.exec(text);
   while (m) {
     if (m.index > last) out.push(text.slice(last, m.index));
     if (m[3] !== undefined) {
-      // a source number: a link named for its site when the answer knows it, the number as written otherwise
+      // a source number: a link named for its site when the answer knows it, the number as written otherwise. Two
+      // links with nothing between them ([1, 3], [2][3]) part with a dot; words between them need none
       const nums = m[3].split(/\s*[,–-]\s*/).map(Number);
       const at = m.index;
+      let joined = at === citeEnd;
       if (cites)
         for (const n of nums) {
           const c = cites.get(n);
+          if (!c) continue;
+          if (joined)
+            out.push(
+              <span key={`${at}-${n}-sep`} className="cite-sep" aria-hidden="true">
+                ·
+              </span>,
+            );
+          joined = true;
           out.push(
-            c ? (
-              <a
-                key={`${at}-${n}`}
-                href={c.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="cite"
-                title={c.title || c.url}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {site(c.url)}
-              </a>
-            ) : null,
+            <a
+              key={`${at}-${n}`}
+              href={c.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="cite"
+              title={c.title || c.url}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {site(c.url)}
+            </a>,
           );
         }
       else out.push(m[0]);
       last = m.index + m[0].length;
+      citeEnd = cites && joined ? last : -1;
       m = re.exec(text);
       continue;
     }

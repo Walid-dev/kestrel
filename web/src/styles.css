@@ -4708,23 +4708,25 @@ body:has(.paper-view) {
 }
 /* a research answer's source, inline: the site's name, a link as quiet as the facts line under the title. Small and
    regular, in a softened accent that still reads as a link (60% accent, 40% muted: AA on a card in both themes, where
-   the light accent alone is not); the accent and an underline on hover. Two in a row part with the facts line's dot */
-.cite {
+   the light accent alone is not). On hover an underline, and the accent drawn a quarter toward the body ink: darker
+   in light, lighter in dark, so the contrast only grows. Two sources in a row part with the facts line's dot, which
+   Inline (learn/blocks.tsx) draws only where nothing stands between them */
+.cite,
+.cite-sep {
   margin-left: 6px;
   font-size: var(--text-small);
+}
+.cite {
   font-weight: 400;
   white-space: nowrap;
   text-decoration: none;
   color: color-mix(in srgb, var(--accent) 60%, var(--muted));
 }
-.cite + .cite::before {
-  content: "·";
-  display: inline-block;
-  margin-right: 6px;
+.cite-sep {
   color: var(--muted);
 }
 .cite:hover {
-  color: var(--accent);
+  color: color-mix(in srgb, var(--accent) 75%, var(--text));
   text-decoration: underline;
   text-underline-offset: 3px;
 }
