@@ -5,6 +5,18 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Tasks and Research on News' layout.**
+  Tasks: the open list in the main column, the done ones (a fold, "Done 2") and Ask in the rail on the right, 280 to
+  340 wide where it had 360; the eyebrow "To do" in pink. Research's landing turns around: the answers in the main
+  column (`SectionHead` "Answers" with its count), the question in the rail (`RailPart` "New question", About me under
+  it), first in the page with `railFirst`, so a phone and the keyboard meet it first as before; it stays in view while
+  the answers scroll unless the questions round is open. The answers' filter is the shared `FilterPanel` (the search,
+  Reset, a "Show" row of pills); a card's date is Card's `end`; the empty page's starters are plain pills, as Ask's,
+  not the accent's action pills. An answer: the report in the main column, its words and what wasn't settled as folds
+  in the rail (they fold on a phone), its sources a `RailPart` ("Sources · 3", always open: the fold added nothing); a
+  gone answer says so at once with Open Research, any other failure Try again. Rejected: the question on the left (the
+  rail is on the right on every page); Words and Not settled as always-open parts (a phone would lose their folds).
+
 - **2026-11-25 · Cost and Models at the Searches standard; one table look.**
   Cost's strip is the shared `Figures` (its own `.cost-figures` goes): values on the head step as Home's, the cloud a
   phone's whole row with its lines, Saved a green dot rather than green figures, the strip dimmed while another period

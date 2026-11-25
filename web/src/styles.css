@@ -2569,18 +2569,6 @@ pre.code .f {
     display: none;
   }
 }
-/* Tasks: the open list in the wide column; on a computer the done tasks and Ask in a rail of 360 beside it, under it on
-   a phone */
-.tasks-layout {
-  display: grid;
-  gap: var(--page-gap);
-  align-items: start;
-}
-@media (min-width: 64rem) {
-  .tasks-layout {
-    grid-template-columns: minmax(0, 1fr) 360px;
-  }
-}
 /* a task is a list row, laid out as a grid: the round box, the words (the row's target: a tap edits them) in running
    text, not a title's weight, the note under them, then one meta line (whom it is for, when), the ✕ at the end. The
    same at every width */
@@ -4841,36 +4829,23 @@ body:has(.paper-view) {
     white-space: nowrap;
   }
 }
-/* Research's landing: on a computer the question in a 400 px column on the left, sticky while the answers scroll
-   when the screen is tall enough to hold it (not while the questions round is open: the round can outgrow the
-   window), About me under it; the answers take the rest of the width. On a phone one column, About me at the foot
-   (research.tsx renders it there) */
-.research-land {
-  display: grid;
-  gap: var(--page-gap);
-  align-items: start;
-}
-.research-side {
-  display: grid;
-  align-content: start;
-  gap: 12px;
-}
+/* Research's landing (WithRail, research-land): the answers in the main column; on a computer the question in the
+   rail on the right, sticky while the answers scroll when the screen is tall enough to hold it (not while the
+   questions round is open, research-round: the round can outgrow the window), About me under it. On a phone the
+   question first, About me at the foot (research.tsx renders it there) */
 .research-answers {
   display: grid;
   align-content: start;
   gap: 12px;
 }
 @media (min-width: 64rem) {
-  .research-land {
-    grid-template-columns: 400px minmax(0, 1fr);
-  }
   /* the box is a place to write in its column: five lines from the start */
   .research-ask .field-tall .field-input {
     min-height: calc(5lh + 6px);
   }
 }
 @media (min-width: 64rem) and (min-height: 45rem) {
-  .research-side:not([data-round]) {
+  .research-land:not(.research-round) > .rail {
     position: sticky;
     top: var(--page-gap);
   }
@@ -4913,29 +4888,6 @@ body:has(.paper-view) {
     margin-right: 32px;
   }
 }
-/* the answers' filter: the search box with its Reset, then the pills; one row when the column has the room */
-.research-filter {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 16px;
-}
-.research-find {
-  display: flex;
-  flex: 1 1 260px;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.research-find > .field {
-  flex: 1;
-  min-width: 0;
-}
-@media (pointer: coarse) {
-  .research-filter {
-    row-gap: 12px;
-  }
-}
 /* the answers: as many columns of at least 340 px as the column holds, one on a phone */
 .research-grid {
   display: grid;
@@ -4961,23 +4913,10 @@ body:has(.paper-view) {
   transform: translateX(-50%);
   color: var(--muted);
 }
-/* a report: the lede, what I asked and the body on the left; on a computer its words, what it wasn't sure of and its
-   sources beside it, sticky under the bar */
-.research-report {
-  display: grid;
-  gap: 20px;
-}
-.research-aside {
-  display: grid;
-  align-content: start;
-  gap: 12px;
-}
+/* a report (WithRail, research-report): the lede, what I asked and the body in the main column; on a computer its
+   words, what it wasn't sure of and its sources in the rail, sticky under the bar */
 @media (min-width: 64rem) {
-  .research-report {
-    grid-template-columns: minmax(0, 1fr) 340px;
-    align-items: start;
-  }
-  .research-aside {
+  .research-report > .rail {
     position: sticky;
     top: 64px;
   }

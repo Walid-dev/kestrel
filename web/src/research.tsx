@@ -5,7 +5,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { Ask as AskBox } from "./ask.tsx";
 import { block, type Cite, Cites, heard, type Say } from "./learn/blocks.tsx";
 import { type Spoken, useReader } from "./learn/voice.ts";
@@ -14,9 +14,12 @@ import { useConfirm } from "./ui/confirm.tsx";
 import { cx } from "./ui/cx.ts";
 import { EmptyState } from "./ui/empty.tsx";
 import { Field } from "./ui/field.tsx";
+import { FilterPanel, FilterRow } from "./ui/filters.tsx";
 import { List, Row as ListRow } from "./ui/list.tsx";
 import { Page } from "./ui/page.tsx";
 import { Pills } from "./ui/pills.tsx";
+import { RailPart, WithRail } from "./ui/rail.tsx";
+import { SectionHead } from "./ui/section.tsx";
 import { Seg } from "./ui/seg.tsx";
 
 type Level = "quick" | "deep";
@@ -161,8 +164,9 @@ export function Research() {
   );
 }
 
-// the landing: the question on the left with About me under it, the answers beside it on a computer; one column on a
-// phone, About me at its foot, where rare actions go (styles.css, .research-land)
+// the landing, News' layout: the answers in the main column, the question in the rail on its right with About me under
+// it on a computer; on a phone the question first (the rail starts the work), About me at the foot, where rare actions
+// go (styles.css, .research-land)
 function Ask({ onOpen }: { onOpen: (id: string) => void }) {
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
@@ -285,6 +289,8 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
 
   return (
     <Page
+      app="Research"
+      eyebrow="From the web"
       title="Research"
       line={
         // what the counts below don't say: one being written, or when I last asked
@@ -302,165 +308,145 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
         )
       }
     >
-      <div className="research-land">
-        {/* it stays in view while the answers scroll, but not while the questions round is open: the round can make
-            the column taller than the window, and its buttons must stay in reach */}
-        <div className="research-side" data-round={questions ? "" : undefined}>
-          {/* on a computer the column has a heading, level with the answers'; on a phone the page's title is enough */}
-          <h2 className="font-cond m-0 hidden text-section lg:block">New question</h2>
-          {/* the question waits while its first questions are answered below, and while another answer is written */}
-          <section ref={askBox} className="card card-stack research-ask" aria-label="A new question">
-            <Field
-              label="Your question"
-              placeholder="Anything: which laptop to buy, how a visa works, why my code fails…"
-              value={question}
-              onChange={(v) => setQuestion(v.slice(0, QUESTION_MAX))}
-              onSend={go}
-              sendLabel="Research"
-              busy={first.isPending || ask.isPending || Boolean(running)}
-              disabled={Boolean(questions)}
-              hint={
-                questions
-                  ? "Answer the questions below, or skip them"
-                  : running
-                    ? "Writing the answer…"
-                    : first.isPending
-                      ? "Choosing a few questions…"
-                      : "Enter sends · Shift+Enter for a new line"
-              }
-              tall
-            />
-            {/* how deep, and whether it asks first: one row, what the depth means under it */}
-            <div className="research-how">
-              <Seg
-                label="How deep"
-                options={LEVELS.map(([value, label, hint]) => ({ value, label, hint }))}
-                value={level}
-                onChange={setLevel}
-              />
-              <Toggle on={askMe} set={setAskMe} hint={ASK_ME}>
-                Ask me first
-              </Toggle>
-            </div>
-            {error && <p className="m-0 text-detail text-red">{sentence((error as Error).message)}</p>}
-          </section>
-
-          {questions && (
-            <Card tone="purple">
-              {/* Enter in any answer researches now, the way a form sends */}
-              <form
-                ref={round}
-                className="grid gap-3"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!ask.isPending) ask.mutate(true);
-                }}
-              >
-                <span className="eyebrow tone-purple">A few questions first</span>
-                {questions.map((q, i) => (
-                  <label key={q} className="grid gap-1">
-                    <span className="text-body text-strong">{q}</span>
-                    <input
-                      className="input w-full"
-                      value={answers[i] ?? ""}
-                      placeholder="Your answer, or leave it empty"
-                      enterKeyHint="send"
-                      onChange={(e) => setAnswers((a) => a.map((x, j) => (j === i ? e.target.value : x)))}
-                    />
-                  </label>
-                ))}
-                <span className="text-small text-muted">Enter sends · an empty answer is left out</span>
-                <div className="pills-inline flex flex-wrap items-center gap-2">
-                  <Toggle
-                    on={keep}
-                    set={setKeep}
-                    hint="Each answer given is added to About me, so it asks less next time"
-                  >
-                    Keep in About me
+      {/* the rail stays in view while the answers scroll, but not while the questions round is open: the round can
+          make it taller than the window, and its buttons must stay in reach */}
+      <WithRail
+        railFirst
+        className={cx("research-land", questions && "research-round")}
+        label="A new question, and About me"
+        rail={
+          <>
+            <RailPart id="research-new" title="New question">
+              {/* the question waits while its first questions are answered below, and while another answer is written */}
+              <section ref={askBox} className="card card-stack research-ask" aria-label="A new question">
+                <Field
+                  label="Your question"
+                  placeholder="Anything: which laptop to buy, how a visa works, why my code fails…"
+                  value={question}
+                  onChange={(v) => setQuestion(v.slice(0, QUESTION_MAX))}
+                  onSend={go}
+                  sendLabel="Research"
+                  busy={first.isPending || ask.isPending || Boolean(running)}
+                  disabled={Boolean(questions)}
+                  hint={
+                    questions
+                      ? "Answer the questions below, or skip them"
+                      : running
+                        ? "Writing the answer…"
+                        : first.isPending
+                          ? "Choosing a few questions…"
+                          : "Enter sends · Shift+Enter for a new line"
+                  }
+                  tall
+                />
+                {/* how deep, and whether it asks first: one row, what the depth means under it */}
+                <div className="research-how">
+                  <Seg
+                    label="How deep"
+                    options={LEVELS.map(([value, label, hint]) => ({ value, label, hint }))}
+                    value={level}
+                    onChange={setLevel}
+                  />
+                  <Toggle on={askMe} set={setAskMe} hint={ASK_ME}>
+                    Ask me first
                   </Toggle>
-                  <button
-                    type="button"
-                    className="btn ml-auto"
-                    disabled={ask.isPending}
-                    onClick={() => ask.mutate(false)}
-                  >
-                    Skip
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn btn-primary relative"
-                    disabled={ask.isPending}
-                    aria-busy={ask.isPending}
-                  >
-                    {/* its words stay under the spinner, so the button keeps its width */}
-                    <span className={cx(ask.isPending && "opacity-0")}>Research now</span>
-                    {ask.isPending && <span className="spin absolute inset-0 m-auto" />}
-                  </button>
                 </div>
-              </form>
-            </Card>
-          )}
+                {error && <p className="m-0 text-detail text-red">{sentence((error as Error).message)}</p>}
+              </section>
 
-          {/* About me under the question on a computer; on a phone it is rendered at the foot instead, so the eye, Tab
-              and a screen reader all meet it last */}
-          <div className="hidden lg:block">
-            <AboutMe context={context.data} />
-          </div>
-        </div>
-
-        <section className="research-answers" aria-label="The answers">
+              {questions && (
+                <Card tone="purple">
+                  {/* Enter in any answer researches now, the way a form sends */}
+                  <form
+                    ref={round}
+                    className="grid gap-3"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!ask.isPending) ask.mutate(true);
+                    }}
+                  >
+                    <span className="eyebrow tone-purple">A few questions first</span>
+                    {questions.map((q, i) => (
+                      <label key={q} className="grid gap-1">
+                        <span className="text-body text-strong">{q}</span>
+                        <input
+                          className="input w-full"
+                          value={answers[i] ?? ""}
+                          placeholder="Your answer, or leave it empty"
+                          enterKeyHint="send"
+                          onChange={(e) => setAnswers((a) => a.map((x, j) => (j === i ? e.target.value : x)))}
+                        />
+                      </label>
+                    ))}
+                    <span className="text-small text-muted">Enter sends · an empty answer is left out</span>
+                    <div className="pills-inline flex flex-wrap items-center gap-2">
+                      <Toggle
+                        on={keep}
+                        set={setKeep}
+                        hint="Each answer given is added to About me, so it asks less next time"
+                      >
+                        Keep in About me
+                      </Toggle>
+                      <button
+                        type="button"
+                        className="btn ml-auto"
+                        disabled={ask.isPending}
+                        onClick={() => ask.mutate(false)}
+                      >
+                        Skip
+                      </button>
+                      <button
+                        type="submit"
+                        className="btn btn-primary relative"
+                        disabled={ask.isPending}
+                        aria-busy={ask.isPending}
+                      >
+                        {/* its words stay under the spinner, so the button keeps its width */}
+                        <span className={cx(ask.isPending && "opacity-0")}>Research now</span>
+                        {ask.isPending && <span className="spin absolute inset-0 m-auto" />}
+                      </button>
+                    </div>
+                  </form>
+                </Card>
+              )}
+            </RailPart>
+            {/* About me under the question on a computer; on a phone it is rendered at the foot instead, so the eye,
+                Tab and a screen reader all meet it last */}
+            <div className="hidden lg:block">
+              <AboutMe context={context.data} />
+            </div>
+          </>
+        }
+      >
+        <section className="research-answers" aria-labelledby={kept.length > 0 ? "research-answers" : undefined}>
           {/* the count beside the heading until the filter's pills carry it */}
           {kept.length > 0 && (
-            <h2 className="font-cond m-0 text-section">
-              Answers {!filtering && <span className="font-mono text-small text-muted">{kept.length}</span>}
-            </h2>
+            <SectionHead id="research-answers" title="Answers" count={filtering ? undefined : kept.length} />
           )}
           {filtering && (
-            // the words search the titles, questions and short answers; the pills pick a depth or the failed ones
-            <div className="research-filter">
-              <div className="research-find">
-                <Field
-                  label="Search the answers"
-                  placeholder="Search the answers"
-                  value={q}
-                  onChange={(v) => set("q", v)}
+            // Searches' filter card: the words search the titles, questions and short answers; the pills pick a depth
+            // or the failed ones
+            <FilterPanel
+              find={{ label: "Search the answers", value: q, onChange: (v) => set("q", v) }}
+              changed={changed}
+              onReset={reset}
+            >
+              <FilterRow label="Show">
+                <Pills<Show>
+                  label="Which answers"
+                  options={[
+                    { value: "all", label: "All", count: count.all },
+                    { value: "quick", label: "Quick", count: count.quick, tone: LEVEL_TONE.quick },
+                    { value: "deep", label: "Deep", count: count.deep, tone: LEVEL_TONE.deep },
+                    ...(count.failed > 0 || show === "failed"
+                      ? [{ value: "failed" as const, label: "Failed", count: count.failed, tone: "red" as const }]
+                      : []),
+                  ]}
+                  value={show}
+                  onChange={(v) => set("show", v)}
                 />
-                <button
-                  type="button"
-                  className="btn btn-icon search-reset shrink-0"
-                  disabled={!changed}
-                  onClick={reset}
-                  aria-label="Reset the filter"
-                  title="Reset the filter"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M3 12a9 9 0 1 0 3-6.7" />
-                    <path d="M3 4v5h5" />
-                  </svg>
-                </button>
-              </div>
-              <Pills<Show>
-                label="Which answers"
-                options={[
-                  { value: "all", label: "All", count: count.all },
-                  { value: "quick", label: "Quick", count: count.quick, tone: LEVEL_TONE.quick },
-                  { value: "deep", label: "Deep", count: count.deep, tone: LEVEL_TONE.deep },
-                  ...(count.failed > 0 || show === "failed"
-                    ? [{ value: "failed" as const, label: "Failed", count: count.failed, tone: "red" as const }]
-                    : []),
-                ]}
-                value={show}
-                onChange={(v) => set("show", v)}
-              />
-            </div>
+              </FilterRow>
+            </FilterPanel>
           )}
 
           {list.isError && <p className="m-0 text-detail text-red">{(list.error as Error).message}</p>}
@@ -486,12 +472,10 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
                         <span className="dot pulse" aria-hidden="true" />
                         Writing
                       </span>
-                      {/* no ✕ while it is written: the date keeps the ✕'s room, so it lines up with the others' */}
-                      <span className="research-date-end ml-auto font-mono text-small text-muted">
-                        {day(writing.started)}
-                      </span>
                     </>
                   }
+                  // no ✕ while it is written: the date keeps the ✕'s room, so it lines up with the others'
+                  end={<span className="research-date-end font-mono">{day(writing.started)}</span>}
                 >
                   <p className="m-0 line-clamp-2">{writing.step || "Starting"}…</p>
                   <div className="loading-bar mt-3" aria-hidden="true" />
@@ -509,9 +493,9 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
                       <>
                         <span className={levelChip(r.level)}>{r.level}</span>
                         {r.state === "failed" && <span className="chip chip-caps tone-red">Failed</span>}
-                        <span className="ml-auto font-mono text-small text-muted">{day(r.started)}</span>
                       </>
                     }
+                    end={<span className="font-mono">{day(r.started)}</span>}
                     onOpen={() => onOpen(r.id)}
                     removeLabel={`Delete “${name}”`}
                     onRemove={async () => {
@@ -542,19 +526,22 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
               title="Nothing asked yet."
               line="Each answer is kept here, to read or hear again. Try one of these:"
               action={
-                <Pills
-                  label="Questions to start with"
-                  options={STARTERS.map((s) => ({
-                    value: s,
-                    label: s,
-                    onPress: () => {
-                      setQuestion(s);
-                      askBox.current?.querySelector("textarea")?.focus();
-                    },
-                  }))}
-                  value={null}
-                  onChange={() => {}}
-                />
+                // plain pills, as Ask's starters: a tap puts the question in the box (the accent is for acting)
+                <div className="pills-row">
+                  {STARTERS.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className="pill"
+                      onClick={() => {
+                        setQuestion(s);
+                        askBox.current?.querySelector("textarea")?.focus();
+                      }}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
               }
             />
           )}
@@ -573,7 +560,7 @@ function Ask({ onOpen }: { onOpen: (id: string) => void }) {
         <div className="lg:hidden">
           <AboutMe context={context.data} />
         </div>
-      </div>
+      </WithRail>
     </Page>
   );
 }
@@ -612,11 +599,35 @@ function ReportView({ id, back, onBack }: { id: string; back: { to: string; labe
     },
   });
   const r = one.data;
+  const head = { back, app: "Research", eyebrow: "From the web" } as const;
+  // gone (deleted, or an address mistyped): said at once, with the way back; any other failure: Try again
   if (!r)
     return one.isError ? (
-      <Page back={back} title="This answer didn't load." line={(one.error as Error).message} />
+      <Page {...head} title="This answer didn't open">
+        {(one.error as Error).message === GONE ? (
+          <EmptyState
+            title="This answer isn't here any more."
+            line="It may have been deleted. Open Research to find the others."
+            action={
+              <Link to={back.to} className="btn">
+                Open Research
+              </Link>
+            }
+          />
+        ) : (
+          <EmptyState
+            title="It didn't load."
+            line={(one.error as Error).message}
+            action={
+              <button type="button" className="btn" onClick={() => one.refetch()}>
+                Try again
+              </button>
+            }
+          />
+        )}
+      </Page>
     ) : (
-      <Page back={back} title="Opening the answer…" />
+      <Page {...head} title="Opening the answer…" />
     );
   const rep = r.report;
   // the head's line: the depth as its chip, then the facts with their values bold (pages read, the model, the day)
@@ -637,7 +648,7 @@ function ReportView({ id, back, onBack }: { id: string; back: { to: string; labe
   );
   if (!rep)
     return (
-      <Page back={back} line={line} title={r.question}>
+      <Page {...head} line={line} title={r.question}>
         <Card>
           {r.state === "running" ? (
             <span className="flex items-center gap-3">
@@ -688,7 +699,7 @@ function ReportView({ id, back, onBack }: { id: string; back: { to: string; labe
   return (
     <Cites.Provider value={cites}>
       <Page
-        back={back}
+        {...head}
         sticky
         line={line}
         title={title}
@@ -712,8 +723,54 @@ function ReportView({ id, back, onBack }: { id: string; back: { to: string; labe
           </>
         }
       >
-        {/* the report and, beside it on a computer, its words, what it wasn't sure of and its sources */}
-        <div className="research-report">
+        {/* the report and, in the rail beside it on a computer (under it on a phone), its words, what it wasn't sure
+            of and its sources: News' layout, the rail in view under the bar while the report scrolls */}
+        <WithRail
+          className="research-report"
+          label="Its words, what it wasn't sure of, and its sources"
+          rail={
+            <>
+              {words.length > 0 && (
+                <details ref={wordsFold} className="research-fold" open={beside}>
+                  <summary className="disclosure">
+                    {wordsHead} <span className="font-mono text-small text-muted">{words.length}</span>
+                  </summary>
+                  <div className="card card-stack mt-1 gap-2">{words}</div>
+                </details>
+              )}
+              {rep.unsure.length > 0 && (
+                <details className="research-fold" open={beside}>
+                  <summary className="disclosure">
+                    Not settled <span className="font-mono text-small text-muted">{rep.unsure.length}</span>
+                  </summary>
+                  <div className="callout mt-1 grid gap-1">
+                    {rep.unsure.map((u) => (
+                      <p key={u} className="m-0">
+                        {u}
+                      </p>
+                    ))}
+                  </div>
+                </details>
+              )}
+              {used.length > 0 && (
+                // the pages it read, always in sight: each row opens the page in a tab of its own, its site under its
+                // title
+                <RailPart id="research-sources" title="Sources" count={used.length}>
+                  <List>
+                    {used.map((s) => (
+                      <ListRow
+                        key={s.n}
+                        href={s.url}
+                        title={s.title || s.url}
+                        line={<span className="font-mono">{host(s.url)}</span>}
+                      />
+                    ))}
+                  </List>
+                </RailPart>
+              )}
+            </>
+          }
+        >
           <div className="grid content-start gap-4">
             <p className="m-0 max-w-[68ch] text-read text-ink">{lede}</p>
             {/* what I asked, quoted: the question, and what I told it before it searched */}
@@ -731,51 +788,7 @@ function ReportView({ id, back, onBack }: { id: string; back: { to: string; labe
               <Card>{body}</Card>
             </div>
           </div>
-          <aside className="research-aside">
-            {words.length > 0 && (
-              <details ref={wordsFold} className="research-fold" open={beside}>
-                <summary className="disclosure">
-                  {wordsHead} <span className="font-mono text-small text-muted">{words.length}</span>
-                </summary>
-                <div className="card card-stack mt-1 gap-2">{words}</div>
-              </details>
-            )}
-            {rep.unsure.length > 0 && (
-              <details className="research-fold" open={beside}>
-                <summary className="disclosure">
-                  Not settled <span className="font-mono text-small text-muted">{rep.unsure.length}</span>
-                </summary>
-                <div className="callout mt-1 grid gap-1">
-                  {rep.unsure.map((u) => (
-                    <p key={u} className="m-0">
-                      {u}
-                    </p>
-                  ))}
-                </div>
-              </details>
-            )}
-            {used.length > 0 && (
-              // the pages it read, open everywhere: each row opens the page in a tab of its own, its site under its title
-              <details className="research-fold" open>
-                <summary className="disclosure">
-                  Sources <span className="font-mono text-small text-muted">{used.length}</span>
-                </summary>
-                <div className="mt-1">
-                  <List>
-                    {used.map((s) => (
-                      <ListRow
-                        key={s.n}
-                        href={s.url}
-                        title={s.title || s.url}
-                        line={<span className="font-mono">{host(s.url)}</span>}
-                      />
-                    ))}
-                  </List>
-                </div>
-              </details>
-            )}
-          </aside>
-        </div>
+        </WithRail>
         {/* Ask, the page wide under the report: about the report and its sources */}
         <AskBox
           app="research"
