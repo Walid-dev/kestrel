@@ -18,6 +18,7 @@ import { List, Row } from "./ui/list.tsx";
 import { Page, PageHead } from "./ui/page.tsx";
 import { Pills, type Tone } from "./ui/pills.tsx";
 import { Seg } from "./ui/seg.tsx";
+import { Star } from "./ui/star.tsx";
 
 // each role: its variable, what it is for, and the class that paints with it
 const COLOURS: { group: string; when: string; tokens: [string, string, string][] }[] = [
@@ -308,6 +309,7 @@ export function Design() {
   const [view, setView] = useState("now");
   const [mode, setMode] = useState("on");
   const [tile, setTile] = useState("bees");
+  const [starred, setStarred] = useState(false);
   const [dialog, setDialog] = useState<"" | "plain" | "wide">("");
   const [typed, setTyped] = useState("");
   const [saved, setSaved] = useState("");
@@ -450,7 +452,7 @@ export function Design() {
 
         <Part
           title="Page and PageHead"
-          when="Every page starts with its own head: there is no bar above it. A top page: its title, its buttons beside it under a mouse (in a row under the line on touch). A head may carry an aside: two short lines past a thin rule, level with the eyebrow and the title, in place of the line (it needs the eyebrow). A child page: the back row (the parent's name, its tools on the right), then a title a step down. Two widths, both from the left edge: wide for lists, reading (720) for text."
+          when="Every page starts with its own head: there is no bar above it. A top page: its title, its buttons beside it under a mouse (in a row under the line on touch). A head may carry an aside: a short statement past a thin rule, centred beside the eyebrow and the title, plain text that wraps as words do, in place of the line. A child page: the back row (the parent's name, its tools on the right), then a title a step down. Two widths, both from the left edge: wide for lists, reading (720) for text."
         >
           <Frame label="A top page">
             <PageHead
@@ -470,7 +472,7 @@ export function Design() {
               titleAs="div"
               eyebrow="Mon 23 Nov"
               title="Home"
-              aside={["Two short lines,", "level with its own."]}
+              aside="A short statement, centred beside the head."
             />
           </Frame>
           <Frame label="A child page">
@@ -689,6 +691,16 @@ export function Design() {
             value={lesson}
             onChange={setLesson}
           />
+        </Part>
+
+        <Part
+          title="Star"
+          when="Anything kept for later: a search's listing, a news story. A pill pressed while starred, beside the item's other actions; compact (the ★ alone, named for its item) in a list of starred things, where it takes the star off and gives it back."
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <Star on={starred} hint="Keep it for later" onPress={() => setStarred((x) => !x)} />
+            <Star compact on={starred} label="Star: a made-up hive report" onPress={() => setStarred((x) => !x)} />
+          </div>
         </Part>
 
         <Part

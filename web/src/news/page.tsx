@@ -2,17 +2,17 @@
 // industry and its money, models and research, building with AI, the wider tech day, views), each a card at the
 // Searches standard: its section's chip and its source on top, the headline with its key number as a pill, the story
 // in a few sentences, then its links as source chips (a lock where a site wants a subscription, the discussion with
-// its points), Ask (a conversation about the story, kept per story, with the web) and Look deeper, which hands the
-// headline to Research. On a computer the earlier days and the sources' health sit in a rail beside the stories; on a
-// phone they follow them. Listen reads the brief aloud; All days opens the history (days.tsx); Make it now, at the
-// foot, writes a new one, its five steps in sight while it works, the last brief readable under them. An earlier
-// day's page can be deleted at its foot.
+// its points), its star (Searches' own: kept under All days' Starred, even once its day is deleted), Ask (a
+// conversation about the story, kept per story, with the web) and Look deeper, which hands the headline to Research.
+// On a computer the earlier days and the sources' health sit in a rail beside the stories; on a phone they follow
+// them. Listen reads the brief aloud; All days opens the history (days.tsx); Make it now, at the foot beside the time
+// the brief is written each morning, writes a new one, its five steps in sight while it works, the last brief
+// readable under them. An earlier day's page can be deleted at its foot.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useNavigationType, useSearchParams } from "react-router";
 import {
   type NewsBrief,
-  type NewsLink,
   type NewsRun,
   type NewsSourceHealth,
   type NewsState,
@@ -26,14 +26,15 @@ import { cx } from "../ui/cx.ts";
 import { EmptyState } from "../ui/empty.tsx";
 import { List, Row } from "../ui/list.tsx";
 import { Page } from "../ui/page.tsx";
+import { Star } from "../ui/star.tsx";
 import {
   ago,
   clock,
   dayName,
   getJson,
   localDay,
+  morningAt,
   plural,
-  points,
   runOf,
   SECTION_TONE,
   sentence,
@@ -41,7 +42,9 @@ import {
   useDays,
   useDeleteDay,
   useNews,
+  useStar,
 } from "./data.ts";
+import { Links, STAR_HINT } from "./story.tsx";
 
 const DAYS_SHOWN = 7;
 // the first questions a story's Ask offers
@@ -180,7 +183,7 @@ function Today() {
               title="No brief yet."
               line={
                 d.enabled
-                  ? `The first one is written at ${d.time}, or now.`
+                  ? `The first one is written at ${morningAt(d.time)}, or now.`
                   : "The morning news is off in the settings; one can still be written now."
               }
               action={makeIt("primary")}
@@ -196,12 +199,19 @@ function Today() {
           <SourcesFold />
         </aside>
       </div>
-      {/* the rare action last, at the page's foot */}
+      {/* the rare action last, at the page's foot, with when the brief comes by itself: the time in effect */}
       {shown && (
         <div className="news-foot">
           {makeIt("plain")}
           <span className="text-small text-muted">
-            Reads the sources again and writes a new brief: a few minutes on the computer's model
+            {d.enabled ? (
+              <>
+                Written each morning at <b className="font-mono text-ink">{morningAt(d.time)}</b>
+              </>
+            ) : (
+              "The morning news is off in the settings"
+            )}
+            ; making it now takes a few minutes on the computer's model
           </span>
           {make.isError && <span className="text-small text-red">{sentence((make.error as Error).message)}</span>}
         </div>
@@ -254,7 +264,7 @@ function Day({ day }: { day: string }) {
           type="button"
           className="btn btn-danger"
           disabled={remove.drop.isPending}
-          onClick={() => remove.ask(day)}
+          onClick={() => remove.ask(day, news.data?.dayStars)}
         >
           Delete this day
         </button>
@@ -268,12 +278,12 @@ function Day({ day }: { day: string }) {
   );
 }
 
-// the brief itself: the opening, then each section that has stories, in the brief's order, each story with its Ask
-// (asked: how many questions each story took, and where Ask is answering now). A plain function, not a component:
-// every line it reads aloud registers in the page's own render, in the order it is drawn
+// the brief itself: the opening, then each section that has stories, in the brief's order, each story with its star
+// and its Ask (asked: how many questions each story took, and where Ask is answering now). A plain function, not a
+// component: every line it reads aloud registers in the page's own render, in the order it is drawn
 function brief(
   run: NewsRun,
-  on: Pick<NewsState, "asked" | "answering"> | undefined,
+  on: Pick<NewsState, "asked" | "answering" | "starred"> | undefined,
   say: (text: string) => ReactNode,
 ): ReactNode {
   const b = run.brief as NewsBrief;
@@ -307,9 +317,10 @@ function brief(
                   story={s}
                   headline={say(s.headline)}
                   text={say(s.text)}
-                  refId={`${run.id}:${at + 1}`}
+                  brief={run.id}
                   asked={on?.asked[at] ?? 0}
                   answering={on?.answering[at] ?? false}
+                  starred={on?.starred?.[at] ?? false}
                 />
               ))}
             </div>
@@ -321,80 +332,35 @@ function brief(
   );
 }
 
-const LOCK = (
-  <svg
-    viewBox="0 0 24 24"
-    width="11"
-    height="11"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.4"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <rect x="5" y="11" width="14" height="9" rx="2" />
-    <path d="M8 11V8a4 4 0 0 1 8 0v3" />
-  </svg>
-);
-
-// a story's links: the article's site (a lock when it wants a subscription), and where it is discussed, with its points
-function Links({ link }: { link: NewsLink }) {
-  const thread = link.thread && link.thread !== link.url ? link.thread : null;
-  return (
-    <>
-      <a
-        className="news-src"
-        href={link.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        title={`${link.paywall ? "Paywalled · " : ""}${link.title}`}
-      >
-        {link.paywall && LOCK}
-        {link.paywall && <span className="sr-only">Paywalled: </span>}
-        <span className="news-src-name">{link.host}</span>
-        {link.score != null && !thread && <b className="news-src-count">{points(link.score)}</b>}
-      </a>
-      {thread && (
-        <a
-          className="news-src"
-          href={thread}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={`The discussion${link.threadBy ? ` on ${link.threadBy}` : ""}`}
-        >
-          <span className="news-src-name">{link.threadBy || "Discussion"}</span>
-          {link.score != null && <b className="news-src-count">{points(link.score)}</b>}
-        </a>
-      )}
-    </>
-  );
-}
-
 // one story, at the Searches standard: section chip and source on top, the headline with its figure, the story, its
-// links, then Ask and Look deeper last. Ask opens the story's conversation under its foot, in the same card (Ask's
-// bare look: no box in a box); its button says how many questions the story took while it is closed. A link to the
-// story (#s3) lights its edge in the accent
+// links, then its star, Ask and Look deeper last. The star shows a press at once and keeps a copy of the story (All
+// days' Starred). Ask opens the story's conversation under its foot, in the same card (Ask's bare look: no box in a
+// box); its button says how many questions the story took while it is closed. A link to the story (#s3) lights its
+// edge in the accent
 function Story({
   n,
   story,
   headline,
   text,
-  refId,
+  brief,
   asked,
   answering,
+  starred,
 }: {
   n: number;
   story: NewsStory;
   headline: ReactNode;
   text: ReactNode;
-  refId: string; // its conversation's: "<brief id>:<n>"
+  brief: string; // its brief's id: its conversation is "<brief id>:<n>", its star the same pair
   asked: number;
   answering: boolean; // an answer being written: the closed button says so, as Ask's own head does
+  starred: boolean;
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [asking, setAsking] = useState(false);
+  const star = useStar();
+  const on = star.isPending ? star.variables.on : starred;
   const target = useLocation().hash === `#s${n}`;
   const deeper = useMutation({
     mutationFn: async () => {
@@ -412,6 +378,7 @@ function Story({
   const main = story.links[0];
   const tone = SECTION_TONE[story.section];
   const panel = `s${n}-ask`;
+  const refId = `${brief}:${n}`;
   return (
     <article id={`s${n}`} className={cx("card news-story", target && "card-tone tone-accent")}>
       <div className="news-story-meta">
@@ -440,6 +407,7 @@ function Story({
           <Links key={l.url} link={l} />
         ))}
         <span className="news-story-acts">
+          <Star on={on} busy={star.isPending} hint={STAR_HINT} onPress={() => star.mutate({ brief, n, on: !on })} />
           <button
             type="button"
             className="btn btn-sm btn-quiet news-ask-btn"
@@ -475,6 +443,11 @@ function Story({
         </span>
       </div>
       {deeper.isError && <p className="m-0 text-small text-red">{sentence((deeper.error as Error).message)}</p>}
+      {star.isError && (
+        <p className="m-0 text-small text-red" role="alert">
+          The star didn't land: {(star.error as Error).message}
+        </p>
+      )}
       {asking && (
         <div id={panel} className="news-ask">
           <Ask

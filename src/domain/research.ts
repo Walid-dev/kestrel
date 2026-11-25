@@ -84,7 +84,8 @@ export function contextText(): string {
   return parts.filter(Boolean).join("\n\n").slice(0, CONTEXT_CHARS);
 }
 
-// before the research: up to three questions about me, when the answer depends on them; none when it doesn't
+// before the research: up to three questions about me, when the answer depends on them; none when it doesn't. They
+// run on the research's model, the careful one by default: 6000 tokens leave its thinking room, as Ask's do
 export async function askFirst(db: DatabaseSync, settings: Settings, question: string): Promise<string[]> {
   const q = question.trim();
   if (!q) throw new Refused("ask something");
@@ -92,7 +93,7 @@ export async function askFirst(db: DatabaseSync, settings: Settings, question: s
   const effective = { ...settings.models, careful: model, fast: model };
   const got = await callModel(
     effective,
-    { model, system: SYSTEM, prompt: askPrompt(q, contextText()), maxTokens: 2000, thinking: true },
+    { model, system: SYSTEM, prompt: askPrompt(q, contextText()), maxTokens: 6000, thinking: true },
     Questions,
   );
   recordCall(db, `research-ask:v${RESEARCH_VERSION}`, got);

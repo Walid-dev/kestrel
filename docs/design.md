@@ -117,6 +117,10 @@ reading width is 720.
 - `Seg` (`web/src/ui/seg.tsx`) — a choice among two to four, as one bar as wide as its words: `label`, `options` (with
   `hint`), `value`, `onChange`, `modes`. What a pick means goes in its hint line under the bar, never a second line
   inside it. `seg-modes` marks the picked mode with a dot.
+- `Star` (`web/src/ui/star.tsx`) — anything kept for later (a news story; a search's listing once its sheet moves to
+  it): a pill, a yellow ★ and Star or Starred, pressed while starred, beside the item's other actions. Props: `on`,
+  `onPress`, `busy` (a press on its way: drawn in its new state, more presses ignored), `hint` (on hover), `compact`
+  (the ★ alone at a row's end in a list of starred things, named by `label`).
 - `.tile` — a big choice (56 / 60), only when two or more options each need a line under the name; picked, it takes
   the accent edge and a ✓.
 - `Doc` (`web/src/ui/doc.tsx`) — every document: Read, Edit and (1024 px and wider) Side by side, with a Download
@@ -128,9 +132,10 @@ reading width is 720.
   (`{ to, label }`), `sticky`, `width` (`wide`, or `reading`: 720 at most), `titleAs`. A top page's title is the title
   step; a child page (one with `back`) gets a back row (30 / 44) and its title a step down. Under a mouse at 48rem or
   wider a top page's buttons sit on the title row; otherwise they wrap 12 under the line. A page's state chip goes in
-  the line under the title. `aside` (Home's "One app, one computer, / local models.") sets two short lines beside the
-  head, past a thin rule, its first level with the eyebrow and its last with the title at every width; it needs an
-  eyebrow and takes the place of `line`, and the title's column gives way first when room runs short.
+  the line under the title. `aside` (Home's "One app, one computer, local models.") sets a short statement beside the
+  head, past a thin rule: plain text on the small step with its own line height, centred on the eyebrow and the
+  title, wrapping as words do (balanced), never stretched to their height. It takes the place of `line`, and it wraps
+  before the title does.
 - `Ask` (`web/src/ask.tsx`) — the same box on every app: its head, the conversation, starters, a line to ask. `bare`
   puts it inside a card that belongs to the page (a news story): no card and no head of its own, the page opens and
   closes it, Start over beside the line to ask.
@@ -151,10 +156,11 @@ reading width is 720.
   document is Doc without `onSave`; a page whose item is gone says so in plain words and doesn't retry; the listing
   sheet is the wide Dialog, its title and ✕ kept in view on tall screens, Apply at its foot; a stage's colour comes
   from one map (`STAGES`); a history (News' All days) lists by month, a hundred at a time with Show older, a find at
-  its top and a ✕ per row that deletes after Confirm.
+  its top and a ✕ per row that deletes after Confirm, and a Seg before them for what was starred: there a ★ taken
+  off leaves its row in place, struck through, until the page is left, and gives the star back.
 - Home, top to bottom: the head (the date over the wolf and kestrel, the aside beside them), the news card (News in
-  indigo, each headline with its section's dot), the live line and the figures, the apps (each its own colour), then
-  Cost and Models.
+  indigo, its headlines in words alone), the live line and the figures, the apps (each its own colour), then Cost and
+  Models.
 - The Searches standard, for every page: one card anatomy repeated (a meta chip on the left, the date or source on
   the right; the title with its key number as a pill beside it; one muted subline; facts in muted text with only the
   values bold; the actions last); numbers in mono, on scales and tones; a page's figures as one strip of cells (label,

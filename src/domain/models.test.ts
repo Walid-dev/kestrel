@@ -31,6 +31,8 @@ test("the settings answer until a pick is made; the pick wins and survives a reo
   db.close();
   db = new DatabaseSync(file);
   assert.equal(modelFor(db, settings, "notes-fast"), "another-made-up");
+  // Research's two steps, its questions and its answer, on one model unless I pick apart: no swap between them
+  assert.equal(modelFor(db, settings, "research-ask"), modelFor(db, settings, "research"));
   const uses = listUses(db, settings);
   assert.deepEqual(
     uses.map((u) => [u.use, u.model]),
@@ -40,7 +42,7 @@ test("the settings answer until a pick is made; the pick wins and survives a reo
       ["ask", "fast-model"], // a conversation that streams while I wait: the fast model by default
       ["search-deep", "careful-model"],
       ["research", "careful-model"],
-      ["research-ask", "fast-model"], // its quick questions first: the fast model by default
+      ["research-ask", "careful-model"], // its questions first: the research's own model, no swap between them
       ["quiz", "careful-model"],
       ["quiz-explain", "fast-model"], // written while I answer: the fast model
       ["letter", "careful-model"],
@@ -48,6 +50,20 @@ test("the settings answer until a pick is made; the pick wins and survives a reo
       ["news-write", "careful-model"],
     ],
   );
+});
+
+test("Research's questions follow a pick on Research alone; their own pick wins over it", () => {
+  const base = mkdtempSync(join(tmpdir(), "kestrel-models-"));
+  const file = join(base, "t.db");
+  const db = new DatabaseSync(file);
+  migrate(db, file);
+  setModelFor(db, "research", "research-made-up");
+  assert.equal(modelFor(db, settings, "research-ask"), "research-made-up"); // no swap between the two steps
+  assert.equal(listUses(db, settings).find((u) => u.use === "research-ask")?.fallback, "research-made-up");
+  setModelFor(db, "research-ask", "questions-made-up");
+  assert.equal(modelFor(db, settings, "research-ask"), "questions-made-up");
+  assert.equal(modelFor(db, settings, "research"), "research-made-up");
+  db.close();
 });
 
 test("a pick must be one the door offers; a down door refuses the switch (PF-1)", async () => {

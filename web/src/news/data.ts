@@ -1,10 +1,11 @@
 // The news as Home's card, the page and the history read it: one query per day (today's shared by both), the days
-// kept, the find, a day deleted, and the formats they share. Today's brief asks again every 2 seconds while one is
-// written, else every 5 minutes (any day's, every 2 seconds while Ask answers on one of its stories); the live
-// stream (the app's own ear, app.tsx) asks at once when a run starts or ends, on Home's card as on the page. Every query here starts with "news" or "news-days", the two the live stream and a
-// deleted day read again.
+// kept, the find, the stars, a day deleted, a story starred, and the formats they share. Today's brief asks again
+// every 2 seconds while one is written, else every 5 minutes (any day's, every 2 seconds while Ask answers on one of
+// its stories); the live stream (the app's own ear, app.tsx) asks at once when a run starts or ends, on Home's card as
+// on the page. Every query here starts with "news" or "news-days", the two the live stream, a deleted day and a star
+// read again.
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { NewsDays, NewsFind, NewsRun, NewsState, Section } from "../../../src/shared/news.ts";
+import type { NewsDays, NewsFind, NewsRun, NewsStars, NewsState, Section } from "../../../src/shared/news.ts";
 import { useConfirm } from "../ui/confirm.tsx";
 import type { Tone } from "../ui/pills.tsx";
 
@@ -61,9 +62,32 @@ export const useFind = (words: string) =>
     placeholderData: keepPreviousData,
   });
 
-// a day deleted, after the shared Confirm: every run of it goes, and with it the questions asked on its stories.
-// Then every news query reads again, the ones off screen too (Home's card, the history left behind), so the day is gone
-// from each before it is seen again; gone runs after it (the day's own page leaves for the history)
+// every story starred, the newest starred first (All days' Starred)
+export const useStars = () =>
+  useQuery({
+    queryKey: ["news-days", "stars"],
+    queryFn: () => getJson<NewsStars>("/api/news/stars"),
+  });
+
+// a story starred or unstarred, by its brief and its number. It stays pending until the news queries have read again,
+// so a star drawn from the press (variables) never blinks back to the old state before the new one lands
+export function useStar() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ brief, n, on }: { brief: string; n: number; on: boolean }) => {
+      const res = await fetch(`/api/news/stars/${encodeURIComponent(brief)}/${n}`, { method: on ? "PUT" : "DELETE" });
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(j.error ?? `the server answered ${res.status}`);
+    },
+    onSettled: () =>
+      Promise.all(["news", "news-days"].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))),
+  });
+}
+
+// a day deleted, after the shared Confirm: every run of it goes, and with it the questions asked on its stories; its
+// starred stories stay (stars: how many, the Confirm says so). Then every news query reads again, the ones off screen
+// too (Home's card, the history left behind), so the day is gone from each before it is seen again; gone runs after it
+// (the day's own page leaves for the history)
 export function useDeleteDay(gone?: () => void) {
   const queryClient = useQueryClient();
   const sure = useConfirm();
@@ -78,10 +102,11 @@ export function useDeleteDay(gone?: () => void) {
       for (const key of ["news", "news-days"]) queryClient.invalidateQueries({ queryKey: [key], refetchType: "all" });
     },
   });
-  const ask = async (day: string) => {
+  const ask = async (day: string, stars = 0) => {
+    const kept = stars ? ` Its ${stars} starred ${stars === 1 ? "story stays" : "stories stay"}, under Starred.` : "";
     const yes = await sure({
       title: `Delete ${dayName(day)}?`,
-      body: "Its brief goes for good, with the questions asked about its stories.",
+      body: `Its brief goes for good, with the questions asked about its stories.${kept}`,
       yes: "Delete",
       danger: true,
     });
@@ -104,6 +129,11 @@ const pad = (n: number) => String(n).padStart(2, "0");
 export const localDay = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 // "6:34 AM", as Live and Research say a time
 export const clock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+// the morning's set time, "08:00" in the settings, as every time on the page reads: 8:00 AM
+export const morningAt = (time: string) => {
+  const [h, m] = time.split(":").map(Number);
+  return new Date(2026, 0, 1, h, m).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+};
 // "Tue, Nov 24", in the order the browser says dates, as every date in the app
 export const dayName = (day: string) =>
   new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });

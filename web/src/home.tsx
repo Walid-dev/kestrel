@@ -1,5 +1,5 @@
 // Home: the launcher, and the page that carries the name: the date over it and the pink wolf with kestrel as its
-// title (there is no bar above the pages), what kestrel is in two lines beside them. The morning's news first, then
+// title (there is no bar above the pages), what kestrel is in a short line beside them. The morning's news first, then
 // what needs me, then this morning's brief as one small strip of figures, what waits and what comes next, each opening
 // its page, then the apps as one list of rows (two columns on a computer), each in a few words and opening its app,
 // then Cost and Models, the two pages about the models.
@@ -332,7 +332,7 @@ export function Home() {
           kestrel
         </span>
       }
-      aside={["One app, one computer,", "local models."]}
+      aside="One app, one computer, local models."
     >
       <NewsCard />
       <LiveStrip />

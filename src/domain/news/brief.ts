@@ -27,6 +27,7 @@ import { askedOn } from "./ask.ts";
 import { composeBrief, type WindowItem } from "./compose.ts";
 import { type Gathered, gather, lastRead, networkReader, type Reader } from "./gather.ts";
 import { loadSources, type Source } from "./sources.ts";
+import { starsOn } from "./stars.ts";
 
 // what a run reaches outside: the sources, how a feed is read, how an article is read, the clock. Tests pass made-up
 // ones; the app takes the defaults (the network through publicUrl, the model door's page reader)
@@ -367,7 +368,7 @@ const runOf = (r: Record<string, unknown>): NewsRun => ({
 
 // the brief to show (the newest written, of a day or of all), and the newest run when it is newer: one being
 // written, or one that failed, while the last good brief stays readable; with how many questions each of its
-// stories was asked, and which Ask is answering now
+// stories was asked, which Ask is answering now, and which stories are starred
 export function newsState(db: DatabaseSync, settings: Settings, day?: string): NewsState {
   const brief = (
     day
@@ -381,12 +382,15 @@ export function newsState(db: DatabaseSync, settings: Settings, day?: string): N
         | undefined);
   const news = newsOf(settings);
   const shown = brief ? runOf(brief) : null;
+  const stories = shown?.brief?.stories.length ?? 0;
   return {
     enabled: news.enabled,
     time: news.time,
     brief: shown,
     run: newest && newest.state !== "done" ? runOf(newest) : null,
-    ...(shown ? askedOn(db, shown.id, shown.brief?.stories.length ?? 0) : { asked: [], answering: [] }),
+    ...(shown
+      ? { ...askedOn(db, shown.id, stories), ...starsOn(db, shown.id, shown.day, stories) }
+      : { asked: [], answering: [], starred: [], dayStars: 0 }),
   };
 }
 

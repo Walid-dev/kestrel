@@ -1,13 +1,15 @@
 // The news' routes: the brief to show (today's, or a day's) with the run that is newer, the days kept (a page at a
-// time, for the rail and the history), a story found again, a day deleted, the sources' health, and Make it now (it
-// runs in the background, Live follows it, and a second one waits its turn). A brief left running by a restart is
-// marked failed when kestrel starts. A request that doesn't read answers 400 with its reason in plain words.
+// time, for the rail and the history), a story found again, a day deleted, a story starred or unstarred and the stars
+// kept, the sources' health, and Make it now (it runs in the background, Live follows it, and a second one waits its
+// turn). A brief left running by a restart is marked failed when kestrel starts. A request that doesn't read answers
+// 400 with its reason in plain words.
 import type { DatabaseSync } from "node:sqlite";
 import { zValidator } from "@hono/zod-validator";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
 import { newsState, sourcesHealth, startNews, sweepNews } from "../domain/news/brief.ts";
 import { daysKept, deleteDay, findStories, newsDays } from "../domain/news/days.ts";
+import { listStars, starStory, unstarStory } from "../domain/news/stars.ts";
 import { Refused } from "../domain/notes/documents.ts";
 import { newsOf, type Settings } from "../platform/config.ts";
 
@@ -20,6 +22,15 @@ const DAY = z
     return !Number.isNaN(t) && new Date(t).toISOString().startsWith(d);
   }, "a day like 2026-11-24");
 const UP_TO_100 = "a number from 1 to 100";
+// a story of a brief: the brief's id, and the story's number on its page (#s<n>), as Ask's ref names it
+const STORY_N = "a story number from 1 to 999";
+const STORY = z.object({
+  brief: z.string().regex(/^[\w-]{1,64}$/, "a brief's id"),
+  n: z
+    .string()
+    .regex(/^[1-9]\d{0,2}$/, STORY_N)
+    .transform(Number),
+});
 
 // the validator's refusal, as the page shows it: its first reason, not the whole report (the news routes are the first
 // to answer so; the others still send zod's report, which the page shows as it is)
@@ -68,6 +79,18 @@ export function mountNews(app: Hono, db: DatabaseSync, settings: Settings) {
     zValidator("query", z.object({ q: z.string().trim().min(1, "find what? a word or two").max(200) }), plainly),
     (c) => c.json(findStories(db, c.req.valid("query").q)),
   );
+  // the stars: every one kept, the newest starred first; a story starred (its copy taken, once) or unstarred
+  app.get("/api/news/stars", (c) => c.json({ stars: listStars(db) }));
+  app.put("/api/news/stars/:brief/:n", zValidator("param", STORY, plainly), (c) => {
+    const { brief, n } = c.req.valid("param");
+    if (!starStory(db, brief, n)) return c.json({ error: "that brief has no such story" }, 404);
+    return c.json({ ok: true });
+  });
+  app.delete("/api/news/stars/:brief/:n", zValidator("param", STORY, plainly), (c) => {
+    const { brief, n } = c.req.valid("param");
+    if (!unstarStory(db, brief, n)) return c.json({ error: "that story isn't starred" }, 404);
+    return c.json({ ok: true });
+  });
   app.get("/api/news/sources", (c) => c.json({ sources: sourcesHealth(db, new Date()) }));
   app.post("/api/news/run", (c) => {
     try {
