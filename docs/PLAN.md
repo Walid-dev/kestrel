@@ -142,8 +142,9 @@ Each gets its own step-by-step plan, reviewed, before it starts.
 - Every app gets the same Ask: a conversation with the computer's model about what the page shows, kept per page.
   The model sees the page and, step by step, acts in the app (find, filter, add, mark), any change only on my tap.
 - Built first on Learn's lessons and the quiz's questions, with quizzes kept as I take them; then Searches, where it
-  finds through the whole hunt and proposes a stage, a deep check or an application as cards I tap. The other apps
-  follow, one at a time. The design and the steps: [docs/tasks/v0.7-ask.md](tasks/v0.7-ask.md).
+  finds through the whole hunt and proposes a stage, a delete, a deep check or an application as cards I tap, and a
+  change to many listings as one rule kestrel resolves, with Undo. The other apps follow, one at a time. The design
+  and the steps: [docs/tasks/v0.7-ask.md](tasks/v0.7-ask.md).
 
 ### v0.8 · One set of blocks for every page (GO 2026-11-23; steps 1 to 3 built)
 

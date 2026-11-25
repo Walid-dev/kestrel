@@ -2,7 +2,7 @@
 // prompt and the conversation client; --stand-in inside the check, --live for the record (docs/eval/).
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { askMessages } from "../../src/ai/ask/prompt.ts";
+import { ASK_MAX_TOKENS, askMessages } from "../../src/ai/ask/prompt.ts";
 import { chatModel, type ModelSettings } from "../../src/ai/client.ts";
 import { startStandIn } from "../../src/ai/stand-in.ts";
 import { lessonAskPage } from "../../src/domain/learn/ask.ts";
@@ -30,8 +30,8 @@ async function runCase(c: Case, settings: ModelSettings, model: string, run: num
     c.packMap,
   );
   const { system, messages } = askMessages(page, [], c.question);
-  // the app's own budget for an answer (domain/ask/ask.ts)
-  const got = await chatModel(settings, { model, system, messages, maxTokens: 6000, thinking: true });
+  // the app's own budget for an answer
+  const got = await chatModel(settings, { model, system, messages, maxTokens: ASK_MAX_TOKENS, thinking: true });
   if (!got.ok)
     return { name: c.name, model, run, pass: false, why: `${got.why}: ${got.detail.slice(0, 60)}`, ms: got.ms };
   const judged = score(c, got.value);

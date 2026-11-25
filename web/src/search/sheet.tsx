@@ -1,8 +1,10 @@
 // One listing, whole: its facts, the model's read, the deep check (run it, watch its steps, read its report), my note,
-// the stages, Apply and the attempts so far. The shared Dialog, wide: Esc, Back, a tap outside and its ✕ close it,
-// and it keeps the page behind still.
+// the stages, Apply and the attempts so far, and a quiet Delete at the foot. The shared Dialog, wide: Esc, Back, a tap
+// outside and its ✕ close it, and it keeps the page behind still. A deleted listing (just now, or opened later from a
+// link) reads as it was, says so, and offers Restore; nothing on it can be changed until it is back.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useConfirm } from "../ui/confirm.tsx";
 import { cx } from "../ui/cx.ts";
 import { Dialog } from "../ui/dialog.tsx";
 import { Pills, type Tone } from "../ui/pills.tsx";
@@ -34,6 +36,7 @@ type Deep = {
 type Full = Listing & {
   deep: Deep | null;
   applications: { id: string; state: string; reason: string; started: string; updated: string }[];
+  deleted: { at: string; by: "me" | "old" } | null; // gone from every view, kept so it can come back
 };
 
 const list = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
@@ -142,12 +145,15 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
     // while a deep check runs, its steps arrive every two seconds
     refetchInterval: (q) => (q.state.data?.deep?.state === "running" ? 2000 : false),
   });
-  // the button stays busy until the listing's new state is in, so it never flashes back to Apply
+  // the button stays busy until the listing's new state is in, so it never flashes back to Apply; the hunts' counts
+  // and Home's brief count it too, so a delete reaches them
   const refresh = () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: ["listing", id] }),
       queryClient.invalidateQueries({ queryKey: ["listings"] }),
       queryClient.invalidateQueries({ queryKey: ["search-counts"] }),
+      queryClient.invalidateQueries({ queryKey: ["searches"] }),
+      queryClient.invalidateQueries({ queryKey: ["brief"] }),
     ]);
   const act = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
@@ -178,10 +184,22 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
     },
     onSettled: refresh,
   });
+  // Delete (after the shared Confirm) and its way back: the sheet stays open on the listing, which says it is gone
+  const sure = useConfirm();
+  const remove = useMutation({
+    mutationFn: async (back: boolean) => {
+      const res = await fetch(`/api/search/listings/${encodeURIComponent(id)}${back ? "/restore" : ""}`, {
+        method: back ? "POST" : "DELETE",
+      });
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `${res.status}`);
+    },
+    onSettled: refresh,
+  });
 
   const l = full.data;
   const d = l?.data ?? {};
-  const why = [full, act, deep, queue].find((m) => m.isError);
+  const why = [full, act, deep, queue, remove].find((m) => m.isError);
+  const gone = l?.deleted ?? null;
   const running = l?.deep?.state === "running";
   const pay = l?.kind === "jobs" ? payOf(d) : "";
   const where = [str(d.location), str(d.workMode)].filter(Boolean);
@@ -201,30 +219,70 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
       // the listing's title alone is the head, kept on top with the ✕ while the sheet scrolls (listing-head,
       // styles.css): on a phone held upright a head with the company, the pay and the match took a third of the sheet
       title={<span className="listing-head">{str(d.title)}</span>}
-      // the sheet's own actions at its foot, the main one last: the posting itself (a ghost beside Apply, a plain
-      // button alone on an ad), and Apply, the sheet's one filled button
+      // the sheet's own actions at its foot, the main one last: the rare Delete apart on the left (quiet, red words,
+      // after the shared Confirm), the posting itself (a ghost beside Apply, a plain button alone on an ad), and Apply,
+      // the sheet's one filled button. Deleted, Restore takes Apply's place
       actions={
         <>
+          {!gone && (
+            <button
+              type="button"
+              // left of the posting; Apply's own auto margin keeps them left, an ad (no Apply) needs its own
+              className={cx("btn btn-quiet btn-danger", l.kind === "deals" && "mr-auto")}
+              disabled={remove.isPending}
+              onClick={async () => {
+                if (
+                  await sure({
+                    title: "Delete this listing?",
+                    body: "It leaves every view and count, and no search brings it back. You can restore it here, or from its line in Live.",
+                    yes: "Delete",
+                    danger: true,
+                  })
+                )
+                  remove.mutate(false);
+              }}
+            >
+              Delete
+            </button>
+          )}
           <a
             href={l.link}
             target="_blank"
             rel="noopener noreferrer"
-            className={cx("btn", l.kind === "jobs" && "btn-quiet")}
+            className={cx("btn", (l.kind === "jobs" || gone) && "btn-quiet")}
           >
             Open {l.kind === "deals" ? "the ad" : "the posting"} ↗
           </a>
-          {l.kind === "jobs" && (
-            <ApplyButton
-              state={l.applications[0]?.state}
-              onQueue={() => queue.mutate()}
-              pending={queue.isPending}
-              primary
-            />
+          {gone ? (
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={remove.isPending}
+              onClick={() => remove.mutate(true)}
+            >
+              Restore
+            </button>
+          ) : (
+            l.kind === "jobs" && (
+              <ApplyButton
+                state={l.applications[0]?.state}
+                onQueue={() => queue.mutate()}
+                pending={queue.isPending}
+                primary
+              />
+            )
           )}
         </>
       }
     >
       <div className="grid gap-3 pb-1">
+        {/* deleted: said first, on an inner block; the listing reads as it was, and nothing on it changes */}
+        {gone && (
+          <p className="inner m-0 text-detail">
+            <b className="text-strong">Deleted{gone.by === "old" ? " in the old setup" : ""}</b> on {day(gone.at)}: gone
+            from every view and count, and no search brings it back.
+          </p>
+        )}
         {/* the company and where, then the pay or price and the match: the first lines under the title, scrolling
             with the listing */}
         <div className="grid gap-2">
@@ -276,20 +334,23 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
           </ReadBox>
         )}
 
-        {/* the deep check: its eyebrow and button on one row, what it found on an inner block under them */}
-        <section className="grid gap-2">
+        {/* the deep check: its eyebrow and button on one row, what it found on an inner block under them; a deleted
+            listing shows a check it had, and offers none */}
+        <section className={cx("grid gap-2", gone && !l.deep && "hidden")}>
           <div className="flex flex-wrap items-center gap-2">
             <span className="eyebrow">Deep check</span>
             {l.deep?.finished && <span className="text-small text-muted">{day(l.deep.finished)}</span>}
-            <button
-              type="button"
-              className="btn btn-sm ml-auto"
-              disabled={running || deep.isPending}
-              onClick={() => deep.mutate()}
-            >
-              {(running || deep.isPending) && <span className="spin" />}
-              {running ? "Checking…" : l.deep ? "Check again" : "Run a deep check"}
-            </button>
+            {!gone && (
+              <button
+                type="button"
+                className="btn btn-sm ml-auto"
+                disabled={running || deep.isPending}
+                onClick={() => deep.mutate()}
+              >
+                {(running || deep.isPending) && <span className="spin" />}
+                {running ? "Checking…" : l.deep ? "Check again" : "Run a deep check"}
+              </button>
+            )}
           </div>
           <div className="inner grid gap-3">
             {running && (
@@ -314,36 +375,40 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
 
         {/* the note saves when I leave the box, so it is the shared box's look without its Enter-sends rule; one line
             to start, growing with the words */}
-        <label className="field">
-          <span className="eyebrow">My note</span>
-          <span className="field-box">
-            <textarea
-              className="field-input"
-              rows={1}
-              placeholder="Add a note…"
-              value={note ?? str(d.note)}
-              onChange={(e) => setNote(e.target.value)}
-              onBlur={() => note !== null && note !== str(d.note) && act.mutate({ note })}
-            />
-          </span>
-        </label>
+        {!gone && (
+          <label className="field">
+            <span className="eyebrow">My note</span>
+            <span className="field-box">
+              <textarea
+                className="field-input"
+                rows={1}
+                placeholder="Add a note…"
+                value={note ?? str(d.note)}
+                onChange={(e) => setNote(e.target.value)}
+                onBlur={() => note !== null && note !== str(d.note) && act.mutate({ note })}
+              />
+            </span>
+          </label>
+        )}
 
         {/* Star wraps in line after the stage pills, not on a row of its own (styles.css); the label stands over
             them both, and the group keeps its name for a screen reader */}
-        <div className="grid gap-2">
-          <span className="eyebrow" aria-hidden="true">
-            Stage
-          </span>
-          <div className="pills-inline flex flex-wrap items-center gap-2">
-            <Pills
-              label="Stage"
-              options={STAGES[l.kind].map((s) => ({ value: s.status, label: s.label, tone: s.tone }))}
-              value={l.status}
-              onChange={(s) => act.mutate({ status: s })}
-            />
-            <Star on={l.starred === 1} onPress={() => act.mutate({ starred: l.starred === 1 ? 0 : 1 })} />
+        {!gone && (
+          <div className="grid gap-2">
+            <span className="eyebrow" aria-hidden="true">
+              Stage
+            </span>
+            <div className="pills-inline flex flex-wrap items-center gap-2">
+              <Pills
+                label="Stage"
+                options={STAGES[l.kind].map((s) => ({ value: s.status, label: s.label, tone: s.tone }))}
+                value={l.status}
+                onChange={(s) => act.mutate({ status: s })}
+              />
+              <Star on={l.starred === 1} onPress={() => act.mutate({ starred: l.starred === 1 ? 0 : 1 })} />
+            </div>
           </div>
-        </div>
+        )}
         {why && <p className="text-detail text-red">{String((why.error as Error).message)}</p>}
 
         {l.applications.length > 0 && (

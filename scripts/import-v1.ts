@@ -37,6 +37,7 @@ if (process.argv[1]?.endsWith("import-v1.ts")) {
   console.log("  the old database by status:", JSON.stringify(counts.source));
   console.log(`  the old database: ${counts.sourceStarred} starred, ${counts.sourceScored} scored`);
   console.log("  would land / landed:", JSON.stringify(counts.landed));
+  console.log(`  deleted in the old setup, deleted here too: ${counts.removed}`);
   console.log("  deals by status:", JSON.stringify(counts.deals.source));
   console.log("  deals would land / landed:", JSON.stringify(counts.deals.landed));
   console.log(`  applications: ${counts.applications.sent} sent, ${counts.applications.notSent} not sent`);

@@ -29,8 +29,12 @@ test("queue, claim, report sent: the whole lawful road, and the listing follows"
   assert.equal(claimed?.state, "applying");
   const sent = reportApplication(db, q.id, "sent");
   assert.equal(sent.state, "sent");
-  const listing = db.prepare("SELECT status FROM listings WHERE id = 'l1'").get() as { status: string };
+  const listing = db.prepare("SELECT status, mine FROM listings WHERE id = 'l1'").get() as {
+    status: string;
+    mine: string;
+  };
   assert.equal(listing.status, "applied");
+  assert.ok(JSON.parse(listing.mine).status, "a stage kestrel set is my mark, so the mirror keeps it (review)");
 });
 
 test("no job gets two: an open application blocks a second queue for the same link", () => {

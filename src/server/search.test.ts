@@ -287,3 +287,31 @@ test("a deal hunt the old setup runs is searched there, and reads as searching u
   assert.deepEqual(await kestrel.run("deals", "Made-up lamp"), { status: 202, body: { started: 0 } });
   while (pendingSearches().size > 0) await new Promise((ok) => setTimeout(ok, 20));
 });
+
+test("the sheet's Delete takes a listing from the counts; its id still opens it, deleted, and Restore brings it back", async (t) => {
+  const { db } = await setup(t);
+  const app = new Hono();
+  mountSearch(app, db, {} as Settings);
+  const all = async () => ((await (await app.request("/api/search/counts?kind=jobs")).json()) as { all: number }).all;
+  const before = await all();
+  assert.equal((await app.request("/api/search/listings/o1", { method: "DELETE" })).status, 200);
+  assert.equal(await all(), before - 1);
+  const opened = (await (await app.request("/api/search/listings/o1")).json()) as {
+    id: string;
+    deleted: { by: string };
+  };
+  assert.deepEqual([opened.id, opened.deleted.by], ["o1", "me"]);
+  assert.equal((await app.request("/api/search/listings/o1", { method: "DELETE" })).status, 404); // once
+  assert.equal((await app.request("/api/search/listings/o1/restore", { method: "POST" })).status, 200);
+  assert.equal(await all(), before);
+  const back = (await (await app.request("/api/search/listings/o1")).json()) as {
+    deleted: unknown;
+    mine: { deleted?: string };
+  };
+  assert.equal(back.deleted, null);
+  assert.ok(
+    back.mine.deleted,
+    "Restore on the sheet is my mark, so a delete in the old setup doesn't take it (review)",
+  );
+  assert.equal((await app.request("/api/search/listings/o1/restore", { method: "POST" })).status, 409);
+});

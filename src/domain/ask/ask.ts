@@ -7,8 +7,8 @@
 // the computer.
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import { ASK_VERSION, type AskPage, askMessages } from "../../ai/ask/prompt.ts";
-import { chatModel, type Turn } from "../../ai/client.ts";
+import { ASK_MAX_TOKENS, ASK_VERSION, type AskPage, askMessages } from "../../ai/ask/prompt.ts";
+import { chatModel, failureWords, type Turn } from "../../ai/client.ts";
 import { begin } from "../../platform/activity.ts";
 import type { Settings } from "../../platform/config.ts";
 import { plainWords } from "../../platform/plain.ts";
@@ -30,11 +30,19 @@ type Helper = {
   page: (db: DatabaseSync, ref: string) => AskPage | null;
   // a reading action: its words go back to the model, which then answers from them
   find?: (db: DatabaseSync, ref: string, query: unknown) => string;
-  // the changes the model may propose: describe says what one would do (null: not one this page can make), run makes
-  // it on my tap and says what happened
+  // the changes the model may propose: describe says what one would do (null: not one this page can make; a Proposal
+  // for a change to many, which it resolves now), run makes it on my tap and says what happened (with what Undo needs,
+  // when it can be undone), and undo takes it back
   act?: {
-    describe: (db: DatabaseSync, ref: string, action: unknown) => string | null;
-    run: (db: DatabaseSync, settings: Settings, ref: string, action: unknown) => string;
+    describe: (db: DatabaseSync, ref: string, action: unknown) => string | Proposal | null;
+    run: (
+      db: DatabaseSync,
+      settings: Settings,
+      ref: string,
+      action: unknown,
+      card: Card,
+    ) => string | { result: string; undo?: unknown };
+    undo?: (db: DatabaseSync, ref: string, card: Card) => string;
   };
   // the answer's words before they are kept (a link to something that isn't there becomes plain words)
   tidy?: (db: DatabaseSync, ref: string, words: string) => string;
@@ -56,8 +64,23 @@ const HELPERS: Record<string, Helper> = {
 };
 export const ASK_APPS = Object.keys(HELPERS) as [string, ...string[]];
 
-// a change the model proposed: what it would do, the action itself, and whether my tap ran it
-export type Card = { label: string; action: unknown; state: "open" | "done" | "failed"; result: string };
+// a change the model proposed: what it would do, the action itself, and what my tap made of it. A change to many also
+// keeps what it leaves out (detail) and the listings it covers, as they were when it was proposed (items: the tap
+// changes exactly those); undo holds what Undo needs, until Undo is used
+export type Card = {
+  label: string;
+  action: unknown;
+  state: "open" | "done" | "failed" | "undone";
+  result: string;
+  detail?: string;
+  items?: { id: string; title: string; was: string }[];
+  undo?: unknown;
+};
+// what a page says of a change it could make: its words; for a change to many, also what it leaves out and what it
+// covers; failed: one it can't make, said on its card
+export type Proposal = { label: string; detail?: string; items?: Card["items"]; failed?: string };
+// a card as the page reads it: the titles it covers, and whether Undo is there (what it needs stays on the server)
+export type CardView = Omit<Card, "items" | "undo"> & { items?: { id: string; title: string }[]; undoable: boolean };
 export type AskMessage = {
   id: string;
   role: "me" | "model";
@@ -66,7 +89,7 @@ export type AskMessage = {
   error: string;
   model: string;
   at: string;
-  cards: Card[];
+  cards: CardView[];
 };
 
 const HISTORY = 12; // the turns the model rereads; older ones stay on the page
@@ -75,6 +98,12 @@ const FIND_ROUNDS = 2; // rounds of looks the model may take before it answers
 const LOOKS = 3; // looks in one round
 const CARDS = 5;
 
+const view = ({ items, undo, ...card }: Card): CardView => ({
+  ...card,
+  ...(items ? { items: items.map((i) => ({ id: i.id, title: i.title })) } : {}),
+  undoable: card.state === "done" && undo !== undefined,
+});
+
 export function conversation(db: DatabaseSync, app: string, ref: string): AskMessage[] {
   return (
     db
@@ -82,7 +111,7 @@ export function conversation(db: DatabaseSync, app: string, ref: string): AskMes
         "SELECT id, role, text, state, error, model, at, cards FROM ask_messages WHERE app = ? AND ref = ? ORDER BY rowid",
       )
       .all(app, ref) as (Omit<AskMessage, "cards"> & { cards: string })[]
-  ).map((m) => ({ ...m, cards: JSON.parse(m.cards || "[]") as Card[] }));
+  ).map((m) => ({ ...m, cards: (JSON.parse(m.cards || "[]") as Card[]).map(view) }));
 }
 
 const stillWriting = (db: DatabaseSync, app: string, ref: string) =>
@@ -198,7 +227,7 @@ async function write(
     console.error(`an Ask answer failed: ${plainWords(e instanceof Error ? e.message : String(e))}`);
     live.end("failed", "something went wrong while it answered");
     db.prepare("UPDATE ask_messages SET state = 'failed', error = ? WHERE id = ? AND state = 'writing'").run(
-      "something went wrong while it answered: ask again",
+      "Something went wrong while it answered. Ask again.",
       row.id,
     );
   }
@@ -223,7 +252,7 @@ async function answer(
   for (let round = 0; ; round++) {
     const got = await chatModel(
       models,
-      { model: row.model, system, messages, maxTokens: 6000, thinking: true },
+      { model: row.model, system, messages, maxTokens: ASK_MAX_TOKENS, thinking: true },
       (soFar) => {
         // the page reads the row about three times a second: writing it more often buys nothing
         if (Date.now() - last < 250) return;
@@ -233,11 +262,10 @@ async function answer(
     );
     recordCall(db, `ask-${row.app}:v${ASK_VERSION}`, got);
     if (!got.ok) {
-      db.prepare("UPDATE ask_messages SET state = 'failed', error = ? WHERE id = ?").run(
-        `${got.why}: ${got.detail}`.slice(0, 300),
-        row.id,
-      );
-      live.end("failed", got.why);
+      // the failure in plain words, on the answer's row and on Live; the developer's detail stays in the calls log
+      const said = failureWords(got.why, "Ask again, or ask in fewer words");
+      db.prepare("UPDATE ask_messages SET state = 'failed', error = ? WHERE id = ?").run(said, row.id);
+      live.end("failed", said);
       return;
     }
     const { looks, actions, words } = blocksOf(got.value);
@@ -266,12 +294,22 @@ async function answer(
       grow.run("", row.id);
       continue;
     }
-    // the changes it proposed, each a card that says what it would do; one this page can't make is dropped
+    // the changes it proposed, each a card that says what it would do (a change to many: resolved now, its listings
+    // kept); one this page can't make is dropped, one it can't read says why on its card
     const cards: Card[] = [];
     for (const action of actions) {
-      const label = helper.act?.describe(db, row.ref, action);
-      if (label && !cards.some((c) => c.label === label) && cards.length < CARDS)
-        cards.push({ label, action, state: "open", result: "" });
+      const said = helper.act?.describe(db, row.ref, action);
+      if (!said) continue;
+      const p: Proposal = typeof said === "string" ? { label: said } : said;
+      if (cards.some((c) => c.label === p.label) || cards.length >= CARDS) continue;
+      cards.push({
+        label: p.label,
+        action,
+        state: p.failed ? "failed" : "open",
+        result: p.failed ?? "",
+        ...(p.detail ? { detail: p.detail } : {}),
+        ...(p.items ? { items: p.items } : {}),
+      });
     }
     db.prepare("UPDATE ask_messages SET text = ?, state = 'done', cards = ? WHERE id = ?").run(
       (helper.tidy ? helper.tidy(db, row.ref, words) : words) ||
@@ -284,19 +322,25 @@ async function answer(
   }
 }
 
-// my tap on a card: its change runs through the app's own functions, and the card says what happened
-export function actOn(db: DatabaseSync, settings: Settings, input: { id: string; card: number }): AskMessage[] {
-  const m = db.prepare("SELECT app, ref, cards FROM ask_messages WHERE id = ?").get(input.id) as
+// an answer's cards, by the answer's id, with its page's helper
+function cardsOf(db: DatabaseSync, id: string) {
+  const m = db.prepare("SELECT app, ref, cards FROM ask_messages WHERE id = ?").get(id) as
     | { app: string; ref: string; cards: string }
     | undefined;
   if (!m) throw new Refused("that answer isn't there any more");
-  const act = HELPERS[m.app]?.act;
-  const cards = JSON.parse(m.cards || "[]") as Card[];
+  return { ...m, act: HELPERS[m.app]?.act, cards: JSON.parse(m.cards || "[]") as Card[] };
+}
+
+// my tap on a card: its change runs through the app's own functions, and the card says what happened
+export function actOn(db: DatabaseSync, settings: Settings, input: { id: string; card: number }): AskMessage[] {
+  const { app, ref, act, cards } = cardsOf(db, input.id);
   const card = cards[input.card];
   if (!act || !card) throw new Refused("there is no such change to make");
   if (card.state !== "open") throw new Refused("that change was already made");
   try {
-    card.result = act.run(db, settings, m.ref, card.action);
+    const got = act.run(db, settings, ref, card.action, card);
+    card.result = typeof got === "string" ? got : got.result;
+    if (typeof got !== "string" && got.undo !== undefined) card.undo = got.undo;
     card.state = "done";
   } catch (e) {
     if (!(e instanceof Refused)) throw e;
@@ -304,7 +348,20 @@ export function actOn(db: DatabaseSync, settings: Settings, input: { id: string;
     card.state = "failed";
   }
   db.prepare("UPDATE ask_messages SET cards = ? WHERE id = ?").run(JSON.stringify(cards), input.id);
-  return conversation(db, m.app, m.ref);
+  return conversation(db, app, ref);
+}
+
+// Undo on a card my tap ran: the app takes its change back, once, and the card says what came back
+export function undoOn(db: DatabaseSync, input: { id: string; card: number }): AskMessage[] {
+  const { app, ref, act, cards } = cardsOf(db, input.id);
+  const card = cards[input.card];
+  if (!act?.undo || !card) throw new Refused("there is no such change to undo");
+  if (card.state !== "done" || card.undo === undefined) throw new Refused("that change can't be undone");
+  card.result = act.undo(db, ref, card);
+  card.state = "undone";
+  delete card.undo;
+  db.prepare("UPDATE ask_messages SET cards = ? WHERE id = ?").run(JSON.stringify(cards), input.id);
+  return conversation(db, app, ref);
 }
 
 // start the page's conversation over
@@ -316,6 +373,6 @@ export function clearConversation(db: DatabaseSync, app: string, ref: string): v
 // kestrel restarted while an answer was being written: it can't finish now, so it says so instead of spinning
 export function sweepAsks(db: DatabaseSync): void {
   db.prepare(
-    "UPDATE ask_messages SET state = 'failed', error = 'kestrel restarted while it wrote: ask again' WHERE state = 'writing'",
+    "UPDATE ask_messages SET state = 'failed', error = 'kestrel restarted while it wrote. Ask again.' WHERE state = 'writing'",
   ).run();
 }

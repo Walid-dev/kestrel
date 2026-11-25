@@ -3498,6 +3498,40 @@ pre.code .f {
   border-color: color-mix(in srgb, var(--red) 40%, var(--line));
   background: color-mix(in srgb, var(--red) 6%, var(--surface));
 }
+/* Ask's change to many (Searches' rule cards): the listings it covers fold out under the card's row, a list that
+   scrolls in its own box when long; a change taken back with Undo is quiet, done with */
+.ask-card:has(> .ask-card-list) {
+  flex-wrap: wrap;
+}
+.ask-card-list {
+  flex-basis: 100%;
+  min-width: 0;
+}
+.ask-card-items {
+  display: grid;
+  gap: 2px;
+  max-height: 240px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  font-size: var(--text-detail);
+  line-height: var(--text-detail--line-height);
+}
+/* each title opens its listing: a quiet link, as a research answer's sources (.cite); by its element, so it outranks
+   the answer's own link look (.md-link, below) wherever that sits */
+.ask-card-items a {
+  text-decoration: none;
+  color: color-mix(in srgb, var(--accent) 60%, var(--muted));
+}
+.ask-card-items a:hover {
+  color: color-mix(in srgb, var(--accent) 75%, var(--text));
+  text-decoration: underline;
+}
+.ask-card.undone {
+  border-color: var(--line);
+  background: var(--surface);
+}
 /* on a phone, the head that opens Ask takes a thumb's height, without making the row taller (Start over is a
    btn-icon, with its own touch area) */
 @media (pointer: coarse) {

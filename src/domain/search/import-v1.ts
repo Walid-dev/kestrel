@@ -1,12 +1,29 @@
-// The import from the old setup, idempotent: the old database stays the authority for statuses, stars and notes until
-// the cutover, so re-running refreshes and never double-lists. It carries the jobs with my own marks (the owner
-// column: stars, notes, application attempts), the deals with their hunt, model and price history, and every deep
-// check already written. The mirror (server/scheduler.ts) runs this after each of the old setup's runs during the
-// side-by-side weeks; scripts/import-v1.ts is the by-hand door.
+// The import from the old setup, idempotent: re-running refreshes and never double-lists. It carries the jobs with my
+// marks made there (the owner column: stars, notes, application attempts), the deals with their hunt, model and price
+// history, and every deep check already written. The mirror (server/scheduler.ts) runs this after each of the old
+// setup's runs during the side-by-side weeks; scripts/import-v1.ts is the by-hand door.
+// Who owns what (2026-11-25): a mark I make in kestrel (a stage, a star, a note, a delete) is kestrel's from then on,
+// and the mirror keeps it; a listing I never marked here follows the old database, as it did. The engine's own fields
+// (the score, the match, the posting's data) always refresh, and a stage the old setup reaches by itself still arrives
+// (stageArrives, below). A job deleted in the old setup is deleted here too, unless I marked it here; one deleted here
+// never lands again. Nothing is ever written to the old database.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { deleteListings, isMarked, isTombstoned, marksOf } from "./listings.ts";
 import { outsideOf, type ScoredJob } from "./score.ts";
+
+// The old setup's own stages, which still arrive over a stage I set here when the old database moved to them after the
+// last mirror saw it (seen: the old status then; null when no mirror has kept it yet, and my mark stands): an
+// application's (Applied, then Interviewing, Offer or Rejected, the apply flow's and its follow-ups'), never backwards
+// from a later one here; and Closed, which its engine sets on a posting that is gone, while it is still open here (to
+// review, Interested or Not sure). A stage set by hand there after my mark here stays mine.
+const PATH: Record<string, number> = { applied: 1, interviewing: 2, offer: 3, rejected: 3 };
+export function stageArrives(old: string, here: string, seen: string | null): boolean {
+  if (seen === null || old === seen) return false;
+  if (PATH[old]) return PATH[old] > (PATH[here] ?? 0);
+  return old === "closed" && ["new", "interested", "maybe"].includes(here);
+}
 
 type OldRow = {
   id: string;
@@ -25,6 +42,7 @@ export type ImportCounts = {
   sourceStarred: number;
   sourceScored: number;
   landed: Landed;
+  removed: number; // jobs deleted in the old setup since, deleted here too (none I marked here)
   deals: { source: Record<string, number>; landed: Landed };
   applications: { sent: number; notSent: number };
   deepChecks: number;
@@ -57,6 +75,23 @@ const DEAL_STATUS: Record<string, string> = {
   not: "passed",
   sold: "closed",
 };
+
+// the old job vocabulary onto kestrel's: ghosted (an application that never heard back, its follow-ups' word) is
+// Rejected here; a word kestrel doesn't know arrives as to review rather than stop the whole mirror at its CHECK
+const JOB_STATUSES = new Set([
+  "new",
+  "interested",
+  "maybe",
+  "applied",
+  "interviewing",
+  "offer",
+  "rejected",
+  "passed",
+  "fake",
+  "closed",
+]);
+export const jobStatus = (old: string): string =>
+  old === "ghosted" ? "rejected" : JOB_STATUSES.has(old) ? old : "new";
 
 type Head = { hunt: string; category: string; min?: number; max?: number; maxAge?: number };
 // the old setup's own key for a deal hunt (its review page's tab, the name its Search now takes): its hunt: line,
@@ -235,7 +270,9 @@ function importDeals(db: DatabaseSync, old: DatabaseSync, write: boolean, opts: 
       category: model ? model[0].toUpperCase() + model.slice(1).replaceAll("-", " ") : "",
     };
   };
-  const get = db.prepare("SELECT id, status, score, data FROM listings WHERE id = ? OR (search = ? AND link = ?)");
+  const get = db.prepare(
+    "SELECT id, status, score, data, mine FROM listings WHERE id = ? OR (search = ? AND link = ?)",
+  );
   const insert = db.prepare(
     `INSERT INTO listings (id, search, source, link, dedupe, status, starred, found, updated, score, match, data, kind)
      VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, 'deals')`,
@@ -244,8 +281,17 @@ function importDeals(db: DatabaseSync, old: DatabaseSync, write: boolean, opts: 
     "UPDATE listings SET status = ?, score = ?, match = ?, data = ?, updated = ?, kind = 'deals' WHERE id = ?",
   );
   for (const r of rows) {
-    const status = DEAL_STATUS[r.status ?? "new"] ?? "new";
-    counts.source[status] = (counts.source[status] ?? 0) + 1;
+    const old = DEAL_STATUS[r.status ?? "new"] ?? "new";
+    counts.source[old] = (counts.source[old] ?? 0) + 1;
+    const have = get.get(String(r.id), r.spec, r.url) as
+      | { id: string; status: string; score: number | null; data: string; mine: string }
+      | undefined;
+    // deleted here: never landed again
+    if (!have && isTombstoned(db, { id: String(r.id), search: r.spec, dedupe: r.url, link: r.url })) continue;
+    // my marks here stay: the old deal engine sets no stage by itself, so every stage there is a hand's (stars stay
+    // here alone: the old deals have none)
+    const mine = marksOf(have?.mine);
+    const status = have && mine.status ? have.status : old;
     const score = r.score === null ? null : Math.round(r.score * 10); // the old 0–10 onto the 0–100 card
     const match = score === null ? "" : score >= 80 ? "great" : score >= 60 ? "good" : score >= 40 ? "weak" : "poor";
     const known = heads.get(r.spec);
@@ -280,13 +326,10 @@ function importDeals(db: DatabaseSync, old: DatabaseSync, write: boolean, opts: 
       fitWhy: r.fit_reason ?? "",
       leftOut,
       why: "",
-      note: r.my_note ?? "",
+      note: have && mine.note ? text(json(have.data).note) : (r.my_note ?? ""),
       twin: r.twin_of ?? "",
     });
     const updatedAt = r.last_seen ?? r.first_seen;
-    const have = get.get(String(r.id), r.spec, r.url) as
-      | { id: string; status: string; score: number | null; data: string }
-      | undefined;
     if (!have) {
       counts.landed.new++;
       if (write)
@@ -297,7 +340,7 @@ function importDeals(db: DatabaseSync, old: DatabaseSync, write: boolean, opts: 
       counts.landed.unchanged++;
       continue;
     }
-    counts.landed.updated++; // the old setup stays the authority until the cutover
+    counts.landed.updated++;
     if (write) update.run(status, score, match, data, updatedAt, have.id);
   }
   // every search the old runs name is a deal search: a row the old setup has since dropped still reads as a deal
@@ -349,9 +392,10 @@ export function importV1(db: DatabaseSync, from: string, write: boolean, opts: I
     let sourceStarred = 0;
     let sourceScored = 0;
     const landed: Landed = { new: 0, updated: 0, unchanged: 0 };
+    let removed = 0;
     // a link match stays inside its own search: another hunt's row with the same link is its own (the sweep's finding)
     const get = db.prepare(
-      "SELECT id, status, starred, score, match, data FROM listings WHERE id = ? OR (search = ? AND (dedupe = ? OR link = ?))",
+      "SELECT id, status, starred, score, match, data, mine FROM listings WHERE id = ? OR (search = ? AND (dedupe = ? OR link = ?))",
     );
     const insert = db.prepare(
       `INSERT INTO listings (id, search, source, link, dedupe, status, starred, found, updated, score, match, data, kind)
@@ -364,13 +408,34 @@ export function importV1(db: DatabaseSync, from: string, write: boolean, opts: I
     for (const r of rows) {
       const data = json(r.data);
       const own = json(r.owner);
-      if (own.deleted) continue; // a job I removed in the old setup stays removed
+      const have = get.get(r.id, r.hunt, r.dedupe_key, r.link) as
+        | {
+            id: string;
+            status: string;
+            starred: number | null;
+            score: number | null;
+            match: string;
+            data: string;
+            mine: string;
+          }
+        | undefined;
+      const mine = marksOf(have?.mine);
+      // a job I removed in the old setup stays removed, and goes here too, unless I marked it here: then it is mine
+      if (own.deleted) {
+        if (have && !isMarked(mine)) {
+          removed++;
+          if (write) deleteListings(db, [have.id], "old");
+        }
+        continue;
+      }
+      // deleted here: never landed again
+      if (!have && isTombstoned(db, { id: r.id, search: r.hunt, dedupe: r.dedupe_key, link: r.link })) continue;
       kept.push(r);
       source[r.status] = (source[r.status] ?? 0) + 1;
-      // my star lives in the owner column; an old row may still carry it in its data
+      // my star there lives in the owner column; an old row may still carry it in its data
       const star = own.star ?? data.star;
-      const starred = star === true ? 1 : star === false ? 0 : null;
-      if (starred === 1) sourceStarred++;
+      const oldStarred = star === true ? 1 : star === false ? 0 : null;
+      if (oldStarred === 1) sourceStarred++;
       const score = typeof data.score === "number" ? Math.round(data.score) : null;
       if (score !== null) sourceScored++;
       // the old setup's "fair" is kestrel's possible tier
@@ -378,20 +443,25 @@ export function importV1(db: DatabaseSync, from: string, write: boolean, opts: I
       const updatedAt = String(data.lastSeen ?? r.found);
       // a job open only where I can't work is set aside here too, at each mirror, as kestrel's own finds are
       const outside = data.leftOut ? null : outsideOf(opts.jobScoring?.(r.hunt), data as unknown as ScoredJob);
+      // my marks here stay; what I never marked here follows the old database. oldStatus keeps the old status as this
+      // mirror saw it, so the next one knows whether the old setup moved since (stageArrives)
+      const here = have ? json(have.data) : {};
+      const seen = typeof here.oldStatus === "string" ? here.oldStatus : null;
+      const oldStatus = jobStatus(r.status);
+      const status = have && mine.status && !stageArrives(oldStatus, have.status, seen) ? have.status : oldStatus;
+      const starred = have && mine.starred ? have.starred : oldStarred;
       const carried = JSON.stringify({
         ...data,
         ...(outside ? { leftOut: outside } : {}),
         kind: "jobs",
         org: text(data.company) || text(data.org),
         why: data.matchWhy ?? "",
-        note: text(own.myNote),
+        note: have && mine.note ? text(here.note) : text(own.myNote),
         appliedAt: own.appliedAt ?? null,
         followUpAt: own.followUpAt ?? null,
         interviewAt: own.interviewAt ?? null,
+        oldStatus,
       });
-      const have = get.get(r.id, r.hunt, r.dedupe_key, r.link) as
-        | { id: string; status: string; starred: number | null; score: number | null; match: string; data: string }
-        | undefined;
       if (!have) {
         landed.new++;
         if (write)
@@ -401,7 +471,7 @@ export function importV1(db: DatabaseSync, from: string, write: boolean, opts: I
             String(data.source ?? "unknown"),
             r.link,
             r.dedupe_key,
-            r.status,
+            status,
             starred,
             r.found,
             updatedAt,
@@ -412,7 +482,7 @@ export function importV1(db: DatabaseSync, from: string, write: boolean, opts: I
         continue;
       }
       if (
-        have.status === r.status &&
+        have.status === status &&
         have.starred === starred &&
         have.score === score &&
         have.match === match &&
@@ -421,8 +491,8 @@ export function importV1(db: DatabaseSync, from: string, write: boolean, opts: I
         landed.unchanged++;
         continue;
       }
-      landed.updated++; // the old setup stays the authority for status, star and note until the cutover
-      if (write) update.run(r.status, starred, score, match, carried, updatedAt, have.id);
+      landed.updated++;
+      if (write) update.run(status, starred, score, match, carried, updatedAt, have.id);
     }
     const applications = importApplications(db, kept, write);
     const deals = importDeals(db, old, write, opts);
@@ -440,6 +510,7 @@ export function importV1(db: DatabaseSync, from: string, write: boolean, opts: I
       sourceStarred,
       sourceScored,
       landed,
+      removed,
       deals,
       applications,
       deepChecks,

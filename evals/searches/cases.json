@@ -55,6 +55,52 @@
       "match": "good"
     }
   ],
+  "dealListings": [
+    {
+      "id": "d1",
+      "title": "Oak desk lamp",
+      "org": "",
+      "location": "Hiveton",
+      "price": 45,
+      "score": 80,
+      "match": "good"
+    },
+    {
+      "id": "d2",
+      "title": "Waxed lounge chair",
+      "org": "",
+      "location": "Waxford",
+      "price": 650,
+      "score": 74,
+      "match": "good"
+    },
+    {
+      "id": "d3",
+      "title": "Comb rocking chair",
+      "org": "",
+      "location": "Hiveton",
+      "price": 720,
+      "score": 66,
+      "match": "good"
+    },
+    {
+      "id": "d4",
+      "title": "Hive stool",
+      "org": "",
+      "location": "Meadow",
+      "price": 120,
+      "score": 61,
+      "match": "good"
+    },
+    {
+      "id": "d5",
+      "title": "Frame chair, make an offer",
+      "org": "",
+      "location": "Hiveton",
+      "score": 58,
+      "match": "weak"
+    }
+  ],
   "cases": [
     {
       "name": "beyond-the-view",
@@ -127,6 +173,67 @@
       "good": "A **swarm wrangler** catches swarms that leave a hive and settles them in a new one.",
       "bad": "Let me check.\n```find\n{\"words\": \"wrangler\"}\n```",
       "badWhy": "a block for a question that needs none"
+    },
+    {
+      "name": "delete-one",
+      "question": "Delete the Wax Lead posting.",
+      "expect": {
+        "action": {
+          "do": "delete",
+          "listing": "h4"
+        }
+      },
+      "good": "Tap to delete [Wax Lead](listing:h4); you can undo it.\n```action\n{\"do\": \"delete\", \"listing\": \"h4\"}\n```",
+      "bad": "I've deleted [Wax Lead](listing:h4).",
+      "badWhy": "no delete proposed for h4"
+    },
+    {
+      "name": "delete-under-pay",
+      "question": "Delete all postings that are under 130k.",
+      "expect": {
+        "rule": {
+          "do": "delete",
+          "where": {
+            "payBelow": 130000
+          }
+        }
+      },
+      "good": "Tap the card to delete them; it shows how many and what it leaves out.\n```action\n{\"do\": \"delete\", \"where\": {\"payBelow\": 130000}}\n```",
+      "bad": "Tap each card to delete it.\n```action\n{\"do\": \"delete\", \"listing\": \"h1\"}\n```\n```action\n{\"do\": \"delete\", \"listing\": \"h3\"}\n```",
+      "badWhy": "a list of ids instead of one rule"
+    },
+    {
+      "name": "pass-remote-under-pay",
+      "question": "Mark every remote job under 100k as not for me.",
+      "expect": {
+        "rule": {
+          "do": "stage",
+          "to": "passed",
+          "where": {
+            "remote": true,
+            "payBelow": 100000
+          }
+        }
+      },
+      "good": "Tap to mark them as not for me.\n```action\n{\"do\": \"stage\", \"to\": \"passed\", \"where\": {\"remote\": true, \"payBelow\": 100000}}\n```",
+      "bad": "Let me find them first.\n```find\n{\"remote\": true, \"payBelow\": 100000}\n```",
+      "badWhy": "a find before the rule"
+    },
+    {
+      "name": "delete-deals-over",
+      "page": "deals",
+      "question": "Delete the deals over $600.",
+      "expect": {
+        "rule": {
+          "do": "delete",
+          "where": {
+            "priceAtLeast": 601
+          }
+        }
+      },
+      "good": "Tap to delete them.\n```action\n{\"do\": \"delete\", \"where\": {\"priceAtLeast\": 601}}\n```",
+      "bad": "Tap to delete them.\n```action\n{\"do\": \"delete\", \"where\": {\"priceAtMost\": 600}}\n```",
+      "badWhy": "no delete rule with priceAtLeast"
     }
   ]
 }

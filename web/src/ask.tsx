@@ -10,7 +10,16 @@ import { type Drawing as D, isKind, readDrawing } from "../../src/shared/blocks.
 import { Drawing } from "./drawing.tsx";
 import { Code, Inline } from "./learn/blocks.tsx";
 
-type Card = { label: string; state: "open" | "done" | "failed"; result: string };
+// a change the model proposed: what it does, and for many at once what it leaves out and the listings it covers; done,
+// what happened, and Undo while it can
+type Card = {
+  label: string;
+  state: "open" | "done" | "failed" | "undone";
+  result: string;
+  detail?: string;
+  items?: { id: string; title: string }[];
+  undoable?: boolean;
+};
 type Message = {
   id: string;
   role: "me" | "model";
@@ -21,6 +30,13 @@ type Message = {
   at: string;
   cards?: Card[];
 };
+
+// an answer that didn't finish says why in the server's plain words; one kept from before them (the model client's
+// own kind first, "down: …", a developer's hint) says only that it didn't finish
+const failedWords = (error: string) =>
+  !error || /^(unlisted|too-long|down|timeout|refusal|out-of-room|shape): /.test(error)
+    ? "It didn't finish. Ask again."
+    : error;
 
 async function call(url: string, method: string, body?: unknown): Promise<{ messages: Message[] }> {
   const res = await fetch(url, {
@@ -103,9 +119,16 @@ export function Ask({
       setText("");
     },
   });
-  // my tap on a change the model proposed: it runs, and its card says what happened
+  // my tap on a change the model proposed: it runs, and its card says what happened; Undo takes it back, once
   const act = useMutation({
     mutationFn: (input: { id: string; card: number }) => call("/api/ask/act", "POST", input),
+    onSuccess: (data) => {
+      queryClient.setQueryData(key, data);
+      onChange?.();
+    },
+  });
+  const undo = useMutation({
+    mutationFn: (input: { id: string; card: number }) => call("/api/ask/undo", "POST", input),
     onSuccess: (data) => {
       queryClient.setQueryData(key, data);
       onChange?.();
@@ -121,7 +144,7 @@ export function Ask({
   const ask = (q: string) => {
     if (q.trim() && !busy) send.mutate(q.trim());
   };
-  const failed = [thread, send, clear, act].find((x) => x.isError);
+  const failed = [thread, send, clear, act, undo].find((x) => x.isError);
   const startOver = isOpen && messages.length > 0 && (
     <button
       type="button"
@@ -255,13 +278,16 @@ export function Ask({
                   <span className="spin" /> Thinking
                 </span>
               ) : null}
-              {m.state === "failed" && <p className="ask-failed">It didn't finish ({m.error}). Ask again.</p>}
+              {m.state === "failed" && <p className="ask-failed">{failedWords(m.error)}</p>}
               {(m.cards ?? []).map((c, i) => (
                 <div key={c.label} className={`ask-card ${c.state}`}>
                   <span className="min-w-0 flex-1">
                     <span className="block font-semibold text-strong">{c.label}</span>
+                    {c.detail && <span className="mt-0.5 block text-small text-muted">{c.detail}</span>}
                     {c.state !== "open" && (
-                      <span className={`mt-0.5 block text-small ${c.state === "done" ? "text-green" : "text-red"}`}>
+                      <span
+                        className={`mt-0.5 block text-small ${c.state === "done" ? "text-green" : c.state === "failed" ? "text-red" : "text-muted"}`}
+                      >
                         {c.state === "done" ? "✓ " : ""}
                         {c.result}
                       </span>
@@ -276,6 +302,31 @@ export function Ask({
                     >
                       Do it
                     </button>
+                  )}
+                  {c.undoable && (
+                    <button
+                      type="button"
+                      className="btn btn-sm shrink-0"
+                      disabled={undo.isPending}
+                      onClick={() => undo.mutate({ id: m.id, card: i })}
+                    >
+                      Undo
+                    </button>
+                  )}
+                  {/* a change to many: the listings it covers, folded at first; each title opens its listing */}
+                  {c.items && c.items.length > 0 && (
+                    <details className="ask-card-list">
+                      <summary className="disclosure">
+                        The listings <span className="font-mono tabular-nums">{c.items.length}</span>
+                      </summary>
+                      <ol className="ask-card-items">
+                        {c.items.map((it) => (
+                          <li key={it.id}>
+                            <Inline text={`[${it.title.replace(/[[\]()]/g, "")}](listing:${it.id})`} />
+                          </li>
+                        ))}
+                      </ol>
+                    </details>
                   )}
                 </div>
               ))}

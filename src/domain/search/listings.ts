@@ -1,10 +1,25 @@
 // The listings: what a run keeps, deduplicated so a job seen twice updates its lastSeen and never double-lists —
-// including right after the import. Priority is a rule, not a list of its own.
+// including right after the import. Priority is a rule, not a list of its own. My marks (a stage, a star, a note) are
+// kept with when I made them, so the mirror leaves them be; a listing deleted leaves this table for a tombstone of its
+// own (listings_deleted), so no view or count can show it, and it comes back whole.
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { Refused } from "../notes/documents.ts";
 import type { Item } from "./collect.ts";
 import { leftOutOf, outsideOf, type Score, scoreJob } from "./score.ts";
+
+// my marks made here, each with when I made it: from then on that field is kestrel's (the mirror keeps it). deleted:
+// I brought back a listing the old setup had deleted, so the old setup's delete no longer reaches it
+export type Marks = Partial<Record<"status" | "starred" | "note" | "deleted", string>>;
+export const marksOf = (raw: unknown): Marks => {
+  try {
+    const v = JSON.parse(String(raw ?? "{}")) as unknown;
+    return v && typeof v === "object" && !Array.isArray(v) ? (v as Marks) : {};
+  } catch {
+    return {};
+  }
+};
+export const isMarked = (mine: Marks): boolean => Object.keys(mine).length > 0;
 
 export type ListingRow = {
   id: string;
@@ -22,6 +37,7 @@ export type ListingRow = {
   kind: "jobs" | "deals";
   priority: boolean;
   leftOut: string | null; // why the rules set it aside, while they do (LEFT): the card says it in its head
+  mine: Marks;
 };
 
 export const normalizeDedupe = (org: string, title: string) =>
@@ -55,10 +71,20 @@ const row = (r: Record<string, unknown>): ListingRow => {
     kind: r.kind === "deals" ? "deals" : "jobs",
     priority: isPriority(base),
     leftOut: r.left_out ? String(base.data.leftOut) : null, // the query's own LEFT (COLUMNS), never a second rule
+    mine: marksOf(r.mine),
   };
 };
 
-// keep a run's items: a known dedupe or link updates lastSeen and the score; a new one lands as status new
+// a listing deleted, found by its id, or by its search with the link or dedupe key a run or the mirror would land it
+// under: neither lands it again
+const TOMBSTONE = "SELECT id FROM listings_deleted WHERE id = ? OR (search = ? AND (dedupe = ? OR link = ?))";
+export const isTombstoned = (
+  db: DatabaseSync,
+  key: { id?: string; search: string; dedupe: string; link: string },
+): boolean => db.prepare(TOMBSTONE).get(key.id ?? "", key.search, key.dedupe, key.link) !== undefined;
+
+// keep a run's items: a known dedupe or link updates lastSeen and the score; a new one lands as status new, unless I
+// deleted it (a tombstone holds its search with its link or dedupe key): a run never brings that one back
 export function keepItems(
   db: DatabaseSync,
   searchId: string,
@@ -102,6 +128,7 @@ export function keepItems(
       );
       continue;
     }
+    if (isTombstoned(db, { search: searchId, dedupe, link: item.url })) continue;
     db.prepare(
       `INSERT INTO listings (id, search, source, link, dedupe, status, starred, found, updated, score, match, data, kind)
        VALUES (?, ?, ?, ?, ?, 'new', NULL, ?, ?, ?, ?, ?, ?)`,
@@ -397,14 +424,17 @@ export function rescoreSearch(
   return rows.length + carried;
 }
 
+// my note, kept as my mark: the mirror leaves it be from now on
 export function setListingNote(db: DatabaseSync, id: string, note: string): void {
   const r = db.prepare("SELECT data FROM listings WHERE id = ?").get(id) as { data: string } | undefined;
   if (!r) throw new Refused("no such listing");
   const data = JSON.parse(r.data) as Record<string, unknown>;
   data.note = note.trim().slice(0, 2000);
-  db.prepare("UPDATE listings SET data = ?, updated = ? WHERE id = ?").run(
+  const now = new Date().toISOString();
+  db.prepare("UPDATE listings SET data = ?, updated = ?, mine = json_set(mine, '$.note', ?) WHERE id = ?").run(
     JSON.stringify(data),
-    new Date().toISOString(),
+    now,
+    now,
     id,
   );
 }
@@ -428,16 +458,151 @@ export function statusWord(status: string, kind: "jobs" | "deals"): string {
   );
 }
 
+// my stage and my star, each kept as my mark (when I set it): the mirror leaves it be from now on
 export function setListingStatus(db: DatabaseSync, id: string, status: string): void {
+  const now = new Date().toISOString();
   const got = db
-    .prepare("UPDATE listings SET status = ?, updated = ? WHERE id = ?")
-    .run(status, new Date().toISOString(), id);
+    .prepare("UPDATE listings SET status = ?, updated = ?, mine = json_set(mine, '$.status', ?) WHERE id = ?")
+    .run(status, now, now, id);
   if (got.changes === 0) throw new Refused("no such listing");
 }
 
 export function setListingStar(db: DatabaseSync, id: string, starred: number | null): void {
+  const now = new Date().toISOString();
   const got = db
-    .prepare("UPDATE listings SET starred = ?, updated = ? WHERE id = ?")
-    .run(starred, new Date().toISOString(), id);
+    .prepare("UPDATE listings SET starred = ?, updated = ?, mine = json_set(mine, '$.starred', ?) WHERE id = ?")
+    .run(starred, now, now, id);
   if (got.changes === 0) throw new Refused("no such listing");
+}
+
+// a stage I set put back as it was before, with its mark (none: the listing follows the old database again), unless
+// it moved since (by me or the mirror): answers whether it went back
+export function putStageBack(
+  db: DatabaseSync,
+  id: string,
+  from: string,
+  back: { status: string; mark: string | null },
+): boolean {
+  const mine = back.mark ? "json_set(mine, '$.status', ?)" : "json_remove(mine, '$.status')";
+  const got = db
+    .prepare(`UPDATE listings SET status = ?, updated = ?, mine = ${mine} WHERE id = ? AND status = ?`)
+    .run(...[back.status, new Date().toISOString(), ...(back.mark ? [back.mark] : []), id, from]);
+  return got.changes > 0;
+}
+
+// everything in fn, or nothing: a savepoint, so it nests inside a transaction already open (the import's by-hand door
+// holds one) and opens its own otherwise
+export function within<T>(db: DatabaseSync, fn: () => T): T {
+  db.exec("SAVEPOINT listings_move");
+  try {
+    const out = fn();
+    db.exec("RELEASE listings_move");
+    return out;
+  } catch (e) {
+    db.exec("ROLLBACK TO listings_move");
+    db.exec("RELEASE listings_move");
+    throw e;
+  }
+}
+
+// the columns a tombstone keeps and puts back
+const COLS = [
+  "id",
+  "search",
+  "source",
+  "link",
+  "dedupe",
+  "status",
+  "starred",
+  "found",
+  "updated",
+  "score",
+  "match",
+  "data",
+  "kind",
+  "mine",
+] as const;
+
+// delete listings: each leaves the table for its tombstone, whole, so it can come back as it was (by: me here, or the
+// old setup through the mirror). One already gone is skipped; answers the ids deleted
+export function deleteListings(db: DatabaseSync, ids: string[], by: "me" | "old", now = new Date()): string[] {
+  const get = db.prepare(`SELECT ${COLS.join(", ")} FROM listings WHERE id = ?`);
+  const keep = db.prepare(
+    `INSERT INTO listings_deleted (id, search, link, dedupe, kind, row, by, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (id) DO UPDATE SET search = excluded.search, link = excluded.link, dedupe = excluded.dedupe,
+       kind = excluded.kind, row = excluded.row, by = excluded.by, at = excluded.at`,
+  );
+  const drop = db.prepare("DELETE FROM listings WHERE id = ?");
+  return within(db, () => {
+    const gone: string[] = [];
+    for (const id of new Set(ids)) {
+      const r = get.get(id) as Record<string, unknown> | undefined;
+      if (!r) continue;
+      keep.run(
+        id,
+        String(r.search),
+        String(r.link),
+        String(r.dedupe),
+        String(r.kind),
+        JSON.stringify(r),
+        by,
+        now.toISOString(),
+      );
+      drop.run(id);
+      gone.push(id);
+    }
+    return gone;
+  });
+}
+
+// deleted listings back, each as it was. One the old setup deleted comes back with my mark (deleted), so the next
+// mirror leaves it here; with mark, every one does (Restore on the sheet is my act, whoever deleted it; Undo isn't).
+// Answers the ids back, and the ones that stayed out: no tombstone (back already), or a listing now holds its place
+export function restoreListings(
+  db: DatabaseSync,
+  ids: string[],
+  opts: { mark?: boolean; now?: Date } = {},
+): { back: string[]; stayed: string[] } {
+  const now = opts.now ?? new Date();
+  const get = db.prepare("SELECT row, by FROM listings_deleted WHERE id = ?");
+  const put = db.prepare(`INSERT INTO listings (${COLS.join(", ")}) VALUES (${COLS.map(() => "?").join(", ")})`);
+  const forget = db.prepare("DELETE FROM listings_deleted WHERE id = ?");
+  return within(db, () => {
+    const back: string[] = [];
+    const stayed: string[] = [];
+    for (const id of new Set(ids)) {
+      const t = get.get(id) as { row: string; by: string } | undefined;
+      if (!t) {
+        stayed.push(id);
+        continue;
+      }
+      const r = JSON.parse(t.row) as Record<string, unknown>;
+      const mine = marksOf(r.mine);
+      if (t.by === "old" || opts.mark) mine.deleted = now.toISOString();
+      try {
+        put.run(...COLS.map((c) => (c === "mine" ? JSON.stringify(mine) : ((r[c] ?? null) as string | number | null))));
+      } catch {
+        // a listing with its search and dedupe key landed since (never by a run or the mirror, which look here first):
+        // this one stays deleted rather than make two
+        stayed.push(id);
+        continue;
+      }
+      forget.run(id);
+      back.push(id);
+    }
+    return { back, stayed };
+  });
+}
+
+// a deleted listing, as its sheet shows it: the listing as it was, with when and by whom it went
+export type DeletedListing = ListingRow & { deleted: { at: string; by: "me" | "old" } };
+export function getDeletedListing(db: DatabaseSync, id: string): DeletedListing | null {
+  const t = db.prepare("SELECT row, by, at FROM listings_deleted WHERE id = ?").get(id) as
+    | { row: string; by: string; at: string }
+    | undefined;
+  if (!t) return null;
+  return {
+    ...row(JSON.parse(t.row) as Record<string, unknown>),
+    deleted: { at: t.at, by: t.by === "old" ? "old" : "me" },
+  };
 }

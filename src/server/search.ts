@@ -1,6 +1,7 @@
 // The Searches routes: the hunts (job specs, deal hunts across sites and models) with their runs and problems, a
 // hunt's counts for its toolbar, the listings with combining filters and a deal's usual price, one listing with its
-// deep check, status, star and note, Run now (a hunt the old setup runs: its own Search now), and Deep check.
+// deep check, status, star and note, its delete and its way back, Run now (a hunt the old setup runs: its own Search
+// now), and Deep check.
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { zValidator } from "@hono/zod-validator";
@@ -9,6 +10,8 @@ import { z } from "zod";
 import { Refused } from "../domain/notes/documents.ts";
 import { latestDeepCheck, startDeepCheck } from "../domain/search/deep.ts";
 import {
+  deleteListings,
+  getDeletedListing,
   getListing,
   type HuntRow,
   type ListingFilters,
@@ -17,6 +20,7 @@ import {
   listingCounts,
   listListings,
   rescoreSearch,
+  restoreListings,
   setListingNote,
   setListingStar,
   setListingStatus,
@@ -254,12 +258,15 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings, clo
     }));
     return c.json({ listings: rows });
   });
+  // one listing; a deleted one too (a link to it from Live or an answer still opens it), as it was, with when and by
+  // whom it went, so its sheet can say so and bring it back
   app.get("/api/search/listings/:id", (c) => {
-    const r = getListing(db, c.req.param("id"));
+    const r = getListing(db, c.req.param("id")) ?? getDeletedListing(db, c.req.param("id"));
     if (!r) return c.json({ error: "no such listing" }, 404);
     const usual = usualPrices(db);
     return c.json({
       ...r,
+      deleted: "deleted" in r ? r.deleted : null,
       deal: r.kind === "deals" ? dealOf(r, usual) : null,
       deep: latestDeepCheck(db, r.id),
       applications: db
@@ -268,6 +275,24 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings, clo
         )
         .all(r.id, r.link),
     });
+  });
+  // the sheet's Delete (after its Confirm): gone from every view and count, kept as a tombstone; and its way back
+  app.delete("/api/search/listings/:id", (c) => {
+    const l = getListing(db, c.req.param("id"));
+    if (!l || !deleteListings(db, [l.id], "me").length) return c.json({ error: "no such listing" }, 404);
+    record("listing", `Deleted: ${String(l.data.title ?? "a listing")}`, `/searches?open=${encodeURIComponent(l.id)}`);
+    return c.json({ ok: true });
+  });
+  app.post("/api/search/listings/:id/restore", (c) => {
+    const { back } = restoreListings(db, [c.req.param("id")], { mark: true });
+    if (!back.length) return c.json({ error: "it isn't deleted, or a listing holds its place now" }, 409);
+    const l = getListing(db, c.req.param("id"));
+    record(
+      "listing",
+      `Back: ${String(l?.data.title ?? "a listing")}`,
+      `/searches?open=${encodeURIComponent(c.req.param("id"))}`,
+    );
+    return c.json({ ok: true });
   });
   app.post(
     "/api/search/listings/:id",

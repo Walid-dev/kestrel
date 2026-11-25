@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { z } from "zod";
-import { callModel, escapeRawBreaks } from "./client.ts";
+import { callModel, chatModel, escapeRawBreaks, failureWords, type Outcome } from "./client.ts";
 import { startStandIn } from "./stand-in.ts";
 
 const Shape = z.object({ answer: z.string() });
@@ -39,9 +39,26 @@ test("raw line breaks inside a string are repaired before the parse gives up; ou
 test("a model that runs out of room while thinking says so, so the budget gets raised", async () => {
   const s = await startStandIn(() => ({ content: "", finish: "length" }));
   const got = await callModel(settings(s.url), ask, Shape);
+  const chat = await chatModel(settings(s.url), { ...ask, messages: [{ role: "user", content: ask.prompt }] });
   await s.close();
-  assert.ok(!got.ok && got.why === "refusal");
-  assert.match(got.detail, /whole answer thinking/);
+  assert.ok(!got.ok && got.why === "out-of-room");
+  assert.match(got.detail, /whole answer thinking/); // the calls log's hint, for me as a developer
+  assert.ok(!chat.ok && chat.why === "out-of-room");
+});
+
+test("each failure reads as plain words with what to do next, never a developer's hint", () => {
+  const outcomes: Outcome[] = ["unlisted", "too-long", "down", "timeout", "refusal", "out-of-room", "shape"];
+  for (const why of outcomes) {
+    const said = failureWords(why, "Ask again");
+    assert.match(said, /^[A-Z].*[.?]$/, why); // a sentence of its own
+    assert.doesNotMatch(said, /max tokens|status|detail|door answered|refusal|out-of-room/i, why);
+  }
+  assert.equal(
+    failureWords("out-of-room", "Ask again, or ask in fewer words"),
+    "The model ran out of room while it thought. Ask again, or ask in fewer words.",
+  );
+  assert.equal(failureWords("down"), "The computer's model isn't answering: is oMLX open?");
+  assert.equal(failureWords("timeout", "Check again"), "The model took too long, so kestrel stopped it. Check again.");
 });
 
 test("a slow model becomes a timeout; a refusal and a down door name themselves", async () => {

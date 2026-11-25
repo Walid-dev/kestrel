@@ -73,6 +73,7 @@ test("an explanation asked while the model door is down answers 503, a bad reque
   const body = { lesson: "spout", question: "What is a spout?", expected: "A part." };
   const down = await send(app, "/api/learn/quiz/explain", "POST", body);
   assert.equal(down.status, 503);
-  assert.match(((await down.json()) as { error: string }).error, /down/);
+  // in plain words, never the client's own: "down" and its detail stay in the calls log
+  assert.equal(((await down.json()) as { error: string }).error, "The computer's model isn't answering: is oMLX open?");
   assert.equal((await send(app, "/api/learn/quiz/explain", "POST", { ...body, lesson: "kettle" })).status, 400);
 });

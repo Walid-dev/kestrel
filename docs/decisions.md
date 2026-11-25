@@ -5,6 +5,71 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · My marks in kestrel stick through the mirror; the old setup's own stages still arrive.**
+  A stage, a star, a note or a delete made in kestrel is kestrel's from then on: `listings.mine` (migration 029) keeps
+  when each was set here, and the mirror leaves a marked field as it is. A listing never marked here follows the old
+  database, as before; new finds still land, and the engine's fields (score, match, the posting's data) still refresh.
+  A stage's rule (`stageArrives`, `domain/search/import-v1.ts`): the old status arrives over mine only when the old
+  database moved to it after the last mirror (each job keeps the old status that mirror saw, `data.oldStatus`) and it
+  is one the old setup reaches by itself: Applied, then Interviewing, Offer or Rejected (its apply flow and follow-ups),
+  never back from a later one here; or Closed (its engine), while the job is still open here (to review, Interested,
+  Not sure). A stage set by hand there after my mark stays mine; the old deal engine sets no stage, so a marked deal's
+  stage never moves. A job deleted in the old setup is deleted here too, unless I marked it here. Nothing is written to
+  the old setup. Applied set by an application kestrel sent is my mark too (`reportApplication`, `domain/apply/apply.ts`).
+  The old job status `ghosted` (no answer to an application) arrives as Rejected, and a status kestrel doesn't know as
+  to review (`jobStatus`), so one such row no longer stops the whole mirror at the listings CHECK. A mark made before
+  this change isn't known as mine: the first mirror after the deploy takes that field from the old database. Replaces: the 2026-11-21 entry's "the old database as the status authority until cutover",
+  and the same rule in the v0.2 plan (steps 7 and 8) and the retirement page. Rejected: writing my marks back to the
+  old database (kestrel owns what it runs: no new reach into the old setup); one "marked" flag per listing (a note
+  written here would freeze its stage too).
+- **2026-11-25 · A deleted listing moves to a tombstone.**
+  The sheet's Delete (quiet, red words, at the foot's left, after the shared Confirm) and Ask's delete cards move the
+  row whole (its columns as JSON) into `listings_deleted` (migration 029), with who deleted it (me, or the old setup
+  through the mirror) and when. Out of `listings`, it leaves every view, count, find, Ask's page, Home's figures and
+  the morning brief with no filter in any query. A run (`keepItems`) and the mirror look there first (its id, or its
+  search with its link or dedupe key), so nothing lands it again, a repost under a new link included. Restore on the
+  sheet puts the row back as it was with my mark (`mine.deleted`), whoever deleted it, so a delete in the old setup
+  doesn't take it again; Undo on an Ask card adds the mark only to one the old setup deleted (it takes back my own
+  change, which wasn't a mark). `GET /api/search/listings/:id` still opens a deleted one (`deleted: {at, by}`): its sheet says so first, hides
+  what can't change (note, stages, star, a new deep check, Apply) and offers Restore in Apply's place; Live's line
+  for the delete links to it. Routes: `DELETE /api/search/listings/:id`, `POST /api/search/listings/:id/restore` (409
+  when it isn't deleted, or a listing holds its place). Rejected: a `deleted` column (every reader, the brief and
+  Writing's job list included, would need the filter; the old setup's flag needed one in six places).
+- **2026-11-25 · Ask changes many listings with one rule, resolved in code; Undo takes a change back.**
+  For a change to many ("delete all postings under 130k"), the model writes one block, `{"do": "delete" | "stage",
+  "to"?, "where": {…}}` with find's fields, never ids and no find first (Ask's prompt, v5). kestrel resolves the rule
+  when the card is proposed (`resolveRule`, `domain/search/ask.ts`) and keeps the exact listings in the card, each with
+  its stage, star and marks; my tap changes those and no other, skipping one that changed since, in one savepoint.
+  The card says what it does and how many ("Delete 37 jobs whose top pay is under $130k a year") and what it leaves
+  out, each listing under its first reason: no stated pay or price when the rule asks about money; set aside by the
+  rules (unless its stage is leftout); already at the stage it sets; an application of mine (Applied or later, or one
+  queued, at work or sent: unless its stage names Applied, Interviewing or Offer); starred (unless its stage is
+  priority). Its titles fold out under it, each a quiet link to its listing. A card covers 500 at most, the best
+  first, and says so when the rule finds more. `where` reads strictly: a rule with a field or a value kestrel can't
+  read, or one that covers nothing, says so on a failed card, since a widened rule would change listings I never
+  named; a rule with another action is titled "Change jobs by a rule", not as a delete, and the failed card says in
+  plain words why. A rule with no field covers the whole hunt, and its card says so first ("Every job of this hunt.").
+  The prompt teaches "over N" as `priceAtLeast` N + 1 and "under N" as below N; the deal case expects 601. Find and
+  `where` gain `payBelow` (a job's top pay in a year; no stated pay never matches) and `priceAtLeast`;
+  `remote: false` now means not remote. A single delete joins the single cards. Done, a stage or a delete card offers
+  Undo once (`POST /api/ask/undo`): each stage back with its mark, unless it moved since, or each listing restored. A
+  card's listings reach the page as ids and titles only. The Searches eval gains four cases (a single delete, a rule
+  on pay, on remote and pay, on a deal's price), run on the stand-in only so far: their live run waits for a session
+  at the computer. Rejected: leaving nothing out (a rule on pay would delete jobs I applied to); the set-aside ones by
+  default (find leaves them out, and a stage like Interested would take in jobs the rules say I can't take).
+- **2026-11-25 · Ask gets 12,000 tokens to think; a model's failure reads in plain words.**
+  Ask's calls get 12,000 tokens, thinking on (was 6,000, which the fast model spent thinking on a change to many
+  listings): as much as Writing's calls, the most of the calls that think (6,000 to 12,000). The time limit already
+  stops a call at ten minutes, so the room adds no wait past it. `ASK_MAX_TOKENS` (`ai/ask/prompt.ts`); the three Ask
+  evals use it. The client calls an answer whose whole room went on thinking `out-of-room` (it was `refusal`, told
+  apart only by its detail). One mapping, `failureWords` (`ai/client.ts`), says each outcome as a sentence with what to
+  do, each screen naming its own next step: Ask ("Ask again, or ask in fewer words"), Research, the quiz, the deep
+  checks ("Check again"), Writing, News' brief ("Make it now to try again") and Live's line for Notes' changes. The
+  developer's detail stays in the calls log. A failed Notes draft stores only its kind (Notes' page,
+  `web/src/notes/parts.tsx`, words each kind itself); until that page knows `out-of-room`, the draft keeps the kind
+  `refusal` ("the model stopped before it finished"). An
+  answer kept from before this says only that it didn't finish. Replaces: the 2026-11-22 entry's out-of-room
+  message, which reached the screen as a developer's hint.
 - **2026-11-25 · Stars on News: each keeps a copy of its story; All days lists them under Starred.**
   Each story card has the star beside Ask and Look deeper: Searches' pill (a yellow ★, Star or Starred), now the
   shared `Star` in `web/src/ui/star.tsx`, shown on /design; Searches' listing sheet uses it too, so both pages draw
