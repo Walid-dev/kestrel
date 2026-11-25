@@ -484,7 +484,10 @@ test("a broken answer fails with its reason; yesterday's brief stays the one sho
   const state = newsState(db, settings);
   assert.equal(state.brief?.id, "y");
   assert.equal(state.run?.state, "failed");
-  assert.equal(state.run?.error, "the model's answer wasn't in the asked shape");
+  assert.equal(
+    state.run?.error,
+    "The model's answer came back in a form kestrel can't read. Make it now to try again.",
+  );
   assert.match(door.asked[0], /Yesterday's headlines:\n- Teapot shares hit a made-up high/);
   assert.match(door.asked.at(-1) ?? "", /Yesterday's opening \(don't repeat it\):\nYesterday was about teapots\./);
   assert.equal(finished().find((a) => a.kind === "news" && a.outcome === "failed")?.note, state.run?.error);
@@ -498,7 +501,7 @@ test("the model down: the brief fails plainly, and the items stay for Make it no
   const deps = { sources: [WIRE, LAB, FORUM, TECH], read: reader(DAY), readPage: noPages, clock: () => NOW };
   await startNews(db, settings, deps).done;
   const state = newsState(db, settings);
-  assert.equal(state.run?.error, "the model didn't answer: its door is down");
+  assert.equal(state.run?.error, "The computer's model isn't answering: is oMLX open?");
   assert.equal(state.brief?.id, "y");
   assert.equal(itemsWindow(db, deps.sources, NOW).items.length, 5);
   assert.deepEqual(

@@ -556,13 +556,14 @@ export function deleteListings(db: DatabaseSync, ids: string[], by: "me" | "old"
 }
 
 // deleted listings back, each as it was. One the old setup deleted comes back with my mark (deleted), so the next
-// mirror leaves it here. Answers the ids back, and the ones that stayed out: no tombstone (back already), or a listing
-// now holds its place
+// mirror leaves it here; with mark, every one does (Restore on the sheet is my act, whoever deleted it; Undo isn't).
+// Answers the ids back, and the ones that stayed out: no tombstone (back already), or a listing now holds its place
 export function restoreListings(
   db: DatabaseSync,
   ids: string[],
-  now = new Date(),
+  opts: { mark?: boolean; now?: Date } = {},
 ): { back: string[]; stayed: string[] } {
+  const now = opts.now ?? new Date();
   const get = db.prepare("SELECT row, by FROM listings_deleted WHERE id = ?");
   const put = db.prepare(`INSERT INTO listings (${COLS.join(", ")}) VALUES (${COLS.map(() => "?").join(", ")})`);
   const forget = db.prepare("DELETE FROM listings_deleted WHERE id = ?");
@@ -577,7 +578,7 @@ export function restoreListings(
       }
       const r = JSON.parse(t.row) as Record<string, unknown>;
       const mine = marksOf(r.mine);
-      if (t.by === "old") mine.deleted = now.toISOString();
+      if (t.by === "old" || opts.mark) mine.deleted = now.toISOString();
       try {
         put.run(...COLS.map((c) => (c === "mine" ? JSON.stringify(mine) : ((r[c] ?? null) as string | number | null))));
       } catch {

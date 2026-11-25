@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { changesPrompt, PROMPT_VERSION } from "../../ai/changes/prompt.ts";
 import { Answer, type Change } from "../../ai/changes/shape.ts";
-import { callModel } from "../../ai/client.ts";
+import { callModel, failureWords } from "../../ai/client.ts";
 import { begin } from "../../platform/activity.ts";
 import type { Settings } from "../../platform/config.ts";
 import type { DocumentFull } from "../../shared/notes.ts";
@@ -193,12 +193,13 @@ export function startDraft(
     };
     const got = await callModel(effective, { model, system, prompt, thinking: true, maxTokens: 8000, onText }, Answer);
     here.step = "placing";
-    live.end(got.ok ? "done" : "failed", got.ok ? "" : got.why);
+    live.end(got.ok ? "done" : "failed", got.ok ? "" : failureWords(got.why, "Ask for the changes again"));
     recordCall(db, `changes:v${PROMPT_VERSION}`, got);
     if (!got.ok) {
-      // Notes' page words each kind itself (web/src/notes/parts.tsx): an answer out of room keeps the kind it knows
+      // Notes' page words each kind itself (web/src/notes/parts.tsx), so the row keeps the kind and never the detail
+      // (that stays in the calls log); an answer out of room keeps the kind the page knows until it knows this one
       db.prepare("UPDATE drafts SET status = 'failed', error = ? WHERE id = ?").run(
-        `the model didn't answer well: ${got.why === "out-of-room" ? "refusal" : got.why} — ${got.detail}`,
+        `the model didn't answer well: ${got.why === "out-of-room" ? "refusal" : got.why}`,
         id,
       );
       return;

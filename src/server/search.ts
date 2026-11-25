@@ -284,7 +284,7 @@ export function mountSearch(app: Hono, db: DatabaseSync, settings: Settings, clo
     return c.json({ ok: true });
   });
   app.post("/api/search/listings/:id/restore", (c) => {
-    const { back } = restoreListings(db, [c.req.param("id")]);
+    const { back } = restoreListings(db, [c.req.param("id")], { mark: true });
     if (!back.length) return c.json({ error: "it isn't deleted, or a listing holds its place now" }, 409);
     const l = getListing(db, c.req.param("id"));
     record(

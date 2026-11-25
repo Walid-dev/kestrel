@@ -111,14 +111,15 @@ function tools(kind: Kind): string {
     "  no find first and never a list of ids. kestrel finds what the rule covers, shows how many, and leaves out the ones",
     "  I starred, applied to or that the rules set aside:",
     "```action",
-    jobs ? '{"do": "delete", "where": {"payBelow": 130000}}' : '{"do": "delete", "where": {"priceAtLeast": 600}}',
+    jobs ? '{"do": "delete", "where": {"payBelow": 130000}}' : '{"do": "delete", "where": {"priceAtLeast": 601}}',
     "```",
     "```action",
     jobs
       ? '{"do": "stage", "to": "passed", "where": {"remote": true, "payBelow": 100000}}'
       : '{"do": "stage", "to": "passed", "where": {"words": "broken"}}',
     "```",
-    "  where takes find's fields with the same meanings, and no limit: a listing it covers matches all of them.",
+    "  where takes find's fields with the same meanings, and no limit: a listing it covers matches all of them. Over N",
+    "  is N + 1 at least (over $600: priceAtLeast 601); under N is below N (under 130k: payBelow 130000).",
     "- Each time you name a listing, link it: [its title](listing:<its id>). Its id is the text that starts its line,",
     "  before the colon: copy it exactly, in links and blocks alike, and never make one up.",
   ].join("\n");
@@ -367,9 +368,10 @@ function leftWords(kind: Kind, to: string | null, r: Resolved): string {
 // why a rule can't be read, for its card
 function unreadable(e: z.ZodError): string {
   const i = e.issues[0];
-  if (i?.code === "unrecognized_keys") return `kestrel can't read its rule: it doesn't know ${i.keys.join(", ")}`;
+  if (i?.path[0] === "do") return "Ask changes many at once only by a stage or a delete";
+  if (i?.code === "unrecognized_keys") return `A rule can't use ${i.keys.join(", ")}`;
   const field = (i?.path ?? []).filter((p) => p !== "where").join(".");
-  return `kestrel can't read its rule${field ? `: ${field} isn't what it reads there` : ""}`;
+  return field ? `The rule's ${field} isn't a value Ask can use` : "Ask couldn't read the rule";
 }
 
 // a change to many, as its card: the rule resolved now, its listings kept (each with its state, so a tap skips one
@@ -377,12 +379,15 @@ function unreadable(e: z.ZodError): string {
 function proposeRule(db: DatabaseSync, hunt: { kind: Kind; key: string }, action: object): Proposal {
   const a = Many.safeParse(action);
   if (!a.success) {
-    const verb = (action as { do?: unknown }).do === "stage" ? "Change the stage of" : "Delete";
+    const did = (action as { do?: unknown }).do;
+    const verb = did === "stage" ? "Change the stage of" : did === "delete" ? "Delete" : "Change";
     return { label: `${verb} ${noun(hunt.kind, 2)} by a rule`, failed: `${unreadable(a.error)}. Ask again.` };
   }
   const to = a.data.do === "stage" ? a.data.to : null;
   const r = resolveRule(db, hunt, a.data.where, to);
-  const detail = leftWords(hunt.kind, to, r);
+  // a rule with no field covers the whole hunt: the card says so before the tap
+  const every = Object.keys(a.data.where).length === 0 ? `Every ${noun(hunt.kind, 1)} of this hunt.` : "";
+  const detail = [every, leftWords(hunt.kind, to, r)].filter(Boolean).join(" ");
   if (!r.covered.length)
     return { label: changeWords(hunt.kind, a.data, null), failed: "Nothing to change.", ...(detail ? { detail } : {}) };
   return {

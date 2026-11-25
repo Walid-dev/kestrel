@@ -103,12 +103,14 @@ export function reportApplication(db: DatabaseSync, id: string, state: ApplyStat
     new Date().toISOString(),
     id,
   );
-  // a sent application marks its listing applied, so the lists agree without a second hand
-  if (state === "sent" && current.listing)
-    db.prepare("UPDATE listings SET status = 'applied', updated = ? WHERE id = ?").run(
-      new Date().toISOString(),
-      current.listing,
-    );
+  // a sent application marks its listing applied, so the lists agree without a second hand; the stage is my mark
+  // (kestrel sent it), so the mirror keeps it as setListingStatus's would be
+  if (state === "sent" && current.listing) {
+    const now = new Date().toISOString();
+    db.prepare(
+      "UPDATE listings SET status = 'applied', updated = ?, mine = json_set(mine, '$.status', ?) WHERE id = ?",
+    ).run(now, now, current.listing);
+  }
   return getApplication(db, id) as Application;
 }
 

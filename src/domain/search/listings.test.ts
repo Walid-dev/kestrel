@@ -281,7 +281,7 @@ test("a deleted listing leaves every view and count, no run brings it back, and 
   assert.equal(getDeletedListing(db, a.id), null);
   // one the old setup deleted comes back as mine, so its delete doesn't reach it again
   deleteListings(db, [b.id], "old", NOW);
-  restoreListings(db, [b.id], NOW);
+  restoreListings(db, [b.id], { now: NOW });
   assert.equal(getListing(db, b.id)?.mine.deleted, NOW.toISOString());
 });
 

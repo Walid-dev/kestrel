@@ -304,7 +304,14 @@ test("the sheet's Delete takes a listing from the counts; its id still opens it,
   assert.equal((await app.request("/api/search/listings/o1", { method: "DELETE" })).status, 404); // once
   assert.equal((await app.request("/api/search/listings/o1/restore", { method: "POST" })).status, 200);
   assert.equal(await all(), before);
-  const back = (await (await app.request("/api/search/listings/o1")).json()) as { deleted: unknown };
+  const back = (await (await app.request("/api/search/listings/o1")).json()) as {
+    deleted: unknown;
+    mine: { deleted?: string };
+  };
   assert.equal(back.deleted, null);
+  assert.ok(
+    back.mine.deleted,
+    "Restore on the sheet is my mark, so a delete in the old setup doesn't take it (review)",
+  );
   assert.equal((await app.request("/api/search/listings/o1/restore", { method: "POST" })).status, 409);
 });

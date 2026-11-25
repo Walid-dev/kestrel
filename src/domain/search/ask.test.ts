@@ -91,9 +91,16 @@ test("a rule it can't read, or one that covers nothing, says so on its card; a d
   const db = setup();
   assert.deepEqual(propose(db, { do: "delete", where: { payBelow: "130k" } }), {
     label: "Delete jobs by a rule",
-    failed: "kestrel can't read its rule: payBelow isn't what it reads there. Ask again.",
+    failed: "The rule's payBelow isn't a value Ask can use. Ask again.",
   });
-  assert.match(propose(db, { do: "delete", where: { limit: 3 } }).failed ?? "", /doesn't know limit/);
+  assert.equal(propose(db, { do: "delete", where: { limit: 3 } }).failed, "A rule can't use limit. Ask again.");
+  // another action by a rule: never titled as a delete
+  assert.deepEqual(propose(db, { do: "apply", where: { payBelow: 1 } }), {
+    label: "Change jobs by a rule",
+    failed: "Ask changes many at once only by a stage or a delete. Ask again.",
+  });
+  // a rule with no field covers the whole hunt, and its card says so
+  assert.match(propose(db, { do: "delete", where: {} }).detail ?? "", /^Every job of this hunt\. /);
   const none = propose(db, { do: "delete", where: { words: "royal jelly" } });
   assert.equal(none.failed, "Nothing to change.");
   assert.equal(none.label, "Delete jobs mentioning “royal jelly”");
@@ -109,8 +116,8 @@ test("a rule it can't read, or one that covers nothing, says so on its card; a d
     ["d4", 50, null],
   ] as const)
     put.run(id, `https://example.com/${id}`, `https://example.com/${id}`, score, JSON.stringify({ title: id, price }));
-  const deals = propose(db, { do: "delete", where: { priceAtLeast: 600 } }, "deals:made-up-chairs");
-  assert.equal(deals.label, "Delete 2 deals priced $600 or more");
+  const deals = propose(db, { do: "delete", where: { priceAtLeast: 601 } }, "deals:made-up-chairs");
+  assert.equal(deals.label, "Delete 2 deals priced $601 or more");
   assert.deepEqual(ids(deals), ["d1", "d2"]);
   assert.equal(deals.detail, "1 shows no price: not included.");
 });

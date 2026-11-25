@@ -227,7 +227,7 @@
         "rule": {
           "do": "delete",
           "where": {
-            "priceAtLeast": [600, 601]
+            "priceAtLeast": 601
           }
         }
       },

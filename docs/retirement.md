@@ -26,7 +26,8 @@ I stop each part when its new home has carried it for two quiet weeks.
 
 The mirror (`mirror-v1.json`) brings the old setup's finds about five minutes after each of its rounds, and everything
 at least once a day; it keeps kestrel's listings — jobs and deals — matched to the old database, except what I mark in
-kestrel: a stage, a star, a note or a delete made here is kestrel's and stays (the old setup's own stages still arrive:
+kestrel: a stage, a star, a note or a delete made here (an application kestrel sent and a Restore included) is
+kestrel's and stays (the old setup's own stages still arrive:
 Applied and later, and a posting it closed; decisions.md, 2026-11-25). A job deleted there goes here too, unless I
 marked it here. Nothing goes back to the old database. The mirror's last word shows on the Searches page. Search now on
 a hunt the old setup runs (a job hunt, or a deal hunt whose searches here are Paused) starts the old setup's own

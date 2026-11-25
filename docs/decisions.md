@@ -15,8 +15,10 @@ technical; the plan and the runbook carry the detail.
   never back from a later one here; or Closed (its engine), while the job is still open here (to review, Interested,
   Not sure). A stage set by hand there after my mark stays mine; the old deal engine sets no stage, so a marked deal's
   stage never moves. A job deleted in the old setup is deleted here too, unless I marked it here. Nothing is written to
-  the old setup. A mark made before this change isn't known as mine: the first mirror after the deploy takes that field
-  from the old database. Replaces: the 2026-11-21 entry's "the old database as the status authority until cutover",
+  the old setup. Applied set by an application kestrel sent is my mark too (`reportApplication`, `domain/apply/apply.ts`).
+  The old job status `ghosted` (no answer to an application) arrives as Rejected, and a status kestrel doesn't know as
+  to review (`jobStatus`), so one such row no longer stops the whole mirror at the listings CHECK. A mark made before
+  this change isn't known as mine: the first mirror after the deploy takes that field from the old database. Replaces: the 2026-11-21 entry's "the old database as the status authority until cutover",
   and the same rule in the v0.2 plan (steps 7 and 8) and the retirement page. Rejected: writing my marks back to the
   old database (kestrel owns what it runs: no new reach into the old setup); one "marked" flag per listing (a note
   written here would freeze its stage too).
@@ -25,9 +27,10 @@ technical; the plan and the runbook carry the detail.
   row whole (its columns as JSON) into `listings_deleted` (migration 029), with who deleted it (me, or the old setup
   through the mirror) and when. Out of `listings`, it leaves every view, count, find, Ask's page, Home's figures and
   the morning brief with no filter in any query. A run (`keepItems`) and the mirror look there first (its id, or its
-  search with its link or dedupe key), so nothing lands it again, a repost under a new link included. Restore puts the
-  row back as it was; one the old setup deleted comes back with my mark (`mine.deleted`), so the next mirror leaves
-  it. `GET /api/search/listings/:id` still opens a deleted one (`deleted: {at, by}`): its sheet says so first, hides
+  search with its link or dedupe key), so nothing lands it again, a repost under a new link included. Restore on the
+  sheet puts the row back as it was with my mark (`mine.deleted`), whoever deleted it, so a delete in the old setup
+  doesn't take it again; Undo on an Ask card adds the mark only to one the old setup deleted (it takes back my own
+  change, which wasn't a mark). `GET /api/search/listings/:id` still opens a deleted one (`deleted: {at, by}`): its sheet says so first, hides
   what can't change (note, stages, star, a new deep check, Apply) and offers Restore in Apply's place; Live's line
   for the delete links to it. Routes: `DELETE /api/search/listings/:id`, `POST /api/search/listings/:id/restore` (409
   when it isn't deleted, or a listing holds its place). Rejected: a `deleted` column (every reader, the brief and
@@ -44,7 +47,10 @@ technical; the plan and the runbook carry the detail.
   priority). Its titles fold out under it, each a quiet link to its listing. A card covers 500 at most, the best
   first, and says so when the rule finds more. `where` reads strictly: a rule with a field or a value kestrel can't
   read, or one that covers nothing, says so on a failed card, since a widened rule would change listings I never
-  named. Find and `where` gain `payBelow` (a job's top pay in a year; no stated pay never matches) and `priceAtLeast`;
+  named; a rule with another action is titled "Change jobs by a rule", not as a delete, and the failed card says in
+  plain words why. A rule with no field covers the whole hunt, and its card says so first ("Every job of this hunt.").
+  The prompt teaches "over N" as `priceAtLeast` N + 1 and "under N" as below N; the deal case expects 601. Find and
+  `where` gain `payBelow` (a job's top pay in a year; no stated pay never matches) and `priceAtLeast`;
   `remote: false` now means not remote. A single delete joins the single cards. Done, a stage or a delete card offers
   Undo once (`POST /api/ask/undo`): each stage back with its mark, unless it moved since, or each listing restored. A
   card's listings reach the page as ids and titles only. The Searches eval gains four cases (a single delete, a rule
@@ -58,8 +64,10 @@ technical; the plan and the runbook carry the detail.
   evals use it. The client calls an answer whose whole room went on thinking `out-of-room` (it was `refusal`, told
   apart only by its detail). One mapping, `failureWords` (`ai/client.ts`), says each outcome as a sentence with what to
   do, each screen naming its own next step: Ask ("Ask again, or ask in fewer words"), Research, the quiz, the deep
-  checks ("Check again") and Writing. The developer's detail stays in the calls log. Notes' changes and News' brief
-  keep their own plain words (Notes' page words each kind itself, so an out-of-room draft keeps the kind it knows). An
+  checks ("Check again"), Writing, News' brief ("Make it now to try again") and Live's line for Notes' changes. The
+  developer's detail stays in the calls log. A failed Notes draft stores only its kind (Notes' page,
+  `web/src/notes/parts.tsx`, words each kind itself); until that page knows `out-of-room`, the draft keeps the kind
+  `refusal` ("the model stopped before it finished"). An
   answer kept from before this says only that it didn't finish. Replaces: the 2026-11-22 entry's out-of-room
   message, which reached the screen as a developer's hint.
 - **2026-11-25 · Stars on News: each keeps a copy of its story; All days lists them under Starred.**

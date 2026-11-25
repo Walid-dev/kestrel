@@ -4,7 +4,7 @@
 // are only items gathered for it (the model writes item numbers, never a link, and any web address in its words is
 // cut), and every number it writes must be in its sources' text, or the story says so. No database here: the run
 // (brief.ts) and the eval (evals/news/) both call it.
-import { callModel, type ModelAnswer, type ModelSettings, type Outcome } from "../../ai/client.ts";
+import { callModel, failureWords, type ModelAnswer, type ModelSettings, type Outcome } from "../../ai/client.ts";
 import { hostOf } from "../../ai/news/feeds.ts";
 import { type PromptItem, type PromptStory, pickPrompt, SYSTEM, writePrompt } from "../../ai/news/prompt.ts";
 import { BriefAnswer, PickAnswer } from "../../ai/news/shape.ts";
@@ -48,16 +48,8 @@ export type Composed =
 const STORIES = 10;
 const PER_SECTION = 3;
 
-// a failed call's reason, in the words the page shows
-const WHY: Record<Outcome, string> = {
-  down: "the model didn't answer: its door is down",
-  timeout: "the model took too long",
-  shape: "the model's answer wasn't in the asked shape",
-  refusal: "the model answered nothing",
-  "out-of-room": "the model ran out of room while it thought",
-  "too-long": "the day was too much for the model to read in one go",
-  unlisted: "the model picked for the news isn't one my settings list",
-};
+// a failed call's reason, in the words the page shows: the one mapping every screen uses (ai/client.ts)
+const WHY = (why: Outcome) => failureWords(why, "Make it now to try again");
 
 export const promptItem = (i: WindowItem, now: Date): PromptItem => ({
   id: i.id,
@@ -268,7 +260,7 @@ export async function composeBrief(
     PickAnswer,
   );
   calls.push(pick);
-  if (!pick.ok) return { ok: false, why: WHY[pick.why], calls };
+  if (!pick.ok) return { ok: false, why: WHY(pick.why), calls };
   const picked = readPick(pick.value, items);
   if (!picked.length) return { ok: false, why: "the model picked no story from the items", calls };
   // a day with a dozen items or more always holds three stories: fewer is a broken answer, not a quiet day
@@ -302,7 +294,7 @@ export async function composeBrief(
     BriefAnswer,
   );
   calls.push(write);
-  if (!write.ok) return { ok: false, why: WHY[write.why], calls };
+  if (!write.ok) return { ok: false, why: WHY(write.why), calls };
   const { brief, used } = assemble(items, picked, write.value, pages);
   if (!brief.stories.length) return { ok: false, why: "the model's brief had no story it could link", calls };
   // the pick's rule again: a full day told in one or two stories is a broken write, and the last good brief stays

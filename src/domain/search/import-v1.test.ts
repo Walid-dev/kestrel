@@ -9,12 +9,14 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { migrate } from "../../db/migrate.ts";
-import { importV1, stageArrives } from "./import-v1.ts";
+import { claimNext, queueApplication, reportApplication } from "../apply/apply.ts";
+import { importV1, jobStatus, stageArrives } from "./import-v1.ts";
 import {
   deleteListings,
   getDeletedListing,
   getListing,
   listHunts,
+  restoreListings,
   setListingNote,
   setListingStar,
   setListingStatus,
@@ -162,4 +164,43 @@ test("my marks here stay through the mirror; the engine's fields refresh; delete
   const again = importV1(db, from, true);
   assert.deepEqual([again.landed, again.removed], [{ new: 0, updated: 0, unchanged: 6 }, 0]);
   assert.deepEqual(again.deals.landed, { new: 0, updated: 0, unchanged: 1 });
+});
+
+test("a ghosted job arrives as Rejected; one sent from kestrel stays Applied; Restore on the sheet outlasts the old delete (review)", () => {
+  assert.deepEqual(["ghosted", "offer", "made-up-word"].map(jobStatus), ["rejected", "offer", "new"]);
+  const base = mkdtempSync(join(tmpdir(), "kestrel-import-review-"));
+  const db = new DatabaseSync(join(base, "t.db"));
+  migrate(db, join(base, "t.db"));
+  const from = join(base, "old.db");
+  const old = new DatabaseSync(from);
+  old.exec(
+    "CREATE TABLE job_listings (id TEXT, hunt TEXT, link TEXT, dedupe_key TEXT, status TEXT, found TEXT, data TEXT, owner TEXT)",
+  );
+  const put = old.prepare("INSERT INTO job_listings VALUES (?, 'made-up-hunt', ?, ?, ?, '2026-11-20', ?, '{}')");
+  for (const [id, status] of [
+    ["g1", "ghosted"],
+    ["s1", "new"],
+    ["r1", "new"],
+  ])
+    put.run(
+      id,
+      `https://example.com/${id}`,
+      `made co|${id}`,
+      status,
+      JSON.stringify({ source: "made-up-board", title: `Keeper ${id}`, company: "Made Co" }),
+    );
+  importV1(db, from, true); // one ghosted row no longer stops the whole mirror
+  assert.equal(getListing(db, "g1")?.status, "rejected");
+  // kestrel sends s1; the old database still says new
+  const q = queueApplication(db, { listing: "s1" });
+  claimNext(db, "made-up-agent");
+  reportApplication(db, q.id, "sent");
+  // I delete r1 here, the old setup deletes it too, then I restore it from its sheet
+  deleteListings(db, ["r1"], "me");
+  old.prepare(`UPDATE job_listings SET owner = '{"deleted": true}' WHERE id IN ('s1', 'r1')`).run();
+  old.close();
+  restoreListings(db, ["r1"], { mark: true });
+  importV1(db, from, true);
+  assert.equal(getListing(db, "s1")?.status, "applied"); // sent here: mine, and not deleted by the old setup
+  assert.equal(getListing(db, "r1")?.status, "new"); // restored by hand: mine to keep
 });

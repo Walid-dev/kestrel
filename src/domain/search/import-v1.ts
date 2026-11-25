@@ -76,6 +76,23 @@ const DEAL_STATUS: Record<string, string> = {
   sold: "closed",
 };
 
+// the old job vocabulary onto kestrel's: ghosted (an application that never heard back, its follow-ups' word) is
+// Rejected here; a word kestrel doesn't know arrives as to review rather than stop the whole mirror at its CHECK
+const JOB_STATUSES = new Set([
+  "new",
+  "interested",
+  "maybe",
+  "applied",
+  "interviewing",
+  "offer",
+  "rejected",
+  "passed",
+  "fake",
+  "closed",
+]);
+export const jobStatus = (old: string): string =>
+  old === "ghosted" ? "rejected" : JOB_STATUSES.has(old) ? old : "new";
+
 type Head = { hunt: string; category: string; min?: number; max?: number; maxAge?: number };
 // the old setup's own key for a deal hunt (its review page's tab, the name its Search now takes): its hunt: line,
 // lowercased (the old modes.ts huntKey). A search with no hunt: line is grouped there by its words (title_like, term),
@@ -430,7 +447,8 @@ export function importV1(db: DatabaseSync, from: string, write: boolean, opts: I
       // mirror saw it, so the next one knows whether the old setup moved since (stageArrives)
       const here = have ? json(have.data) : {};
       const seen = typeof here.oldStatus === "string" ? here.oldStatus : null;
-      const status = have && mine.status && !stageArrives(r.status, have.status, seen) ? have.status : r.status;
+      const oldStatus = jobStatus(r.status);
+      const status = have && mine.status && !stageArrives(oldStatus, have.status, seen) ? have.status : oldStatus;
       const starred = have && mine.starred ? have.starred : oldStarred;
       const carried = JSON.stringify({
         ...data,
@@ -442,7 +460,7 @@ export function importV1(db: DatabaseSync, from: string, write: boolean, opts: I
         appliedAt: own.appliedAt ?? null,
         followUpAt: own.followUpAt ?? null,
         interviewAt: own.interviewAt ?? null,
-        oldStatus: r.status,
+        oldStatus,
       });
       if (!have) {
         landed.new++;
