@@ -6,6 +6,7 @@ import { useState } from "react";
 import { cx } from "../ui/cx.ts";
 import { Dialog } from "../ui/dialog.tsx";
 import { Pills, type Tone } from "../ui/pills.tsx";
+import { Star } from "../ui/star.tsx";
 import {
   ApplyButton,
   ago,
@@ -340,14 +341,7 @@ export function ListingSheet({ id, onClose }: { id: string; onClose: () => void 
               value={l.status}
               onChange={(s) => act.mutate({ status: s })}
             />
-            <button
-              type="button"
-              className="pill"
-              aria-pressed={l.starred === 1}
-              onClick={() => act.mutate({ starred: l.starred === 1 ? 0 : 1 })}
-            >
-              <span className="text-yellow">★</span> {l.starred === 1 ? "Starred" : "Star"}
-            </button>
+            <Star on={l.starred === 1} onPress={() => act.mutate({ starred: l.starred === 1 ? 0 : 1 })} />
           </div>
         </div>
         {why && <p className="text-detail text-red">{String((why.error as Error).message)}</p>}

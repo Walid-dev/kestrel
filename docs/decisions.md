@@ -7,8 +7,8 @@ technical; the plan and the runbook carry the detail.
 
 - **2026-11-25 · Stars on News: each keeps a copy of its story; All days lists them under Starred.**
   Each story card has the star beside Ask and Look deeper: Searches' pill (a yellow ★, Star or Starred), now the
-  shared `Star` in `web/src/ui/star.tsx`, shown on /design; Searches' listing sheet still draws its own copy of the
-  markup and moves to `Star` once its branch lands (both pages are then one part). A star keeps
+  shared `Star` in `web/src/ui/star.tsx`, shown on /design; Searches' listing sheet uses it too, so both pages draw
+  one part. A star keeps
   a copy of the story as its brief told it (headline, text, section, figure, links) with its day, its brief and its
   number, in `news_stars` (migration 028), with no foreign key: deleting a day keeps its stars, and the day's Confirm
   says how many stay. All days gets a Seg, Days | Starred: the stars newest-starred first, each a row (headline;

@@ -120,8 +120,8 @@ reading width is 720.
 - `Seg` (`web/src/ui/seg.tsx`) — a choice among two to four, as one bar as wide as its words: `label`, `options` (with
   `hint`), `value`, `onChange`, `modes`. What a pick means goes in its hint line under the bar, never a second line
   inside it. `seg-modes` marks the picked mode with a dot.
-- `Star` (`web/src/ui/star.tsx`) — anything kept for later (a news story; a search's listing once its sheet moves to
-  it): a pill, a yellow ★ and Star or Starred, pressed while starred, beside the item's other actions. Props: `on`,
+- `Star` (`web/src/ui/star.tsx`) — anything kept for later (a news story; a search's listing, in its
+  sheet): a pill, a yellow ★ and Star or Starred, pressed while starred, beside the item's other actions. Props: `on`,
   `onPress`, `busy` (a press on its way: drawn in its new state, more presses ignored), `hint` (on hover), `compact`
   (the ★ alone at a row's end in a list of starred things, named by `label`).
 - `.tile` — a big choice (56 / 60), only when two or more options each need a line under the name; picked, it takes
