@@ -51,6 +51,60 @@ technical; the plan and the runbook carry the detail.
   the empty states and Home's card do; with the news off in the settings, it says "The morning news is off in the
   settings". Replaces: the 2026-11-24
   entry's 06:30.
+- **2026-11-25 · The old setup searches the chair hunt again for two weeks; Search now asks it for a deal hunt too.**
+  For two weeks the old setup runs the chair searches on its clock (its hunt On) and kestrel's chair hunt is Paused;
+  kestrel shows the ads through the mirror. Later kestrel takes all searching over, its collectors and browser its
+  own (a plan of its own). A deal hunt whose searches here are all Paused or off, and that the
+  mirror brings, sends Search now to the old setup's `POST /api/search-now` (`{"hunt": <its key there>}`). The key
+  is the old setup's own rule, `hunt:` and the spec's hunt line lowercased; the import keeps it on each deal it
+  carries (`data.oldHunt`), and `listHunts` reports it as the hunt's `old`. Its answers: started; paused; busy;
+  waiting until the soonest of its searches is free; every search off (`off`); no such hunt, and any other answer, an
+  error. Such a hunt keeps its On/Quiet/Paused switch (the switch shows when the hunt has a search here that is on),
+  so it can be turned On here when the two weeks end; its facts come from the mirror, not from its last run here. A deal hunt
+  without that key keeps kestrel's own Search now. The rows carry the key from the first mirror after the deploy.
+  Rejected: deriving the key from the hunt's name alone (a Paused hunt of kestrel's own would be sent to the old
+  setup and refused); reading the old specs folder at each request.
+- **2026-11-25 · Search now can't be pressed while its search runs.**
+  From the press until the run ends the button says "Searching…" with a small spinner and is disabled: kestrel's own
+  runs while any of the hunt's searches is in the line; the press stays pending until the hunts are read again, so
+  there is no gap. A run of the old setup started here counts as one of the hunt's searches (`running`, and
+  `oldSearching`) until the old setup's Live, read through `settings.oldLive`, shows it ended: seen searching (its
+  lock), then not; or not seen searching within 30 s (it ended at once or never started). While its Live can't be
+  read, until a mirror lands after the press; never past 2 hours. The old Live was chosen over the mirror because it
+  knows within seconds (a mirror lands about 5 minutes after a round, and Searches would stay busy that long). A
+  second press from another device adds nothing to the line; a second press at the old setup's door (a double tap,
+  another device) is answered "started" without reaching it, as the hunt is marked before the door is asked. The old
+  setup's own timer round counts too: its lock is one for all its hunts, so while its Live says it searches, every
+  hunt whose Search now goes there reads as searching (its Search now would only answer busy). The press is pending
+  for its own hunt only. Busy and waiting answers keep their plain line. The idle words keep the width; on touch the
+  busy word ("Searching", no dots) lies over the padding, so a phone's head row never wraps.
+- **2026-11-25 · Searches opens the last hunt picked on this device.** Opened with no hunt in its address (the tab
+  bar, the dock, Home's apps), Searches opens the hunt picked last here (`kestrel-search-hunt` in the browser's
+  storage); when that hunt is gone, the first job hunt, as before.
+- **2026-11-25 · Live says what a search is doing.** A run of kestrel's own writes one sentence, as the old Live did:
+  its name, its place in the line's round and what its collector found so far ("Model A · Kijiji: 3 of 20, 42 ads
+  so far"). The collector's stderr lines stream in (`runCollector`'s `onLine`); only the count travels, never the
+  line's words, and each new count takes the sentence's place (`step(text, again)` in `platform/activity.ts`). A
+  count is a number before ads, jobs or listings that doesn't follow "of" ("read 4 of 6 job pages" is a total), and
+  it never goes down within a run. The round is the runs the line took since it was last empty: the scheduler's tick
+  queues its due searches together (the line still runs them one at a time), so a scheduled round says "3 of 20"
+  too; a run alone says "searching". The old setup's search shows as one card on Now from its Live (`searching` and
+  its lines): its newest search step, timed from its round's first line ("Search time…: N searches to run", else the
+  steps back to a 15-minute pause); its deep checks' and follow-ups' steps, written to the same log, are left out.
+  Work at work reads
+  alike on Live whatever its kind: the green edge and dot, the kind in muted words; the Activity log's search chip is
+  muted, never purple.
+- **2026-11-25 · Research's sources read as quiet links.** The site name after a claim is small and regular, in a
+  softened accent (60% accent, 40% muted ink: 6.2:1 on a dark card, 4.7:1 on a light one, where the light accent
+  alone is 4.2:1). On hover an underline, and the accent drawn a quarter toward the body ink (darker in light,
+  lighter in dark: the contrast only grows; the plain accent was 4.2:1 on a light card). Two sources with nothing
+  between them ([1, 3], [2][3]) part with the facts line's dot, drawn by `Inline` (`learn/blocks.tsx`): a CSS
+  sibling rule can't see the words between two links. It was a bold blue pill.
+- **2026-11-25 · The collector door names the browser's failure.** A refused connection to the agent's browser is
+  "isn't running"; Playwright's "Browser context management is not supported" is the agent's Chrome open with no
+  window ("has no window open: the next run tries again"); another failure at its DevTools door "couldn't connect",
+  with Playwright's own words when short. Each was "isn't running" before.
+
 - **2026-11-24 · The jobspy wrapper is retired; kestrel's job hunts come through the mirror until the cutover.**
   `scripts/collectors/jobspy.mjs` is deleted. Its LinkedIn reads went out from this computer's address outside the
   old setup's LinkedIn cap; its Indeed reader used Indeed's private app API, a way past the site's bot check; and it

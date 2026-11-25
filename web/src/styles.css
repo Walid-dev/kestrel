@@ -806,6 +806,44 @@ h3 {
 .search-answer > .dot {
   margin-top: calc((var(--text-detail--line-height) - 7px) / 2);
 }
+/* Search now: its words and, while it searches, "Searching…" with a small spinner share one cell, so the button keeps
+   the wider one's width either way. On touch a phone's row of switch, Search now and settings has no room for a wider
+   button: there its own words set the width and "Searching…" lies over the padding too. Searching, the words stay
+   readable (muted, not faded) on the waiting ground */
+.search-now {
+  display: inline-grid;
+}
+.search-now > span {
+  display: inline-flex;
+  grid-area: 1 / 1;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.search-now .spin {
+  width: 10px;
+  height: 10px;
+}
+/* unseen while idle, it doesn't turn */
+.search-now .invisible .spin {
+  animation: none;
+}
+@media (pointer: coarse) {
+  /* out of the cell (an absolute child placed in a grid area would take the cell as its box), over the padding box */
+  .search-now > span + span {
+    position: absolute;
+    inset: 0;
+    grid-area: auto;
+  }
+  /* the busy label sits over a button sized for "Search now": without the dots it keeps a few pixels of air */
+  .search-now-dots {
+    display: none;
+  }
+}
+.search-now[aria-busy="true"] {
+  color: var(--muted);
+}
 .search-flag,
 .search-more {
   position: relative;
@@ -4673,21 +4711,29 @@ body:has(.paper-view) {
     top: 64px;
   }
 }
-/* a research answer's source, inline: the site's name, a small link that opens the page */
+/* a research answer's source, inline: the site's name, a link as quiet as the facts line under the title. Small and
+   regular, in a softened accent that still reads as a link (60% accent, 40% muted: AA on a card in both themes, where
+   the light accent alone is not). On hover an underline, and the accent drawn a quarter toward the body ink: darker
+   in light, lighter in dark, so the contrast only grows. Two sources in a row part with the facts line's dot, which
+   Inline (learn/blocks.tsx) draws only where nothing stands between them */
+.cite,
+.cite-sep {
+  margin-left: 6px;
+  font-size: var(--text-small);
+}
 .cite {
-  display: inline-block;
-  margin-left: 4px;
-  padding: 0 7px;
-  border-radius: 999px;
-  font: 500 var(--text-small) / 18px var(--sans);
+  font-weight: 400;
   white-space: nowrap;
-  vertical-align: 1px;
   text-decoration: none;
-  color: var(--accent);
-  background: var(--accent-soft);
+  color: color-mix(in srgb, var(--accent) 60%, var(--muted));
+}
+.cite-sep {
+  color: var(--muted);
 }
 .cite:hover {
+  color: color-mix(in srgb, var(--accent) 75%, var(--text));
   text-decoration: underline;
+  text-underline-offset: 3px;
 }
 /* Writing: a try's text is a document only to read (a try is written again, never edited), so the switch, holding
    Read alone, stays out of sight and Download keeps its place on the right */

@@ -90,7 +90,8 @@ reading width is 720.
   `.btn-danger` has red words. `.btn-sm` is a card's secondary action. `.btn-icon` is round, its name in
   `aria-label` and `title`. `.btn-big` is a page's one big action (Write it, Start): never full width under a mouse.
   Full width only on touch, only for the action that ends a form, and for a dialog's primary. Rare actions go at the
-  page's foot; no ⋯ menus.
+  page's foot; no ⋯ menus. A button whose work runs on (Search now) is disabled from the press until the work ends
+  and says so: a small spinner and its word ("Searching…"; on touch "Searching") in muted ink, at its idle width.
 - `.card` — a surface block: flat, radius 12, padding 14 / 16, on `--line`. A link card's hover is `--surface-hover`
   with `--line-strong`. A card that matters gets a 2 px left edge in its tone. `.card-actions` is its action row;
   `.inner` is a block inside a card (`--surface-2`, radius 8); never a card inside a card.
@@ -98,7 +99,9 @@ reading width is 720.
   `icon`, `title`, `line`, `end`; `cols` gives two columns from 64rem. Rows are 40 / 48 (one line) or 54 / 62 (two),
   their hairlines start at the text.
 - Chips are mono, 20 tall, in the caps voice (`chip chip-caps`), one colour per meaning: needs me pink; review today
-  cyan; learning, Ask and deep work purple; done and at work green; new muted. `.money` is the pay or price pill
+  cyan; learning, Ask and deep work purple; done and at work green; new muted. On Live's Now, work at work reads the
+  same whatever its kind: the green edge and pulsing dot, the kind in muted words, no chip; a search is muted in the
+  Activity log too, never purple. `.money` is the pay or price pill
   (Mono 500 12, 22 tall) in the money scale's tone. A listing the rules set aside leads its card's head with its
   reason, in the Left out stage's grey ("Left out · US only"), until a stage is pressed. A filter's All comes first.
 - `Dialog` (`web/src/ui/dialog.tsx`) — every box: a native dialog opened with `showModal`, 440 wide (900 with `wide`),
@@ -152,6 +155,9 @@ reading width is 720.
 - `.disclosure` — every fold-out heading (a details' summary): a control row, 13/500 muted (ink when open), a ▶ that
   turns; never alone in a card of its own.
 - `cx()` (`web/src/ui/cx.ts`) joins class names.
+- An inline source (Research's site name after a claim) is a quiet link, as the facts line: the small step, regular,
+  in a softened accent (60% accent, 40% muted: AA on a card in both themes); on hover an underline, the accent drawn
+  a quarter toward the ink. Two with nothing between them part with a dot (`.cite-sep`).
 - Patterns the pages share: a page's view switch (Live's Now and Activity, Applications' period) is a Seg; a read-only
   document is Doc without `onSave`; a page whose item is gone says so in plain words and doesn't retry; the listing
   sheet is the wide Dialog, its title and ✕ kept in view on tall screens, Apply at its foot; a stage's colour comes

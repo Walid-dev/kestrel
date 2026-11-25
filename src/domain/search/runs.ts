@@ -25,24 +25,64 @@ let line: Promise<unknown> = Promise.resolve();
 // the searches in the line now, queued or running: a hunt's Search now counts them down
 const pending = new Set<string>();
 export const pendingSearches = (): ReadonlySet<string> => pending;
+// the line's round: the runs it took since it was last empty and how many of them ended, so a run says its place on
+// Live ("3 of 20"); the round starts again once the line is empty
+let inLine = 0;
+let round = { ended: 0, joined: 0 };
 
 export function runSearch(db: DatabaseSync, spec: Spec, now: Date): Promise<Run> {
+  if (inLine === 0) round = { ended: 0, joined: 0 };
+  const mine = round;
+  inLine++;
+  mine.joined++;
   pending.add(spec.id);
-  const next = line.then(() => runSearchNow(db, spec, now)).finally(() => pending.delete(spec.id));
+  // its place is read as it runs: the ones before it have ended by then, and the round may have grown
+  const place = (): [number, number] => [mine.ended + 1, mine.joined];
+  const next = line
+    .then(() => runSearchNow(db, spec, now, place))
+    .finally(() => {
+      pending.delete(spec.id);
+      inLine--;
+      mine.ended++;
+    });
   line = next.catch(() => {});
   return next;
 }
 
-async function runSearchNow(db: DatabaseSync, spec: Spec, now: Date): Promise<Run> {
+// a collector's progress line as a count of what it found so far ("2 scrolls for more, 40 ads" is 40): only the number
+// reaches Live, never the line's words (a search's terms, a page's address). A number after "of" is a total, not a
+// count ("read 4 of 6 job pages"), and a run's count never goes down (runSearchNow)
+const FOUND = /(?<!\bof\s)(?<![\d,])(\d[\d,]*)\s+(?:ads?|listings?|jobs?|items?|results?|postings?)\b/gi;
+export function countOf(line: string): number | null {
+  const last = [...line.matchAll(FOUND)].at(-1);
+  return last ? Number(last[1].replaceAll(",", "")) : null;
+}
+
+async function runSearchNow(db: DatabaseSync, spec: Spec, now: Date, place: () => [number, number]): Promise<Run> {
   const t0 = Date.now();
   const script = collectorPath(spec);
   const live = begin("search", `Search: ${spec.hunt || spec.name}`, "/searches");
-  live.step("Running the collector");
+  // Live's sentence for it, as the old Live said it: its name, its place in the line, what it found so far
+  // ("Model A · Kijiji: 3 of 20, 42 ads so far"); each new count takes the sentence's place
+  const noun = spec.kind === "deals" ? "ads" : "jobs";
+  let count: number | null = null;
+  const say = (again: boolean) => {
+    const [at, of] = place();
+    const parts = [of > 1 ? `${at} of ${of}` : "", count === null ? "" : `${count} ${noun} so far`].filter(Boolean);
+    live.step(`${spec.name}: ${parts.join(", ") || "searching"}`, again);
+  };
+  say(false);
   const collected = await runCollector(script, spec.args, {
     timeoutMs: spec.limits.timeoutMs,
     maxBytes: spec.limits.maxBytes,
     cwd: dirname(script),
     env: spec.env,
+    onLine: (l) => {
+      const n = countOf(l);
+      if (n === null || (count !== null && n <= count)) return;
+      count = n;
+      say(true);
+    },
   });
   const { found, kept } = keepItems(
     db,

@@ -52,9 +52,13 @@ export function begin(kind: Kind, title: string, link = "") {
   live.set(a.id, a);
   activity.emit("change");
   return {
-    step(text: string) {
+    // again: the last step, further along (a search's count as its collector reports it), takes the last step's place
+    // instead of adding a line per count
+    step(text: string, again = false) {
       if (a.ended) return;
-      a.steps.push({ at: new Date().toISOString(), text });
+      const step = { at: new Date().toISOString(), text };
+      if (again && a.steps.length) a.steps[a.steps.length - 1] = step;
+      else a.steps.push(step);
       if (a.steps.length > 60) a.steps.shift();
       activity.emit("change");
     },

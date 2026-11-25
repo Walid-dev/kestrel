@@ -6,9 +6,10 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { migrate } from "../../db/migrate.ts";
+import { type Activity, activity } from "../../platform/activity.ts";
 import { tick } from "../../server/scheduler.ts";
 import { listHunts } from "./listings.ts";
-import { lastRun, runSearch } from "./runs.ts";
+import { countOf, lastRun, runSearch } from "./runs.ts";
 import type { Spec } from "./specs.ts";
 
 function setup(items: string) {
@@ -52,6 +53,68 @@ test("a run keeps its items and records itself; an empty page is a problem", asy
   const { db: db2, spec: spec2 } = setup("[]");
   const empty = await runSearch(db2, spec2, new Date("2026-11-21T12:00:00Z"));
   assert.equal(empty.problem, "the page answered empty");
+});
+
+test("Live says what a search is doing: its name, its place in the line, and the collector's count as it goes", async () => {
+  const { base, db, spec } = setup(ITEM);
+  // a second search whose collector reports its progress on stderr, as the old collectors do
+  const talky = join(base, "talky.mjs");
+  writeFileSync(
+    talky,
+    `#!/usr/bin/env node
+     console.error("made-up-site: 1 scroll for more, 20 ads");
+     console.error("made-up-site: 2 scrolls for more, 40 ads");
+     console.error("made-up-site: read 4 of 6 job pages");
+     console.log(JSON.stringify(${ITEM}));`,
+  );
+  chmodSync(talky, 0o755);
+  const seen: Activity[] = [];
+  const keep = (a: Activity) => seen.push(a);
+  activity.on("ended", keep);
+  const now = new Date("2026-11-21T12:00:00Z");
+  await Promise.all([
+    runSearch(db, spec, now),
+    runSearch(db, { ...spec, id: "made-up-two", name: "Made-up · Board", collector: talky }, now),
+  ]);
+  activity.off("ended", keep);
+  // the count took the sentence's place each time: one line while it searched, one when it ended
+  assert.deepEqual(
+    seen.map((a) => a.steps.map((s) => s.text)),
+    [
+      ["Made-up: 1 of 2", "1 found, 1 new"],
+      ["Made-up · Board: 2 of 2, 40 jobs so far", "1 found, 1 new"],
+    ],
+  );
+  // a search alone in the line has no place to say
+  const alone: Activity[] = [];
+  const hear = (a: Activity) => alone.push(a);
+  activity.on("ended", hear);
+  await runSearch(db, spec, new Date("2026-11-21T13:00:00Z"));
+  activity.off("ended", hear);
+  assert.equal(alone[0]?.steps[0]?.text, "Made-up: searching");
+  // a total is not a count (review: "read 4 of 6 job pages" turned 25 jobs into 6)
+  assert.equal(countOf("made-up-board: read 4 of 16 job pages"), null);
+  assert.equal(countOf('made-up-board: "words" in a place: 1,025 jobs so far'), 1025);
+});
+
+test("a scheduled round's searches each say their place in it (review: every run was alone in the line)", async () => {
+  const { base, db, spec } = setup(ITEM);
+  const specsDir = join(base, "round-searches");
+  mkdirSync(specsDir);
+  for (const name of ["First", "Second"])
+    writeFileSync(
+      join(specsDir, `${name.toLowerCase()}.json`),
+      JSON.stringify({ name, collector: spec.collector, everyMinutes: 360, scoring: {} }),
+    );
+  const seen: Activity[] = [];
+  const keep = (a: Activity) => a.kind === "search" && seen.push(a);
+  activity.on("ended", keep);
+  await tick(db, { specsDir, backupsDir: join(base, "round-backups") }, new Date("2026-11-21T03:00:00Z"));
+  activity.off("ended", keep);
+  assert.deepEqual(
+    seen.map((a) => a.steps[0]?.text),
+    ["First: 1 of 2", "Second: 2 of 2"],
+  );
 });
 
 test("a search without a hunt keeps its finds beside the carried-over ones: one tab, not two", async () => {

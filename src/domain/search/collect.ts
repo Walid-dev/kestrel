@@ -1,6 +1,7 @@
 // The collector door: a collector is an executable in the data folder that prints its items as JSON. The engine runs
 // it with a time limit and a size cap, reads the items, and turns every bad ending into a problem in plain words —
 // exit code 3 means the site wants a login again (the old setup's convention, so existing scripts work unchanged).
+// What it prints to stderr as it goes (the old collectors' progress lines) reaches onLine, one line at a time.
 import { execFile } from "node:child_process";
 import { z } from "zod";
 
@@ -25,15 +26,36 @@ export type Item = z.infer<typeof Item>;
 
 export type Collected = { items: Item[]; problem: string };
 
+// a browser collector that couldn't reach the agent's browser (its DevTools door, CDP), each case named for what it is:
+// a refused connection is a browser that isn't running; Playwright's "Browser context management is not supported" is
+// the agent's Chrome open with no window; anything else at that door is a connection that failed. Null: not the
+// browser's door
+export function browserProblem(stderr: string): string | null {
+  if (/Browser context management is not supported/i.test(stderr))
+    return "the agent's browser has no window open: the next run tries again";
+  if (!/connectOverCDP|browserType\.connect|ECONNREFUSED[\s\S]*9222/i.test(stderr)) return null;
+  // a browser collector with no browser: its own problem kind, so the runs view never cries wolf at boot
+  if (/ECONNREFUSED/i.test(stderr)) return "the agent's browser isn't running: the run will catch up once it is";
+  // Playwright's own words after its call's name ("Timeout 30000ms exceeded."), short, when it gives them
+  const why = /connect(?:OverCDP)?:\s*([^\n]{1,80})/i.exec(stderr)?.[1]?.trim().replace(/\.$/, "") ?? "";
+  return `couldn't connect to the agent's browser${why ? ` (${why})` : ""}: the next run tries again`;
+}
+
 export function runCollector(
   script: string,
   args: string[],
-  opts: { timeoutMs?: number; maxBytes?: number; cwd?: string; env?: Record<string, string> } = {},
+  opts: {
+    timeoutMs?: number;
+    maxBytes?: number;
+    cwd?: string;
+    env?: Record<string, string>;
+    onLine?: (line: string) => void;
+  } = {},
 ): Promise<Collected> {
   const timeoutMs = opts.timeoutMs ?? 180_000;
   const maxBytes = opts.maxBytes ?? 20_000_000;
   return new Promise((resolve) => {
-    execFile(
+    const child = execFile(
       script,
       args,
       {
@@ -45,9 +67,8 @@ export function runCollector(
       },
       (error, stdout, stderr) => {
         const hint = (stderr || "").trim().split("\n")[0]?.slice(0, 120) ?? "";
-        // a browser collector with no browser: its own problem kind, so the runs view never cries wolf at boot
-        if (error && /ECONNREFUSED[\s\S]*9222|connectOverCDP|browserType\.connect/i.test(stderr || ""))
-          return resolve({ items: [], problem: "the agent's browser isn't running: the run will catch up once it is" });
+        const browser = error ? browserProblem(stderr || "") : null;
+        if (browser) return resolve({ items: [], problem: browser });
         if (error) {
           const e = error as { code?: number | string; killed?: boolean; signal?: string | null };
           if (e.code === 3)
@@ -84,5 +105,15 @@ export function runCollector(
         });
       },
     );
+    // the progress lines as they come (execFile still keeps the whole of stderr for the ending above); a line cut by a
+    // chunk's edge waits for the rest of itself
+    if (opts.onLine) {
+      let partial = "";
+      child.stderr?.on("data", (chunk: string | Buffer) => {
+        const lines = (partial + String(chunk)).split("\n");
+        partial = lines.pop() ?? "";
+        for (const l of lines) if (l.trim()) opts.onLine?.(l.trim());
+      });
+    }
   });
 }

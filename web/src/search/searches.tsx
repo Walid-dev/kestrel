@@ -27,8 +27,9 @@ type Hunt = {
   specs: { id: string; name: string; enabled: boolean; everyMinutes: number; auto: boolean }[];
   lastRun: Run;
   mirrored: boolean;
-  oldSearchNow: boolean; // a job hunt the old setup runs: Search now asks the old setup's own
-  running: number; // its searches queued or running now
+  oldSearchNow: boolean; // a hunt the old setup runs: Search now asks the old setup's own
+  oldSearching: boolean; // the old setup's search, started here, runs now
+  running: number; // its searches queued or running now, the old setup's started here counted as one
   mode: "on" | "quiet" | "paused" | null; // null: the old setup runs it
   next: string | null;
   last: {
@@ -40,11 +41,11 @@ type Hunt = {
   } | null;
 };
 // the old setup's answer to Search now (server/search.ts): it started, or why not now — for the hunt it was asked
-// for, and when (its new jobs come with the mirror after it)
+// for, and when (its finds come with the mirror after it)
 type OldAnswer = {
   hunt: string;
   asked: number;
-  old: "started" | "busy" | "waiting" | "paused";
+  old: "started" | "busy" | "waiting" | "paused" | "off";
   at: string | null;
   why: string;
 };
@@ -79,22 +80,24 @@ function when(iso: string): string {
 const flagOf = (problem: string) => (/\b429\b|throttl/i.test(problem) ? "Throttled" : "Problem");
 const sentence = (s: string) => `${s.charAt(0).toUpperCase()}${s.slice(1)}${/[.!?]$/.test(s) ? "" : "."}`;
 
-// each answer of the old setup's in words: what comes before its value, the value (bold), what comes after
-const OLD_WORDS: Record<OldAnswer["old"], (a: OldAnswer) => [string, string, string]> = {
-  started: () => ["", "Searching in the old setup", ": its new jobs show here a few minutes after it ends"],
+// each answer of the old setup's in words (its finds named for the hunt: jobs or ads): what comes before its value, the
+// value (bold), what comes after. Started is said once its search has ended there, until the mirror brings the finds
+const OLD_WORDS: Record<OldAnswer["old"], (a: OldAnswer, finds: string) => [string, string, string]> = {
+  started: (_, finds) => ["", "Searched in the old setup", `: its new ${finds} show here in a few minutes`],
   busy: () => ["The old setup is ", "searching already", ": try again in a few minutes"],
   waiting: (a) => [`It can search again ${a.at ? "at " : ""}`, a.at ? clock(a.at) : "later", a.why && `: ${a.why}`],
   paused: () => ["", "Paused", " in the old setup: turn it on there, then search"],
+  off: () => ["Every search of this hunt is ", "off", " in the old setup: turn one on there, then search"],
 };
 
-// the old setup's answer to Search now, first on its hunt's line: started in green, as Searching now; why not now in
-// the waiting yellow. Searching there ends once a mirror lands after it: its new jobs are in
-function OldSaid({ a, mirror }: { a: OldAnswer; mirror?: Run }) {
+// the old setup's answer to Search now, first on its hunt's line: its search done there in green until a mirror lands
+// after it with the finds; why not now in the waiting yellow. While it searches, the hunt's own line says so (below)
+function OldSaid({ a, mirror, finds }: { a: OldAnswer; mirror?: Run; finds: string }) {
   if (a.old === "started" && mirror && Date.parse(mirror.started) > a.asked) return null;
-  const [before, value, after] = OLD_WORDS[a.old](a);
+  const [before, value, after] = OLD_WORDS[a.old](a, finds);
   return (
     <span className="search-answer">
-      <span className={cx("dot", a.old === "started" ? "tone-green pulse" : "tone-yellow")} aria-hidden="true" />
+      <span className={cx("dot", a.old === "started" ? "tone-green" : "tone-yellow")} aria-hidden="true" />
       <span>
         {before}
         <b className={a.old === "started" ? "text-green" : "text-ink"}>{value}</b>
@@ -119,8 +122,11 @@ function StatusLine({
   answer?: OldAnswer | null;
 }) {
   const [more, setMore] = useState(false);
-  const l = hunt.last;
+  // a hunt the old setup searches: its last search is the old setup's, which the mirror brings; a search of its own
+  // here from before it waited would read as the last one
+  const l = hunt.oldSearchNow ? null : hunt.last;
   const noun = (n: number) => (hunt.kind === "jobs" ? (n === 1 ? "job" : "jobs") : n === 1 ? "ad" : "ads");
+  const here = hunt.running - (hunt.oldSearching ? 1 : 0); // its own searches in the line here
   const warnings: { flag: string; text: string }[] = [];
   if (l?.problem) warnings.push({ flag: flagOf(l.problem), text: sentence(l.problem) });
   else if (!l && hunt.mirrored && mirror?.problem)
@@ -133,11 +139,21 @@ function StatusLine({
   const best = l?.best && `${l.best.title}${l.best.org ? ` at ${l.best.org}` : ""}`;
   const open = (
     <span className="search-facts">
-      {answer && <OldSaid a={answer} mirror={mirror} />}
-      {hunt.running > 0 && (
+      {hunt.oldSearching ? (
+        <span className="search-answer">
+          <span className="dot tone-green pulse" aria-hidden="true" />
+          <span>
+            <b className="text-green">Searching in the old setup</b>: its new {noun(2)} show here a few minutes after it
+            ends
+          </span>
+        </span>
+      ) : (
+        answer && <OldSaid a={answer} mirror={mirror} finds={noun(2)} />
+      )}
+      {here > 0 && (
         <span className="inline-flex items-center gap-2 text-green">
           <span className="dot tone-green pulse" aria-hidden="true" />
-          <b>Searching now{hunt.running > 1 ? `, ${hunt.running} to go` : ""}</b>
+          <b>Searching now{here > 1 ? `, ${here} to go` : ""}</b>
         </span>
       )}
       {l ? (
@@ -306,6 +322,7 @@ const SORTS: Record<"jobs" | "deals", [string, string][]> = {
   ],
 };
 const PARTS = "kestrel-search-parts";
+const HUNT = "kestrel-search-hunt";
 const LAST = "kestrel-last-opened";
 const TODO = "kestrel-search-todo";
 const SWIPED = "kestrel-search-swiped";
@@ -367,6 +384,15 @@ export function Searches() {
       return localStorage.getItem(SWIPED) === "yes";
     } catch {
       return false;
+    }
+  });
+  // the hunt picked last on this device: Searches opened with no hunt in its address (the tab bar, the dock, Home's
+  // app row) opens it again (kept in this browser; a private window keeps nothing)
+  const [kept, setKept] = useState(() => {
+    try {
+      return localStorage.getItem(HUNT);
+    } catch {
+      return null;
     }
   });
   const [limit, setLimit] = useState(PAGE);
@@ -431,8 +457,19 @@ export function Searches() {
   });
   const all = hunts.data?.hunts ?? [];
   const busy = all.some((h) => h.running > 0);
-  const hunt =
-    all.find((h) => `${h.kind}:${h.key}` === params.get("hunt")) ?? all.find((h) => h.kind === "jobs") ?? all[0];
+  // the hunt in the address, else the one picked last here, else (that one gone) the first job hunt
+  const asked = all.find((h) => `${h.kind}:${h.key}` === params.get("hunt"));
+  const hunt = asked ?? all.find((h) => `${h.kind}:${h.key}` === kept) ?? all.find((h) => h.kind === "jobs") ?? all[0];
+  const picked = asked && `${asked.kind}:${asked.key}`;
+  useEffect(() => {
+    if (!picked) return;
+    setKept(picked); // a tap on Searches' tab, the page still open, lands on it too
+    try {
+      localStorage.setItem(HUNT, picked);
+    } catch {
+      // storage off: the pick lasts this visit
+    }
+  }, [picked]);
   const kind = hunt?.kind ?? "jobs";
   const stage = params.get("stage") ?? DEFAULT_STAGE[kind];
   const q = params.get("q") ?? "";
@@ -523,8 +560,9 @@ export function Searches() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["searches"] }),
   });
   // Search now: every search of the hunt, one after the other, in the background (the chair's run across two sites
-  // and ten models takes a while); the button counts them down. A job hunt the old setup runs is searched there: its
-  // answer, started or not now, goes on the hunt's line
+  // and ten models takes a while); the hunt's line counts them down. A hunt the old setup runs is searched there: its
+  // answer, started or not now, goes on the hunt's line. The press stays pending until the hunts are read again, so
+  // the button goes from its press to the search's end without a gap where it could be pressed twice
   const runNow = useMutation({
     mutationFn: async (h: Hunt): Promise<OldAnswer | null> => {
       const res = await fetch("/api/search/hunts/run", {
@@ -546,7 +584,7 @@ export function Searches() {
     },
     onSettled: () => {
       refresh();
-      queryClient.invalidateQueries({ queryKey: ["searches"] });
+      return queryClient.invalidateQueries({ queryKey: ["searches"] });
     },
   });
   const deep = useMutation({
@@ -576,6 +614,9 @@ export function Searches() {
   const c = counts.data;
   const failed = [hunts, counts, listings, act, queue, runNow, deep, setMode].find((x) => x.isError);
   const spec = hunt?.specs.find((s) => s.enabled);
+  // this hunt's press only: a press on another hunt, still waiting on the old setup's door, leaves this one free
+  const pressed = runNow.isPending && runNow.variables?.kind === hunt?.kind && runNow.variables?.key === hunt?.key;
+  const searching = pressed || (hunt?.running ?? 0) > 0;
   const sources = Object.entries(c?.source ?? {}).sort((a, b) => b[1] - a[1]);
   const groups = Object.entries(c?.group ?? {})
     .filter(([g]) => g)
@@ -683,8 +724,9 @@ export function Searches() {
               </svg>
               <span className="hunt-add-words">New search</span>
             </Link>
-            {/* a hunt the old setup searches has its switch there; a spec of its own that is off stays off */}
-            {hunt.mode && !hunt.oldSearchNow && (
+            {/* the switch is for its searches here that are on: a job hunt the old setup searches has none (a spec of
+                its own that is off stays off); a deal hunt waiting here, Paused, keeps it, to turn it On again */}
+            {hunt.mode && hunt.specs.some((s) => s.enabled) && (
               <fieldset className="seg seg-modes" aria-label="This hunt's switch">
                 {(["on", "quiet", "paused"] as const).map((m) => (
                   <button
@@ -702,18 +744,25 @@ export function Searches() {
               </fieldset>
             )}
             {(spec || hunt.oldSearchNow) && (
-              // its words stay while it searches, a spinner over them, so the row never changes width; the line
-              // under the title says Searching now and how many are left, or what the old setup answered
+              // from the press until the search ends (here, or in the old setup) it says Searching… with a spinner and
+              // can't be pressed. Both labels are always there, one unseen, so the row never changes width
+              // (styles.css, .search-now). The line under the title says how many are left, or what the old setup
+              // answered
               <button
                 type="button"
-                className="btn"
-                title={spec ? undefined : "The old setup searches this hunt, with its own wait and limits"}
-                disabled={runNow.isPending || hunt.running > 0}
-                aria-busy={runNow.isPending || hunt.running > 0}
+                className="btn search-now"
+                title={hunt.oldSearchNow ? "The old setup searches this hunt, with its own wait and limits" : undefined}
+                disabled={searching}
+                aria-busy={searching}
                 onClick={() => runNow.mutate(hunt)}
               >
-                <span className={cx((runNow.isPending || hunt.running > 0) && "opacity-0")}>Search now</span>
-                {(runNow.isPending || hunt.running > 0) && <span className="spin absolute inset-0 m-auto" />}
+                <span className={cx(searching && "invisible")}>Search now</span>
+                <span className={cx(!searching && "invisible")} aria-hidden={!searching}>
+                  <span className="spin" aria-hidden="true" />
+                  <span>
+                    Searching<span className="search-now-dots">…</span>
+                  </span>
+                </span>
               </button>
             )}
             <Link

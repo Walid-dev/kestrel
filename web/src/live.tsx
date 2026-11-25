@@ -144,9 +144,10 @@ function ChatState({ chat, open, timed = false }: { chat: AgentChat; open: (id: 
 }
 
 // each kind's name and its one colour (a tone, so its chip and its filter's dot match), in design.md's meanings:
-// learning and deep work purple; pink stays for what needs me, so a task (added or done) is a plain record, muted
+// learning and deep work purple; pink stays for what needs me, so a task (added or done) is a plain record, muted, as
+// a search is (routine work, as the mirror and the copy)
 const KIND: Record<string, [string, Tone]> = {
-  search: ["Search", "purple"],
+  search: ["Search", "muted"],
   deep: ["Deep check", "purple"],
   model: ["Model", "yellow"],
   mirror: ["Mirror", "muted"],
@@ -386,7 +387,9 @@ export function LivePage() {
     </span>
   );
 
-  // Now's cards: what needs me first, then what works, then what waits on something else, the queue last
+  // Now's cards: what needs me first, then what works, then what waits on something else, the queue last. Work at work
+  // reads alike whatever its kind: the green edge and dot, the kind in muted words (a chip's colour is for the log);
+  // its steps say what it does now (a search: its name, its place in the line, what it found so far)
   const cards: { rank: number; node: ReactNode }[] = [];
   for (const a of d?.now ?? [])
     cards.push({
@@ -398,7 +401,7 @@ export function LivePage() {
           title={clamped(shortTitle(a))}
           meta={
             <Meta
-              chip={kindChip(a.kind)}
+              chip={<span className="text-small text-muted">{kindName(a.kind)}</span>}
               time={
                 <>
                   <span className="dot tone-green pulse" />
