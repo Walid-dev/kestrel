@@ -5,6 +5,19 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Quiz on News' layout; a started quiz is a card.**
+  The head's line keeps one fact (the lessons to review today, the count in cyan mono); how a quiz works becomes the
+  hint under the new quiz's `SectionHead`. The quizzes I started and the new quiz take the main column, in that order
+  (first on a phone and for the keyboard, as before); the ended ones (`RailPart` "Done · 10") and Archived take the rail.
+  A started quiz is a Card on Searches' anatomy: its area's chip (Lessons purple, Interview prep green), the time at
+  `end`, the ring beside its name as the key figure (44, the count inside), the facts with the values bold, Continue
+  as a plain button (the first one the screen's filled button) and Archive a small ghost; two across from 48rem. An
+  area with no lesson shows "No lessons to quiz on yet." with Open Learn (or Interview prep) where the form was, its
+  From switch kept. A gone quiz says so at once ("This quiz isn't here any more.", Open Quiz) instead of a blank page
+  for three tries and a raw red line; every quiz page's eyebrow is Quiz's teal. Rejected: the started quizzes in the
+  rail (on a phone the rail follows the form, and putting it first would put the done ones before the form too); a
+  big Continue in every card (a page of big buttons).
+
 - **2026-11-25 · Writing on News' layout; a try is one card.**
   The open try takes the main column (first on a phone, as before); the job, what to write and the job's tries take the
   rail on the right, the tries a `RailPart` ("Tries · 1"); the eyebrow is "Jobs" in magenta. A try was three blocks (its

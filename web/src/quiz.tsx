@@ -18,6 +18,8 @@ import { Field } from "./ui/field.tsx";
 import { Row, List as Rows } from "./ui/list.tsx";
 import { Page } from "./ui/page.tsx";
 import { Pills } from "./ui/pills.tsx";
+import { RailPart, WithRail } from "./ui/rail.tsx";
+import { SectionHead } from "./ui/section.tsx";
 import { Seg } from "./ui/seg.tsx";
 
 type Area = "learn" | "interview";
@@ -67,6 +69,16 @@ const when = (iso: string) =>
   });
 // a row's short date: room for the quiz's name beside its Archive and ✕ on a phone
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+// a card's time at its top line's end: the hour today, else the day
+const stamp = (iso: string) =>
+  new Date(iso).toDateString() === new Date().toDateString()
+    ? new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+    : day(iso);
+// where a quiz draws from, as its card's chip: the area's own colour (Learn purple, Interview prep green)
+const AREA_CHIP: Record<Area, [string, string]> = {
+  learn: ["Lessons", "tone-purple"],
+  interview: ["Interview prep", "tone-good"],
+};
 // a part of a bar: its length is data, so it reaches the class as a variable
 const share = (n: number, total: number) => ({ "--part": `${total ? (n / total) * 100 : 0}%` }) as CSSProperties;
 const named = (q: { area: Area; scope: string }) => `${q.area === "interview" ? "Interview prep · " : ""}${q.scope}`;
@@ -76,11 +88,12 @@ const scoreTone = (right: number, total: number) => {
   return r >= 0.8 ? "tone-great" : r >= 0.6 ? "tone-good" : r >= 0.4 ? "tone-fair" : "tone-poor";
 };
 
-// the start (my ask, 2026-11-23: "simple, but polished and modern"): the quiz I started, large, to continue; a new
-// one in three choices — where from, on what (each topic with its lessons and what is due, then its packs and lessons
-// as pills to narrow it), how many — and one button that says what it starts; the ones I ended with their score. A
-// quiz I no longer use is archived (Archived shows it again, to restore) or deleted. A computer shows the new quiz
-// beside the rest.
+// the start (my ask, 2026-11-23: "simple, but polished and modern"): the quizzes I started, each a card to continue;
+// a new one in three choices — where from, on what (each topic with its lessons and what is due, then its packs and
+// lessons as pills to narrow it), how many — and one button that says what it starts; the ones I ended with their
+// score. A quiz I no longer use is archived (Archived shows it again, to restore) or deleted. News' layout: the started
+// ones and the new quiz in the main column, the ended and archived ones in the rail on its right (under them on a
+// phone).
 export function Quiz() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -231,72 +244,181 @@ export function Quiz() {
   // the quiz I started, or why that list failed: it comes first
   const resume = started.length > 0 || failedIn("started") !== null || quizzes.isError;
 
+  // the area holds no lesson at all: the form gives way to where lessons are made (its From switch stays)
+  const noLessons = lessonList.data !== undefined && lessonsOf.length === 0;
+
   return (
     <Page
+      app="Quiz"
+      eyebrow="Learn"
       title="Quiz"
+      // what waits today, in one line; how a quiz works is said under the new quiz's heading
       line={
-        <>
-          Questions from your lessons, answered in your own words. The computer's model marks the meaning and explains
-          it, and your place is kept.
-          {due > 0 && (
-            <>
-              {" "}
-              <b className="text-cyan">{due}</b> {due === 1 ? "lesson" : "lessons"} to review today.
-            </>
-          )}
-        </>
+        due > 0 && (
+          <>
+            <b className="font-mono text-cyan">{due}</b> {due === 1 ? "lesson" : "lessons"} to review today
+          </>
+        )
       }
     >
-      {/* the quiz I started comes first, to continue: first on a phone and first for the keyboard and a screen
-          reader. On a computer the new quiz takes the left column, the rows of the right one beside it: the quiz I
-          started on top, the rest under it; the last row takes what the new quiz needs past them, so no gap opens */}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-8">
+      <WithRail
+        label="The quizzes done, and the archived ones"
+        rail={
+          <>
+            {(ended.length > 0 || failedIn("done")) && (
+              <RailPart id="quiz-done" title="Done" count={ended.length}>
+                <Failed message={failedIn("done")} />
+                <Rows label="Done">
+                  {(allDone ? ended : ended.slice(0, DONE_SHOWN)).map((q) => (
+                    <QuizRow
+                      key={q.id}
+                      q={q}
+                      busy={isBusy(q.id)}
+                      line={<span title={when(q.finished ?? q.updated)}>{day(q.finished ?? q.updated)}</span>}
+                      end={
+                        <>
+                          <span className={`chip quiz-score ${scoreTone(q.right, q.total)}`}>
+                            {q.right}/{q.total}
+                          </span>
+                          <button
+                            type="button"
+                            className="card-remove quiz-keep"
+                            aria-label={`Archive "${named(q)}"`}
+                            title="Archive"
+                            onClick={() => act(q, "archive", "done")}
+                          >
+                            <ArchiveIcon />
+                          </button>
+                          <button
+                            type="button"
+                            className="card-remove"
+                            aria-label={`Delete "${named(q)}"`}
+                            title="Delete"
+                            onClick={() => remove(q, "done")}
+                          >
+                            ✕
+                          </button>
+                        </>
+                      }
+                    />
+                  ))}
+                </Rows>
+                {ended.length > DONE_SHOWN && (
+                  <button
+                    type="button"
+                    className="btn btn-quiet justify-self-start"
+                    onClick={() => setAllDone(!allDone)}
+                  >
+                    {allDone ? "Show fewer" : `Show all ${ended.length}`}
+                  </button>
+                )}
+              </RailPart>
+            )}
+
+            {(archived.length > 0 || failedIn("archived") || archivedList.isError) && (
+              <section className="grid content-start gap-3">
+                <Pills
+                  label="Archived quizzes"
+                  multiple
+                  options={[{ value: "archived", label: "Archived", count: archived.length }]}
+                  value={archivedOpen ? ["archived"] : []}
+                  onChange={(v) => setArchivedOpen(v.length > 0)}
+                />
+                <Failed message={archivedList.isError ? (archivedList.error as Error).message : failedIn("archived")} />
+                {archivedOpen && archived.length > 0 && (
+                  <Rows label="Archived">
+                    {archived.map((q) => (
+                      <QuizRow
+                        key={q.id}
+                        q={q}
+                        busy={isBusy(q.id)}
+                        wrap
+                        line={q.finished ? `${q.right} of ${q.total} right` : `${q.answered} of ${q.total} answered`}
+                        end={
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn-sm"
+                              aria-label={`Restore "${named(q)}"`}
+                              onClick={() => act(q, "restore", "archived")}
+                            >
+                              Restore
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-danger"
+                              aria-label={`Delete "${named(q)}"`}
+                              onClick={() => remove(q, "archived")}
+                            >
+                              Delete
+                            </button>
+                          </>
+                        }
+                      />
+                    ))}
+                  </Rows>
+                )}
+              </section>
+            )}
+          </>
+        }
+      >
+        {/* the quizzes I started come first, to continue: first on a phone and first for the keyboard and a screen
+            reader, each a card on Searches' anatomy (its area's chip, when, how far as a ring beside its name, the
+            facts, Continue last; the first Continue is the screen's one filled button) */}
         {resume && (
-          <section className="grid content-start gap-3 lg:col-start-2 lg:row-start-1">
-            <h2 className="eyebrow m-0">Pick up where you left off</h2>
+          <section className="grid content-start gap-3" aria-labelledby="quiz-started">
+            <SectionHead id="quiz-started" title="Pick up where you left off" count={started.length || undefined} />
             <Failed message={quizzes.isError ? (quizzes.error as Error).message : failedIn("started")} />
-            {startedShown.map((q, i) => (
-              <Card key={q.id} busy={isBusy(q.id)}>
-                <div className="flex items-start gap-2">
-                  <Link to={`/quiz/${q.id}`} className="flex min-w-0 flex-1 items-center gap-4">
-                    <Ring part={q.total ? q.answered / q.total : 0}>
-                      {q.answered}/{q.total}
-                    </Ring>
-                    <span className="grid min-w-0 flex-1 gap-1">
-                      <span className="font-cond truncate text-head text-strong">{named(q)}</span>
-                      <span className="text-detail text-ink">
-                        Question {Math.min(q.place + 1, q.total)} of {q.total} · {q.right} right
-                        {q.partly ? ` · ${q.partly} partly` : ""}
+            {startedShown.length > 0 && (
+              <div className="grid gap-3 md:grid-cols-2">
+                {startedShown.map((q, i) => (
+                  <Card
+                    key={q.id}
+                    busy={isBusy(q.id)}
+                    title={q.scope}
+                    to={`/quiz/${q.id}`}
+                    meta={<span className={`chip chip-caps ${AREA_CHIP[q.area][1]}`}>{AREA_CHIP[q.area][0]}</span>}
+                    end={
+                      <span className="font-mono" title={when(q.updated)}>
+                        {stamp(q.updated)}
                       </span>
-                      <span className="text-small text-muted">{when(q.updated)}</span>
-                    </span>
-                  </Link>
-                  <button
-                    type="button"
-                    className="card-remove"
-                    aria-label={`Delete "${named(q)}"`}
-                    title="Delete"
-                    onClick={() => remove(q, "started")}
+                    }
+                    figure={
+                      <Ring part={q.total ? q.answered / q.total : 0}>
+                        {q.answered}/{q.total}
+                      </Ring>
+                    }
+                    onRemove={() => remove(q, "started")}
+                    removeLabel={`Delete "${named(q)}"`}
+                    actions={
+                      <>
+                        <Link to={`/quiz/${q.id}`} className={cx("btn", i === 0 && "btn-primary")}>
+                          Continue
+                        </Link>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-quiet"
+                          aria-label={`Archive "${named(q)}"`}
+                          onClick={() => act(q, "archive", "started")}
+                        >
+                          Archive
+                        </button>
+                      </>
+                    }
                   >
-                    ✕
-                  </button>
-                </div>
-                {/* the first quiz's Continue is the screen's one filled button; Start then drops to a plain one */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <Link to={`/quiz/${q.id}`} className={cx("btn btn-big", i === 0 && "btn-primary")}>
-                    Continue
-                  </Link>
-                  <button
-                    type="button"
-                    className="btn btn-quiet"
-                    aria-label={`Archive "${named(q)}"`}
-                    onClick={() => act(q, "archive", "started")}
-                  >
-                    Archive
-                  </button>
-                </div>
-              </Card>
-            ))}
+                    Question <b className="text-ink">{Math.min(q.place + 1, q.total)}</b> of{" "}
+                    <b className="text-ink">{q.total}</b> · <b className="text-ink">{q.right}</b> right
+                    {q.partly > 0 && (
+                      <>
+                        {" "}
+                        · <b className="text-ink">{q.partly}</b> partly
+                      </>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            )}
             {started.length > STARTED_SHOWN && (
               <button
                 type="button"
@@ -308,10 +430,14 @@ export function Quiz() {
             )}
           </section>
         )}
-        <div className="lg:col-start-1 lg:row-span-2 lg:row-start-1">
+        <section className="grid content-start gap-3" aria-labelledby="quiz-new">
+          <SectionHead
+            id="quiz-new"
+            title={started.length ? "A new quiz" : "Start a quiz"}
+            hint="Answered in your own words: the computer's model marks the meaning and explains it, and your place is kept."
+          />
           <Card>
             <div className="grid gap-4">
-              <h2 className="font-cond m-0 text-head">{started.length ? "A new quiz" : "Start a quiz"}</h2>
               {/* where from, how many and which questions: three short switches, side by side where they fit, the
                   form's settings first; then what the quiz is on, and the button that says what it starts */}
               <div className="flex flex-wrap gap-x-8 gap-y-4">
@@ -330,254 +456,174 @@ export function Quiz() {
                     }}
                   />
                 </div>
-                <div className="grid content-start gap-2">
-                  <span className="eyebrow">How many</span>
-                  <Seg
-                    label="How many"
-                    options={(
-                      [
-                        [5, "quick"],
-                        [10, "a round"],
-                        [20, "a long one"],
-                      ] as const
-                    ).map(([n, size]) => ({ value: String(n), label: n, hint: `${n} · ${size}` }))}
-                    value={String(count)}
-                    onChange={(v) => setCount(Number(v))}
-                  />
-                </div>
-                <div className="grid content-start gap-2">
-                  <span className="eyebrow">Questions</span>
-                  <Seg
-                    label="Questions"
-                    options={[
-                      { value: "own", label: "The lessons' own", hint: "ready at once" },
-                      { value: "new", label: "New ones", hint: "the model writes each" },
-                    ]}
-                    value={fresh ? "new" : "own"}
-                    onChange={(v) => setFresh(v === "new")}
-                  />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                {/* one topic is a pill; two or more, each with what it holds, are tiles */}
-                {topics.length > 1 ? (
+                {!noLessons && (
                   <>
-                    <span className="eyebrow">On</span>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
-                      {topics.map((t) => (
-                        <button
-                          key={t.key}
-                          type="button"
-                          className="tile"
-                          aria-pressed={from === t.key}
-                          onClick={() => pickTopic(t.key)}
-                        >
-                          <b>{t.name}</b>
-                          <span>
-                            {plural(t.lessons, "lesson")}
-                            {t.due > 0 && ` · ${t.due} to review`}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <Pills
-                    label="On"
-                    showLabel
-                    options={topics.map((t) => ({
-                      value: t.key,
-                      label: t.name,
-                      count: t.lessons,
-                      ...(t.due ? { tone: "cyan" as const, hint: `${t.due} to review` } : {}),
-                    }))}
-                    value={from}
-                    onChange={pickTopic}
-                  />
-                )}
-              </div>
-              {topic && topic.lessons > 0 && (
-                <div className="grid gap-3">
-                  {topicPacks.length > 1 && (
-                    <Pills
-                      label="Packs"
-                      showLabel
-                      multiple
-                      options={topicPacks.map((p) => ({ value: p.id, label: p.name, count: p.lessons ?? 0 }))}
-                      value={packsPicked}
-                      onChange={pickPacks}
-                    />
-                  )}
-                  {shown.length > 0 && (
-                    <div ref={lessonPills}>
-                      <Pills
-                        label="Lessons"
-                        showLabel
-                        multiple
-                        describedBy="quiz-drawn"
-                        options={[
-                          ...listed.map((l) => ({
-                            value: l.id,
-                            label: l.title,
-                            ...(l.due ? { tone: "cyan" as const, hint: "to review" } : {}),
-                          })),
-                          // the rest of a long list, one tap away, and back: an action among the pills, so it wraps
-                          // with them
-                          ...(longList
-                            ? [
-                                {
-                                  value: SHOW_MORE,
-                                  label: allLessons ? "Show fewer" : `Show all ${shown.length}`,
-                                  onPress: () => {
-                                    // the pill tapped leaves: focus the first lesson that came into sight, or, folding,
-                                    // the pill that brings them back (the last one of the short list)
-                                    focusPill.current = allLessons
-                                      ? short.length
-                                      : Math.max(
-                                          0,
-                                          shown.findIndex((l) => !short.includes(l)),
-                                        );
-                                    setAllLessons(!allLessons);
-                                  },
-                                },
-                              ]
-                            : []),
-                        ]}
-                        value={lessonsPicked}
-                        onChange={setLessonsPicked}
+                    <div className="grid content-start gap-2">
+                      <span className="eyebrow">How many</span>
+                      <Seg
+                        label="How many"
+                        options={(
+                          [
+                            [5, "quick"],
+                            [10, "a round"],
+                            [20, "a long one"],
+                          ] as const
+                        ).map(([n, size]) => ({ value: String(n), label: n, hint: `${n} · ${size}` }))}
+                        value={String(count)}
+                        onChange={(v) => setCount(Number(v))}
                       />
                     </div>
-                  )}
-                  <p id="quiz-drawn" className="m-0 text-small text-muted">
-                    {drawn}
-                    {lessonsPicked.length || packsPicked.length ? "" : ". Pick some to narrow the quiz."}
-                  </p>
-                </div>
-              )}
-              {/* the form's end: as wide as its words under a mouse, the thumb's whole width on touch; filled unless a
-                  started quiz's Continue is the screen's one filled button */}
-              <button
-                type="button"
-                className={cx(
-                  "btn btn-big justify-self-start pointer-coarse:w-full",
-                  started.length === 0 && "btn-primary",
+                    <div className="grid content-start gap-2">
+                      <span className="eyebrow">Questions</span>
+                      <Seg
+                        label="Questions"
+                        options={[
+                          { value: "own", label: "The lessons' own", hint: "ready at once" },
+                          { value: "new", label: "New ones", hint: "the model writes each" },
+                        ]}
+                        value={fresh ? "new" : "own"}
+                        onChange={(v) => setFresh(v === "new")}
+                      />
+                    </div>
+                  </>
                 )}
-                disabled={start.isPending || questions === 0}
-                onClick={() => start.mutate()}
-              >
-                {start.isPending && <span className="spin" />}
-                {start.isPending
-                  ? "Picking the questions"
-                  : questions === 0
-                    ? "No lessons here yet"
-                    : `Start ${plural(questions, "question")}${on ? ` on ${on}` : ""}`}
-              </button>
+              </div>
+              {noLessons ? (
+                <EmptyState
+                  title="No lessons to quiz on yet."
+                  line={`The quiz asks about the lessons in ${area === "interview" ? "Interview prep" : "Learn"}: make a pack there first.`}
+                  action={
+                    <Link
+                      to={area === "interview" ? "/interview" : "/learn"}
+                      className={cx("btn", started.length === 0 && "btn-primary")}
+                    >
+                      Open {area === "interview" ? "Interview prep" : "Learn"}
+                    </Link>
+                  }
+                />
+              ) : (
+                <>
+                  <div className="grid gap-2">
+                    {/* one topic is a pill; two or more, each with what it holds, are tiles */}
+                    {topics.length > 1 ? (
+                      <>
+                        <span className="eyebrow">On</span>
+                        <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
+                          {topics.map((t) => (
+                            <button
+                              key={t.key}
+                              type="button"
+                              className="tile"
+                              aria-pressed={from === t.key}
+                              onClick={() => pickTopic(t.key)}
+                            >
+                              <b>{t.name}</b>
+                              <span>
+                                {plural(t.lessons, "lesson")}
+                                {t.due > 0 && ` · ${t.due} to review`}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <Pills
+                        label="On"
+                        showLabel
+                        options={topics.map((t) => ({
+                          value: t.key,
+                          label: t.name,
+                          count: t.lessons,
+                          ...(t.due ? { tone: "cyan" as const, hint: `${t.due} to review` } : {}),
+                        }))}
+                        value={from}
+                        onChange={pickTopic}
+                      />
+                    )}
+                  </div>
+                  {topic && topic.lessons > 0 && (
+                    <div className="grid gap-3">
+                      {topicPacks.length > 1 && (
+                        <Pills
+                          label="Packs"
+                          showLabel
+                          multiple
+                          options={topicPacks.map((p) => ({ value: p.id, label: p.name, count: p.lessons ?? 0 }))}
+                          value={packsPicked}
+                          onChange={pickPacks}
+                        />
+                      )}
+                      {shown.length > 0 && (
+                        <div ref={lessonPills}>
+                          <Pills
+                            label="Lessons"
+                            showLabel
+                            multiple
+                            describedBy="quiz-drawn"
+                            options={[
+                              ...listed.map((l) => ({
+                                value: l.id,
+                                label: l.title,
+                                ...(l.due ? { tone: "cyan" as const, hint: "to review" } : {}),
+                              })),
+                              // the rest of a long list, one tap away, and back: an action among the pills, so it wraps
+                              // with them
+                              ...(longList
+                                ? [
+                                    {
+                                      value: SHOW_MORE,
+                                      label: allLessons ? "Show fewer" : `Show all ${shown.length}`,
+                                      onPress: () => {
+                                        // the pill tapped leaves: focus the first lesson that came into sight, or, folding,
+                                        // the pill that brings them back (the last one of the short list)
+                                        focusPill.current = allLessons
+                                          ? short.length
+                                          : Math.max(
+                                              0,
+                                              shown.findIndex((l) => !short.includes(l)),
+                                            );
+                                        setAllLessons(!allLessons);
+                                      },
+                                    },
+                                  ]
+                                : []),
+                            ]}
+                            value={lessonsPicked}
+                            onChange={setLessonsPicked}
+                          />
+                        </div>
+                      )}
+                      <p id="quiz-drawn" className="m-0 text-small text-muted">
+                        {drawn}
+                        {lessonsPicked.length || packsPicked.length ? "" : ". Pick some to narrow the quiz."}
+                      </p>
+                    </div>
+                  )}
+                  {/* the form's end: as wide as its words under a mouse, the thumb's whole width on touch; filled unless a
+                  started quiz's Continue is the screen's one filled button */}
+                  <button
+                    type="button"
+                    className={cx(
+                      "btn btn-big justify-self-start pointer-coarse:w-full",
+                      started.length === 0 && "btn-primary",
+                    )}
+                    disabled={start.isPending || questions === 0}
+                    onClick={() => start.mutate()}
+                  >
+                    {start.isPending && <span className="spin" />}
+                    {start.isPending
+                      ? "Picking the questions"
+                      : questions === 0
+                        ? "No lessons here yet"
+                        : `Start ${plural(questions, "question")}${on ? ` on ${on}` : ""}`}
+                  </button>
+                </>
+              )}
               <Failed message={failing ? (failing.error as Error).message : null} />
             </div>
           </Card>
-        </div>
-
-        {/* the rest of the right column; on a phone it dissolves (contents), under the new quiz */}
-        <div
-          className={cx(
-            "contents lg:col-start-2 lg:grid lg:content-start lg:gap-6",
-            resume ? "lg:row-start-2" : "lg:row-start-1",
-          )}
-        >
-          {(ended.length > 0 || failedIn("done")) && (
-            <section className="grid content-start gap-3">
-              <h2 className="eyebrow m-0">Done</h2>
-              <Failed message={failedIn("done")} />
-              <Rows label="Done">
-                {(allDone ? ended : ended.slice(0, DONE_SHOWN)).map((q) => (
-                  <QuizRow
-                    key={q.id}
-                    q={q}
-                    busy={isBusy(q.id)}
-                    line={<span title={when(q.finished ?? q.updated)}>{day(q.finished ?? q.updated)}</span>}
-                    end={
-                      <>
-                        <span className={`chip quiz-score ${scoreTone(q.right, q.total)}`}>
-                          {q.right}/{q.total}
-                        </span>
-                        <button
-                          type="button"
-                          className="card-remove quiz-keep"
-                          aria-label={`Archive "${named(q)}"`}
-                          title="Archive"
-                          onClick={() => act(q, "archive", "done")}
-                        >
-                          <ArchiveIcon />
-                        </button>
-                        <button
-                          type="button"
-                          className="card-remove"
-                          aria-label={`Delete "${named(q)}"`}
-                          title="Delete"
-                          onClick={() => remove(q, "done")}
-                        >
-                          ✕
-                        </button>
-                      </>
-                    }
-                  />
-                ))}
-              </Rows>
-              {ended.length > DONE_SHOWN && (
-                <button type="button" className="btn btn-quiet justify-self-start" onClick={() => setAllDone(!allDone)}>
-                  {allDone ? "Show fewer" : `Show all ${ended.length}`}
-                </button>
-              )}
-            </section>
-          )}
-
-          {(archived.length > 0 || failedIn("archived") || archivedList.isError) && (
-            <section className="grid content-start gap-3">
-              <Pills
-                label="Archived quizzes"
-                multiple
-                options={[{ value: "archived", label: "Archived", count: archived.length }]}
-                value={archivedOpen ? ["archived"] : []}
-                onChange={(v) => setArchivedOpen(v.length > 0)}
-              />
-              <Failed message={archivedList.isError ? (archivedList.error as Error).message : failedIn("archived")} />
-              {archivedOpen && archived.length > 0 && (
-                <Rows label="Archived">
-                  {archived.map((q) => (
-                    <QuizRow
-                      key={q.id}
-                      q={q}
-                      busy={isBusy(q.id)}
-                      wrap
-                      line={q.finished ? `${q.right} of ${q.total} right` : `${q.answered} of ${q.total} answered`}
-                      end={
-                        <>
-                          <button
-                            type="button"
-                            className="btn btn-sm"
-                            aria-label={`Restore "${named(q)}"`}
-                            onClick={() => act(q, "restore", "archived")}
-                          >
-                            Restore
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-danger"
-                            aria-label={`Delete "${named(q)}"`}
-                            onClick={() => remove(q, "archived")}
-                          >
-                            Delete
-                          </button>
-                        </>
-                      }
-                    />
-                  ))}
-                </Rows>
-              )}
-            </section>
-          )}
-        </div>
-      </div>
+        </section>
+      </WithRail>
     </Page>
   );
 }
@@ -644,12 +690,13 @@ function ArchiveIcon() {
   );
 }
 
-// how far a started quiz is, as a ring in the quiz's colour with the count inside
+// how far a started quiz is, as a ring in the quiz's colour with the count inside: the card's key figure, beside its
+// title as Searches' price pill is
 function Ring({ part, children }: { part: number; children: ReactNode }) {
   const r = 24;
   const c = 2 * Math.PI * r;
   return (
-    <span className="relative grid h-14 w-14 shrink-0 place-items-center">
+    <span className="relative grid h-11 w-11 shrink-0 place-items-center">
       <svg viewBox="0 0 56 56" className="absolute inset-0" aria-hidden="true">
         <circle cx="28" cy="28" r={r} fill="none" className="stroke-surface-2" strokeWidth="5" />
         <circle
@@ -664,7 +711,7 @@ function Ring({ part, children }: { part: number; children: ReactNode }) {
           transform="rotate(-90 28 28)"
         />
       </svg>
-      <span className="font-mono text-small font-medium text-strong">{children}</span>
+      <span className="font-mono text-label font-medium text-strong tabular-nums">{children}</span>
     </span>
   );
 }
@@ -699,7 +746,19 @@ export function QuizRun() {
   const review = params.get("q");
   const queryClient = useQueryClient();
   const key = ["quiz", id];
-  const loaded = useQuery({ queryKey: key, queryFn: () => call<{ quiz: QuizData }>(`/api/learn/quizzes/${id}`) });
+  const loaded = useQuery({
+    queryKey: key,
+    queryFn: async () => {
+      const res = await fetch(`/api/learn/quizzes/${id}`);
+      // the status alone for a quiz kestrel doesn't have: the page puts it in words
+      if (res.status === 404) throw new Error("404");
+      const j = (await res.json().catch(() => ({}))) as { quiz: QuizData } & { error?: string };
+      if (!res.ok) throw new Error(j.error ?? `${res.status}`);
+      return j;
+    },
+    // a quiz kestrel doesn't have stays gone: say so at once rather than after three tries
+    retry: (n, e) => e.message !== "404" && n < 3,
+  });
   const keep = (got: { quiz: QuizData }) => {
     queryClient.setQueryData(key, got);
     queryClient.invalidateQueries({ queryKey: ["quizzes"] });
@@ -757,17 +816,50 @@ export function QuizRun() {
     skip.reset();
   }, [id, at]);
 
+  // gone (deleted, or an address mistyped), or the computer didn't answer: in words, with the way back
   if (loaded.isError)
     return (
-      <Page width="reading" back={{ to: "/quiz", label: "Quiz" }} title="This quiz didn't open">
-        <Failed message={(loaded.error as Error).message} />
+      <Page
+        width="reading"
+        back={{ to: "/quiz", label: "Quiz" }}
+        app="Quiz"
+        eyebrow="Learn"
+        title="This quiz didn't open"
+      >
+        {loaded.error.message === "404" ? (
+          <EmptyState
+            title="This quiz isn't here any more."
+            line="It may have been deleted. Open Quiz to find the others, or start a new one."
+            action={
+              <Link to="/quiz" className="btn">
+                Open Quiz
+              </Link>
+            }
+          />
+        ) : (
+          <EmptyState
+            title="It didn't load."
+            line="Kestrel didn't answer as it should. Try again in a moment."
+            action={
+              <button type="button" className="btn" onClick={() => loaded.refetch()}>
+                Try again
+              </button>
+            }
+          />
+        )}
       </Page>
     );
   if (!quiz) return null;
   if (review === null && quiz.place >= quiz.items.length) return <QuizEnd quiz={quiz} />;
   if (!item)
     return (
-      <Page width="reading" back={{ to: `/quiz/${quiz.id}`, label: "The score" }} eyebrow={named(quiz)} title="Quiz">
+      <Page
+        width="reading"
+        back={{ to: `/quiz/${quiz.id}`, label: "The score" }}
+        app="Quiz"
+        eyebrow={named(quiz)}
+        title="Quiz"
+      >
         <EmptyState
           title="No such question in this quiz."
           action={
@@ -789,6 +881,7 @@ export function QuizRun() {
     <Page
       width="reading"
       back={looking ? { to: `/quiz/${quiz.id}`, label: "The score" } : { to: "/quiz", label: "Quiz" }}
+      app="Quiz"
       eyebrow={
         <span className="quiz-place">
           <span className="tabular-nums">
@@ -978,6 +1071,7 @@ function QuizEnd({ quiz }: { quiz: QuizData }) {
     <Page
       width="reading"
       back={{ to: "/quiz", label: "Quiz" }}
+      app="Quiz"
       eyebrow={named(quiz)}
       title={`${right} of ${quiz.items.length} right`}
       line={`${partly ? `${partly} partly. ` : ""}Tap a question to read it again and ask about it.`}

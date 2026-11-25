@@ -215,10 +215,11 @@ reading width is 720.
   yellow, Quiz teal, Applications orange, Writing magenta, Interview prep good; Cost and Models the models' yellow;
   Live none.
 - `EmptyState` (`web/src/ui/empty.tsx`) — nothing here yet, in one voice, plain text in the flow (no box): `title`,
-  `line`, `action`, `detail`. A page whose item is gone says so with it (Notes' reader, a lesson: its title "This
-  lesson didn't open", the state's words "This lesson isn't here any more.", the way back as a plain `.btn`) and never
-  retries a 404: its query takes `retry: (n, e) => e.message !== "404" && n < 3`, the error's message being the
-  status alone; any other failure says "It didn't load." with Try again.
+  `line`, `action`, `detail`. A page whose item is gone says so with it (Notes' reader, a lesson, a quiz, a research
+  answer: its title "This lesson didn't open", the state's words "This lesson isn't here any more.", the way back as a
+  plain `.btn`) and never retries a 404: its query takes `retry: (n, e) => e.message !== "404" && n < 3`, the error's
+  message being the status alone; any other failure says "It didn't load." with Try again. A form with nothing to
+  work on gives way to it too (Quiz with no lessons: "No lessons to quiz on yet.", Open Learn; its From switch stays).
 - `Field` (`web/src/ui/field.tsx`) — a box where Enter sends (Shift+Enter makes a line), its round send button inside,
   a hint under it; `tall` starts at three lines; a long word or a pasted link breaks inside it. Without `onSend` it is
   a search box, and a tap anywhere on it focuses.
