@@ -5,6 +5,11 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · The collector door names the browser's failure.** A refused connection to the agent's browser is
+  "isn't running"; Playwright's "Browser context management is not supported" is the agent's Chrome open with no
+  window ("has no window open: the next run tries again"); another failure at its DevTools door "couldn't connect",
+  with Playwright's own words when short. Each was "isn't running" before.
+
 - **2026-11-24 · The jobspy wrapper is retired; kestrel's job hunts come through the mirror until the cutover.**
   `scripts/collectors/jobspy.mjs` is deleted. Its LinkedIn reads went out from this computer's address outside the
   old setup's LinkedIn cap; its Indeed reader used Indeed's private app API, a way past the site's bot check; and it

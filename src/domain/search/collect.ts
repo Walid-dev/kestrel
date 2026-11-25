@@ -25,6 +25,21 @@ export type Item = z.infer<typeof Item>;
 
 export type Collected = { items: Item[]; problem: string };
 
+// a browser collector that couldn't reach the agent's browser (its DevTools door, CDP), each case named for what it is:
+// a refused connection is a browser that isn't running; Playwright's "Browser context management is not supported" is
+// the agent's Chrome open with no window; anything else at that door is a connection that failed. Null: not the
+// browser's door
+export function browserProblem(stderr: string): string | null {
+  if (/Browser context management is not supported/i.test(stderr))
+    return "the agent's browser has no window open: the next run tries again";
+  if (!/connectOverCDP|browserType\.connect|ECONNREFUSED[\s\S]*9222/i.test(stderr)) return null;
+  // a browser collector with no browser: its own problem kind, so the runs view never cries wolf at boot
+  if (/ECONNREFUSED/i.test(stderr)) return "the agent's browser isn't running: the run will catch up once it is";
+  // Playwright's own words after its call's name ("Timeout 30000ms exceeded."), short, when it gives them
+  const why = /connect(?:OverCDP)?:\s*([^\n]{1,80})/i.exec(stderr)?.[1]?.trim().replace(/\.$/, "") ?? "";
+  return `couldn't connect to the agent's browser${why ? ` (${why})` : ""}: the next run tries again`;
+}
+
 export function runCollector(
   script: string,
   args: string[],
@@ -45,9 +60,8 @@ export function runCollector(
       },
       (error, stdout, stderr) => {
         const hint = (stderr || "").trim().split("\n")[0]?.slice(0, 120) ?? "";
-        // a browser collector with no browser: its own problem kind, so the runs view never cries wolf at boot
-        if (error && /ECONNREFUSED[\s\S]*9222|connectOverCDP|browserType\.connect/i.test(stderr || ""))
-          return resolve({ items: [], problem: "the agent's browser isn't running: the run will catch up once it is" });
+        const browser = error ? browserProblem(stderr || "") : null;
+        if (browser) return resolve({ items: [], problem: browser });
         if (error) {
           const e = error as { code?: number | string; killed?: boolean; signal?: string | null };
           if (e.code === 3)
