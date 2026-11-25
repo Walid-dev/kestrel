@@ -4672,21 +4672,27 @@ body:has(.paper-view) {
     top: 64px;
   }
 }
-/* a research answer's source, inline: the site's name, a small link that opens the page */
+/* a research answer's source, inline: the site's name, a link as quiet as the facts line under the title. Small and
+   regular, in a softened accent that still reads as a link (60% accent, 40% muted: AA on a card in both themes, where
+   the light accent alone is not); the accent and an underline on hover. Two in a row part with the facts line's dot */
 .cite {
-  display: inline-block;
-  margin-left: 4px;
-  padding: 0 7px;
-  border-radius: 999px;
-  font: 500 var(--text-small) / 18px var(--sans);
+  margin-left: 6px;
+  font-size: var(--text-small);
+  font-weight: 400;
   white-space: nowrap;
-  vertical-align: 1px;
   text-decoration: none;
-  color: var(--accent);
-  background: var(--accent-soft);
+  color: color-mix(in srgb, var(--accent) 60%, var(--muted));
+}
+.cite + .cite::before {
+  content: "·";
+  display: inline-block;
+  margin-right: 6px;
+  color: var(--muted);
 }
 .cite:hover {
+  color: var(--accent);
   text-decoration: underline;
+  text-underline-offset: 3px;
 }
 /* Writing: a try's text is a document only to read (a try is written again, never edited), so the switch, holding
    Read alone, stays out of sight and Download keeps its place on the right */

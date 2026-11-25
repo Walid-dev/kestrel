@@ -147,6 +147,9 @@ reading width is 720.
 - `.disclosure` — every fold-out heading (a details' summary): a control row, 13/500 muted (ink when open), a ▶ that
   turns; never alone in a card of its own.
 - `cx()` (`web/src/ui/cx.ts`) joins class names.
+- An inline source (Research's site name after a claim) is a quiet link, as the facts line: the small step, regular,
+  in a softened accent (60% accent, 40% muted: AA on a card in both themes), the accent and an underline on hover;
+  two in a row part with a dot.
 - Patterns the pages share: a page's view switch (Live's Now and Activity, Applications' period) is a Seg; a read-only
   document is Doc without `onSave`; a page whose item is gone says so in plain words and doesn't retry; the listing
   sheet is the wide Dialog, its title and ✕ kept in view on tall screens, Apply at its foot; a stage's colour comes

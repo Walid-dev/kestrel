@@ -5,6 +5,10 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Research's sources read as quiet links.** The site name after a claim is small and regular, in a
+  softened accent (60% accent, 40% muted ink: 6.2:1 on a dark card, 4.7:1 on a light one, where the light accent
+  alone is 4.2:1), with the accent and an underline on hover; two in a row part with the facts line's dot. It was a
+  bold blue pill.
 - **2026-11-25 · The collector door names the browser's failure.** A refused connection to the agent's browser is
   "isn't running"; Playwright's "Browser context management is not supported" is the agent's Chrome open with no
   window ("has no window open: the next run tries again"); another failure at its DevTools door "couldn't connect",
