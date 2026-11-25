@@ -162,6 +162,14 @@ Each gets its own step-by-step plan, reviewed, before it starts.
   file, and a page that shows every part in both themes, on a phone and a computer. The pages move to it one at a
   time; a check names a one-off style. The proposal: [docs/tasks/v0.9-design-system.md](tasks/v0.9-design-system.md).
 
+### v1.0 · Searches on its own (planned 2026-11-25)
+
+- kestrel runs every search with what it owns, with no reach into the old setup: the agent's browser in the engine
+  (a window kept open, waits and caps per site, a login pause), its own collectors in the data folder, the job
+  engine's rules in `src/domain/search`, Live and Search now, and the pings. Each hunt runs Quiet beside the old one
+  for three days, then takes over; the bridges (the mirror, Search now and Live through the old server, the old
+  collectors) go after two quiet weeks. The plan: [docs/tasks/v1.0-searches-own.md](tasks/v1.0-searches-own.md).
+
 ## The structure
 
 How the one process is organised and who talks to whom: the diagram in

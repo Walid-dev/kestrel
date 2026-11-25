@@ -39,6 +39,8 @@ at a time.
 - The apply cutover: kestrel starting the agent itself. Until then the old runner takes kestrel's queue and reports
   each end back (2026-11-23).
 - The deal cutover, again: from 2026-11-25 the old setup searches the chair hunt for two weeks (On there, Paused
-  here). Then kestrel's chair hunt goes On, the old one Paused, and its two quiet weeks start.
+  here). Then kestrel takes it back as v1.0 plans: first its own browser handling, Facebook's pacing and its own
+  collectors; then three days Quiet beside the old one; then On here, the old one Paused, and its two quiet weeks
+  start. The plan: [docs/tasks/v1.0-searches-own.md](tasks/v1.0-searches-own.md).
 - The ear: oMLX's parakeet files fail to load ("not supported for stt") — reload the model, then check Live by hand.
 - Naming Notes' real folders (uploads already work).
