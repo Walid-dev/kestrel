@@ -170,4 +170,11 @@ test("the old setup's search shows on Now as one card: its newest step, since it
     { at: at(2), text: "Made-up jobs: made-up-board: 25 found (ok)" },
   ];
   assert.deepEqual(oldRound(steps), { started: steps[1].at, step: steps[2] });
+  // a deep check or a follow-up that runs meanwhile writes to the same log: never the search's step (review)
+  const mixed = [
+    ...steps,
+    { at: at(1), text: "Deep check (job 42): reading the page" },
+    { at: at(0), text: "Follow-up (job 7): starting" },
+  ];
+  assert.deepEqual(oldRound(mixed), { started: steps[1].at, step: steps[2] });
 });

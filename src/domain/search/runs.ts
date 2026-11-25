@@ -50,8 +50,9 @@ export function runSearch(db: DatabaseSync, spec: Spec, now: Date): Promise<Run>
 }
 
 // a collector's progress line as a count of what it found so far ("2 scrolls for more, 40 ads" is 40): only the number
-// reaches Live, never the line's words (a search's terms, a page's address)
-const FOUND = /(\d[\d,]*)\s+(?:ads?|listings?|jobs?|items?|results?|postings?)\b/gi;
+// reaches Live, never the line's words (a search's terms, a page's address). A number after "of" is a total, not a
+// count ("read 4 of 6 job pages"), and a run's count never goes down (runSearchNow)
+const FOUND = /(?<!\bof\s)(?<![\d,])(\d[\d,]*)\s+(?:ads?|listings?|jobs?|items?|results?|postings?)\b/gi;
 export function countOf(line: string): number | null {
   const last = [...line.matchAll(FOUND)].at(-1);
   return last ? Number(last[1].replaceAll(",", "")) : null;
@@ -78,7 +79,7 @@ async function runSearchNow(db: DatabaseSync, spec: Spec, now: Date, place: () =
     env: spec.env,
     onLine: (l) => {
       const n = countOf(l);
-      if (n === null || n === count) return;
+      if (n === null || (count !== null && n <= count)) return;
       count = n;
       say(true);
     },

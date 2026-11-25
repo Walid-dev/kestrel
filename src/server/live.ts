@@ -62,7 +62,11 @@ export type OldSearch = { started: string; step: Line };
 const ROUND_OPENS = /^Search time\b.*\bto run$/;
 const ROUND_ENDS = /^(Search time done|Search time gave up|Stopped: you pressed Stop)/;
 const PAUSE_MS = 15 * 60_000;
-export function oldRound(lines: Line[], at = new Date().toISOString()): OldSearch {
+// the old setup writes its deep checks' and follow-ups' steps to the same log, and runs them while a search runs
+// ("Deep check (job 42): reading the page"): they are not a search's, so they never show on its card nor open a round
+const NOT_SEARCH = /^(Deep check|Follow-up) \(/;
+export function oldRound(all: Line[], at = new Date().toISOString()): OldSearch {
+  const lines = all.filter((l) => !NOT_SEARCH.test(l.text));
   const last = lines.at(-1);
   if (!last) return { started: at, step: { at, text: "Starting" } };
   let start = lines.length - 1;

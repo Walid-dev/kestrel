@@ -65,11 +65,23 @@ async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promis
     console.error(`the news couldn't start: ${plainWords((e as Error).message)}`);
   }
   const specs = loadSpecs(dirs.specsDir).specs;
-  for (const spec of specs) {
-    if (!spec.enabled || !spec.auto || applying) continue; // off, only when I ask, or an application at work
-    if (!isDue(spec, lastRun(db, spec.id)?.started ?? null, now)) continue;
+  // the round's due searches join the line together, so each says its place on Live ("3 of 20"); the line still runs
+  // them one at a time (the collectors share one computer and one browser). Each run's end is caught as it is queued,
+  // so one that fails while the tick awaits an earlier one's ping is never an unhandled rejection. Off, only when I
+  // ask, or an application at work: not due
+  const due = specs.filter(
+    (s) => s.enabled && s.auto && !applying && isDue(s, lastRun(db, s.id)?.started ?? null, now),
+  );
+  const queued = due.map((spec) =>
+    runSearch(db, spec, now).then(
+      (run) => ({ run, error: null as unknown }),
+      (error: unknown) => ({ run: null, error }),
+    ),
+  );
+  for (const [i, spec] of due.entries()) {
+    const { run, error } = await queued[i];
     try {
-      const run = await runSearch(db, spec, now); // one at a time: the collectors share one computer and one browser
+      if (!run) throw error;
       await dirs.afterRun?.(spec, run).catch(() => {}); // a ping that fails never stops the tick
     } catch (e) {
       // a crash still lands a run row, so the spec isn't due again every minute and the screen says what happened
