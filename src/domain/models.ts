@@ -29,9 +29,11 @@ export const USES: { use: Use; what: string }[] = [
   { use: "news-write", what: "The morning news: the brief, written in plain words" },
 ];
 
-// the fast model for what wants speed: Notes' fast asks, the quiz's explanations (written while I answer), Research's
-// questions first, and Ask's conversation (an answer that streams while I wait; docs/eval/2026-11-22-ask.md)
-const FAST: Use[] = ["notes-fast", "quiz-explain", "research-ask", "ask"];
+// the fast model for what wants speed: Notes' fast asks, the quiz's explanations (written while I answer), and Ask's
+// conversation (an answer that streams while I wait; docs/eval/2026-11-22-ask.md). Research's questions first run on
+// the careful model, as the research after them does: the two models don't fit in the computer's memory together, so
+// a switch between the two steps cost about 25 s to swap and 25 s more for the first answer
+const FAST: Use[] = ["notes-fast", "quiz-explain", "ask"];
 export const fallbackFor = (settings: Settings, use: Use): string =>
   FAST.includes(use) ? settings.models.fast : settings.models.careful;
 

@@ -5,6 +5,13 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Research asks its questions on the research's own model.**
+  `research-ask` leaves the fast list: by default it runs on the careful model, as `research` does, so a research
+  never switches models between its questions and its answer. The two local models don't fit in the computer's memory
+  together: a switch costs about 25 s to swap, and the first answer after it about 25 s more, on every research that
+  asks first. The Models page still picks each use on its own. Rejected: `research-ask` following `research`'s pick
+  when it has none (a rule the Models page would have to explain). Replaces: the 2026-11-22 entry's "the fast model, a
+  few seconds".
 - **2026-11-24 · The jobspy wrapper is retired; kestrel's job hunts come through the mirror until the cutover.**
   `scripts/collectors/jobspy.mjs` is deleted. Its LinkedIn reads went out from this computer's address outside the
   old setup's LinkedIn cap; its Indeed reader used Indeed's private app API, a way past the site's bot check; and it

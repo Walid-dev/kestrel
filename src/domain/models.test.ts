@@ -31,6 +31,8 @@ test("the settings answer until a pick is made; the pick wins and survives a reo
   db.close();
   db = new DatabaseSync(file);
   assert.equal(modelFor(db, settings, "notes-fast"), "another-made-up");
+  // Research's two steps, its questions and its answer, on one model unless I pick apart: no swap between them
+  assert.equal(modelFor(db, settings, "research-ask"), modelFor(db, settings, "research"));
   const uses = listUses(db, settings);
   assert.deepEqual(
     uses.map((u) => [u.use, u.model]),
@@ -40,7 +42,7 @@ test("the settings answer until a pick is made; the pick wins and survives a reo
       ["ask", "fast-model"], // a conversation that streams while I wait: the fast model by default
       ["search-deep", "careful-model"],
       ["research", "careful-model"],
-      ["research-ask", "fast-model"], // its quick questions first: the fast model by default
+      ["research-ask", "careful-model"], // its questions first: the research's own model, no swap between them
       ["quiz", "careful-model"],
       ["quiz-explain", "fast-model"], // written while I answer: the fast model
       ["letter", "careful-model"],
