@@ -1047,6 +1047,13 @@ span.filter-row-name {
   background: color-mix(in srgb, var(--strong) 8%, var(--surface));
   color: var(--strong);
 }
+/* a starred pill's ★ (Star in a sheet): on the picked pill's grey, light's yellow read 2.9:1; a tenth of the ink brings
+   it to 3.4:1, a mark's bar, still the yellow */
+@media (prefers-color-scheme: light) {
+  .pill[aria-pressed="true"] > .text-yellow {
+    color: color-mix(in srgb, var(--yellow) 90%, var(--strong));
+  }
+}
 @media (pointer: coarse) {
   .pill {
     min-width: 44px;
@@ -5729,6 +5736,29 @@ body:has(.paper-view) {
 }
 .shop-foot > .flex {
   margin-top: 8px;
+}
+/* a product's sheet: its parts 18 apart; what the sources measured as a table in a card; the readings fold under the
+   price line, their table on the verdict's sunk ground */
+.shop-sheet {
+  display: grid;
+  gap: 18px;
+  padding-bottom: 4px;
+}
+.shop-sheet-table {
+  padding-block: 6px;
+}
+/* the best store's button at the sheet's foot: a long name is cut short, so Watch keeps its line */
+.shop-sheet-store {
+  min-width: 0;
+  max-width: 45%;
+}
+@media (pointer: coarse) {
+  .shop-sheet-store {
+    max-width: 34%;
+  }
+}
+.shop-readings > .data-table {
+  margin-top: 4px;
 }
 /* a chip filled with its tone, for the label that leads (Shopping's best overall): the page's ground as its words,
    7.3:1 in dark and 5.9:1 in light on Shopping's violet (measured) */

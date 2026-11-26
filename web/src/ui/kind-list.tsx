@@ -228,6 +228,8 @@ export type KindColumn = {
   wide?: boolean;
   // the page's own cell (a price pill in its verdict's tone)
   cell?: (row: Row) => ReactNode;
+  // its cells are words (read from the left, in the words' font): a column the kind has no field for says so
+  words?: boolean;
 };
 
 export function KindList({
@@ -280,7 +282,7 @@ export function KindList({
   // a column of words (a yes or no, a state, a name) reads from the left in the words' font; numbers stay right, in mono
   const words = (c: KindColumn) => {
     const t = fieldOf(kind, c.field)?.type;
-    return t === "bool" || t === "enum" || t === "text" || t === "list" || t === "date";
+    return c.words ?? (t === "bool" || t === "enum" || t === "text" || t === "list" || t === "date");
   };
   const head = (c: KindColumn) => {
     const f = fieldOf(kind, c.field);

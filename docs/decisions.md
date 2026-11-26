@@ -5,6 +5,16 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · A product's sheet: its address is `?product=`, Watch is its one filled button, the readings sit under
+  the line.** `web/src/shopping/product.tsx`, opened from a want's page by its address (a ping's link opens it; opened
+  from the page it is a history step, so Back and the ✕ both close it). The deal's box holds its word, its line, the
+  lowest price read over time (from the page's data only, new, not out of stock: what the verdict judges) as the
+  price line, the policies and the readings themselves, so no value hides behind a hover; the outside histories sit
+  under the box, where a quiet link reads 4.5:1 (on the box's sunk ground it read 4.15). Watch is the foot's primary
+  (Save watch once watching), its length and pace two Segs in Mine beside my star, my mark and my target; a product
+  with no offers can Find offers (Look again when it has some). The light theme's starred pill showed its ★ at 2.9:1
+  (the shared Star pill, Searches' sheet too): it takes a tenth of the ink there, 3.4:1. Rejected: the watch's two
+  Segs in the dialog's foot (a phone's foot holds three buttons at most).
 - **2026-11-25 · A want's page: the picks' offers only, Watch on the lead, and a re-read that fails keeps its price.**
   `web/src/shopping/want.tsx`. The Offers section shows the picks' offers (the products Find offers ran on); every
   other product's are in its sheet, so a phone isn't a wall of store cards. The head's Watch watches the lead (my star,
@@ -18,7 +28,7 @@ technical; the plan and the runbook carry the detail.
   for a day and its return would have pinged "back in stock". A page that didn't open is now `offline` in the
   reader's answer (`product-data.ts`), and the watch and Run again keep the last reading for it (`watch.ts`,
   `offers.ts`, each with a test that fails without it).
-- **2026-11-25 · One list part for every kind, and a price line: the switch by width in CSS, the text never stretched.**
+- **2026-11-25 · One list part for every kind, and a price line: the switch by width in CSS, no text stretched.**
   `web/src/ui/kind-list.tsx` draws both the cards and the table and lets CSS show one (the table from 64rem, a wide
   column from 80rem, its value in the row's open part below that), so the width decides as the plan says and no script
   watches the window. A kind's yes-or-no filters share one row after All (pick several, All clears them), so offers read

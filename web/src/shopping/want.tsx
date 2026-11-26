@@ -9,7 +9,7 @@
 // would change the pick, and the foot: how it ranks, my mark on the want, its deleted products, Delete. A deleted
 // want says so and offers Restore. A product opens its sheet (?product=, the link a ping opens).
 import { useEffect, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { formatMoney, type Row as KindRow } from "../../../src/shared/kinds.ts";
 import {
   type Mark,
@@ -36,6 +36,7 @@ import { SectionHead } from "../ui/section.tsx";
 import { Star } from "../ui/star.tsx";
 import { agoWords, day, doors, MARK, money, plural, priceTone, sentence, useChange, useWant, when } from "./data.ts";
 import { LabelChips, Price, RunAgain, StateChip } from "./parts.tsx";
+import { ProductSheet } from "./product.tsx";
 
 // the steps of a run, in the order it takes them: one product named goes to its offers first
 const COMPARE = ["Understanding", "Searching", "Reading reviews", "Comparing", "Writing", "Checking", "Finding offers"];
@@ -55,21 +56,36 @@ const WATCH = { days: 14, everyHours: 24 as const, stock: true };
 
 export function ShoppingWant() {
   const { id = "" } = useParams();
-  const [, setParams] = useSearchParams();
+  const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const want = useWant(id);
   const d = want.data;
   const back = { to: "/shopping", label: "Shopping" };
-  // a product's sheet, by its address, so Back closes it and a ping's link opens it
-  const open = (product: string | null) =>
-    setParams(
-      (p) => {
-        const next = new URLSearchParams(p);
-        if (product) next.set("product", product);
-        else next.delete("product");
-        return next;
-      },
-      { replace: !product },
-    );
+  // a product's sheet, by its address, so Back closes it and a ping's link opens it: opened from here it is a step in
+  // the history, which the ✕ steps back from; opened from a link it is the page's own address, which the ✕ clears
+  const sheet = params.get("product");
+  const open = (product: string | null) => {
+    if (product)
+      setParams(
+        (p) => {
+          const next = new URLSearchParams(p);
+          next.set("product", product);
+          return next;
+        },
+        { state: { sheet: true } },
+      );
+    else if ((location.state as { sheet?: boolean } | null)?.sheet) navigate(-1);
+    else
+      setParams(
+        (p) => {
+          const next = new URLSearchParams(p);
+          next.delete("product");
+          return next;
+        },
+        { replace: true },
+      );
+  };
 
   if (!d)
     return want.isError ? (
@@ -100,7 +116,12 @@ export function ShoppingWant() {
       <Page back={back} app="Shopping" eyebrow="To buy" title="Opening…" />
     );
   if ("gone" in d) return <Gone id={id} words={d.gone.words} at={d.gone.at} />;
-  return <Want view={d} onOpen={open} />;
+  return (
+    <>
+      <Want view={d} onOpen={open} />
+      {sheet && <ProductSheet key={sheet} id={sheet} v={d} onClose={() => open(null)} />}
+    </>
+  );
 }
 
 // a deleted want: said first, with its way back

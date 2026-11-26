@@ -25,8 +25,9 @@ The look since 2026-11-24: small, calm and precise under a mouse, comfortable on
   code's words, the drawings' labels), never a raw tone. Dark's muted, red, indigo and poor read just under 4.5 on
   their tint, so those four classes set it to 88% in dark (the money pill takes that step for poor and grey). The
   filled button's accent takes a tenth of the ink in light (white words at 4.65:1). Marks keep the tone itself, 3:1
-  being their bar: a dot, an edge, a bar, an icon (`.app-mark`), the ★ (`text-yellow` stays the tone for it; a word in
-  yellow is `text-tone tone-yellow`). Measure with `scripts/contrast-probe.js` (every visible text, in both themes,
+  being their bar: a dot, an edge, a bar, an icon (`.app-mark`), the ★ (`text-yellow` stays the tone for it; on a
+  starred pill in light it takes a tenth of the ink, 3.4:1 on the picked grey; a word in yellow is `text-tone
+  tone-yellow`). Measure with `scripts/contrast-probe.js` (every visible text, in both themes,
   against the dev server; its header says how).
 - **Shades** for what floats: `--shade-dialog`, `--shade-dock`, `--shade-pip`, `--shade-seg`, `--backdrop`.
 - **Fonts:** IBM Plex Sans for text, Sans Condensed for headings and the wordmark, Mono for numbers, paths, labels and
@@ -161,9 +162,10 @@ reading width is 720.
   group, its part and topic), the app's word when it sits nowhere else. The words: Learn "Lessons", Interview prep
   "Answers to say", Quiz "Learn" (it quizzes the lessons), Notes "Documents", Tasks "To do", Research "From the web",
   Applications and Writing "Jobs", Shopping "To buy", Cost and Models "The models", Chat "Agents". Searches tints its
-  own by the hunt's kind; News' is the day, muted; Live's is the view, muted ("Now", "This week": it has no colour). The line under the
-  title is one line, two at most, never a paragraph: facts with the values bold, or a state chip and facts; what a
-  page needs explained goes in a hint or a title. A top page's title is the title step; a child page (one with
+  own by the hunt's kind; News' is the day, muted; Live's is the view, muted ("Now", "This week": it has no colour).
+  The line under the title is one line, two at most, never a paragraph: facts with the values bold, or a state chip
+  and facts; what a page needs explained goes in a hint or a title. A top page's title is the title step; a child page
+  (one with
   `back`) gets a back row (30 / 44) and its title a step down. Under a mouse at 48rem or
   wider a top page's buttons sit on the title row; otherwise they wrap 12 under the line. A page's state chip goes in
   the line under the title. `aside` (Home's "One app, one computer, local models.") sets a short statement beside the
@@ -199,17 +201,18 @@ reading width is 720.
 - `.data-table` — figures compared row by row (Cost's models and prices, the Models page's calls), in a card: names
   on the left, every figure in mono and right-aligned in its column, eyebrows for heads, rows 40 tall on hairlines; a
   count that means trouble in red, a nothing in grey.
-- `KindList`, `KindFilters` and `useKind` (`web/src/ui/kind-list.tsx`) — one list for every kind of listing (a kind
-  is data, `src/shared/kinds.ts`: its fields, filters and sorts). `useKind` holds the picks (the words, each filter's
+- `KindList`, `KindFilters` and `useKind` (`web/src/ui/kind-list.tsx`) — one list for every kind of listing (a kind is
+  data, `src/shared/kinds.ts`: its fields, filters and sorts). `useKind` holds the picks (the words, each filter's
   pill, the sort) and gives the rows that pass, in order. `KindFilters` is the filter card drawn from the kind: a row
   per filter, each pill with how many rows it would leave under the others, the yes-or-no filters together in one row
   after All, the sorts last; a row with nothing to choose stays out. `KindList` draws the rows: on a phone a `Card`
   each (the kind's title and figure, the page's `meta` and `lines`, the kind's facts with each value bold in mono and
-  its unit after it); from 64rem one `.data-table` in a card, its first column the page's (a name, what goes under it),
-  then the columns it names, each unit in its head and none in the cells, the best value of a number column marked by
-  a dot in the money scale's great, "—" for an unknown and "?" for an unsure value, both grey. A `wide` column shows
-  from 80rem; narrower, it folds with the page's `detail` into the row's open part, the ▶ at the row's end. Shopping's
-  products and offers are its first users; the homes hunt is the next kind.
+  its unit after it); from 64rem one `.data-table` in a card, its first column the page's (a name, what goes under
+  it), then the columns it names (a column of words reads from the left in the words' font, numbers right in mono; one
+  the kind has no field for says `words`), each unit in its head and none in the cells, the best value of a number
+  column marked by a dot in the money scale's great, "—" for an unknown and "?" for an unsure value, both grey. A
+  `wide` column shows from 80rem; narrower, it folds with the page's `detail` into the row's open part, the ▶ at the
+  row's end. Shopping's products and offers are its first users; the homes hunt is the next kind.
 - `PriceLine` (`web/src/ui/price-line.tsx`) — a price over time, small: one stepped line (a price holds until the next
   reading), its last point a dot in the verdict's tone with a ring of its ground and its value beside it, the regular
   price dashed and my target a solid great line, each named where it sits, the first day and Now under it. One series,
