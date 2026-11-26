@@ -238,10 +238,8 @@ export function ProductSheet({ id, v, onClose }: { id: string; v: WantView; onCl
                 <Price cents={p.best.total} currency={v.currency} verdict={p.verdict?.word} /> at{" "}
                 <b className="font-medium text-ink">{p.best.storeName}</b> ·{" "}
               </>
-            ) : p.usual !== null ? (
-              <>
-                A source says <b className="font-mono font-medium text-ink">{money(p.usual, v.currency)}</b> ·{" "}
-              </>
+            ) : p.priceNote ? (
+              <>{p.priceNote} · </>
             ) : null}
             <b className="font-mono font-medium text-ink">{p.reach.read}</b> {plural(p.reach.read, "store")} read
             {p.reach.links > 0 && (
@@ -294,7 +292,9 @@ export function ProductSheet({ id, v, onClose }: { id: string; v: WantView; onCl
         ) : (
           !gone && (
             <p className="inner m-0 text-detail text-muted">
-              No verified price yet, so no verdict: a price from the store's own page data comes first.
+              {p.priceFrom === "stock"
+                ? "No verdict yet: a store's page data gives its price, but no store shows it in stock."
+                : "No verified price yet, so no verdict: a price from the store's own page data comes first."}
             </p>
           )
         )}
@@ -322,7 +322,7 @@ export function ProductSheet({ id, v, onClose }: { id: string; v: WantView; onCl
           </h3>
           {read.length > 0 && <OfferList offers={read} currency={v.currency} />}
           {rest.length > 0 && (
-            <List label="Stores without a price">
+            <List label="Stores without a read price">
               {rest.map((o) => (
                 <Row
                   key={o.id}
@@ -335,7 +335,14 @@ export function ProductSheet({ id, v, onClose }: { id: string; v: WantView; onCl
                       </span>
                     </span>
                   }
-                  line={<span className="block truncate">{sentence(o.why)}</span>}
+                  line={
+                    <span className="block truncate">
+                      {o.price !== null && (
+                        <b className="font-mono font-medium text-ink">{money(o.price, o.currency)} </b>
+                      )}
+                      {sentence(o.why)}
+                    </span>
+                  }
                 />
               ))}
             </List>

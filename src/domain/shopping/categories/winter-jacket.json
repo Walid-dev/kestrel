@@ -11,7 +11,8 @@
       "type": "score",
       "better": "higher",
       "weight": 30,
-      "how": "how warm it kept testers in a cold test, or its temperature rating"
+      "how": "how warm it kept testers in a cold test, or its temperature rating",
+      "names": ["warm", "insulat", "temperature", "cold", "fill"]
     },
     {
       "key": "weight",
@@ -20,7 +21,9 @@
       "unit": "g",
       "better": "lower",
       "weight": 10,
-      "how": "the weight of a medium"
+      "how": "the weight of a medium",
+      "range": [150, 4000],
+      "names": ["weigh", "weight"]
     },
     {
       "key": "waterproof",
@@ -28,7 +31,20 @@
       "type": "bool",
       "better": "higher",
       "weight": 15,
-      "how": "a waterproof shell with sealed seams"
+      "how": "a waterproof shell with sealed seams",
+      "names": [
+        "waterproof",
+        "watertight",
+        "sealed seam",
+        "seam-sealed",
+        "water resist",
+        "water-resist",
+        "rain",
+        "membrane",
+        "gore-tex",
+        "dwr"
+      ],
+      "yes": ["waterproof", "watertight", "seam-sealed", "sealed seam", "fully taped", "gore-tex"]
     },
     {
       "key": "wind",
@@ -36,7 +52,8 @@
       "type": "score",
       "better": "higher",
       "weight": 10,
-      "how": "how well it blocks wind"
+      "how": "how well it blocks wind",
+      "names": ["wind"]
     },
     {
       "key": "mobility",
@@ -44,7 +61,8 @@
       "type": "score",
       "better": "higher",
       "weight": 10,
-      "how": "fit and freedom of movement"
+      "how": "fit and freedom of movement",
+      "names": ["mobility", "movement", "fit", "range of motion", "stretch", "articulat"]
     },
     {
       "key": "hood",
@@ -52,7 +70,8 @@
       "type": "score",
       "better": "higher",
       "weight": 10,
-      "how": "how the hood fits and seals"
+      "how": "how the hood fits and seals",
+      "names": ["hood"]
     },
     {
       "key": "durability",
@@ -60,22 +79,46 @@
       "type": "score",
       "better": "higher",
       "weight": 15,
-      "how": "the shell's wear over weeks of use"
+      "how": "the shell's wear over weeks of use",
+      "names": ["durab", "construction", "build", "abrasion", "wear", "tough", "ripstop", "denier"]
     }
   ],
   "uses": {
-    "extreme-cold": { "warmth": 45 },
-    "city": { "weight": 15, "mobility": 15 },
-    "wet": { "waterproof": 30 }
+    "extreme-cold": {
+      "warmth": 45
+    },
+    "city": {
+      "weight": 15,
+      "mobility": 15
+    },
+    "wet": {
+      "waterproof": 30
+    }
   },
-  "implied": [{ "when": "-30", "needs": ["warm to extreme cold"] }],
+  "implied": [
+    {
+      "when": "-30",
+      "needs": ["warm to extreme cold"]
+    }
+  ],
   "questions": [
     {
       "key": "activity",
       "q": "Mostly standing and walking, or active outside?",
       "options": [
-        { "label": "Standing and walking", "weights": { "warmth": 40 } },
-        { "label": "Active", "weights": { "mobility": 20, "weight": 15 } }
+        {
+          "label": "Standing and walking",
+          "weights": {
+            "warmth": 40
+          }
+        },
+        {
+          "label": "Active",
+          "weights": {
+            "mobility": 20,
+            "weight": 15
+          }
+        }
       ],
       "default": 0
     }
@@ -83,6 +126,40 @@
   "traps": ["a men's and a women's version can differ in fill and price"],
   "tags": [],
   "sources": ["outdoorgearlab.com", "switchbacktravel.com", "nytimes.com", "gearjunkie.com"],
-  "storeGroups": ["outdoor", "clothing"],
+  "brands": [
+    "Canada Goose",
+    "Patagonia",
+    "The North Face",
+    "Arc'teryx",
+    "Fjallraven",
+    "Fjällräven",
+    "Columbia",
+    "Outdoor Research",
+    "Rab",
+    "Mountain Hardwear",
+    "Marmot",
+    "REI Co-op",
+    "Carhartt",
+    "Helly Hansen",
+    "Moose Knuckles",
+    "Mackage",
+    "Quartz Co.",
+    "Kanuk",
+    "Wintergreen Northern Wear",
+    "Paka",
+    "L.L.Bean",
+    "Eddie Bauer",
+    "Montbell",
+    "Feathered Friends",
+    "Black Diamond",
+    "Cotopaxi",
+    "Kuhl",
+    "Stormtech",
+    "Mammut",
+    "Norrona",
+    "Uniqlo",
+    "MEC"
+  ],
+  "storeGroups": ["outerwear"],
   "draft": false
 }

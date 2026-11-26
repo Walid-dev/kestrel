@@ -9,6 +9,30 @@ import type { ModelSettings } from "./client.ts";
 
 export type Hit = { title: string; url: string; snippet: string };
 
+// Ads and tracking redirects. DuckDuckGo shows Bing's paid placements among its results, each a bing.com/aclick address
+// that redirects to the advertiser (7 of a robot vacuum's 9 sources in the first live run were these). Affiliate
+// networks' click addresses work the same way. A hit there is someone paying to be found, never a page that tests or
+// reviews, so every search drops it, for every app (News, Research, Ask and Shopping share this search).
+const AD_HOSTS =
+  /(^|\.)(googleadservices\.com|doubleclick\.net|googlesyndication\.com|amazon-adsystem\.com|dartsearch\.net|awin1\.com|anrdoezrs\.net|dpbolvw\.net|jdoqocy\.com|kqzyfj\.com|tkqlhce\.com|linksynergy\.com|shareasale\.com|skimresources\.com|viglink\.com|prf\.hn|pjtra\.com|pjatr\.com|avantlink\.com|sjv\.io|pxf\.io|tradedoubler\.com|atdmt\.com)$/i;
+// an engine's own click and ad addresses: the host and the path together (bing.com's other pages are not ads)
+const AD_PATHS: [RegExp, RegExp][] = [
+  [/(^|\.)bing\.com$/i, /^\/(aclick|aclk|ck\/a)\b/i],
+  [/(^|\.)duckduckgo\.com$/i, /^\/y\.js\b/i],
+  [/(^|\.)google\.[a-z.]+$/i, /^\/(aclk|url|pagead)\b/i],
+  [/(^|\.)yahoo\.com$/i, /^\/cbclk|^\/rd\//i],
+];
+export function isAdUrl(url: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return false;
+  }
+  const host = u.hostname.replace(/^www\./, "");
+  return AD_HOSTS.test(host) || AD_PATHS.some(([h, p]) => h.test(host) && p.test(u.pathname));
+}
+
 async function web<T>(settings: ModelSettings, path: "search" | "fetch", body: Record<string, string>): Promise<T> {
   const res = await fetch(`${settings.url}/web/${path}`, {
     method: "POST",
@@ -39,7 +63,7 @@ export async function webSearch(
       failed = "";
       const hits = (j.results ?? [])
         .map((r) => ({ title: String(r.title ?? ""), url: String(r.url ?? ""), snippet: String(r.snippet ?? "") }))
-        .filter((r) => /^https?:\/\//.test(r.url));
+        .filter((r) => /^https?:\/\//.test(r.url) && !isAdUrl(r.url));
       if (hits.length) return { hits, failed };
     } catch (e) {
       failed = e instanceof Error && e.name === "TimeoutError" ? "it took too long" : "it didn't go through";

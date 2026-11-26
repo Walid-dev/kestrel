@@ -32,6 +32,9 @@ const CriterionShape = z.object({
   how: z.string().max(200).optional(),
   measured: z.boolean().optional(),
   options: z.array(z.string()).optional(),
+  range: z.tuple([z.number(), z.number()]).optional(),
+  names: z.array(z.string().min(2)).optional(),
+  yes: z.array(z.string().min(2)).optional(),
 });
 export const Category = z.object({
   key: z.string().regex(KEY, "a key of 2 to 40 lowercase letters, digits and dashes"),
@@ -61,6 +64,8 @@ export const Category = z.object({
   traps: z.array(z.string()).default([]),
   tags: z.array(z.string()).default([]),
   sources: z.array(z.string()).default([]),
+  // the makers this kind is sold under, for a product a page names without its brand ("L40 Ultra")
+  brands: z.array(z.string()).default([]),
   storeGroups: z.array(z.string()).default([]),
   draft: z.boolean().default(false),
 });

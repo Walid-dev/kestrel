@@ -7,7 +7,7 @@
     {
       "domain": "costco.ca",
       "name": "Costco",
-      "groups": ["electronics", "appliances", "home", "kitchen", "outdoor", "clothing", "computers"],
+      "groups": ["electronics", "appliances", "home", "kitchen", "computers"],
       "read": "page",
       "searchUrl": "https://www.costco.ca/CatalogSearch?dept=All&keyword={q}",
       "tested": "2026-11-25"
@@ -23,10 +23,18 @@
     {
       "domain": "altitude-sports.com",
       "name": "Altitude Sports",
-      "groups": ["outdoor", "clothing", "footwear", "sports"],
+      "groups": ["outdoor", "outerwear", "footwear", "sports"],
       "read": "page",
       "searchUrl": "https://www.altitude-sports.com/search?q={q}",
       "tested": "2026-11-25"
+    },
+    {
+      "domain": "sail.ca",
+      "name": "Sail",
+      "groups": ["outdoor", "outerwear", "footwear", "sports"],
+      "read": "page",
+      "searchUrl": "https://www.sail.ca/en-ca/search?q={q}",
+      "tested": "2026-11-26"
     },
     {
       "domain": "ikea.com",
@@ -48,7 +56,7 @@
     {
       "domain": "canadiantire.ca",
       "name": "Canadian Tire",
-      "groups": ["electronics", "appliances", "home", "kitchen", "outdoor", "sports"],
+      "groups": ["electronics", "appliances", "home", "kitchen", "outdoor", "garden", "sports"],
       "read": "link",
       "searchUrl": "https://www.canadiantire.ca/en/search-results.html?q={q}",
       "tested": "2026-11-25",
@@ -64,6 +72,60 @@
       "why": "asked for a human check (press and hold)"
     },
     {
+      "domain": "mec.ca",
+      "name": "MEC",
+      "groups": ["outdoor", "outerwear", "footwear", "sports"],
+      "read": "link",
+      "searchUrl": "https://www.mec.ca/en/search?q={q}",
+      "tested": "2026-11-25",
+      "why": "asked for a human check (Attention Required)"
+    },
+    {
+      "domain": "sportchek.ca",
+      "name": "Sport Chek",
+      "groups": ["outdoor", "outerwear", "footwear", "sports"],
+      "read": "link",
+      "searchUrl": "https://www.sportchek.ca/en/search-results.html?q={q}",
+      "why": "turned a plain reader away (Access Denied)",
+      "tested": "2026-11-26"
+    },
+    {
+      "domain": "sportinglife.ca",
+      "name": "Sporting Life",
+      "groups": ["outerwear", "footwear", "sports"],
+      "read": "link",
+      "searchUrl": "https://www.sportinglife.ca/en-CA/search?q={q}",
+      "tested": "2026-11-26",
+      "why": "asked for a human check (a challenge page)"
+    },
+    {
+      "domain": "simons.ca",
+      "name": "Simons",
+      "groups": ["clothing", "outerwear", "footwear", "home"],
+      "read": "link",
+      "searchUrl": "https://www.simons.ca/en/search?q={q}",
+      "tested": "2026-11-25",
+      "why": "showed no price to a plain reader"
+    },
+    {
+      "domain": "marks.com",
+      "name": "Mark's",
+      "groups": ["outerwear", "footwear", "clothing"],
+      "read": "link",
+      "searchUrl": "https://www.marks.com/en/search-results.html?q={q}",
+      "tested": "2026-11-26",
+      "why": "turned a plain reader away (Access Denied)"
+    },
+    {
+      "domain": "atmosphere.ca",
+      "name": "Atmosphere",
+      "groups": ["outdoor", "outerwear", "footwear"],
+      "read": "link",
+      "searchUrl": "https://www.atmosphere.ca/en/search-results.html?q={q}",
+      "tested": "2026-11-26",
+      "why": "asked for a human check (Access Denied)"
+    },
+    {
       "domain": "amazon.ca",
       "name": "Amazon",
       "groups": [
@@ -72,10 +134,12 @@
         "home",
         "kitchen",
         "outdoor",
+        "outerwear",
         "clothing",
         "footwear",
         "sports",
-        "computers"
+        "computers",
+        "garden"
       ],
       "read": "link",
       "searchUrl": "https://www.amazon.ca/s?k={q}",
@@ -92,6 +156,15 @@
       "why": "asked for a human check (Just a moment)"
     },
     {
+      "domain": "londondrugs.com",
+      "name": "London Drugs",
+      "groups": ["electronics", "appliances", "kitchen", "computers"],
+      "read": "link",
+      "searchUrl": "https://www.londondrugs.com/search?q={q}",
+      "tested": "2026-11-25",
+      "why": "asked for a human check (a captcha)"
+    },
+    {
       "domain": "newegg.ca",
       "name": "Newegg",
       "groups": ["electronics", "computers"],
@@ -103,7 +176,7 @@
     {
       "domain": "canadacomputers.com",
       "name": "Canada Computers",
-      "groups": ["electronics", "computers"],
+      "groups": ["computers"],
       "read": "link",
       "searchUrl": "https://www.canadacomputers.com/en/search?s={q}",
       "tested": "2026-11-25",
@@ -112,7 +185,7 @@
     {
       "domain": "memoryexpress.com",
       "name": "Memory Express",
-      "groups": ["electronics", "computers"],
+      "groups": ["computers"],
       "read": "link",
       "searchUrl": "https://www.memoryexpress.com/Search/Products?Search={q}",
       "tested": "2026-11-25",
@@ -121,7 +194,7 @@
     {
       "domain": "homedepot.ca",
       "name": "Home Depot",
-      "groups": ["appliances", "home", "outdoor"],
+      "groups": ["appliances", "home", "garden"],
       "read": "link",
       "searchUrl": "https://www.homedepot.ca/search?q={q}",
       "tested": "2026-11-25",
@@ -130,38 +203,11 @@
     {
       "domain": "rona.ca",
       "name": "RONA",
-      "groups": ["appliances", "home", "outdoor"],
+      "groups": ["appliances", "home", "garden"],
       "read": "link",
       "searchUrl": "https://www.rona.ca/en/search?q={q}",
       "tested": "2026-11-25",
       "why": "asked for a human check (Just a moment)"
-    },
-    {
-      "domain": "londondrugs.com",
-      "name": "London Drugs",
-      "groups": ["electronics", "appliances", "kitchen", "computers"],
-      "read": "link",
-      "searchUrl": "https://www.londondrugs.com/search?q={q}",
-      "tested": "2026-11-25",
-      "why": "asked for a human check (a captcha)"
-    },
-    {
-      "domain": "mec.ca",
-      "name": "MEC",
-      "groups": ["outdoor", "clothing", "footwear", "sports"],
-      "read": "link",
-      "searchUrl": "https://www.mec.ca/en/search?q={q}",
-      "tested": "2026-11-25",
-      "why": "asked for a human check (Attention Required)"
-    },
-    {
-      "domain": "simons.ca",
-      "name": "Simons",
-      "groups": ["clothing", "footwear", "home"],
-      "read": "link",
-      "searchUrl": "https://www.simons.ca/en/search?q={q}",
-      "tested": "2026-11-25",
-      "why": "showed no price to a plain reader"
     },
     {
       "domain": "structube.com",
@@ -171,27 +217,45 @@
       "searchUrl": "https://www.structube.com/en_ca/catalogsearch/result/?q={q}",
       "tested": "2026-11-25",
       "why": "showed no price to a plain reader"
-    },
-    {
-      "domain": "sportchek.ca",
-      "name": "Sport Chek",
-      "groups": ["outdoor", "clothing", "footwear", "sports"],
-      "read": "link",
-      "searchUrl": "https://www.sportchek.ca/en/search-results.html?q={q}",
-      "why": "not tested; its group's other stores turn a plain reader away"
     }
   ],
-  "brandStores": {},
+  "brandStores": {
+    "Narwal": "ca.narwal.com",
+    "Dreame": "ca.dreametech.com",
+    "Roborock": "ca.roborock.com",
+    "Eufy": "ca.eufy.com",
+    "Anker": "ca.soundcore.com",
+    "Soundcore": "ca.soundcore.com",
+    "Bose": "bose.ca",
+    "Canada Goose": "canadagoose.com",
+    "Outdoor Research": "outdoorresearch.com",
+    "Baffin": "baffin.com",
+    "Kamik": "kamik.com"
+  },
   "tagRules": {
     "mains-powered": "A recognised safety mark (CSA, cUL, cETL or another accredited mark) on the product itself.",
     "child-seat": "The National Safety Mark on the seat itself.",
     "sunscreen": "A DIN or NPN number on the label."
   },
   "linkTools": [
-    { "name": "Amazon's price history", "url": "https://ca.camelcamelcamel.com/search?sq={q}", "groups": [] },
-    { "name": "PC parts prices", "url": "https://ca.pcpartpicker.com/search/?q={q}", "groups": ["computers"] }
+    {
+      "name": "Amazon's price history",
+      "url": "https://ca.camelcamelcamel.com/search?sq={q}",
+      "groups": []
+    },
+    {
+      "name": "PC parts prices",
+      "url": "https://ca.pcpartpicker.com/search/?q={q}",
+      "groups": ["computers"]
+    }
   ],
-  "modelRules": [{ "brand": "Samsung", "here": "ZC", "elsewhere": ["ZA"] }],
+  "modelRules": [
+    {
+      "brand": "Samsung",
+      "here": "ZC",
+      "elsewhere": ["ZA"]
+    }
+  ],
   "reviewSources": [
     {
       "host": "protegez-vous.ca",

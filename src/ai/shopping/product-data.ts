@@ -254,6 +254,9 @@ const STOCK: [RegExp, Stock][] = [
   [/outofstock|soldout|discontinued|instoreonly|unavailable|out of stock|\boos\b/i, "out"],
   [/instock|limitedavailability|onlineonly|in stock|available/i, "in"],
 ];
+// a page's words that say it can't be bought online now
+const SAYS_OUT =
+  /out of stock|sold out|currently unavailable|unavailable online|not available online|no longer available|épuisé|en rupture/i;
 const stockOf = (v: unknown): Stock => {
   const s = String(v ?? "").replace(/https?:\/\/schema\.org\//gi, "");
   return STOCK.find(([re]) => re.test(s))?.[1] ?? "unknown";
@@ -280,7 +283,14 @@ type Offer = {
   url: string;
 };
 // makers: the maker's own codes (mpn, model), which every store shares; a sku is often the store's own number
-type LdProduct = { names: string[]; codes: string[]; makers: string[]; gtins: string[]; offers: Offer[] };
+type LdProduct = {
+  names: string[];
+  codes: string[];
+  makers: string[];
+  gtins: string[];
+  brands: string[];
+  offers: Offer[];
+};
 
 const asList = (v: unknown): unknown[] => (Array.isArray(v) ? v : v == null ? [] : [v]);
 const str = (v: unknown): string =>
@@ -359,6 +369,7 @@ export function readJsonLd(html: string): LdProduct[] {
         codes: [o.sku, o.mpn, o.productID, o.model, o.productGroupID].map(str).filter(Boolean),
         makers: [o.mpn, o.model].map(str).filter(Boolean),
         gtins: [o.gtin, o.gtin8, o.gtin12, o.gtin13, o.gtin14].map(str).filter(Boolean),
+        brands: [str(o.brand), str(o.manufacturer)].filter(Boolean),
       };
       const offers = asList(o.offers).flatMap((x) =>
         x && typeof x === "object" ? offerOf(x as Record<string, unknown>) : [],
@@ -369,8 +380,11 @@ export function readJsonLd(html: string): LdProduct[] {
         if (x && typeof x === "object") {
           const n = found.length;
           walk(x, depth + 1);
-          // a variant names itself; the group's name is kept beside it for the identity check
-          for (const p of found.slice(n)) p.names.push(...base.names);
+          // a variant names itself; the group's name and brand are kept beside it for the identity check
+          for (const p of found.slice(n)) {
+            p.names.push(...base.names);
+            p.brands.push(...base.brands);
+          }
         }
       return;
     }
@@ -393,7 +407,7 @@ export function readJsonLd(html: string): LdProduct[] {
   return found;
 }
 
-export function readMeta(html: string): { offer: Offer | null; codes: string[]; names: string[] } {
+export function readMeta(html: string): { offer: Offer | null; codes: string[]; names: string[]; brands: string[] } {
   const m = metaOf(html);
   const sale = cents(m["product:sale_price:amount"]);
   const list = cents(m["product:price:amount"] ?? m["og:price:amount"]);
@@ -424,6 +438,7 @@ export function readMeta(html: string): { offer: Offer | null; codes: string[]; 
       Boolean(x),
     ),
     names: [m["og:title"], m["twitter:title"]].filter((x): x is string => Boolean(x)),
+    brands: [m["product:brand"], m["og:brand"], m.brand].filter((x): x is string => Boolean(x)),
   };
 }
 
@@ -484,19 +499,38 @@ const digits = (s: string) => s.replace(/\D/g, "").replace(/^0+/, "");
 // a code followed by a country's tag (T9-US, R7/EU): that country's model, unless it is the region's own
 const REGION_TAG = /^[-/_](us|usa|uk|eu|au|jp|cn|kr|in|de|fr|it|es|mx|br|ca|int)\b/i;
 
-// whether what the page says it is (its codes, GTINs, names and title) holds one of the product's codes: a GTIN
-// that matches is enough; another region's code (by the region's rules, or a country's tag after the code) is a
+// a code that can tell one product from another: letters and digits together (WH-1000XM6, L40, R7) or a long number
+// (a style number, 103826). A bare short number ("850") or a word alone ("Heritage") names many things: a store search
+// for "850" found a keyboard for a parka in the first live run
+export const distinctive = (code: string): boolean => {
+  const c = code.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return (/[a-z]/.test(c) && /\d/.test(c)) || /^\d{5,}$/.test(c);
+};
+// a name compared as letters only, accents and marks aside ("Fjällräven" is "Fjallraven")
+const letters = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+// whether what the page says it is (its codes, GTINs, names and title) holds one of the product's codes, and its brand
+// when the product has one: a GTIN that matches is enough; another region's code (by the region's rules, or a country's tag after the code) is a
 // mismatch. Every name and code is read, not only the first that matches: a longer model ("R7 Plus") in a name is a
 // mismatch unless another name shows the code plainly (a related product beside the page's own), and a bare SKU
 // ("T9") never outweighs a name that says "T9 Plus". here: the region's key (ca), whose own tag is no mismatch
 export function identity(
   wanted: Wanted,
-  page: { codes: string[]; gtins: string[]; names: string[] },
+  page: { codes: string[]; gtins: string[]; names: string[]; brands?: string[] },
   rules: ModelRule[] = [],
   here = "",
 ): { ok: true } | { ok: false; why: string } {
   if (wanted.gtin && page.gtins.some((g) => digits(g) === digits(wanted.gtin ?? ""))) return { ok: true };
   const said = [...page.codes, ...page.names];
+  // the brand first: a page that never names it is another maker's product, whatever number it shares
+  const brand = letters(wanted.brand);
+  if (brand.length > 1 && ![...said, ...(page.brands ?? [])].some((x) => letters(x).includes(brand)))
+    return { ok: false, why: `the page doesn't name ${wanted.brand}` };
   for (const r of rules.filter((x) => x.brand.toLowerCase() === wanted.brand.toLowerCase()))
     for (const code of wanted.codes) {
       if (!code.toUpperCase().endsWith(r.here.toUpperCase())) continue;
@@ -506,7 +540,9 @@ export function identity(
         if (re && said.some((s) => re.test(s))) return { ok: false, why: `another region's model (${base}${other})` };
       }
     }
-  const codes = [...wanted.codes].sort((a, b) => b.length - a.length).flatMap((c) => codeRe(c) ?? []);
+  // only codes that tell products apart; the bare name (the name without its brand) counts when it has two words
+  const usable = wanted.codes.filter((c) => distinctive(c) || c.trim().split(/\s+/).length >= 2);
+  const codes = [...usable].sort((a, b) => b.length - a.length).flatMap((c) => codeRe(c) ?? []);
   // each string read: plain (the code alone), longer (the code and a model word the product lacks), or silent
   let plainCode = false;
   let plainName = false;
@@ -752,13 +788,20 @@ export async function readStorePage(url: string, wanted: Wanted, deps: ReadDeps)
     codes: [...ld.flatMap((p) => p.codes), ...meta.codes, ...micro.codes],
     gtins: [...ld.flatMap((p) => p.gtins), ...micro.gtins],
     names: [titleOf(html), h1, ...ld.flatMap((p) => p.names), ...meta.names, ...micro.names].filter(Boolean),
+    brands: [...ld.flatMap((p) => p.brands), ...meta.brands],
   };
   const who = identity(wanted, said, deps.modelRules, deps.region);
   if (!who.ok) return none("mismatch", who.why);
   const gtin = said.gtins[0] ?? null;
   // the product the page is (a "related" one beside it never gives the price or its codes); any, when none names a code
   const mine = ld.filter(
-    (p) => identity(wanted, { codes: p.codes, gtins: p.gtins, names: p.names }, deps.modelRules, deps.region).ok,
+    (p) =>
+      identity(
+        wanted,
+        { codes: p.codes, gtins: p.gtins, names: p.names, brands: [...p.brands, ...said.brands, titleOf(html), h1] },
+        deps.modelRules,
+        deps.region,
+      ).ok,
   );
   const codes = [...new Set(mine.flatMap((p) => p.makers))].slice(0, 3);
   const pageCurrency = (
@@ -768,6 +811,11 @@ export async function readStorePage(url: string, wanted: Wanted, deps: ReadDeps)
     ""
   ).toUpperCase();
   const foreign = (c: string) => none("unreadable", `its price is in ${c}, not ${deps.currency}: refused`);
+  // out of stock in the data only counts when the page's words say it too: a page whose data says OutOfStock until
+  // its scripts ask the store's stock service, and whose words say nothing, has a stock kestrel can't tell (the first
+  // live run read three headphones as out of stock this way; the one whose page said so was)
+  const words = asText(html);
+  const stockOf = (o: Offer): Stock => (o.stock === "out" && !SAYS_OUT.test(words) ? "unknown" : o.stock);
   const kept = (o: Offer, method: Method, extra: Partial<StoreRead> = {}): StoreRead => {
     // a seller named, and not the store: another seller on the store's marketplace
     const marketplace = Boolean(o.seller && deps.storeName && !near(o.seller, deps.storeName));
@@ -779,7 +827,7 @@ export async function readStorePage(url: string, wanted: Wanted, deps: ReadDeps)
       regular: o.regular && o.price !== null && o.regular > o.price ? o.regular : null,
       shipping: o.shipping,
       currency: deps.currency,
-      stock: o.stock,
+      stock: stockOf(o),
       condition: o.condition === "new" || o.condition === null ? (marketplace ? "marketplace" : "new") : o.condition,
       seller: o.seller,
       pickup: o.pickup,
@@ -850,7 +898,7 @@ export async function readStorePage(url: string, wanted: Wanted, deps: ReadDeps)
   }
   // 5. the page's words: the model reads them, code keeps its number only when it is on the page by the product
   if (!deps.textPrice) return none("unreadable", "the page shows no price in its data");
-  const text = asText(html);
+  const text = words;
   const around = textAround(text, wanted);
   if (!around) return none("unreadable", "the page shows no price in its data");
   const got = await deps.textPrice(around, wanted);

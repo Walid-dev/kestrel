@@ -11,7 +11,8 @@
       "type": "score",
       "better": "higher",
       "weight": 25,
-      "how": "share of embedded debris or hair picked up from low-pile carpet in a lab run"
+      "how": "share of embedded debris or hair picked up from low-pile carpet in a lab run",
+      "names": ["carpet", "rug", "embedded", "deep clean", "deep-clean"]
     },
     {
       "key": "pickup-hard",
@@ -19,15 +20,20 @@
       "type": "score",
       "better": "higher",
       "weight": 20,
-      "how": "share of debris picked up from bare floors"
+      "how": "share of debris picked up from bare floors",
+      "names": ["hard floor", "hard-floor", "bare floor", "bare", "tile", "wood", "flattened", "surface", "hard"]
     },
     {
       "key": "tangle",
-      "label": "Hair tangle",
-      "type": "score",
-      "better": "higher",
+      "label": "Hair wrap",
+      "type": "number",
+      "better": "lower",
       "weight": 15,
-      "how": "how little long hair wraps around the brushroll"
+      "how": "share of long hair left wrapped on the brushroll after a test run: 0% means none wrapped",
+      "unit": "%",
+      "measured": true,
+      "range": [0, 100],
+      "names": ["tangl", "wrap", "brushroll", "brush roll", "brush-roll"]
     },
     {
       "key": "navigation",
@@ -35,7 +41,8 @@
       "type": "score",
       "better": "higher",
       "weight": 10,
-      "how": "how well it maps rooms, avoids obstacles and finishes a run"
+      "how": "how well it maps rooms, avoids obstacles and finishes a run",
+      "names": ["navigat", "obstacle", "avoid", "mapping", "map", "object"]
     },
     {
       "key": "battery",
@@ -45,7 +52,9 @@
       "measured": true,
       "better": "higher",
       "weight": 10,
-      "how": "minutes from a full charge to the dock"
+      "how": "minutes from a full charge to the dock",
+      "range": [20, 600],
+      "names": ["runtime", "run time", "battery", "minutes", "charge"]
     },
     {
       "key": "noise",
@@ -55,7 +64,9 @@
       "measured": true,
       "better": "lower",
       "weight": 10,
-      "how": "loudness at full power"
+      "how": "loudness at full power",
+      "range": [30, 100],
+      "names": ["noise", "loud", "quiet", "decibel"]
     },
     {
       "key": "mop",
@@ -63,33 +74,72 @@
       "type": "bool",
       "better": "higher",
       "weight": 10,
-      "how": "it mops as well as vacuums"
+      "how": "it mops as well as vacuums",
+      "names": ["mop"]
     }
   ],
   "uses": {
-    "pets": { "tangle": 25, "pickup-carpet": 30 },
-    "carpet": { "pickup-carpet": 35 },
-    "hard-floors": { "pickup-hard": 35, "mop": 15 }
+    "pets": {
+      "tangle": 25,
+      "pickup-carpet": 30
+    },
+    "carpet": {
+      "pickup-carpet": 35
+    },
+    "hard-floors": {
+      "pickup-hard": 35,
+      "mop": 15
+    }
   },
   "implied": [
-    { "when": "pet", "needs": ["a tangle-resistant brushroll"] },
-    { "when": "long hair", "needs": ["a tangle-resistant brushroll"] }
+    {
+      "when": "pet",
+      "needs": ["a tangle-resistant brushroll"]
+    },
+    {
+      "when": "long hair",
+      "needs": ["a tangle-resistant brushroll"]
+    }
   ],
   "questions": [
     {
       "key": "floors",
       "q": "Mostly carpet or hard floors?",
       "options": [
-        { "label": "Mostly carpet", "weights": { "pickup-carpet": 35 } },
-        { "label": "Mostly hard floors", "weights": { "pickup-hard": 35 } },
-        { "label": "A mix", "weights": {} }
+        {
+          "label": "Mostly carpet",
+          "weights": {
+            "pickup-carpet": 35
+          }
+        },
+        {
+          "label": "Mostly hard floors",
+          "weights": {
+            "pickup-hard": 35
+          }
+        },
+        {
+          "label": "A mix",
+          "weights": {}
+        }
       ],
       "default": 2
     },
     {
       "key": "pets",
       "q": "Pets that shed?",
-      "options": [{ "label": "Yes", "weights": { "tangle": 25 } }, { "label": "No", "weights": {} }],
+      "options": [
+        {
+          "label": "Yes",
+          "weights": {
+            "tangle": 25
+          }
+        },
+        {
+          "label": "No",
+          "weights": {}
+        }
+      ],
       "default": 1
     }
   ],
@@ -99,6 +149,29 @@
   ],
   "tags": ["mains-powered"],
   "sources": ["rtings.com", "vacuumwars.com", "consumerreports.org", "nytimes.com"],
-  "storeGroups": ["electronics", "appliances"],
+  "brands": [
+    "Dreame",
+    "Roborock",
+    "Narwal",
+    "Eufy",
+    "iRobot",
+    "Ecovacs",
+    "Shark",
+    "Samsung",
+    "Dyson",
+    "Eureka",
+    "MOVA",
+    "Yeedi",
+    "Neato",
+    "Bissell",
+    "Tineco",
+    "SwitchBot",
+    "Lefant",
+    "Xiaomi",
+    "Matic",
+    "Wyze",
+    "Ultenic"
+  ],
+  "storeGroups": ["appliances"],
   "draft": false
 }

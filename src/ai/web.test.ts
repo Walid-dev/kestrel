@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { test } from "node:test";
-import { fetchPage, publicUrl, type Reach, searchWeb, webSearch } from "./web.ts";
+import { fetchPage, isAdUrl, publicUrl, type Reach, searchWeb, webSearch } from "./web.ts";
 
 async function door(answers: { status: number; body: unknown }[]) {
   let calls = 0;
@@ -41,6 +41,41 @@ test("a refused search is tried once more, and the second answer counts", async 
   const hits = await searchWeb(d.settings, "teapots", 5);
   assert.deepEqual(hits, [{ title: "Teapots", url: "https://example.com/t", snippet: "Tea." }]);
   assert.equal(d.calls(), 2);
+  d.close();
+});
+
+// the first live Shopping run: DuckDuckGo answered with Bing's ads among its results, and they were read as reviews
+const AD =
+  "https://www.bing.com/aclick?ld=e8PKrkzBngJtbdZzo7X3T24TVUCUwt3k33-WCKF0jJIpoTiqiFpsLrzZ_4Qd1iyoyne1TZQjf9IFcvq&u=aHR0cHMlM2ElMmYlMmZ3d3cuY29uc3VtZXJwaWNrcy5vcmc";
+test("ads and tracking redirects never come back from a search, for every app", async () => {
+  const d = await door([
+    {
+      status: 200,
+      body: {
+        ok: true,
+        results: [
+          {
+            title: "The Best Robot Vacuum For Pet Hair | Vacuum Wars",
+            url: "https://vacuumwars.com/best/",
+            snippet: "",
+          },
+          { title: "Robot Vacuums For Pet Hair - Top 5 Robot Vacuums 2026", url: AD, snippet: "Ad" },
+          { title: "Black Friday Sale for Winter Jackets", url: "https://www.bing.com/aclk?ld=x", snippet: "" },
+          { title: "Deal", url: "https://www.awin1.com/cread.php?awinmid=1", snippet: "" },
+          { title: "Ad", url: "https://duckduckgo.com/y.js?ad_domain=x", snippet: "" },
+        ],
+      },
+    },
+  ]);
+  const hits = await searchWeb(d.settings, "best robot vacuum pet hair", 5);
+  assert.deepEqual(
+    hits.map((h) => h.url),
+    ["https://vacuumwars.com/best/"],
+  );
+  // bing.com's own pages and a review that happens to sit under a path with "url" in it are not ads
+  assert.equal(isAdUrl("https://www.bing.com/search?q=x"), false);
+  assert.equal(isAdUrl("https://reviews.example/url-shorteners"), false);
+  assert.equal(isAdUrl("https://www.google.com/url?q=https://x.example"), true);
   d.close();
 });
 

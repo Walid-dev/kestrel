@@ -251,7 +251,7 @@ function foundOf(c: CCase): Found[] {
         brand: r[0].split(" ")[0],
         models: [],
         facts: { mop: { v: r[1], quote: r[1] ? "mops as it vacuums" : "has no mop" } },
-        price: r[2] * 100,
+        price: { cents: r[2] * 100, currency: "CAD", quote: `${r[2]} dollars` },
       })),
     ...c.forum.map((r) => ({
       ...blank,
@@ -273,7 +273,7 @@ async function runCompose(models: ModelSettings, model: string): Promise<Result[
       foundOf(c),
       composeData.sources.map((s) => ({ ...s, family: s.host })),
       composeData.need,
-      { modelRules: [] },
+      { modelRules: [], currency: "CAD" },
       NOW,
     );
     const got = await composeList(

@@ -4,22 +4,35 @@
 //   scaled back to 100.
 // - Each criterion is scaled by its ratio to the best value (v/best when higher is better, best/v when lower is), so a
 //   product nearly as good scores nearly as much; a score or a measured number holds one source's values only (the merge
-//   chose it), so scales never mix. A missing or unsure value gives its weight to the known ones; coverage is the share
-//   of weight known.
+//   chose it), so scales never mix. A criterion no product has a value for is left out. A missing or unsure value is
+//   never perfect: it counts as the lowest value any product has on that criterion, and half at most (the first live run
+//   put a pair judged on battery and weight alone at 100, above the best overall). Coverage is the share of weight known;
+//   a product with under two fifths of its weight known is only also considered, saying so; so is one scored above the
+//   best overall on under half its weight known, so the places follow the scores. When none reaches two fifths, the
+//   list keeps them, each flagged as thin, none labelled.
 // - Must-haves are checked one by one, the check kept: one failed sends the product to also considered with its reason;
 //   an unknown is a flag, never a pass. Over the budget is a failed must-have; an unknown price is a flag.
 // - The finalists are the top scores that pass, up to the list's size, coverage breaking ties; the rest are also
 //   considered, each with why.
 // - Labels: best overall (the top finalist with half its weight known or more), best value, budget, premium and best
 //   for a need, two at most a product, and none for a product with under half its weight known. Best value and budget
-//   sit above a quality floor of 70% of the top score.
+//   sit above a quality floor of 70% of the top score. Budget and premium need prices in the region's currency; best
+//   value by another currency's list prices says so on its label.
 import type { Criterion, Evidence, Fact, Hard, Label, Need } from "../../shared/shopping.ts";
 
 // premium: better on the criterion that weighs most by 3% of the best value at least (3 points on a lab's 100-point
 // score: past a lab's noise; a tenth, under ratio scaling, asked for more than a top score leaves room for)
 const PREMIUM = 0.03;
 
-export type RankProduct = { id: string; facts: Record<string, Fact>; price: number | null; evidence: Evidence };
+// price: in the region's currency (cents), for the budget and the labels; other: a price known only in another currency
+// (a US review's list price), for the labels when the list has no price in the region's
+export type RankProduct = {
+  id: string;
+  facts: Record<string, Fact>;
+  price: number | null;
+  other?: { price: number; currency: string } | null;
+  evidence: Evidence;
+};
 export type Ranked = {
   id: string;
   score: number | null;
@@ -113,6 +126,15 @@ function namedCriteria(need: Need, answers: Record<string, number>): Criterion[]
   return [...new Set(out)];
 }
 
+// what a missing value counts as on a criterion: the lowest any product has there, and half at most, so a product never
+// gains by a value no source gave
+const missingOn = (s: Map<string, number>): number => Math.min(0.5, ...s.values());
+
+// coverage a finalist needs: two fifths of its weight known (a pick known on carpet and navigation alone, 47% of a pet
+// vacuum's weight, still lists, below those measured on more); a label needs half
+export const COVERAGE = 0.4;
+const LABELLED = 0.5;
+
 export function rank(
   need: Need,
   answers: Record<string, number>,
@@ -121,16 +143,23 @@ export function rank(
 ): Ranked[] {
   const weights = weightsFor(need, answers);
   const scales = new Map(need.criteria.map((c) => [c.key, scaled(c, products)]));
+  // the criteria some product has a value for: the others measure nothing here and weigh nothing
+  const counted = need.criteria.filter((c) => (scales.get(c.key)?.size ?? 0) > 0);
+  const room = counted.reduce((n, c) => n + (weights[c.key] ?? 0), 0);
   const hards = hardsOf(need, answers);
   const byKey = new Map(need.criteria.map((c) => [c.key, c]));
   const rows = products.map((p) => {
     let total = 0;
     let known = 0;
-    for (const c of need.criteria) {
-      const s = scales.get(c.key)?.get(p.id);
-      if (s === undefined) continue;
-      total += s * (weights[c.key] ?? 0);
-      known += weights[c.key] ?? 0;
+    for (const c of counted) {
+      const on = scales.get(c.key) as Map<string, number>;
+      const s = on.get(p.id);
+      const w = weights[c.key] ?? 0;
+      if (s === undefined) total += missingOn(on) * w;
+      else {
+        total += s * w;
+        known += w;
+      }
     }
     const fails: string[] = [];
     const flags: string[] = [];
@@ -143,27 +172,50 @@ export function rank(
       if (got.fail) fails.push(got.fail);
       if (got.flag) flags.push(got.flag);
     }
+    const measured = counted.filter((c) => scales.get(c.key)?.has(p.id)).length;
     return {
       p,
-      score: known > 0 ? (total / known) * 100 : null,
-      coverage: known / 100,
+      score: known > 0 && room > 0 ? (total / room) * 100 : null,
+      coverage: room > 0 ? known / room : 0,
+      measured,
       fails,
       flags,
     };
   });
-  // all scored, then gated: a mediocre product with many sources never pushes out a better one with fewer
-  const passing = rows
+  // all scored, then gated: a mediocre product with many sources never pushes out a better one with fewer, and one with
+  // too little measured never sits on the list. When no product reaches the floor (a drafted kind with sparse sources)
+  // the list keeps them, each flagged as thin and none labelled, so it is never empty for want of data
+  const scored = rows
     .filter((r) => !r.fails.length && r.score !== null)
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || b.coverage - a.coverage);
-  const finalists = passing.slice(0, need.listSize);
+  const enough = scored.filter((r) => r.coverage >= COVERAGE - 1e-9);
+  const sparse = enough.length === 0;
+  const thin = new Set((sparse ? [] : scored.filter((r) => r.coverage < COVERAGE - 1e-9)).map((r) => r.p.id));
+  // the best overall leads the list: a product scored above it on less than half its weight known would sit above the
+  // label, so it is only also considered, and the places follow the scores
+  const listed = sparse ? scored : enough;
+  const lead = listed.find((r) => r.coverage >= LABELLED - 1e-9);
+  const above = new Set(lead ? listed.slice(0, listed.indexOf(lead)).map((r) => r.p.id) : []);
+  const finalists = listed.filter((r) => !above.has(r.p.id)).slice(0, need.listSize);
+  if (sparse)
+    for (const r of finalists) r.flags.push(`too little measured: ${r.measured} of ${counted.length} criteria`);
   const labels = new Map<string, Label[]>(finalists.map((r) => [r.p.id, []]));
   // a label needs half the weight known at least: a product judged on one criterion is labelled for nothing
-  const sure = new Set(finalists.filter((r) => r.coverage >= 0.5).map((r) => r.p.id));
+  const sure = new Set(finalists.filter((r) => r.coverage >= LABELLED - 1e-9).map((r) => r.p.id));
   const give = (id: string | undefined, label: Label) => {
     const held = id && sure.has(id) ? labels.get(id) : undefined;
     if (held && held.length < 2 && !held.some((l) => l.key === label.key && l.text === label.text)) held.push(label);
   };
-  const lead = finalists.find((r) => r.coverage >= 0.5);
+  // the labels compare prices in one currency: the region's when the lead or two finalists have one, else the one most
+  // finalists' list prices share (a US review's dollars compare with each other, never with the region's)
+  const regional = finalists.filter((r) => r.p.price !== null).length;
+  const others = new Map<string, number>();
+  for (const r of finalists)
+    if (r.p.price === null && r.p.other) others.set(r.p.other.currency, (others.get(r.p.other.currency) ?? 0) + 1);
+  const otherCur = [...others.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? "";
+  const cur = (lead && lead.p.price !== null) || regional >= 2 || !otherCur ? "" : otherCur;
+  const cost = (r: (typeof finalists)[number]): number | null =>
+    cur === "" ? r.p.price : r.p.price === null && r.p.other?.currency === cur ? r.p.other.price : null;
   if (lead) {
     give(lead.p.id, { key: "overall", text: "Best overall" });
     const top = lead.score ?? 0;
@@ -171,33 +223,48 @@ export function rank(
     // close list scores 55, not 0), so the first build's 60% let clearly weaker products carry Budget and Best value
     const floor = 0.7 * top;
     const priced = finalists.filter(
-      (r) => r !== lead && sure.has(r.p.id) && r.p.price !== null && (r.score ?? 0) >= floor,
+      (r) => r !== lead && sure.has(r.p.id) && cost(r) !== null && (r.score ?? 0) >= floor,
     );
     // best value: the best score per dollar among those near the top and cheaper than the best overall; when none is
     // cheaper, among those 20% or more under the finalists' median price. It waits for a price
-    const prices = finalists.flatMap((r) => (r.p.price === null ? [] : [r.p.price])).sort((a, b) => a - b);
+    const prices = finalists.flatMap((r) => cost(r) ?? []).sort((a, b) => a - b);
     const median = prices.length ? (prices[(prices.length - 1) >> 1] + prices[prices.length >> 1]) / 2 : null;
     const near = priced.filter(
-      (r) => (r.score ?? 0) >= 0.9 * top && (lead.p.price === null || (r.p.price ?? 0) < lead.p.price),
+      (r) => (r.score ?? 0) >= 0.9 * top && (cost(lead) === null || (cost(r) ?? 0) < (cost(lead) ?? 0)),
     );
-    const pool = near.length ? near : median === null ? [] : priced.filter((r) => (r.p.price ?? 0) <= 0.8 * median);
-    const value = [...pool].sort((a, b) => (b.score ?? 0) / (b.p.price ?? 1) - (a.score ?? 0) / (a.p.price ?? 1))[0];
-    if (value) give(value.p.id, { key: "value", text: "Best value" });
+    // with no price for the best overall there is nothing to be cheaper than: the best score per dollar among the priced
+    // ones, two at least, or the label means nothing (the first build named a $1,895 parka best value alone)
+    const pool =
+      cost(lead) === null
+        ? priced.length >= 2
+          ? priced
+          : []
+        : near.length
+          ? near
+          : median === null
+            ? []
+            : priced.filter((r) => (cost(r) ?? 0) <= 0.8 * median);
+    const value = [...pool].sort((a, b) => (b.score ?? 0) / (cost(b) ?? 1) - (a.score ?? 0) / (cost(a) ?? 1))[0];
+    // by another currency's list prices, the label says so: those dollars never met my budget
+    const by = cur === "" ? "" : ` (${cur === "USD" ? "US" : cur} list prices)`;
+    if (value) give(value.p.id, { key: "value", text: `Best value${by}` });
     // budget: the cheapest above the quality floor, cheaper than the best overall and not above the finalists' median
     // (a Budget dearer than the best overall would mislead)
     const cheap = priced.filter(
       (r) =>
-        (lead.p.price === null || (r.p.price ?? 0) < lead.p.price) && (median === null || (r.p.price ?? 0) <= median),
+        (cost(lead) === null || (cost(r) ?? 0) < (cost(lead) ?? 0)) && (median === null || (cost(r) ?? 0) <= median),
     );
-    const cheapest = [...cheap].sort((a, b) => (a.p.price ?? 0) - (b.p.price ?? 0))[0];
+    // Budget is about my budget, in the region's currency: never from another currency's list prices
+    const cheapest =
+      prices.length >= 2 && cur === "" ? [...cheap].sort((a, b) => (cost(a) ?? 0) - (cost(b) ?? 0))[0] : undefined;
     if (cheapest) give(cheapest.p.id, { key: "budget", text: "Budget" });
     // premium: clearly better on the criterion that weighs most, for more money
     const decisive = need.criteria.reduce((a, b) => ((weights[b.key] ?? 0) > (weights[a.key] ?? 0) ? b : a));
     const s = scales.get(decisive.key);
     const leadOn = s?.get(lead.p.id);
-    if (s && leadOn !== undefined && lead.p.price !== null) {
+    if (s && leadOn !== undefined && cur === "" && cost(lead) !== null) {
       const better = finalists
-        .filter((r) => r !== lead && sure.has(r.p.id) && r.p.price !== null && (r.p.price ?? 0) > (lead.p.price ?? 0))
+        .filter((r) => r !== lead && sure.has(r.p.id) && cost(r) !== null && (cost(r) ?? 0) > (cost(lead) ?? 0))
         .filter((r) => (s.get(r.p.id) ?? -1) - leadOn >= PREMIUM - 1e-9)
         .sort((a, b) => (s.get(b.p.id) ?? 0) - (s.get(a.p.id) ?? 0))[0];
       if (better) give(better.p.id, { key: "premium", text: "Premium" });
@@ -223,7 +290,11 @@ export function rank(
         ? r.fails.join("; ")
         : r.score === null
           ? "no source measured it on these criteria"
-          : `ranked below the list's ${need.listSize}`,
+          : thin.has(r.p.id)
+            ? `too little measured to rank: ${r.measured} of ${counted.length} criteria`
+            : above.has(r.p.id)
+              ? `too little measured to rank above the best overall: ${r.measured} of ${counted.length} criteria`
+              : `ranked below the list's ${need.listSize}`,
     flags: r.flags,
     coverage: r.coverage,
   }));

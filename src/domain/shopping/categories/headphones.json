@@ -11,7 +11,18 @@
       "type": "score",
       "better": "higher",
       "weight": 25,
-      "how": "noise blocked, measured on a test head"
+      "how": "noise blocked, measured on a test head",
+      "names": [
+        "noise cancel",
+        "noise-cancel",
+        "noise canceling",
+        "anc",
+        "isolation",
+        "noise reduction",
+        "blocks",
+        "cancelling",
+        "canceling"
+      ]
     },
     {
       "key": "sound",
@@ -19,7 +30,8 @@
       "type": "score",
       "better": "higher",
       "weight": 20,
-      "how": "frequency response against a target"
+      "how": "frequency response against a target",
+      "names": ["sound", "audio", "frequency", "bass", "treble", "tonal"]
     },
     {
       "key": "comfort",
@@ -27,7 +39,8 @@
       "type": "score",
       "better": "higher",
       "weight": 15,
-      "how": "clamp, fit and heat over hours"
+      "how": "clamp, fit and heat over hours",
+      "names": ["comfort", "fit", "clamp", "ergonom"]
     },
     {
       "key": "battery",
@@ -37,7 +50,9 @@
       "measured": true,
       "better": "higher",
       "weight": 15,
-      "how": "hours of playback from a full charge"
+      "how": "hours of playback from a full charge",
+      "range": [2, 120],
+      "names": ["battery", "playback", "listening time", "charge", "hours"]
     },
     {
       "key": "calls",
@@ -45,7 +60,8 @@
       "type": "score",
       "better": "higher",
       "weight": 10,
-      "how": "how clear the microphone is in noise"
+      "how": "how clear the microphone is in noise",
+      "names": ["call", "microphone", "mic", "voice"]
     },
     {
       "key": "weight",
@@ -54,7 +70,9 @@
       "unit": "g",
       "better": "lower",
       "weight": 5,
-      "how": "the maker's stated weight"
+      "how": "the maker's stated weight",
+      "range": [3, 600],
+      "names": ["weigh", "weight", "grams"]
     },
     {
       "key": "multipoint",
@@ -62,26 +80,78 @@
       "type": "bool",
       "better": "higher",
       "weight": 10,
-      "how": "it connects to two devices at once"
+      "how": "it connects to two devices at once",
+      "names": ["multipoint", "multi-point", "two devices", "multiple devices", "dual connection", "switch"]
     }
   ],
   "uses": {
-    "travel": { "anc": 35, "battery": 20, "comfort": 20 },
-    "calls": { "calls": 30 },
-    "gym": { "weight": 15, "comfort": 20 }
+    "travel": {
+      "anc": 35,
+      "battery": 20,
+      "comfort": 20
+    },
+    "calls": {
+      "calls": 30
+    },
+    "gym": {
+      "weight": 15,
+      "comfort": 20
+    }
   },
-  "implied": [{ "when": "flight", "needs": ["strong noise cancelling"] }],
+  "implied": [
+    {
+      "when": "flight",
+      "needs": ["strong noise cancelling"]
+    }
+  ],
   "questions": [
     {
       "key": "calls",
       "q": "Will you take calls on them?",
-      "options": [{ "label": "Yes, often", "weights": { "calls": 20 } }, { "label": "Rarely", "weights": {} }],
+      "options": [
+        {
+          "label": "Yes, often",
+          "weights": {
+            "calls": 20
+          }
+        },
+        {
+          "label": "Rarely",
+          "weights": {}
+        }
+      ],
       "default": 1
     }
   ],
   "traps": ["earbuds and over-ear models share names across a line"],
   "tags": [],
   "sources": ["rtings.com", "soundguys.com", "nytimes.com", "whathifi.com"],
+  "brands": [
+    "Sony",
+    "Bose",
+    "Apple",
+    "Sennheiser",
+    "Bowers & Wilkins",
+    "JBL",
+    "Anker",
+    "Soundcore",
+    "Beats",
+    "Samsung",
+    "Google",
+    "Jabra",
+    "Beyerdynamic",
+    "AKG",
+    "Audio-Technica",
+    "Marshall",
+    "Skullcandy",
+    "Nothing",
+    "Technics",
+    "Shure",
+    "Focal",
+    "Master & Dynamic",
+    "Edifier",
+    "Sonos"
+  ],
   "storeGroups": ["electronics"],
   "draft": false
 }

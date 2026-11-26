@@ -11,7 +11,8 @@
       "type": "score",
       "better": "higher",
       "weight": 30,
-      "how": "a lab's mixed-use picture score: contrast, colour and uniformity"
+      "how": "a lab's mixed-use picture score: contrast, colour and uniformity",
+      "names": ["picture", "image", "contrast", "colou", "uniform", "mixed usage", "hdr"]
     },
     {
       "key": "brightness",
@@ -21,7 +22,9 @@
       "measured": true,
       "better": "higher",
       "weight": 15,
-      "how": "peak brightness measured in HDR"
+      "how": "peak brightness measured in HDR",
+      "range": [100, 10000],
+      "names": ["bright", "nit", "luminan", "peak"]
     },
     {
       "key": "reflections",
@@ -29,7 +32,8 @@
       "type": "score",
       "better": "higher",
       "weight": 15,
-      "how": "how well the screen handles room light"
+      "how": "how well the screen handles room light",
+      "names": ["reflect", "glare"]
     },
     {
       "key": "gaming",
@@ -37,7 +41,8 @@
       "type": "score",
       "better": "higher",
       "weight": 15,
-      "how": "input lag and variable refresh rate"
+      "how": "input lag and variable refresh rate",
+      "names": ["gaming", "game", "input lag", "vrr"]
     },
     {
       "key": "motion",
@@ -45,7 +50,8 @@
       "type": "score",
       "better": "higher",
       "weight": 10,
-      "how": "response time and motion handling"
+      "how": "response time and motion handling",
+      "names": ["motion", "response time", "blur"]
     },
     {
       "key": "angle",
@@ -53,7 +59,8 @@
       "type": "score",
       "better": "higher",
       "weight": 10,
-      "how": "how the picture holds up off to the side"
+      "how": "how the picture holds up off to the side",
+      "names": ["angle", "off-axis", "off axis"]
     },
     {
       "key": "smart",
@@ -61,29 +68,67 @@
       "type": "score",
       "better": "higher",
       "weight": 5,
-      "how": "the built-in software's speed, ads and updates"
+      "how": "the built-in software's speed, ads and updates",
+      "names": ["smart", "software", "interface", "operating system"]
     }
   ],
   "uses": {
-    "bright-room": { "brightness": 30, "reflections": 25 },
-    "gaming": { "gaming": 30 },
-    "movies": { "picture": 40 },
-    "sports": { "motion": 25, "angle": 15 }
+    "bright-room": {
+      "brightness": 30,
+      "reflections": 25
+    },
+    "gaming": {
+      "gaming": 30
+    },
+    "movies": {
+      "picture": 40
+    },
+    "sports": {
+      "motion": 25,
+      "angle": 15
+    }
   },
-  "implied": [{ "when": "bright", "needs": ["a bright screen that handles reflections"] }],
+  "implied": [
+    {
+      "when": "bright",
+      "needs": ["a bright screen that handles reflections"]
+    }
+  ],
   "questions": [
     {
       "key": "gaming",
       "q": "Will you play games on it?",
-      "options": [{ "label": "Yes", "weights": { "gaming": 25 } }, { "label": "No", "weights": {} }],
+      "options": [
+        {
+          "label": "Yes",
+          "weights": {
+            "gaming": 25
+          }
+        },
+        {
+          "label": "No",
+          "weights": {}
+        }
+      ],
       "default": 1
     },
     {
       "key": "room",
       "q": "Is the room bright in the day?",
       "options": [
-        { "label": "Bright", "weights": { "brightness": 25, "reflections": 20 } },
-        { "label": "Dim", "weights": { "picture": 40 } }
+        {
+          "label": "Bright",
+          "weights": {
+            "brightness": 25,
+            "reflections": 20
+          }
+        },
+        {
+          "label": "Dim",
+          "weights": {
+            "picture": 40
+          }
+        }
       ],
       "default": 0
     }
@@ -94,6 +139,7 @@
   ],
   "tags": ["mains-powered"],
   "sources": ["rtings.com", "consumerreports.org", "nytimes.com", "cnet.com"],
+  "brands": ["LG", "Samsung", "Sony", "TCL", "Hisense", "Panasonic", "Philips", "Vizio", "Toshiba", "Insignia"],
   "storeGroups": ["electronics"],
   "draft": false
 }

@@ -11,7 +11,8 @@
       "type": "score",
       "better": "higher",
       "weight": 20,
-      "how": "benchmarks under a sustained load"
+      "how": "benchmarks under a sustained load",
+      "names": ["perform", "benchmark", "cinebench", "speed", "cpu", "gpu", "processor"]
     },
     {
       "key": "battery",
@@ -21,7 +22,9 @@
       "measured": true,
       "better": "higher",
       "weight": 20,
-      "how": "hours of web browsing at a fixed brightness"
+      "how": "hours of web browsing at a fixed brightness",
+      "range": [1, 40],
+      "names": ["battery", "hours", "runtime", "unplugged"]
     },
     {
       "key": "display",
@@ -29,7 +32,8 @@
       "type": "score",
       "better": "higher",
       "weight": 15,
-      "how": "brightness, colour and contrast measured"
+      "how": "brightness, colour and contrast measured",
+      "names": ["display", "screen", "panel", "bright", "colou"]
     },
     {
       "key": "keyboard",
@@ -37,7 +41,8 @@
       "type": "score",
       "better": "higher",
       "weight": 10,
-      "how": "key feel and touchpad"
+      "how": "key feel and touchpad",
+      "names": ["keyboard", "typing", "keys", "touchpad", "trackpad"]
     },
     {
       "key": "build",
@@ -45,7 +50,8 @@
       "type": "score",
       "better": "higher",
       "weight": 10,
-      "how": "chassis, hinge and flex"
+      "how": "chassis, hinge and flex",
+      "names": ["build", "chassis", "hinge", "flex", "construction"]
     },
     {
       "key": "weight",
@@ -54,7 +60,9 @@
       "unit": "kg",
       "better": "lower",
       "weight": 15,
-      "how": "the maker's stated weight"
+      "how": "the maker's stated weight",
+      "range": [0.5, 5],
+      "names": ["weigh", "weight"]
     },
     {
       "key": "ports",
@@ -62,24 +70,55 @@
       "type": "score",
       "better": "higher",
       "weight": 10,
-      "how": "the ports it has and their speed"
+      "how": "the ports it has and their speed",
+      "names": ["port", "usb", "thunderbolt", "hdmi"]
     }
   ],
   "uses": {
-    "travel": { "weight": 25, "battery": 25 },
-    "work": { "keyboard": 15, "display": 20 },
-    "gaming": { "performance": 40 },
-    "school": { "battery": 25, "weight": 20 }
+    "travel": {
+      "weight": 25,
+      "battery": 25
+    },
+    "work": {
+      "keyboard": 15,
+      "display": 20
+    },
+    "gaming": {
+      "performance": 40
+    },
+    "school": {
+      "battery": 25,
+      "weight": 20
+    }
   },
-  "implied": [{ "when": "travel", "needs": ["a light laptop with a long battery"] }],
+  "implied": [
+    {
+      "when": "travel",
+      "needs": ["a light laptop with a long battery"]
+    }
+  ],
   "questions": [
     {
       "key": "work",
       "q": "What will you do most on it?",
       "options": [
-        { "label": "Writing and browsing", "weights": {} },
-        { "label": "Photo or video editing", "weights": { "performance": 30, "display": 25 } },
-        { "label": "Games", "weights": { "performance": 40 } }
+        {
+          "label": "Writing and browsing",
+          "weights": {}
+        },
+        {
+          "label": "Photo or video editing",
+          "weights": {
+            "performance": 30,
+            "display": 25
+          }
+        },
+        {
+          "label": "Games",
+          "weights": {
+            "performance": 40
+          }
+        }
       ],
       "default": 0
     }
@@ -87,6 +126,21 @@
   "traps": ["the same model ships with different chips and screens: the exact configuration matters"],
   "tags": ["mains-powered"],
   "sources": ["notebookcheck.net", "rtings.com", "nytimes.com", "pcmag.com"],
-  "storeGroups": ["electronics", "computers"],
+  "brands": [
+    "Apple",
+    "Dell",
+    "HP",
+    "Lenovo",
+    "Asus",
+    "Acer",
+    "Microsoft",
+    "Razer",
+    "MSI",
+    "Framework",
+    "Samsung",
+    "LG",
+    "Gigabyte"
+  ],
+  "storeGroups": ["computers"],
   "draft": false
 }

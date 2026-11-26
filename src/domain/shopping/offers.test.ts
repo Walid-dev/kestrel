@@ -131,26 +131,28 @@ test("each store in its state: read, link, blocked, mismatch; a brand store nobo
   assert.deepEqual(got, { read: 2, links: 2, blocked: 1, unsearched: 0, mismatch: 1 });
   const rows = Object.fromEntries(offersOf(db, p.id).map((o) => [o.store, o]));
   assert.equal(rows["store-d.example"].read, "link");
-  assert.equal(rows["store-d.example"].url, "https://store-d.example/search?q=R7-C");
+  // its link searches the brand and the model, never a bare code
+  assert.equal(rows["store-d.example"].url, "https://store-d.example/search?q=Brisk%20R7-C");
   assert.ok(!asked.some((q) => q.includes("store-d")), "a link store costs no search");
   assert.equal(rows["store-c.example"].read, "blocked");
   assert.equal(rows["store-c.example"].url, "https://store-c.example/item/r7c");
   assert.equal(rows["store-e.example"].read, "mismatch");
   assert.equal(rows["store-a.example"].method, "jsonld");
   assert.equal(rows["store-b.example"].method, "text");
-  // Store F has no page in its search: the brand-and-model search runs, finds only the brand's own site, which the
-  // region doesn't list, so it is never read and Store F keeps its search link
+  // Store F has no page in its search; the first, open search found only the brand's own site, which the region
+  // doesn't list, so it is never read and Store F keeps its search link
   assert.equal(rows["store-f.example"].read, "link");
   assert.match(rows["store-f.example"].why, /no page/);
   assert.ok(!fetched.some((u) => u.includes("brisk.example")), "an open search's brand store is never read");
-  // the searches: one per readable store, scrubbed (nothing of my budget or note)
+  // the searches: one open search first (the brand and the model), then one per readable store, scrubbed (nothing of
+  // my budget or note)
   assert.deepEqual(asked, [
-    '"R7-C" site:store-a.example',
-    '"R7-C" site:store-b.example',
-    '"R7-C" site:store-c.example',
-    '"R7-C" site:store-e.example',
-    '"R7-C" site:store-f.example',
     '"Brisk R7-C"',
+    '"Brisk R7-C" site:store-a.example',
+    '"Brisk R7-C" site:store-b.example',
+    '"Brisk R7-C" site:store-c.example',
+    '"Brisk R7-C" site:store-e.example',
+    '"Brisk R7-C" site:store-f.example',
   ]);
   // Best price: the verified total from the page's data, never the cheaper price read from the words
   const view = wantView(db, want);
@@ -198,10 +200,15 @@ test("the run's search cap leaves the stores after it unsearched, each with its 
   const [p] = productsOf(db, want);
   const got = await findOffers(db, [p], MADE_UP_NEED, deps);
   assert.equal(asked.length, 2);
-  assert.equal(got.unsearched, 3);
+  assert.equal(got.unsearched, 4);
   const unsearched = offersOf(db, p.id).filter((o) => o.read === "unsearched");
-  assert.deepEqual(unsearched.map((o) => o.store).sort(), ["store-c.example", "store-e.example", "store-f.example"]);
-  assert.match(unsearched[0].url, /\/search\?q=R7-C$/);
+  assert.deepEqual(unsearched.map((o) => o.store).sort(), [
+    "store-b.example",
+    "store-c.example",
+    "store-e.example",
+    "store-f.example",
+  ]);
+  assert.match(unsearched[0].url, /\/search\?q=Brisk%20R7-C$/);
   // with store reading off, every store is a link at once, and nothing is searched
   const off = setup();
   const [q] = productsOf(off.db, off.want);
