@@ -28,6 +28,7 @@ import {
   setWatch,
   sweepWants,
 } from "./store.ts";
+import { wantView } from "./view.ts";
 
 // a made-up paragraph: a gathered page must read past 300 characters to count
 const FILLER =
@@ -325,6 +326,8 @@ test("one mode finds the named product's offers before any review; a reader out 
   assert.ok(w?.result?.notes.includes("the reader ran out of room on bench.example"), JSON.stringify(w?.result?.notes));
   const named = productsOf(db, id).find((p) => p.name === "Brisk R7");
   assert.ok(named && offersOf(db, named.id).some((o) => o.read === "ok"));
+  // the named product leads its list, the alternatives after it
+  assert.equal(wantView(db, id)?.products[0]?.name, "Brisk R7");
 });
 
 test("the tick's hook starts a queued want and the due price checks; an application at work holds the run", async (t) => {

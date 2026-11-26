@@ -202,7 +202,23 @@ export function rerank(db: DatabaseSync, wantId: string, place: Place = NO_PLACE
     })),
     w.budget ?? budgetIn(w.words),
   );
-  for (const r of ranked) setRank(db, r.id, r);
+  // a want that names one product keeps it first, whatever its score: its offers are what I asked for
+  const named = w.need.mode === "one" ? namedProduct(products, w.need.product) : undefined;
+  for (const r of ranked) setRank(db, r.id, r.id === named?.id ? { ...r, place: 0, out: "" } : r);
+}
+
+// the product a one-mode want names, by its name
+export function namedProduct<T extends { name: string }>(products: T[], name: string): T | undefined {
+  const want = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return want
+    ? (products.find((p) => p.name.toLowerCase().replace(/[^a-z0-9]/g, "") === want) ??
+        products.find((p) =>
+          p.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, "")
+            .includes(want),
+        ))
+    : undefined;
 }
 
 function summaryOf(w: WantRow, views: ProductView[], place: Place): WantSummary {

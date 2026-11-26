@@ -138,7 +138,13 @@ export function scrubQuery(query: string, ctx: ScrubContext): string | null {
 
 // a web address that carries something of mine: a budget number or a note word, as a word of the address
 export function holdsMine(url: string, ctx: ScrubContext): boolean {
-  let path = decodeURIComponent(url.replace(/\+/g, " ")).replace(/^https?:\/\/[^/]+/i, " ");
+  let path = url.replace(/\+/g, " ");
+  try {
+    path = decodeURIComponent(path);
+  } catch {
+    // a broken escape: the address is read as it is written
+  }
+  path = path.replace(/^https?:\/\/[^/]+/i, " ");
   // a product's name or code in the address names the product, as in a query ("fen-300" is Fen 300)
   for (const p of ctx.phrases) {
     const chars = p.toLowerCase().replace(/[^a-z0-9]/g, "");

@@ -48,7 +48,7 @@ import {
   type WantRow,
 } from "./store.ts";
 import { understand } from "./understand.ts";
-import { DROPPED, priceOf, rerank } from "./view.ts";
+import { DROPPED, namedProduct, priceOf, rerank } from "./view.ts";
 import { checkWatches, isDue, watched } from "./watch.ts";
 
 export const SEARCHES = 24; // a run's searches, every step together
@@ -207,7 +207,8 @@ export async function runWant(db: DatabaseSync, settings: Settings, w: WantRow, 
         return fail("no source that tests this kind of product turned up: Run again later, or say it in other words");
       // the run's changes: products added and dropped
       const after = productsOf(db, w.id);
-      for (const p of after)
+      // a first run adds everything: only a run again has changes to tell
+      for (const p of before.size ? after : [])
         if (!before.has(p.key)) addLog(db, w.id, { kind: "change", text: `${p.name} added` }, now());
       for (const p of before.values())
         if (!after.some((x) => x.key === p.key && x.out !== DROPPED))
@@ -400,13 +401,14 @@ async function compareAndCompose(
     const id = ids.get(key);
     if (id) setWords(db, id, words);
   }
-  // a product found before and not now stays, with my marks and its history, out of the ranking
-  for (const p of productsOf(db, w.id))
-    if (
-      ![...ids.values()].includes(p.id) &&
-      !(need.mode === "one" && p.key === keyOf(need.product.split(/\s+/)[0] ?? "", need.product))
-    )
+  // a product found before and not now stays, with my marks and its history, out of the ranking; a want that names one
+  // product keeps it first
+  const lead = need.mode === "one" ? namedProduct(productsOf(db, w.id), need.product) : undefined;
+  for (const p of productsOf(db, w.id)) {
+    if (p.id === lead?.id) setRank(db, p.id, { score: p.score, place: 0, labels: p.labels, out: "", flags: p.flags });
+    else if (![...ids.values()].includes(p.id))
       setRank(db, p.id, { score: null, place: null, labels: [], out: DROPPED, flags: [] });
+  }
   const result: Kept = {
     assumptions: composed.assumptions,
     changeIf: composed.changeIf,
