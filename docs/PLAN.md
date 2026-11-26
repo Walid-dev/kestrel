@@ -176,8 +176,10 @@ Each gets its own step-by-step plan, reviewed, before it starts.
 - A list of my wants, each in plain words. Each runs on its own: it understands the kind of product (up to three
   quick questions, never waiting for them), compares the products worth considering on the criteria that matter for
   that kind (from the sources that test, every value checked against its source, labels such as best overall and best
-  value computed in code), finds where to buy each pick from the stores' own page data, judges the deal against its
-  own price history, and watches a price when I ask, with a ping on my target or a new low. Ask on each want.
+  value computed in code), finds where to buy each pick from the stores' own page data (the stores that turn a plain
+  reader away are links until the agent's Chrome reads them), judges the deal against its own price history, and
+  watches a price when I ask, with a ping on my target or a drop. Ask on each want; nothing of mine goes into a
+  search.
 - Built on shared parts: one list engine for every kind of listing (fields, filters, sorts, a card, marks), Research's
   page gathering, News' public fetch; a category, a region or a source tier is a data file. The homes hunt follows on
   the same engine. The plan: [docs/tasks/v1.2-shopping.md](tasks/v1.2-shopping.md).
