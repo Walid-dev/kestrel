@@ -5,6 +5,16 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · A search's words are only what draws; a failed answer's words trail off (review).**
+  On a page of my own the card promised its exact words, but `queryOf` kept characters that draw nothing: zero-width
+  and bidi controls, and Unicode's tag characters (U+E0000 to U+E007F), which can spell any hidden text, so a card
+  could show "bees frames" and send more. `visibleWords` (`domain/ask/tools.ts`) now drops every control, format,
+  private-use, surrogate and unassigned code point and every default-ignorable one, folds spaces and line breaks to one
+  space, before the card, the search and the reread see the words; the cut to 200 counts code points. Test: "(review:
+  hidden words)". Rejected: refusing such a query (the model would only retry; dropping them leaves nothing unseen).
+  And a failed answer's half-written words (the door broke mid-answer, a restart) no longer show as a whole answer:
+  no lead tile, ending in "…", over the red line. They stay, as the restart sweep already kept them; the reread still
+  leaves them out.
 - **2026-11-25 · The News bug: four ways a story's Ask failed, each fixed where it starts.**
   Tried on made-up data with a stand-in door that answers as oMLX's own code does (its stream: the thinking apart in
   `reasoning_content`, a keepalive chunk, a failure as `data: {"error": …}` after a 200; its `/v1/web/search` and
@@ -57,7 +67,9 @@ technical; the plan and the runbook carry the detail.
   dark; as a mark, 4:1 and 12:1; the probe passes on Notes, Home, Models and /design in both themes. The reader's note
   marks take it too (`.doc-mark`: a `--lemon-soft` wash, a highlighter's yellow in light, with the lemon line under at
   3.7:1; `.note-said`'s edge): a highlighter's mark on words is what the colour means, and pink keeps needs me, the
-  wolf and Tasks. Rejected: violet, rose and a green (each a near twin of a neighbour or of Searches), a paper tan
+  wolf and Tasks. In light, the Models page's grid sets Notes' dark olive a row from Research's dark gold, and
+  Interview prep's olive green is near in hue: accepted, as Home's list and the dock keep them apart and the eyebrow
+  names the app. Rejected: violet, rose and a green (each a near twin of a neighbour or of Searches), a paper tan
   (Research's hue).
 - **2026-11-25 · My marks in kestrel stick through the mirror; the old setup's own stages still arrive.**
   A stage, a star, a note or a delete made in kestrel is kestrel's from then on: `listings.mine` (migration 029) keeps

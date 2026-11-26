@@ -24,6 +24,7 @@ import { listNotes } from "../notes/notes.ts";
 import { findListings } from "../search/ask.ts";
 import { addTask, listTasks } from "../tasks/tasks.ts";
 import { actOn, askPage, clearConversation, conversation, searchOn, sweepAsks } from "./ask.ts";
+import { queryOf } from "./tools.ts";
 
 function setup() {
   const base = mkdtempSync(join(tmpdir(), "kestrel-ask-"));
@@ -609,6 +610,35 @@ test("on a page of my own a search waits for my tap with its exact words: Search
     assert.deepEqual(web, ["search frames per hive"]);
     clearConversation(db, "notes", doc.id); // a search waiting for my tap never holds Start over
     assert.deepEqual(conversation(db, "notes", doc.id), []);
+  } finally {
+    await s.close();
+  }
+});
+
+test("a search's card shows every word it sends: characters that draw nothing never ride along (review: hidden words)", async () => {
+  const db = setup();
+  const doc = addUpload(db, "hive.md", "My secret note: the hive holds ten frames.\n");
+  // "my secret note" in Unicode's tag characters, which draw nothing, after a zero-width space and a bidi control
+  const hidden = `\u200b\u202e${[..."my secret note"].map((c) => String.fromCodePoint(0xe0000 + (c.codePointAt(0) ?? 0))).join("")}`;
+  assert.equal(queryOf({ query: ` bees${hidden}\n\tframes\ufe0f ` }), "bees frames");
+  const searched: string[] = [];
+  const s = await startStandIn((body, path) => {
+    if (path.endsWith("/web/search")) {
+      searched.push(body.query ?? "");
+      return { json: { ok: true, results: [hit("Frames per hive", "https://bees.example.org/frames")] } };
+    }
+    if (lastOf(body).includes("THE WEB SEARCH FOR")) return { content: "Ten [1]." };
+    return { content: `I will check.\n\`\`\`web\n{"query": "bees frames${hidden}"}\n\`\`\`` };
+  });
+  try {
+    await askPage(db, settings(s.url), { app: "notes", ref: doc.id, text: "How many frames?" }).done;
+    const answer = conversation(db, "notes", doc.id)[1];
+    assert.deepEqual(
+      answer.cards.map((c) => [c.search, c.label]),
+      [["bees frames", "Search the web for “bees frames”"]],
+    );
+    await searchOn(db, settings(s.url), { id: answer.id, card: 0, go: true }).done;
+    assert.deepEqual(searched, ["bees frames"]);
   } finally {
     await s.close();
   }

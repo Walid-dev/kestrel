@@ -415,7 +415,12 @@ function Turn({
     <div className="ask-answer">
       {(m.leftOut ?? 0) > 0 && <LeftOut n={m.leftOut ?? 0} />}
       {m.text ? (
-        <Answer text={m.text} writing={writing} />
+        // a failed answer's words are half an answer: no lead tile, and they trail off where it stopped
+        <Answer
+          text={m.state === "failed" ? `${m.text.trimEnd()}…` : m.text}
+          writing={writing}
+          cut={m.state === "failed"}
+        />
       ) : writing && !cards.some(searching) ? (
         <span className="ask-thinking">
           <span className="spin" /> Thinking
@@ -624,7 +629,7 @@ function Point({ text }: { text: string }) {
   );
 }
 
-function Answer({ text, writing }: { text: string; writing: boolean }) {
+function Answer({ text, writing, cut = false }: { text: string; writing: boolean; cut?: boolean }) {
   const parts = parseMarkdown(text);
   const lead = parts.findIndex((p) => p.k === "p");
   // a short line ending in a colon just before a quote ("Example rewrite:") is the quote's own label
@@ -642,7 +647,7 @@ function Answer({ text, writing }: { text: string; writing: boolean }) {
           case "p":
             if (parts[n + 1]?.k === "quote" && labelOf(n + 1)) return null; // it labels the quote below
             // the first paragraph is the direct answer: its own tile, the way a lesson opens with what to say
-            return n === lead && lead < 2 ? (
+            return n === lead && lead < 2 && !cut ? (
               <p key={key} className="ask-lead">
                 <Inline text={p.text} />
               </p>

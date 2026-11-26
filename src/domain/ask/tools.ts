@@ -75,7 +75,20 @@ export function readLook(db: DatabaseSync, args: unknown, mode: WebMode): string
   return text ? `${ref}:\n${text.slice(0, READ_CHARS)}` : `${ref || "(no ref)"}: nothing by that id.`;
 }
 
-export const queryOf = (args: unknown): string => str((args as { query?: unknown } | null)?.query).slice(0, 200);
+// a search's words as they show: what draws nothing goes before the card and the search see them (zero-width and
+// format characters, the tag characters that can spell a hidden text, controls, private-use and unassigned code
+// points, and the other default-ignorable ones), any run of spaces or line breaks is one space, so the words on my
+// card are exactly the words sent (review: hidden words)
+export const visibleWords = (s: string): string =>
+  s
+    .replace(/\s/gu, " ")
+    .replace(/[\p{C}\p{Default_Ignorable_Code_Point}]/gu, "")
+    .replace(/ {2,}/g, " ")
+    .trim();
+export const queryOf = (args: unknown): string =>
+  Array.from(visibleWords(str((args as { query?: unknown } | null)?.query)))
+    .slice(0, 200) // by code point, so a cut never leaves half a character
+    .join("");
 
 // a page's number: the one it has in the conversation already, or the next (added to this answer's own)
 export function cite(known: Source[], mine: Source[], url: string, title: string): number {

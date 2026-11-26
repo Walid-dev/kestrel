@@ -172,9 +172,10 @@ reading width is 720.
   says what happened, a stage or a delete with Undo (`.btn-sm`) until used; failed in red; undone quiet, its edge the
   line's grey. A change to many says under its words, on the small step in muted ink, what it leaves out, and folds
   out the titles it covers ("The listings 37", a `.disclosure`), each a quiet link as an inline source, in a list that
-  scrolls inside 240 at most. A failed answer is one plain sentence in red with what to do, never a developer's hint.
+  scrolls inside 240 at most. A failed answer is one plain sentence in red with what to do, never a developer's hint;
+  the words it had written before it stopped stay over it as plain paragraphs, no lead tile, ending in "…".
   A web search is a card too (`SearchCard`, `.ask-search`, on the detail step): on a page of my own "Search the web
-  for “…”", its exact words, "Only these words go to the search.", and Skip (quiet) and Search (filled) on the control
+  for “…”", its exact words (only what draws: `visibleWords`), "Only these words go to the search.", and Skip (quiet) and Search (filled) on the control
   step, on their own row where the box is under 30rem; while it runs, the spinner and Searching, its edge still the
   accent; run, it says "Searched the web for “…”" and its count in green, or in red that it found nothing or didn't
   work; skipped, "Not searched" and why, its edge the line's grey. A fact from the web cites its page as Research's do
