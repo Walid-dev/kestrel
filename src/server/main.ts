@@ -29,6 +29,7 @@ import { mountNotes } from "./notes.ts";
 import { mountResearch } from "./research.ts";
 import { startScheduler } from "./scheduler.ts";
 import { mountSearch } from "./search.ts";
+import { mountShopping } from "./shopping.ts";
 import { mountTasks } from "./tasks.ts";
 import { mountVoice } from "./voice.ts";
 
@@ -106,6 +107,7 @@ mountLive(app, db, settings.oldLive ?? "");
 mountCost(app, settings);
 mountBrief(app, db, settings);
 mountNews(app, db, settings);
+mountShopping(app, db, settings);
 mountEvents(app);
 // an api path with no door answers so, in words — never the app's page with a 200. It comes last: a route mounted
 // after it is never reached (the live stream was, until 2026-11-22, so every screen fell back to its timer)

@@ -48,6 +48,18 @@ export const NewsSettings = z.object({
 });
 export type NewsSettings = z.infer<typeof NewsSettings>;
 
+// Shopping (src/domain/shopping/): the region file it buys in (its stores, currency and rules; the one that ships when
+// unset), and whether kestrel reads store and review pages itself. Off in a made-up folder unless settings.json names
+// it, as the news, so a development run never reads the web by itself
+export const ShoppingSettings = z.object({
+  region: z
+    .string()
+    .regex(/^[a-z]{2,8}$/, "a region file's key, like ca")
+    .optional(),
+  read: z.boolean().default(true),
+});
+export type ShoppingSettings = z.infer<typeof ShoppingSettings>;
+
 export const Settings = z.object({
   // who may reach kestrel: my Tailscale login, which Serve stamps on every request (step 7 enforces it)
   tailscaleLogin: z.string().min(1),
@@ -119,6 +131,8 @@ export const Settings = z.object({
   oldLive: z.string().optional(),
   // the morning news (NewsSettings, above; newsOf reads it with its defaults)
   news: NewsSettings.optional(),
+  // Shopping (ShoppingSettings, above; shoppingOf reads it with its defaults)
+  shopping: ShoppingSettings.optional(),
   // who I am, for a deep check's read of a job: level, years, skills, a summary (personal: the data folder only)
   profile: z
     .object({
@@ -132,6 +146,7 @@ export const Settings = z.object({
 export type Settings = z.infer<typeof Settings>;
 
 export const newsOf = (settings: Settings): NewsSettings => settings.news ?? NewsSettings.parse({});
+export const shoppingOf = (settings: Settings): ShoppingSettings => settings.shopping ?? ShoppingSettings.parse({});
 
 // The evals' --live mode and the model probe ask the real door on purpose, with made-up text. They never take it from
 // the made-up data folder: its doors are dead on purpose, so a development run fails fast instead of asking my models
@@ -159,6 +174,7 @@ function deadDoors(raw: unknown): unknown {
     models: door(raw.models, `${DEAD_DOOR}/v1`),
     voice: door(raw.voice, DEAD_DOOR),
     news: raw.news === undefined ? { enabled: false } : raw.news,
+    shopping: raw.shopping === undefined ? { read: false } : raw.shopping,
   };
 }
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);

@@ -5,6 +5,16 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Shopping's store: a want keeps its need card whole; a product no longer found stays.**
+  Migration 030 (`wants`, `products`, `offers`, `price_readings`, `shop_deleted`), `src/domain/shopping/store.ts` and
+  `view.ts`. The need card keeps its category's criteria, questions, uses and list size, so an edited category file or
+  a replaced draft never changes a want's list, and an answer re-ranks from the card alone. A product a run again no
+  longer finds keeps its row, marks, offers and readings, out of the ranking as "no longer in any source", instead of
+  being deleted with its history. A deleted product's sheet opens through `GET /api/shopping/products/:id` (`deleted:
+  {at}`), as Searches' sheet does. The list engine (`src/shared/kinds.ts`): an unknown or unsure value never passes a
+  threshold and sorts last either way; number steps are the values' quartiles at two significant digits, a step every
+  row passes dropped. Rejected: reading the category file at each view (a draft re-written for a later want would
+  change an older want's criteria).
 - **2026-11-25 · Shopping planned on shared parts; its own tables until listings take kinds.**
   The plan: `docs/tasks/v1.2-shopping.md`. A kind of listing becomes data (fields, filters, sorts, card, marks) with one
   pure engine (`src/shared/kinds.ts`) and one list part (`web/src/ui/kind-list.tsx`); Shopping's products (a kind per
