@@ -34,7 +34,6 @@
       "how": "a waterproof shell with sealed seams",
       "names": [
         "waterproof",
-        "weatherproof",
         "watertight",
         "sealed seam",
         "seam-sealed",
@@ -42,8 +41,10 @@
         "water-resist",
         "rain",
         "membrane",
-        "gore-tex"
-      ]
+        "gore-tex",
+        "dwr"
+      ],
+      "yes": ["waterproof", "watertight", "seam-sealed", "sealed seam", "fully taped", "gore-tex"]
     },
     {
       "key": "wind",

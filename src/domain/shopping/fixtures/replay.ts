@@ -3,7 +3,7 @@
 // pages are tonight's too. The door answers each call in the shapes the real models wrote: the readers' values with a
 // weight under comfort and weather resistance under hood, names without their brand, an implied need twice; the
 // writer's reasons as plain strings with their refs inside, refs as numbers, the products as an object by id, and one
-// answer cut off. replay.test.ts checks the want pages that come out; the screen check runs it into a made-up folder.
+// answer in three cut off (as the one write the calls log shows unread). replay.test.ts checks the want pages that come out; the screen check runs it into a made-up folder.
 // The prices in search results below are made up (the run kept no snippet); everything else is as recorded.
 import { Pacer, readStorePage } from "../../../ai/shopping/product-data.ts";
 import type { StandInBody, StandInPlan } from "../../../ai/stand-in.ts";
@@ -295,8 +295,9 @@ const UNDERSTOOD: Record<string, unknown> = {
   },
 };
 
-// the door: each call answered as the real models answered it, in their shapes
-export function replayDoor(): (body: StandInBody) => StandInPlan {
+// the door: each call answered as the real models answered it, in their shapes. checker "reject": the checker finds
+// every sentence unsupported, so every reason comes from the sources' own words
+export function replayDoor(opts: { checker?: "accept" | "reject" } = {}): (body: StandInBody) => StandInPlan {
   let writes = 0;
   return (body) => {
     const prompt = body.messages?.at(-1)?.content ?? "";
@@ -311,7 +312,8 @@ export function replayDoor(): (body: StandInBody) => StandInPlan {
       writes++;
       const ids = [...prompt.matchAll(/^(p\d+) · /gm)].map((m) => m[1]);
       const firstQuote = (id: string) => /\[(q\d+)\]/.exec(prompt.slice(prompt.indexOf(`${id} · `)))?.[1] ?? "q1";
-      // every third answer cut off mid-word, as two of the first run's three were
+      // every third answer cut off mid-word: the first run's calls log shows one write that couldn't be read (202
+      // characters after 254 s); why the vacuum's reasons were lost too is not recorded (its write and check were ok)
       if (writes % 3 === 0) return { content: `{"products": [{"id": "${ids[0]}", "why": [{"text": "It recov` };
       return {
         content: JSON.stringify({
@@ -333,7 +335,10 @@ export function replayDoor(): (body: StandInBody) => StandInPlan {
     if (prompt.startsWith("Each sentence below"))
       return {
         content: JSON.stringify({
-          verdicts: [...prompt.matchAll(/^(\d+)\. /gm)].map((m) => ({ n: Number(m[1]), supported: true })),
+          verdicts: [...prompt.matchAll(/^(\d+)\. /gm)].map((m) => ({
+            n: Number(m[1]),
+            supported: opts.checker !== "reject",
+          })),
         }),
       };
     if (prompt.startsWith("Below is text from a store's page")) return { content: '{"price": null, "regular": null}' };

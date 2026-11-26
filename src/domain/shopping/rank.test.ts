@@ -235,3 +235,51 @@ test("a question whose every option keeps the same top pick doesn't decide; one 
   ];
   assert.deepEqual([...deciding(need, {}, products)], ["quiet"]);
 });
+
+test("the places follow the scores: one scored above the best overall on under half its weight is only also considered", () => {
+  // X is known on carpet alone (44% of the weight measured here), Y on hard floors and mop (56%): X scores higher
+  const r = byId(rank(NEED, {}, [p("X", { a: 95 }, null), p("Y", { b: 40, mop: false }, null)]));
+  assert.ok((r.X.score ?? 0) > (r.Y.score ?? 0));
+  assert.deepEqual([r.Y.place, r.Y.labels[0]?.key], [1, "overall"]);
+  assert.equal(r.X.place, null);
+  assert.equal(r.X.out, "too little measured to rank above the best overall: 1 of 3 criteria");
+});
+
+test("thin products stay off a list one product reaches; with none reaching the floor, the list is kept and flagged", () => {
+  const one = byId(
+    rank({ ...NEED, listSize: 8 }, {}, [
+      p("C", { a: 90, b: 80, noise: 60, mop: true }, null),
+      p("A", { mop: true }, null),
+      p("B", { b: 85 }, null),
+    ]),
+  );
+  assert.equal(one.C.place, 1);
+  assert.equal(one.A.out, "too little measured to rank: 1 of 4 criteria");
+  assert.equal(one.B.out, "too little measured to rank: 1 of 4 criteria");
+  // each known on one criterion of three that weigh the same: a third each, none at two fifths
+  const even = { ...NEED, listSize: 8, criteria: NEED.criteria.map((c) => ({ ...c, weight: 25 })) };
+  const none = byId(rank(even, {}, [p("A", { mop: true }, null), p("B", { b: 85 }, null), p("D", { a: 70 }, null)]));
+  for (const x of [none.A, none.B, none.D]) {
+    assert.notEqual(x.place, null);
+    assert.deepEqual(x.labels, []);
+    assert.ok(x.flags.includes("too little measured: 1 of 3 criteria"), x.flags.join(" | "));
+  }
+});
+
+test("US list prices name Best value by their currency and never Budget; region prices name both", () => {
+  const usd = (id: string, f: Parameters<typeof p>[1], dollars: number): RankProduct => ({
+    ...p(id, f, null),
+    other: { price: dollars * 100, currency: "USD" },
+  });
+  const r = rank({ ...NEED, listSize: 4 }, {}, [
+    usd("H", { a: 95, b: 90, noise: 60, mop: true }, 1895),
+    usd("R", { a: 88, b: 85, noise: 62, mop: true }, 299),
+    usd("N", { a: 80, b: 80, noise: 64, mop: true }, 750),
+  ]);
+  const labels = r.flatMap((x) => x.labels);
+  assert.ok(
+    labels.some((l) => l.text === "Best value (US list prices)"),
+    JSON.stringify(labels),
+  );
+  assert.ok(!labels.some((l) => l.key === "budget" || l.key === "premium" || l.text === "Best value"));
+});

@@ -34,6 +34,7 @@ const CriterionShape = z.object({
   options: z.array(z.string()).optional(),
   range: z.tuple([z.number(), z.number()]).optional(),
   names: z.array(z.string().min(2)).optional(),
+  yes: z.array(z.string().min(2)).optional(),
 });
 export const Category = z.object({
   key: z.string().regex(KEY, "a key of 2 to 40 lowercase letters, digits and dashes"),

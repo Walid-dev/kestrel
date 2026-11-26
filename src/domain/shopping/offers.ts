@@ -5,7 +5,7 @@
 // search in the region), so each has a chance at a price; then each readable store still without a page gets
 // "<brand model>" site:<store>, while the run's searches last. A hit counts only when its title or address holds a code
 // that tells the product apart. A price in a search result's words, for a listed store's page, is kept on that store's
-// row as the search result's: never read from the page, never a reading, never the best price. The page is read by the
+// row as the search result's: never read from the page, never a reading, never the best price, never ranked. The page is read by the
 // store-page reader (ai/shopping/product-data.ts). A store left when the searches run out is unsearched, with its
 // search link. A store an open search turns up but the region file doesn't list is never read. Every offer is kept by
 // its address, every reading with it.
@@ -48,23 +48,68 @@ export function searchName(p: Pick<ProductRow, "name" | "brand" | "models">): st
   return !brand || p.name.toLowerCase().startsWith(brand.toLowerCase()) ? p.name : `${brand} ${p.name}`;
 }
 
+const onStore = (url: string, store: Store) => {
+  const h = hostOf(url);
+  const d = store.domain.replace(/^www\./, "");
+  return h === d || h.endsWith(`.${d}`);
+};
+// a hit that is this product: its title or its address holds one of the product's codes
+const codeRe = (code: string) => {
+  const chars = code.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return chars.length < 2 ? null : new RegExp(`(?<![a-z0-9])${[...chars].join("[^a-z0-9]{0,3}")}(?![a-z0-9])`, "i");
+};
 // a price a search result's words show for a store's page, in the region's currency ("$449.99", "C$449"), never one in
-// another currency or a monthly payment: kept as the search result's, never read from the page and never the best
-export function snippetPrice(snippet: string, currency: string): { cents: number; words: string } | null {
-  for (const m of snippet.matchAll(
+// another currency, a monthly payment, a saving ("Save $100", "$50 off"), a former price ("Was $549.99", "Reg.
+// $549.99") or a threshold ("free shipping over $35"). With several prices left, only the one the product's code sits
+// right before counts, else none: a search result's words are a guess, so a doubtful one is no price at all. Kept as
+// the search result's, shown and never ranked
+export function snippetPrice(
+  snippet: string,
+  currency: string,
+  codes: string[] = [],
+): { cents: number; words: string } | null {
+  const found: { cents: number; at: number; words: string }[] = [];
+  // a range ("$199.99 to $649.99") is many products' prices: blanked, never read
+  const text = snippet.replace(/\$\s?[\d,.]+\s*(?:to|-|–)\s*(?:C|CA|US)?\$\s?[\d,.]+/gi, (r) => " ".repeat(r.length));
+  for (const m of text.matchAll(
     /(US\s?\$|USD\s?|C\s?\$|CA\$|CAD\s?\$?|\$)\s?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?|\d+(?:\.\d{2})?)/gi,
   )) {
+    const at = m.index ?? 0;
     const sign = m[1].toUpperCase().replace(/\s/g, "");
     if (sign.startsWith("US")) continue;
     if (currency !== "CAD" && sign !== "$") continue;
-    const after = snippet.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 14);
+    const after = snippet.slice(at + m[0].length, at + m[0].length + 14);
     if (/^\s*(\/\s?mo|per month|a month|\/month|bi-?weekly)/i.test(after)) continue;
+    const before = snippet.slice(Math.max(0, at - 16), at);
+    if (
+      /\b(save|saving|savings|was|reg|regular|regularly|compare at|list|msrp|orig|original|from|over|under|above|orders)[\s.:]*$|-$/i.test(
+        before,
+      )
+    )
+      continue;
+    if (/^\s*off\b/i.test(after)) continue;
     const cents = Math.round(Number.parseFloat(m[2].replace(/,/g, "")) * 100);
     if (cents < 500) continue; // a shipping fee or a gift card's, never a product's
-    const from = Math.max(0, (m.index ?? 0) - 30);
-    return { cents, words: snippet.slice(from, (m.index ?? 0) + m[0].length + 10).trim() };
+    found.push({ cents, at, words: snippet.slice(Math.max(0, at - 30), at + m[0].length + 10).trim() });
   }
-  return null;
+  if (found.length <= 1) return found[0] ? { cents: found[0].cents, words: found[0].words } : null;
+  // the words between the price before (or 100 characters back) and this one hold the product's code
+  const near = found.filter((f, i) => {
+    const from = Math.max(f.at - 100, i > 0 ? found[i - 1].at : 0);
+    return codes.some((c) => codeRe(c)?.test(snippet.slice(from, f.at)) ?? false);
+  });
+  return near.length === 1 ? { cents: near[0].cents, words: near[0].words } : null;
+}
+
+// a search result for an accessory or a part of the product ("Sony WH-1000XM6 Replacement Ear Pads", "Case for …"):
+// its code is in the title, its price is another thing's. Words the product's own name holds don't count
+const ACCESSORY =
+  /\b(replacement|compatible|ear ?pads?|ear ?cushions?|charger|filters?|side brush(es)?|mop pads?|dust bags?|accessor(y|ies)|spare parts?|refills?|screen protectors?)\b/gi;
+export function accessoryOf(title: string, p: Pick<ProductRow, "name" | "brand">): boolean {
+  const own = p.name.toLowerCase();
+  if ([...title.matchAll(ACCESSORY)].some((m) => !own.includes(m[0].toLowerCase()))) return true;
+  const brand = p.brand.trim().toLowerCase();
+  return brand.length > 1 && title.toLowerCase().includes(`for ${brand}`);
 }
 
 // the stores for a product: the region's in the kind's groups, the readable first, eight at most; the brand's own when
@@ -87,16 +132,6 @@ export function storesOf(region: Region, need: Pick<Need, "storeGroups">, brand:
     : ordered;
 }
 
-const onStore = (url: string, store: Store) => {
-  const h = hostOf(url);
-  const d = store.domain.replace(/^www\./, "");
-  return h === d || h.endsWith(`.${d}`);
-};
-// a hit that is this product: its title or its address holds one of the product's codes
-const codeRe = (code: string) => {
-  const chars = code.toLowerCase().replace(/[^a-z0-9]/g, "");
-  return chars.length < 2 ? null : new RegExp(`(?<![a-z0-9])${[...chars].join("[^a-z0-9]{0,3}")}(?![a-z0-9])`, "i");
-};
 const holdsCode = (hit: Hit, wanted: Wanted) =>
   wanted.codes.some((c) => {
     const re = codeRe(c);
@@ -175,7 +210,9 @@ export async function findOffers(
       for (const h of hits) {
         if (!onStore(h.url, s) || !holdsCode(h, plan.wanted)) continue;
         if (s.read === "page" && !plan.pages.has(s.domain)) plan.pages.set(s.domain, h.url);
-        const price = snippetPrice(`${h.title} ${h.snippet}`, deps.region.currency);
+        const price = accessoryOf(h.title, plan.p)
+          ? null
+          : snippetPrice(`${h.title} ${h.snippet}`, deps.region.currency, plan.wanted.codes);
         if (price && !plan.snippets.has(s.domain)) plan.snippets.set(s.domain, { url: h.url, ...price });
       }
   };

@@ -18,11 +18,11 @@ import { idle, startNext } from "./run.ts";
 import { addWant, getWant } from "./store.ts";
 import { wantView } from "./view.ts";
 
-async function replay(t: { after: (fn: () => Promise<void>) => void }) {
+async function replay(t: { after: (fn: () => Promise<void>) => void }, door_: Parameters<typeof replayDoor>[0] = {}) {
   const db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys = ON;");
   migrate(db, ":memory:");
-  const door = await startStandIn(replayDoor());
+  const door = await startStandIn(replayDoor(door_));
   t.after(() => door.close());
   const region = loadRegion();
   const searched: string[] = [];
@@ -49,6 +49,7 @@ async function replay(t: { after: (fn: () => Promise<void>) => void }) {
   };
   return { db, ids, view, searched };
 }
+const parkaOf = (v: WantView) => named(v, "REI Co-op Stormhenge 850 Down Hybrid Parka");
 const named = (v: WantView, name: string): ProductView => {
   const p = [...v.products, ...v.also].find((x) => x.name === name);
   assert.ok(p, `${name} isn't on the page: ${[...v.products, ...v.also].map((x) => x.name).join(", ")}`);
@@ -102,6 +103,10 @@ test("the three wants of the first live run, replayed: each failure looked for o
   );
   assert.equal(named(jacket, "Canada Goose Expedition Parka Heritage").facts.hood, undefined);
   assert.equal(named(jacket, "Carhartt Men's 103826 Bartlett Jacket").facts.weight?.unit, "g");
+  // "Water resistant" and "Weatherproof" name the weather, and neither says waterproof: no yes from them
+  assert.equal(parkaOf(jacket).facts.waterproof, undefined);
+  assert.equal(named(jacket, "Canada Goose Expedition Parka Heritage").facts.waterproof, undefined);
+  assert.equal(named(jacket, "Fjallraven Nuuk Parka").facts.waterproof?.v, true);
 
   // 5. prices: an out-of-stock store price is the price level, a review's list price is kept in its own currency, a
   // search result's price is marked as one, and none of them is where to buy now
@@ -120,9 +125,23 @@ test("the three wants of the first live run, replayed: each failure looked for o
     "US$1,895 list price in outdoorgearlab.com's review (USD, not checked against my budget)",
   );
   assert.equal(heritage.budget, "unknown", "a price in US dollars is never checked against my budget");
+  // US list prices name Best value only by name ("US list prices"), never Budget: my budget is in Canadian dollars
+  const jacketLabels = jacket.products.flatMap((p) => p.labels);
+  assert.ok(!jacketLabels.some((l) => l.key === "budget"), JSON.stringify(jacketLabels));
+  assert.ok(
+    jacketLabels.filter((l) => l.key === "value").every((l) => l.text === "Best value (US list prices)"),
+    JSON.stringify(jacketLabels),
+  );
+  // the page says which prices it has, and what they can't name
+  assert.equal(
+    jacket.pricing,
+    jacketLabels.some((l) => l.key === "value")
+      ? "Best value compares the reviews' US list prices: no CAD price is known for these products yet. Budget waits for CAD prices, since my budget is in CAD."
+      : "Only the reviews' US list prices are known here. Budget needs CAD prices, since my budget is in CAD; Best value needs two products near the top priced alike.",
+  );
 
   // 6. the parka never matched the keyboard: searched by its brand and model, and no offer from that page
-  const parka = named(jacket, "REI Co-op Stormhenge 850 Down Hybrid Parka");
+  const parka = parkaOf(jacket);
   assert.ok(!parka.offers.some((o) => /incase|keyboard/i.test(o.url)));
   assert.ok(!searched.some((q) => /^"850"/.test(q)));
   assert.ok(searched.some((q) => q.startsWith('"REI Co-op Stormhenge 850 Down Hybrid Parka"')));
@@ -142,4 +161,27 @@ test("the three wants of the first live run, replayed: each failure looked for o
   const pe = named(vacuum, "Dreame L60 Ultra PE");
   assert.deepEqual([pe.facts.tangle?.v, pe.facts.tangle?.unit], [0, "%"]);
   assert.equal(vacuum.kind.fields.find((f) => f.key === "c:tangle")?.better, "lower");
+});
+
+test("a checker that finds every sentence unsupported: the loss is logged, and each product still says why", async (t) => {
+  const { ids, view } = await replay(t, { checker: "reject" });
+  const lines: string[] = [];
+  for (const id of Object.values(ids)) {
+    const v = view(id);
+    for (const p of v.products) {
+      assert.ok(p.words.why.length, `${p.name} has no why`);
+      assert.ok(
+        p.words.why.every((s) => s.refs.length > 0 && s.text.includes("“")),
+        `${p.name}: ${JSON.stringify(p.words.why)}`,
+      );
+    }
+    const line = v.log.find((l) => /^Reasons: \d+ written, 0 kept/.test(l.text));
+    if (v.products.length) assert.ok(line, v.log.map((l) => l.text).join(" | "));
+    lines.push(line?.text ?? "");
+  }
+  // the checker's refusals are counted where its answer was read (one want's only write is the cut-off one)
+  assert.ok(
+    lines.some((l) => /\d+ the checker found unsupported/.test(l)),
+    lines.join(" | "),
+  );
 });

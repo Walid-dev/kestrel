@@ -23,6 +23,7 @@ export type Criterion = {
   options?: string[];
   range?: [number, number]; // a sane value, in its unit: one outside is refused (a weight of 4.65 g)
   names?: string[]; // words that say what it measures; a value whose quote, line or table head says none is refused
+  yes?: string[]; // for a yes-or-no: words a yes must hold in its own quote ("water resistant" is no "waterproof")
 };
 // a must-have: on a criterion when one fits (a bool to be true, a number within min and max, an enum to be one value)
 export type Hard = { criterion: string; says: string; min?: number; max?: number; is?: boolean | string };
@@ -280,7 +281,7 @@ export type ShoppingHome = {
 };
 
 export const RANK_RULE =
-  "Ranked by kestrel's own rule: each criterion's measured or stated value from sources that test, weighted for this kind of product and my answers; must-haves checked one by one; prices from the stores' own page data. No ads, no affiliate links, no paid ranking.";
+  "Ranked by kestrel's own rule: each criterion's measured or stated value from sources that test, weighted for this kind of product and my answers; must-haves checked one by one. Prices, in this order: a store's own page data (in stock, else its price level when out of stock), then a list price a testing review states. A review's list price in another currency only compares with others in that currency, never with my budget; a price only a search result shows is displayed, never ranked. No ads, no affiliate links, no paid ranking.";
 
 // ── The two kinds ──────────────────────────────────────────────────────────────────────────────────────────────────
 

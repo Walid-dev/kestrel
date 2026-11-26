@@ -272,7 +272,7 @@ function Want({ view: v, onOpen }: { view: WantView; onOpen: (product: string | 
               hint={
                 named
                   ? "The product I named first, then what the sources compare it with."
-                  : "The products the ranking labelled, each with its best verified price."
+                  : "The products the ranking labelled, each with its price and where that price comes from."
               }
             />
             {v.pricing && <p className="m-0 text-detail text-muted">{v.pricing}</p>}

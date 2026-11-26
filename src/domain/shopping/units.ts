@@ -121,8 +121,24 @@ export function fitNumber(c: Criterion, v: number, quote: string, context: strin
   return { ok: true, v: value, ...(unit ? { unit } : {}) };
 }
 
-// a yes-or-no or a word under its criterion: the context names what the criterion measures
-export const fitWords = (c: Criterion, context: string): Fit =>
-  names(context, namesOf(c))
-    ? { ok: true, v: 0 }
-    : { ok: false, why: `the quote doesn't say it is ${c.label.toLowerCase()}` };
+// a yes in its own quote: one of the criterion's yes words, not negated ("not waterproof", "non-waterproof"). The
+// names alone prove the quote is about the criterion, not that it says yes: "Water resistant" names water and is no
+// waterproof shell (the first live run kept it as Waterproof: yes)
+export function saysYes(yes: string[], quote: string): boolean {
+  const q = quote.toLowerCase();
+  return yes.some((w) => {
+    const word = w.toLowerCase();
+    for (let at = q.indexOf(word); at !== -1; at = q.indexOf(word, at + 1))
+      if (!/(?:\bnot|\bnon|\bno|\bisn't|\baren't)[\s-]*$/.test(q.slice(Math.max(0, at - 8), at))) return true;
+    return false;
+  });
+}
+
+// a yes-or-no or a word under its criterion: the context names what the criterion measures, and a yes says it in its
+// own quote when the criterion lists its yes words
+export function fitWords(c: Criterion, context: string, v?: unknown, quote = ""): Fit {
+  if (!names(context, namesOf(c))) return { ok: false, why: `the quote doesn't say it is ${c.label.toLowerCase()}` };
+  if (v === true && c.yes?.length && !saysYes(c.yes, quote))
+    return { ok: false, why: `the quote doesn't say yes to ${c.label.toLowerCase()} (${c.yes[0]})` };
+  return { ok: true, v: 0 };
+}

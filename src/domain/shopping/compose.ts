@@ -298,17 +298,24 @@ export const WRITE_BATCH = 3;
 const WRITE_ROOM = 4000;
 
 // a sentence's refs as the model gave them, made the prompt's own: "q3", "Q3", "[q3]", 3 and "3" are q3; a source's
-// ref ("s1") stands for the product's quotes from that source; refs written inside the text ("… [q3]") count too and
-// leave the text
+// ref ("s1") stands for the product's quotes from that source; refs written inside the text count too and leave it:
+// "… [q3]", "… (q3, q4)", "… (source: q4)", "… [refs: q1, q2]", and q-numbers alone at the sentence's end ("… q5.")
 export function refsOf(raw: string[], text: string, bySource: Map<string, string[]>): { refs: string[]; text: string } {
   // inside square brackets a bare number is a ref ("[3]"); inside parentheses only a q or s one is ("(q3)"), so "(40)"
-  // in a sentence stays a number
-  const REF = /\[\s*((?:[qs]?\d+\s*[,;]?\s*)+)\]|\(\s*((?:[qs]\d+\s*[,;]?\s*)+)\)/gi;
-  const inline = [...text.matchAll(REF)].flatMap((m) => (m[1] ?? m[2] ?? "").split(/[\s,;]+/));
-  const clean = text
-    .replace(new RegExp(`\\s*(?:${REF.source})`, "gi"), "")
-    .replace(/\s+([.,;:!?])/g, "$1")
-    .trim();
+  // in a sentence stays a number. A label may come first ("source:", "refs:", "quotes:", "see")
+  const LABEL = "(?:(?:refs?|references?|sources?|quotes?|citations?|see)\\s*[:=]?\\s*)?";
+  const listOf = (item: string) => `((?:${item}\\s*(?:[,;&]|and)?\\s*)+)`;
+  const REF = new RegExp(`\\[\\s*${LABEL}${listOf("[qs]?\\d+")}\\]|\\(\\s*${LABEL}${listOf("[qs]\\d+")}\\)`, "gi");
+  // the prompt's q-numbers alone at the end, lowercase only: "Samsung Q80" is a TV, "q80" is a ref
+  const TAIL = /(?:\s|^)((?:q\d+\s*(?:[,;&]|and)?\s*)+)([.!?]?)\s*$/;
+  const inline = [...text.matchAll(REF)].flatMap((m) => (m[1] ?? m[2] ?? "").split(/[\s,;&]+|and/i));
+  let clean = text.replace(new RegExp(`\\s*(?:${REF.source})`, "gi"), "");
+  const tail = TAIL.exec(clean);
+  if (tail) {
+    inline.push(...tail[1].split(/[\s,;&]+|and/));
+    clean = `${clean.slice(0, tail.index).trimEnd()}${tail[2]}`;
+  }
+  clean = clean.replace(/\s+([.,;:!?])/g, "$1").trim();
   const refs: string[] = [];
   for (const r of [...raw, ...inline].map((x) => x.replace(/[[\]()\s]/g, "").toLowerCase()).filter(Boolean)) {
     const q = /^q?(\d+)$/.exec(r);
@@ -320,7 +327,7 @@ export function refsOf(raw: string[], text: string, bySource: Map<string, string
 
 // reasons from the sources themselves, for a finalist whose written ones were all lost: its values on the criteria that
 // weigh most, each in its source's words, then a pro in the page's words. A product on the list always says why
-export function sourcesWhy(m: Merged, need: Need, weights: Record<string, number>): Said[] {
+export function sourcesWhy(m: Pick<Merged, "facts" | "words">, need: Need, weights: Record<string, number>): Said[] {
   const out: Said[] = [];
   const quoted = new Set<string>();
   const order = [...need.criteria].sort((a, b) => (weights[b.key] ?? 0) - (weights[a.key] ?? 0));
@@ -408,11 +415,16 @@ export async function composeList(
     };
   });
   const idOf = new Map(products.map((p, i) => [p.id, order[i].id]));
-  // an id as a model may write it: "p3", "P3", 3, or the product's name
+  // an id as a model may write it: "p3", "P3", 3, or the product's name (with or without its brand, in any case)
   const productOf = (id: string): string | undefined => {
     const n = /^p?(\d+)$/i.exec(id.trim())?.[1];
-    const named = products.find((p) => p.name.toLowerCase() === id.trim().toLowerCase());
-    return idOf.get(n ? `p${Number(n)}` : (named?.id ?? ""));
+    if (n) return idOf.get(`p${Number(n)}`);
+    const want = plain(id);
+    if (want.length < 3) return undefined;
+    const named =
+      products.find((p) => plain(p.name) === want) ??
+      products.find((p) => plain(p.name).endsWith(want) || want.endsWith(plain(p.name)));
+    return named ? idOf.get(named.id) : undefined;
   };
   const needWords = {
     name: need.name,
@@ -430,6 +442,7 @@ export async function composeList(
   };
   const lines: Line[] = [];
   let unread = 0; // products whose batch's answer couldn't be read
+  let stray = 0; // sentences written for a product id the batch doesn't hold
   let roomOut = false;
   for (let at = 0; at < products.length; at += WRITE_BATCH) {
     const batch = products.slice(at, at + WRITE_BATCH);
@@ -465,7 +478,10 @@ export async function composeList(
     };
     for (const p of write.value.products) {
       const product = productOf(p.id);
-      if (!product || !inBatch.has(product)) continue;
+      if (!product || !inBatch.has(product)) {
+        stray += p.why.length + (p.tradeoff ? 1 : 0) + (p.notFor ? 1 : 0);
+        continue;
+      }
       for (const s of p.why.slice(0, 3)) push(product, "why", s);
       if (p.tradeoff) push(product, "tradeoff", p.tradeoff);
       if (p.notFor) push(product, "notFor", p.notFor);
@@ -480,7 +496,7 @@ export async function composeList(
         ? `the writer ran out of room for ${unread} ${unread === 1 ? "product" : "products"}: their reasons are their sources' own words`
         : `the writer's answer for ${unread} ${unread === 1 ? "product" : "products"} couldn't be read: their reasons are their sources' own words`,
     );
-  const wrote = lines.filter((l) => l.text).length;
+  const wrote = lines.filter((l) => l.text).length + stray;
   const names = finalists.map((r) => byKey.get(r.id) as Merged);
   // the code's check: every sentence rests on a quote kestrel gave, every ref exists, and every number is in its quotes
   // (the names taken out first). A sentence with no ref is never kept: nothing would check it
@@ -560,6 +576,7 @@ export async function composeList(
   const general = (slot: Line["slot"]) => kept.filter((l) => l.slot === slot).map(said);
   // where the reasons were lost, never silent: the page's notes and the run's log say it
   const lostParts = [
+    stray && `${stray} for a product id it wasn't given`,
     dropped.refs && `${dropped.refs} cited no quote kestrel gave`,
     dropped.numbers && `${dropped.numbers} held a number their quotes don't`,
     dropped.checker && `${dropped.checker} the checker found unsupported`,

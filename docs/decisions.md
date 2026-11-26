@@ -5,6 +5,36 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-26 · Shopping's first fix, reviewed: a search result's price is shown, never ranked.**
+  `snippetPrice` took the first dollar amount in a result: "Save $100 … Now $449.99" gave $100, an ear pad's result
+  gave $29.99, and `rerank` passed that price to `rank()`, where it failed the budget and named Budget. Now
+  `rankingPrice` leaves a search result's price out of the ranking, the budget line and the price-change log; it stays
+  on the card and its store row. `snippetPrice` skips savings, former prices, thresholds and ranges, keeps one of
+  several only when the product's code sits right before it, and an accessory's result (`accessoryOf`) gives none.
+  Rejected: keeping it in the ranking with a better parser (a result's words stay a guess).
+- **2026-11-26 · Budget and Premium need the region's currency; Best value by US list prices says so.**
+  The replayed jacket got Best value and Budget from US$299 against US$1,895 while my budget is in CAD. Budget and
+  Premium now need prices in the region's currency; Best value from another currency's list prices reads "Best value
+  (US list prices)", and `pricing` says when a review's US list prices are the only prices. `RANK_RULE` and the picks'
+  heading name each kind of price.
+- **2026-11-26 · A yes needs its own quote to say yes (`yes` on a criterion).**
+  `fitWords` accepted any quote holding a name, and "waterproof" matches "water resistant" by its five-letter stem:
+  "Water resistant" and "Weatherproof" were kept as Waterproof: yes. A bool criterion's `yes` lists the words a true
+  value's quote must hold, not negated; the jacket's and boots' `waterproof` have it, `dwr` joins their names so "No,
+  DWR finish" is a fair no, and "weatherproof" leaves the jacket's names. Rejected: dropping the names alone (the stem
+  still matched).
+- **2026-11-26 · The places follow the scores; thin products never return to the list.**
+  A product with 40 to 50% of its weight known could out-score the best overall and sit below it. It is now also
+  considered ("too little measured to rank above the best overall"), so place order equals score order. The floor no
+  longer drops to 0 when fewer than two products reach it: one that reaches it is listed alone; when none does, the
+  list keeps them, each flagged "too little measured", none labelled. Rejected: one floor of 0.5 for both (it dropped
+  the replayed Narwal Freo 20 at 47%).
+- **2026-11-26 · A product the re-rank brings onto the list says why.**
+  `rerank` after the offers can bring in a product with no written reasons; it now gets its sources' own words
+  (`sourcesWhy`), saved with it, and a "Reasons:" line in the log. The writer's answer is read with more id and ref
+  forms (name, `product_id`, `productId`, `trade_offs`, `quote_refs`, `[text, refs]`, products at the top by id,
+  "(source: q4)", "[refs: q1, q2]", a trailing lowercase "q5"), and sentences for an id the batch doesn't hold are
+  counted in the "Reasons:" line. The replay now also runs with a checker that refuses every sentence.
 - **2026-11-26 · Shopping after its first live run: each failure a test from the recorded evidence.**
   The live run (three made-up wants, the real models, the door's real search and reader) ran clean but its lists
   weren't usable. Each failure is now a test built from what it recorded (`domain/shopping/live-run.test.ts`, its page

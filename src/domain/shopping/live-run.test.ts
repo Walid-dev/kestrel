@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { Pacer, readStorePage, type Wanted } from "../../ai/shopping/product-data.ts";
-import type { ReadAnswer } from "../../ai/shopping/shape.ts";
+import { type ReadAnswer, WriteAnswer } from "../../ai/shopping/shape.ts";
 import { startStandIn } from "../../ai/stand-in.ts";
 import { migrate } from "../../db/migrate.ts";
 import type { Evidence, Fact, Need } from "../../shared/shopping.ts";
@@ -27,7 +27,7 @@ import {
   VACUUMWARS,
   VISIONS_OUT,
 } from "./fixtures/live-run.ts";
-import { findOffers, searchName, snippetPrice, storesOf, wantedOf } from "./offers.ts";
+import { accessoryOf, findOffers, searchName, snippetPrice, storesOf, wantedOf } from "./offers.ts";
 import { rank } from "./rank.ts";
 import { loadHosts, loadRegion, placeOf } from "./region.ts";
 import { scrubContext } from "./scrub.ts";
@@ -154,7 +154,7 @@ test("4. a value under the wrong criterion is refused; units convert; a value ou
   assert.equal(nuuk.facts.weight?.quote, "At 4.6 pounds (size 2XL), the Nuuk delivers");
   assert.equal(nuuk.facts.durability?.v, 9.5);
   assert.equal(heritage.facts.hood, undefined, "weather resistance doesn't measure the hood");
-  assert.equal(heritage.facts.waterproof?.v, true);
+  assert.equal(heritage.facts.waterproof, undefined, "weatherproof names the weather, not a waterproof shell");
   assert.equal(heritage.facts.weight, undefined, "grams per square metre is no jacket weight");
 
   const [carhartt] = checkPage(
@@ -174,6 +174,47 @@ test("4. a value under the wrong criterion is refused; units convert; a value ou
     "s3",
   );
   assert.equal(bare.facts.weight, undefined);
+});
+
+test("4. a yes needs its quote to say yes: water resistant is no waterproof shell; a no names the weather enough", () => {
+  const jacket = needFor("winter-jacket");
+  const refused: string[] = [];
+  const [nuuk, heritage, rei] = checkPage(
+    answer([
+      product("Nuuk Parka", "Fjallraven", { waterproof: { v: true, quote: "dense, heavy, waterproof, and warm" } }),
+      product("Expedition Parka Heritage", "Canada Goose", { waterproof: { v: true, quote: "Weatherproof" } }),
+      product("Stormhenge 850 Down Hybrid Parka", "REI Co-op", { waterproof: { v: true, quote: "Water resistant" } }),
+    ]),
+    GEARLAB,
+    jacket,
+    "CAD",
+    "s2",
+    refused,
+  );
+  assert.equal(nuuk.facts.waterproof?.v, true);
+  assert.equal(heritage.facts.waterproof, undefined);
+  assert.equal(rei.facts.waterproof, undefined);
+  assert.equal(refused.length, 2);
+  assert.match(refused[1], /doesn't say yes to waterproof/);
+  // a no with its reason in the page's words is kept; a yes the quote denies is refused
+  const page = [
+    "## Made-up Summit Parka",
+    "Shell: No, DWR finish only",
+    "## Made-up Valley Parka",
+    "Shell: not waterproof",
+  ];
+  const [summit, valley] = checkPage(
+    answer([
+      product("Made-up Summit Parka", "Made-up", { waterproof: { v: false, quote: "No, DWR finish only" } }),
+      product("Made-up Valley Parka", "Made-up", { waterproof: { v: true, quote: "not waterproof" } }),
+    ]),
+    page.join("\n"),
+    jacket,
+    "CAD",
+    "s3",
+  );
+  assert.equal(summit.facts.waterproof?.v, false);
+  assert.equal(valley.facts.waterproof, undefined);
 });
 
 test("9. hair wrap reads the right way round: 0% wrapped is the best, a 0 never reads as the worst score", () => {
@@ -453,6 +494,159 @@ test("2. every finalist says why from its sources, whatever shape the writer ans
   assert.match(got.lost, /^Reasons: \d+ written, \d+ kept .*unread.*(its|their) sources' own words instead$/);
 });
 
+test("2. the writer's answer is read in more shapes: ids by name, labelled refs, pairs; a stray product is counted", async (t) => {
+  // product ids as names or product_id, trade_offs, quote_refs, a why as a [text, refs] pair, products at the top by id
+  const shapes = WriteAnswer.parse({
+    p1: { name: "Sony WH-1000XM6", why: ["Best noise cancelling measured", ["q1"]], trade_offs: "Pricey (q2)" },
+    p2: { product_id: "p2", why: [{ text: "Long battery", quote_refs: ["q3"] }] },
+  });
+  assert.deepEqual(
+    shapes.products.map((p) => [p.id, p.why.map((w) => [w.text, w.refs]), p.tradeoff?.text ?? null]),
+    [
+      ["p1", [["Best noise cancelling measured", ["q1"]]], "Pricey (q2)"],
+      ["p2", [["Long battery", ["q3"]]], null],
+    ],
+  );
+  const list = WriteAnswer.parse({
+    products: [
+      { name: "Sony WH-1000XM6", why: "Quiet." },
+      { productId: "p3", why: "Light." },
+    ],
+  });
+  assert.deepEqual(
+    list.products.map((p) => p.id),
+    ["Sony WH-1000XM6", "p3"],
+  );
+  // refs labelled or alone at the end; a TV's "Q80" stays a name
+  const none = new Map<string, string[]>();
+  assert.deepEqual(refsOf([], "Quietest on a plane (source: q4).", none), {
+    refs: ["q4"],
+    text: "Quietest on a plane.",
+  });
+  assert.deepEqual(refsOf([], "Long battery (refs: q1, q2).", none), { refs: ["q1", "q2"], text: "Long battery." });
+  assert.deepEqual(refsOf([], "Best on carpet [quotes: q7]", none), { refs: ["q7"], text: "Best on carpet" });
+  assert.deepEqual(refsOf([], "Best on carpet. q5", none), { refs: ["q5"], text: "Best on carpet." });
+  assert.deepEqual(refsOf([], "Brighter than the Samsung Q80.", none), {
+    refs: [],
+    text: "Brighter than the Samsung Q80.",
+  });
+
+  // a product the writer names by an id it wasn't given: its sentences counted as lost, never "0 written"
+  const vacuum = needFor("robot-vacuum", { use: "pets" });
+  const src: Source = {
+    ref: "s1",
+    host: "vacuumwars.com",
+    url: "https://vacuumwars.com/best/",
+    title: "",
+    tier: "A",
+    date: "2026-11",
+    read: "page",
+    family: "vacuumwars.com",
+  };
+  const rec = (name: string, f: Record<string, number | boolean>) => ({
+    source: "s1",
+    name,
+    brand: "Made-up",
+    models: [],
+    label: "",
+    facts: Object.fromEntries(Object.entries(f).map(([k, v]) => [k, { v, quote: `${name} ${k} ${v}` }])),
+    pros: [],
+    cons: [],
+    skip: [],
+    price: null,
+  });
+  const merged = mergeFound(
+    [
+      rec("Made-up R1", { "pickup-carpet": 93, navigation: 23, mop: true, tangle: 0 }),
+      rec("Made-up R2", { "pickup-carpet": 90, navigation: 22, mop: true, tangle: 2 }),
+    ],
+    [src],
+    vacuum,
+    { modelRules: [] },
+    new Date("2026-11-26T12:00:00Z"),
+  );
+  const door = await startStandIn((body) => {
+    const prompt = body.messages.at(-1)?.content ?? "";
+    if (prompt.startsWith("Write short reasons")) {
+      const ids = [...prompt.matchAll(/^(p\d+) · /gm)].map((m) => m[1]);
+      const q = /\[(q\d+)\]/.exec(prompt.slice(prompt.indexOf(`${ids[0]} · `)))?.[1] ?? "q1";
+      return {
+        content: JSON.stringify({
+          products: [
+            { id: ids[0], why: [`Top on carpet (source: ${q}).`] },
+            { id: "p9", why: ["Strong.", "Quiet."] },
+          ],
+        }),
+      };
+    }
+    if (prompt.startsWith("Each sentence below"))
+      return {
+        content: JSON.stringify({
+          verdicts: [...prompt.matchAll(/^(\d+)\. /gm)].map((m) => ({ n: Number(m[1]), supported: true })),
+        }),
+      };
+    return { content: "{}" };
+  });
+  t.after(() => door.close());
+  const got = await composeList(
+    { seed: "made-up-seed", need: vacuum, answers: {}, budget: null, merged, price: () => null },
+    {
+      models: { url: door.url, careful: "m", fast: "m", contextChars: 400_000 },
+      model: "m",
+      checkModel: "m",
+      record: () => {},
+    },
+  );
+  assert.ok(
+    [...got.words.values()].some((w) => w.why.some((s) => s.text === "Top on carpet.")),
+    JSON.stringify([...got.words.values()].map((w) => w.why)),
+  );
+  assert.match(got.lost, /^Reasons: 3 written, 1 kept \(2 for a product id it wasn't given\)/);
+});
+
+test("2. a product the re-rank brings onto the list says why in its sources' words, and the log says so", () => {
+  const db = new DatabaseSync(":memory:");
+  db.exec("PRAGMA foreign_keys = ON;");
+  migrate(db, ":memory:");
+  const vacuum = needFor("robot-vacuum", { use: "pets" });
+  const want = addWant(db, { words: "a robot vacuum for pet hair" });
+  updateWant(db, want, { state: "done", need: vacuum, job: null });
+  const facts = (carpet: number, nav: number): Record<string, Fact> => ({
+    "pickup-carpet": { v: carpet, unit: "%", ref: "s1", quote: `recovered ${carpet}% of embedded sand` },
+    navigation: { v: nav, ref: "s1", quote: `avoided ${nav} of 24 obstacles` },
+    mop: { v: true, ref: "s1", quote: "mops as it goes" },
+    tangle: { v: 0, unit: "%", ref: "s1", quote: "0% hair wrap" },
+  });
+  for (const [name, f, why] of [
+    ["Made-up R1", facts(93, 23), [{ text: "Best on carpet.", refs: ["s1"] }]],
+    ["Made-up R2", facts(90, 22), []],
+  ] as const)
+    saveProduct(db, want, {
+      key: name.toLowerCase(),
+      name,
+      brand: "Made-up",
+      models: [],
+      facts: f,
+      words: {
+        ...NO_WORDS,
+        why: why.map((x) => ({ text: x.text, refs: [...x.refs] })),
+        pros: [{ text: "cleaned well", refs: ["s1"] }],
+      },
+      usual: null,
+      evidence: ev(2, 1, ["s1"]),
+    });
+  rerank(db, want, placeOf(loadRegion()), new Date("2026-11-26T12:00:00Z"));
+  const view = wantView(db, want, { place: placeOf(loadRegion()) });
+  const r2 = view?.products.find((p) => p.name === "Made-up R2");
+  assert.ok(r2, "R2 is on the list");
+  assert.equal(r2.words.why[0]?.text, "Carpet pickup: “recovered 90% of embedded sand”");
+  assert.deepEqual(r2.words.why[0]?.refs, ["s1"]);
+  assert.equal(view?.products.find((p) => p.name === "Made-up R1")?.words.why[0]?.text, "Best on carpet.");
+  assert.ok(
+    view?.log.some((l) => /^Reasons: 1 product came onto the list after the prices .*\(Made-up R2\)$/.test(l.text)),
+  );
+});
+
 const REACH = { resolve: async () => ["93.184.215.14"], head: async () => ({ status: 200, location: null }) };
 const page = (url: string, body: string) => ({
   reach: REACH,
@@ -656,6 +850,98 @@ test("5. a search result's price for a listed store's page is kept as the search
   assert.equal(xm6.priceNote, "$499.99 in a search result for Best Buy, not read on its page");
   assert.equal(snippetPrice("From US$499.99 at the maker", "CAD"), null);
   assert.equal(snippetPrice("Only $41.67/mo for 12 months", "CAD"), null);
+});
+
+test("5. a search result's words give a price only when it is surely the product's, and it never meets the budget", async () => {
+  const codes = ["WH-1000XM6"];
+  const cents = (s: string) => snippetPrice(s, "CAD", codes)?.cents ?? null;
+  // a saving, a former price, a threshold: never the price
+  assert.equal(cents("Save $100.00 on the Sony WH-1000XM6. Now $449.99 at Best Buy."), 44_999);
+  assert.equal(cents("Get $50 off Sony WH-1000XM6 Wireless Noise Cancelling Headphones"), null);
+  assert.equal(cents("Sony WH-1000XM6 Was $549.99 now $449.99"), 44_999);
+  assert.equal(cents("Sony WH-1000XM6 $449.99 Reg. $549.99. Free shipping on orders over $35."), 44_999);
+  assert.equal(cents("Sony WH-1000XM6 (-$100) $449.99"), 44_999);
+  // two prices: the one the code sits right before, else none
+  assert.equal(cents("Sony WH-1000XM6 $449.99 · Sony WH-1000XM5 $349.99"), 44_999);
+  assert.equal(cents("Headphones from $199.99 to $649.99 at Best Buy"), null);
+  // an accessory's result: its code in the title, its price another thing's
+  const xm6 = { name: "Sony WH-1000XM6", brand: "Sony" };
+  assert.equal(accessoryOf("Sony WH-1000XM6 Replacement Ear Pads | Best Buy Canada", xm6), true);
+  assert.equal(accessoryOf("Hard Case for Sony WH-1000XM6 Headphones", xm6), true);
+  assert.equal(accessoryOf("Sony WH-1000XM6 Wireless Noise Cancelling Headphones | Best Buy Canada", xm6), false);
+
+  // a search result's price is shown, never ranked: over the budget, it drops nothing; the budget stays unknown
+  const db = new DatabaseSync(":memory:");
+  db.exec("PRAGMA foreign_keys = ON;");
+  migrate(db, ":memory:");
+  const phones = needFor("headphones", { listSize: 3 });
+  const want = addWant(db, { words: "noise-cancelling headphones", budget: 300 });
+  updateWant(db, want, { state: "done", need: phones, job: null });
+  const facts = (anc: number, battery: number, calls: number): Record<string, Fact> => ({
+    anc: { v: anc, ref: "s1", quote: `anc ${anc}` },
+    battery: { v: battery, unit: "h", ref: "s1", quote: `${battery} hours` },
+    calls: { v: calls, ref: "s1", quote: `calls ${calls}` },
+    sound: { v: 8, ref: "s1", quote: "sound 8" },
+  });
+  for (const [name, f] of [
+    ["Sony WH-1000XM6", facts(9.5, 30, 8.5)],
+    ["Bose QuietComfort Ultra", facts(9, 24, 8)],
+  ] as const)
+    saveProduct(db, want, {
+      key: name.toLowerCase(),
+      name,
+      brand: name.split(" ")[0],
+      models: name === "Sony WH-1000XM6" ? ["WH-1000XM6"] : [],
+      facts: f,
+      words: NO_WORDS,
+      usual: null,
+      evidence: ev(2, 1, ["s1"]),
+    });
+  const xm6Row = productsOf(db, want).find((p) => p.name === "Sony WH-1000XM6");
+  assert.ok(xm6Row);
+  saveOffer(db, xm6Row.id, {
+    store: "bestbuy.ca",
+    url: "https://www.bestbuy.ca/en-ca/product/sony-wh-1000xm6-replacement-ear-pads/1",
+    seller: "",
+    condition: "new",
+    price: 2_999,
+    regular: null,
+    shipping: null,
+    currency: "CAD",
+    stock: "unknown",
+    pickup: null,
+    validUntil: null,
+    method: "link",
+    read: "link",
+    words: "Save $100.00",
+    why: "a search result shows this price: kestrel didn't read it on the store's page",
+  });
+  saveOffer(db, xm6Row.id, {
+    store: "thesource.ca",
+    url: "https://www.thesource.ca/sony-wh-1000xm6",
+    seller: "",
+    condition: "new",
+    price: 99_999,
+    regular: null,
+    shipping: null,
+    currency: "CAD",
+    stock: "unknown",
+    pickup: null,
+    validUntil: null,
+    method: "link",
+    read: "link",
+    words: "$999.99",
+    why: "a search result shows this price: kestrel didn't read it on the store's page",
+  });
+  rerank(db, want, placeOf(loadRegion()));
+  const view = wantView(db, want, { place: placeOf(loadRegion()) });
+  const shown = [...(view?.products ?? []), ...(view?.also ?? [])].find((p) => p.name === "Sony WH-1000XM6");
+  assert.ok(shown);
+  assert.equal(shown.priceFrom, "snippet");
+  assert.notEqual(shown.place, null, shown.out);
+  assert.ok(!/over the budget/.test(shown.out), shown.out);
+  assert.equal(shown.budget, "unknown");
+  assert.ok(!(view?.products ?? []).some((p) => p.labels.some((l) => l.key === "budget" || l.key === "value")));
 });
 
 test("6. the wrong product is never an offer: a store search uses the brand and the model, and the page must show both", async () => {

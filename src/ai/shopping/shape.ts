@@ -155,20 +155,41 @@ const refList = (v: unknown): string[] =>
     typeof r === "number" ? [String(r)] : typeof r === "string" ? r.split(/[\s,;]+/).filter(Boolean) : [],
   );
 const first = (o: Record<string, unknown>, keys: string[]): unknown => keys.map((k) => o[k]).find((v) => v != null);
+// a pair [text, refs] is one sentence ("why": ["It recovers 93% of embedded sand", ["q3"]])
+const isPair = (v: unknown): v is [string, unknown] =>
+  Array.isArray(v) &&
+  v.length === 2 &&
+  typeof v[0] === "string" &&
+  (Array.isArray(v[1]) || typeof v[1] === "number" || (typeof v[1] === "string" && /^\s*\[?[qs]?\d/i.test(v[1])));
 const asSentence = (v: unknown): unknown => {
   if (typeof v === "string") return { text: v, refs: [] };
+  if (isPair(v)) return { text: v[0], refs: refList(v[1]) };
   if (Array.isArray(v)) return asSentence(v[0]);
   if (!v || typeof v !== "object") return v;
   const o = v as Record<string, unknown>;
   return {
     text: first(o, ["text", "sentence", "reason", "claim", "why", "line"]) ?? "",
-    refs: refList(first(o, ["refs", "ref", "sources", "source", "quotes", "quote", "citations", "cite"])),
+    refs: refList(
+      first(o, [
+        "refs",
+        "ref",
+        "sources",
+        "source",
+        "quotes",
+        "quote",
+        "quote_refs",
+        "quoteRefs",
+        "quote_ids",
+        "citations",
+        "cite",
+      ]),
+    ),
   };
 };
 const sentence = z.preprocess(asSentence, z.object({ text: text(400), refs: z.array(z.string()) }));
 const sentences = (max: number) =>
   z.preprocess(
-    (v) => (typeof v === "string" || (v && typeof v === "object" && !Array.isArray(v)) ? [v] : v),
+    (v) => (typeof v === "string" || isPair(v) || (v && typeof v === "object" && !Array.isArray(v)) ? [v] : v),
     tolerant(sentence, max),
   );
 const product = z.preprocess(
@@ -176,10 +197,13 @@ const product = z.preprocess(
     if (!v || typeof v !== "object") return v;
     const o = v as Record<string, unknown>;
     return {
-      id: String(first(o, ["id", "product", "key"]) ?? ""),
+      // the id as the prompt gave it ("p3"), or the product's name: compose.ts matches both
+      id: String(
+        first(o, ["id", "product_id", "productId", "product", "key", "name", "product_name", "productName"]) ?? "",
+      ),
       why: first(o, ["why", "reasons", "because"]),
-      tradeoff: first(o, ["tradeoff", "tradeOff", "trade_off", "tradeoffs"]),
-      notFor: first(o, ["notFor", "not_for", "whoNotFor", "notfor"]),
+      tradeoff: first(o, ["tradeoff", "tradeOff", "trade_off", "tradeoffs", "trade_offs", "tradeOffs"]),
+      notFor: first(o, ["notFor", "not_for", "whoNotFor", "who_not_for", "notfor"]),
     };
   },
   z.object({
@@ -189,8 +213,21 @@ const product = z.preprocess(
     notFor: sentence.nullable().catch(null).default(null),
   }),
 );
+// the answer's own parts: anything else at its top is a product by its id ({"p1": {...}, "p2": {...}})
+const PARTS = new Set(["products", "assumptions", "changeIf", "change_if", "conflicts"]);
 export const WriteAnswer = z.preprocess(
-  (v) => (Array.isArray(v) ? { products: v } : v),
+  (v) => {
+    if (Array.isArray(v)) return { products: v };
+    if (!v || typeof v !== "object") return v;
+    const o = v as Record<string, unknown>;
+    if (o.products != null) return { ...o, changeIf: o.changeIf ?? o.change_if };
+    const byId = Object.entries(o).filter(([k, x]) => !PARTS.has(k) && x && typeof x === "object");
+    return {
+      ...o,
+      changeIf: o.changeIf ?? o.change_if,
+      products: byId.length ? Object.fromEntries(byId) : undefined,
+    };
+  },
   z.object({
     // a list, or an object by id ({"p1": {...}})
     products: z
@@ -199,7 +236,7 @@ export const WriteAnswer = z.preprocess(
           v && typeof v === "object" && !Array.isArray(v)
             ? Object.entries(v as Record<string, unknown>).map(([id, x]) => ({
                 id,
-                ...(x && typeof x === "object" ? x : { why: x }),
+                ...(x && typeof x === "object" && !Array.isArray(x) ? x : { why: x }),
               }))
             : v,
         tolerant(product, 12),

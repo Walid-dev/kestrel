@@ -214,7 +214,8 @@ export function checkPage(
       if (where === "none") continue; // the quote isn't on the page
       // on the page is not enough: the value must measure this criterion, in its unit and its range
       const context = contextOf(raw.quote, text);
-      const fit = typeof v === "number" ? fitNumber(c, v, raw.quote, context, raw.unit) : fitWords(c, context);
+      const fit =
+        typeof v === "number" ? fitNumber(c, v, raw.quote, context, raw.unit) : fitWords(c, context, v, raw.quote);
       if (!fit.ok) {
         refused.push(`${p.name}: ${fit.why}`);
         continue;

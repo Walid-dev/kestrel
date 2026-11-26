@@ -30,7 +30,18 @@
       "better": "higher",
       "weight": 15,
       "how": "they keep water out when standing in it",
-      "names": ["waterproof", "watertight", "sealed", "water resist", "water-resist", "membrane", "gore-tex", "dry"]
+      "names": [
+        "waterproof",
+        "watertight",
+        "sealed",
+        "water resist",
+        "water-resist",
+        "membrane",
+        "gore-tex",
+        "dry",
+        "dwr"
+      ],
+      "yes": ["waterproof", "watertight", "seam-sealed", "sealed seam", "gore-tex"]
     },
     {
       "key": "comfort",

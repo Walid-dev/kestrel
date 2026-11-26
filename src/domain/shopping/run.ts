@@ -48,7 +48,7 @@ import {
   type WantRow,
 } from "./store.ts";
 import { understand } from "./understand.ts";
-import { budgetOf, DROPPED, namedProduct, priceOf, rerank } from "./view.ts";
+import { budgetOf, DROPPED, namedProduct, priceOf, rankingPrice, rerank } from "./view.ts";
 import { checkWatches, isDue, watched } from "./watch.ts";
 
 export const SEARCHES = 24; // a run's searches, every step together
@@ -186,7 +186,7 @@ export async function runWant(db: DatabaseSync, settings: Settings, w: WantRow, 
       }
       const before = new Map(productsOf(db, w.id).map((p) => [p.key, p]));
       const prices = new Map(
-        [...before.values()].map((p) => [p.key, priceOf(p, offersOf(db, p.id), placeOf(region)).price]),
+        [...before.values()].map((p) => [p.key, rankingPrice(priceOf(p, offersOf(db, p.id), placeOf(region)))]),
       );
       // one product named: its offers first, then what compares with it
       const pinned =
@@ -234,10 +234,10 @@ export async function runWant(db: DatabaseSync, settings: Settings, w: WantRow, 
         },
         now(),
       );
-      rerank(db, w.id, placeOf(region));
+      rerank(db, w.id, placeOf(region), now());
       for (const p of productsOf(db, w.id)) {
         const was = prices.get(p.key);
-        const is = priceOf(p, offersOf(db, p.id), placeOf(region)).price;
+        const is = rankingPrice(priceOf(p, offersOf(db, p.id), placeOf(region)));
         if (was != null && is !== null && was !== is)
           addLog(
             db,
@@ -253,7 +253,7 @@ export async function runWant(db: DatabaseSync, settings: Settings, w: WantRow, 
       if (!need) return fail("it hasn't run yet: Run again first");
       const picked = productsOf(db, w.id).filter((p) => job.do === "offers" && job.products.includes(p.id));
       const reach = await offersFor(db, settings, w, need, picked, region, web, search, textPrice, step, now);
-      rerank(db, w.id, placeOf(region));
+      rerank(db, w.id, placeOf(region), now());
       addLog(
         db,
         w.id,
