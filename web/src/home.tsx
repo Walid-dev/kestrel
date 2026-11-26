@@ -23,6 +23,7 @@ const LIST: [AppName, string][] = [
   ["Notes", "Documents and my notes on them"],
   ["Tasks", "My list, and the agents'"],
   ["News", "The morning's AI and tech news"],
+  ["Shopping", "What to buy, and where it costs least"],
   ["Research", "Questions answered from the web"],
   ["Quiz", "Questions from my lessons"],
   ["Applications", "Every application, by state"],

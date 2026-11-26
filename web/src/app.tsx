@@ -211,6 +211,7 @@ const DOCK: Place[] = [
       "Tasks",
       "Research",
       "News",
+      "Shopping",
       "Quiz",
       "Applications",
       "Writing",

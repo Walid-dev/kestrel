@@ -75,6 +75,7 @@ const COLOURS: { group: string; when: string; tokens: [string, string, string][]
       ["--indigo", "News: its word, its icon", "tone-indigo, text-indigo"],
       ["--teal", "Quiz: its eyebrow, its icon", "tone-teal"],
       ["--magenta", "Writing: its eyebrow, its icon", "tone-magenta"],
+      ["--violet", "Shopping: its eyebrow, its icon, the labels it gives", "tone-violet"],
     ],
   },
   {

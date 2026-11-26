@@ -33,6 +33,7 @@
   --color-cyan: color-mix(in srgb, var(--cyan) var(--tone-text), var(--strong));
   --color-teal: color-mix(in srgb, var(--teal) var(--tone-text), var(--strong));
   --color-magenta: color-mix(in srgb, var(--magenta) var(--tone-text), var(--strong));
+  --color-violet: color-mix(in srgb, var(--violet) var(--tone-text), var(--strong));
   --color-indigo: color-mix(in srgb, var(--indigo) var(--tone-text), var(--strong));
   --color-ok: var(--ok);
   --color-warn: var(--warn);
@@ -144,6 +145,9 @@
   --cyan: #86e1fc;
   --teal: #5fd4c8;
   --magenta: #e88bd6;
+  /* Shopping's own: a violet in the widest free gap of hue (OKLCH 318°, between the purple and the magenta, 16° from
+     each in dark, measured), 6.7:1 on the surface as a mark and 5.2:1 as words on its chip */
+  --violet: #d28ae8;
   /* News' own blue: a periwinkle, between the accent's sky and the purple, 5.5:1 on the surface (measured) */
   --indigo: #818cf8;
   /* how much of a working colour small words take (a chip, a tinted eyebrow, text-tone, a colour's class): all of it
@@ -238,6 +242,7 @@
     --cyan: #0b7a99;
     --teal: #0e8a7f;
     --magenta: #a8327f;
+    --violet: #9438ae;
     --indigo: #4f46e5;
     /* light's tones read 2.9 to 4.3:1 as small words on their tint or the page; 70% of the tone and 30% of the ink
        reads 4.6:1 at least (yellow's chip, the lowest), each colour still its own */
@@ -544,6 +549,10 @@ h3 {
 .tone-magenta {
   --tone: var(--magenta);
 }
+/* Shopping's own colour: its eyebrow, its icon, the labels it gives a product */
+.tone-violet {
+  --tone: var(--violet);
+}
 /* the money scale's tones: a match or a deal, from great to poor */
 .tone-great {
   --tone: var(--great);
@@ -563,8 +572,9 @@ h3 {
   :is(.tone-muted, .tone-red, .tone-indigo, .tone-poor) {
     --tone-text: 88%;
   }
-  /* the money pill draws the tone itself (light's pills read 4.5:1 as they are); only poor's needs the step here */
-  .money.tone-poor {
+  /* the money pill draws the tone itself (light's pills read 4.5:1 as they are); only poor's and grey's (a price with
+     no verdict yet, Shopping's) need the step here */
+  .money:is(.tone-poor, .tone-muted) {
     color: color-mix(in srgb, var(--tone) var(--tone-text), var(--strong));
   }
 }
@@ -5441,6 +5451,24 @@ body:has(.paper-view) {
   align-items: center;
   gap: 2px 8px;
   margin-top: 2px;
+}
+/* Shopping (web/src/shopping/): a new want's fold, its budget and its note side by side from 48rem (the budget as wide
+   as its number) */
+.shop-more-rows {
+  display: grid;
+  gap: 12px;
+  padding: 4px 0 8px;
+}
+@media (min-width: 48rem) {
+  .shop-more-rows {
+    grid-template-columns: 10rem minmax(0, 1fr);
+  }
+}
+/* a chip filled with its tone, for the label that leads (Shopping's best overall): the page's ground as its words,
+   7.3:1 in dark and 5.9:1 in light on Shopping's violet (measured) */
+.chip.chip-fill {
+  background: var(--tone, var(--muted));
+  color: var(--bg);
 }
 /* work in progress: a thin bar that sweeps while a list refills, a shimmer where a card is coming, a small spinner on
    the button that was pressed */

@@ -18,6 +18,7 @@ export type Tone =
   | "indigo"
   | "teal"
   | "magenta"
+  | "violet"
   | "muted"
   | "great"
   | "good"

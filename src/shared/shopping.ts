@@ -260,6 +260,8 @@ export type ShoppingHome = {
   figures: { wants: number; watching: number; drops: number; atTarget: number };
   watching: WatchedView[];
   pings: (LogLine & { want: string })[];
+  // the wants I deleted, newest first: the page's foot keeps them with Restore
+  deleted: { id: string; words: string; at: string }[];
   lastRead: string | null;
   currency: string;
   rule: string;

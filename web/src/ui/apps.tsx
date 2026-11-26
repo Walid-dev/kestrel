@@ -1,7 +1,7 @@
 // Each app's own colour and icon, set once and read everywhere: Home's rows, the tab bar and the dock (the open app's
 // icon in its colour), a page's eyebrow (PageHead's app) and the Models page's groups. No two apps share a colour;
-// Searches is green (my pick), Cost and Models share the models' yellow, and Live has none: its colours are the
-// status's. A colour is a tone, so it follows the theme. An icon is a mark, drawn in the tone itself (a mark needs
+// Searches is green (my pick), Shopping violet (the widest free hue, measured: docs/decisions.md), Cost and Models share
+// the models' yellow, and Live has none: its colours are the status's. A colour is a tone, so it follows the theme. An icon is a mark, drawn in the tone itself (a mark needs
 // 3:1, which every tone has); a word in an app's colour (an eyebrow) takes the text-safe shade (styles.css).
 import type { ReactNode } from "react";
 import { cx } from "./cx.ts";
@@ -30,6 +30,7 @@ export type AppName =
   | "Tasks"
   | "News"
   | "Research"
+  | "Shopping"
   | "Quiz"
   | "Applications"
   | "Writing"
@@ -104,6 +105,17 @@ export const APPS: Record<AppName, { tone?: Tone; to: string; icon: ReactNode }>
       <>
         <circle cx="12" cy="12" r="8.5" />
         <path d="M3.5 12h17M12 3.5c2.4 2.3 3.6 5.1 3.6 8.5s-1.2 6.2-3.6 8.5c-2.4-2.3-3.6-5.1-3.6-8.5s1.2-6.2 3.6-8.5z" />
+      </>,
+    ),
+  },
+  // a tote bag, drawn by hand on the icons' grid: its body narrowing to a rounded foot, its handle above
+  Shopping: {
+    tone: "violet",
+    to: "/shopping",
+    icon: icon(
+      <>
+        <path d="M5 8.5h14l-.9 10.9a1.6 1.6 0 0 1-1.6 1.5H7.5a1.6 1.6 0 0 1-1.6-1.5z" />
+        <path d="M9 11V7.5a3 3 0 0 1 6 0V11" />
       </>,
     ),
   },

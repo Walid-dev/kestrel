@@ -21,6 +21,7 @@ import { budgetIn } from "./scrub.ts";
 import {
   deletedOf,
   deletedProduct,
+  deletedWants,
   getProduct,
   getWant,
   listWants,
@@ -363,6 +364,7 @@ export function shoppingHome(db: DatabaseSync, opts: ViewOpts = {}, now = new Da
     figures: { wants: wants.filter((w) => w.status === "open").length, watching: watching.length, drops, atTarget },
     watching,
     pings,
+    deleted: deletedWants(db),
     lastRead: lastRead ?? null,
     currency: place.currency,
     rule: RANK_RULE,

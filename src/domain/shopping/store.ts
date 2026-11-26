@@ -638,6 +638,15 @@ export function deletedOf(db: DatabaseSync, want: string): { id: string; name: s
     .all(want) as { id: string; name: string; at: string }[];
 }
 
+// every deleted want, newest first, for Shopping's page: its foot offers each one back
+export function deletedWants(db: DatabaseSync): { id: string; words: string; at: string }[] {
+  return db.prepare("SELECT id, name AS words, at FROM shop_deleted WHERE what = 'want' ORDER BY at DESC").all() as {
+    id: string;
+    words: string;
+    at: string;
+  }[];
+}
+
 export function deletedWant(db: DatabaseSync, id: string): { at: string; words: string } | null {
   const r = db.prepare("SELECT at, name FROM shop_deleted WHERE id = ? AND what = 'want'").get(id) as
     | { at: string; name: string }

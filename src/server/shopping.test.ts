@@ -102,7 +102,14 @@ test("a product's marks and watch; a product and a want deleted and restored", a
   const missing = await app.request(`/api/shopping/wants/${id}`);
   assert.equal(missing.status, 404);
   assert.ok(((await missing.json()) as { deleted?: unknown }).deleted);
+  // Shopping's page keeps it at its foot with Restore, and lets it go once it is back
+  const listed = (await (await app.request("/api/shopping")).json()) as ShoppingHome;
+  assert.deepEqual(
+    listed.deleted.map((d) => d.id),
+    [id],
+  );
   assert.equal((await send(app, "POST", `/api/shopping/wants/${id}/restore`)).status, 200);
+  assert.equal(((await (await app.request("/api/shopping")).json()) as ShoppingHome).deleted.length, 0);
   const history = (await (await app.request(`/api/shopping/products/${p.id}/history`)).json()) as {
     readings: unknown[];
   };

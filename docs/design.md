@@ -17,15 +17,17 @@ The look since 2026-11-24: small, calm and precise under a mouse, comfortable on
 - **The working colours**, the editor's neon shades: `--pink` (the wolf, the note marks, needs me), `--purple`,
   `--green` (ok, done, diff plus), `--orange` (warnings, asleep), `--yellow` (the moon), `--red` (danger), `--indigo`
   (News' own blue, between the accent and the purple: each app has its own colour and the accent is Notes'),
-  `--teal` (Quiz) and `--magenta` (Writing).
+  `--teal` (Quiz), `--magenta` (Writing) and `--violet` (Shopping: the widest free hue, OKLCH 318°, measured against
+  every tone in both themes).
 - **Words in a colour:** `--tone-text` is how much of a working colour small words take: 100% in dark, 70% in light
   (the rest is `--strong`), so a chip, a tinted eyebrow, `text-tone` and a colour's class (`text-red`) read 4.5:1 in
   both themes (light's tones alone read 2.9 to 4.3). Every rule that colours words reads it (Ask's failed line, the
   code's words, the drawings' labels), never a raw tone. Dark's muted, red, indigo and poor read just under 4.5 on
-  their tint, so those four classes set it to 88% in dark. The filled button's accent takes a tenth of the ink in light
-  (white words at 4.65:1). Marks keep the tone itself, 3:1 being their bar: a dot, an edge, a bar, an icon
-  (`.app-mark`), the ★ (`text-yellow` stays the tone for it; a word in yellow is `text-tone tone-yellow`). Measure
-  with `scripts/contrast-probe.js` (every visible text, in both themes, against the dev server; its header says how).
+  their tint, so those four classes set it to 88% in dark (the money pill takes that step for poor and grey). The
+  filled button's accent takes a tenth of the ink in light (white words at 4.65:1). Marks keep the tone itself, 3:1
+  being their bar: a dot, an edge, a bar, an icon (`.app-mark`), the ★ (`text-yellow` stays the tone for it; a word in
+  yellow is `text-tone tone-yellow`). Measure with `scripts/contrast-probe.js` (every visible text, in both themes,
+  against the dev server; its header says how).
 - **Shades** for what floats: `--shade-dialog`, `--shade-dock`, `--shade-pip`, `--shade-seg`, `--backdrop`.
 - **Fonts:** IBM Plex Sans for text, Sans Condensed for headings and the wordmark, Mono for numbers, paths, labels and
   chips. All served from `web/public/fonts`. Only the weights that ship: Sans 400–600, Condensed 600/700, Mono
@@ -153,8 +155,8 @@ reading width is 720.
   or the area it sits in, in a word or two and never its own title again; a child page's says where it sits (its parent
   group, its part and topic), the app's word when it sits nowhere else. The words: Learn "Lessons", Interview prep
   "Answers to say", Quiz "Learn" (it quizzes the lessons), Notes "Documents", Tasks "To do", Research "From the web",
-  Applications and Writing "Jobs", Cost and Models "The models", Chat "Agents". Searches tints its own by the hunt's
-  kind; News' is the day, muted; Live's is the view, muted ("Now", "This week": it has no colour). The line under the
+  Applications and Writing "Jobs", Shopping "To buy", Cost and Models "The models", Chat "Agents". Searches tints its
+  own by the hunt's kind; News' is the day, muted; Live's is the view, muted ("Now", "This week": it has no colour). The line under the
   title is one line, two at most, never a paragraph: facts with the values bold, or a state chip and facts; what a
   page needs explained goes in a hint or a title. A top page's title is the title step; a child page (one with
   `back`) gets a back row (30 / 44) and its title a step down. Under a mouse at 48rem or
@@ -223,8 +225,8 @@ reading width is 720.
 - The app map (`web/src/ui/apps.tsx`) — each app's address, icon and colour, set once: `APPS`, `appTone(app)`,
   `AppIcon` (the icon in its colour, a mark). Home's rows, the tab bar and the dock, PageHead's `app` and the Models
   page's groups (their eyebrows; Ask's group purple, as Ask's mark) read it. Searches green, Chat cyan, Learn purple, Notes the accent, Tasks pink, News indigo, Research
-  yellow, Quiz teal, Applications orange, Writing magenta, Interview prep good; Cost and Models the models' yellow;
-  Live none.
+  yellow, Shopping violet, Quiz teal, Applications orange, Writing magenta, Interview prep good; Cost and Models the
+  models' yellow; Live none.
 - `EmptyState` (`web/src/ui/empty.tsx`) — nothing here yet, in one voice, plain text in the flow (no box): `title`,
   `line`, `action`, `detail`. A page whose item is gone says so with it (Notes' reader, a lesson, a quiz, a research
   answer: its title "This lesson didn't open", the state's words "This lesson isn't here any more.", the way back as a

@@ -32,6 +32,7 @@ import {
   Research,
   Searches,
   SearchSettings,
+  Shopping,
   Tasks,
   Writing,
 } from "./pages.tsx";
@@ -72,6 +73,7 @@ if (rootEl)
                 <Route path="research" element={<Research />} />
                 <Route path="news" element={<News />} />
                 <Route path="news/days" element={<NewsDays />} />
+                <Route path="shopping" element={<Shopping />} />
                 <Route path="quiz" element={<Quiz />} />
                 <Route path="quiz/:id" element={<QuizRun />} />
                 <Route path="writing" element={<Writing />} />

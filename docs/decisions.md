@@ -5,6 +5,17 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Shopping's colour is violet, the widest free hue; its page keeps deleted wants for Restore.**
+  Measured in OKLCH against every tone in both themes, the money scale's yellow-to-green left out: the widest free hue
+  is 318°, between the purple and the magenta, 16.9° from the nearest tone in either theme; the next gaps (teal to cyan
+  at 202°, great to teal at 168°) are narrower, so the plan's start candidate stays. `--violet` is #d28ae8 in dark and
+  #9438ae in light: 6.7:1 and 6.1:1 on the surface as a mark, 5.2:1 and 6.8:1 as words on its chip. The contrast probe
+  passes Shopping, Home, Live and Models in both themes; the dark grey money pill (a price with no verdict yet) read
+  4.16:1, so it takes the text-safe step poor's pill already took. `/shopping` (`web/src/shopping/`): a new want stays
+  on the page, its card first and at work, so several can be added in a row; Run again reuses Search now's two-label
+  button. The engine gap: Shopping's home lists the deleted wants (`deletedWants`, `ShoppingHome.deleted`), and the
+  page's foot offers each back, the Undo for a want's Delete. Rejected: opening the want's page on Add (a run takes
+  minutes, and its card shows the steps).
 - **2026-11-25 · Shopping's watch: pings in the want's log, the deals channel as fallback.**
   `src/domain/shopping/watch.ts` re-reads only the offers read from a page's data, and a blocked store after a day's
   rest; a price from a page's words and a link store are never re-read, so a check never needs the model. A ping is a
