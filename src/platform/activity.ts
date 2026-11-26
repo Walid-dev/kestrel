@@ -18,7 +18,8 @@ export type Kind =
   | "research"
   | "quiz"
   | "letter"
-  | "news";
+  | "news"
+  | "shopping";
 export type Activity = {
   id: string;
   kind: Kind;

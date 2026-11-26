@@ -31,6 +31,8 @@ const JOBS: Record<string, [string, string, string]> = {
   quiz: ["Quiz", "Marking", "Marks my answer"],
   "quiz-explain": ["Quiz", "Explanations", "After each question"],
   letter: ["Writing", "Cover letters", "As an application writes them"],
+  shopping: ["Shopping", "Compare and read", "Understanding, reading pages, writing the reasons"],
+  "shopping-check": ["Shopping", "The check", "Each reason checked against its quotes"],
 };
 // what a job does, from the settings' description, after its "App's job:" start
 const gist = (what: string) => {
@@ -74,6 +76,10 @@ const PURPOSES: Record<string, string> = {
   letter: "Cover letters",
   "letter-review": "Cover letters, the review",
   "letter-fix": "Cover letters, a fix",
+  "shopping-understand": "Shopping, a want understood",
+  "shopping-read": "Shopping, a page read",
+  "shopping-write": "Shopping, the reasons written",
+  "shopping-check": "Shopping, the check",
 };
 // a group's colour: its app's (the app map), Ask's purple (Ask is on every page, its mark purple); a group kestrel
 // doesn't know stays grey

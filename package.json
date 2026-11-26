@@ -7,7 +7,7 @@
     "node": ">=26.11 <27"
   },
   "scripts": {
-    "check": "biome ci . && tsc --noEmit && tsc -p web --noEmit && node --test && node scripts/boundaries.ts && node scripts/check-design.ts && node evals/run.ts --stand-in && node evals/learn/run.ts && node evals/searches/run.ts && node evals/blocks/run.ts && node evals/news/run.ts && node evals/web/run.ts",
+    "check": "biome ci . && tsc --noEmit && tsc -p web --noEmit && node --test && node scripts/boundaries.ts && node scripts/check-design.ts && node evals/run.ts --stand-in && node evals/learn/run.ts && node evals/searches/run.ts && node evals/blocks/run.ts && node evals/news/run.ts && node evals/web/run.ts && node evals/shopping/run.ts --stand-in",
     "prepare": "git config core.hooksPath .githooks",
     "dev": "PORT=8791 node --watch src/server/main.ts",
     "build": "vite build",

@@ -19,6 +19,7 @@ export type Tone =
   | "lemon"
   | "teal"
   | "magenta"
+  | "violet"
   | "muted"
   | "great"
   | "good"

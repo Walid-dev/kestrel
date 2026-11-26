@@ -18,15 +18,18 @@ The look since 2026-11-24: small, calm and precise under a mouse, comfortable on
 - **The working colours**, the editor's neon shades: `--pink` (the wolf, needs me, Tasks), `--purple`, `--green` (ok,
   done, diff plus), `--orange` (warnings, asleep), `--yellow` (the moon), `--red` (danger), `--indigo` (News' own blue,
   between the accent and the purple: each app has its own colour), `--lemon` (Notes: a highlighter's lemon, an olive as
-  ink in light; `--lemon-soft` is a note mark's wash), `--teal` (Quiz) and `--magenta` (Writing).
+  ink in light; `--lemon-soft` is a note mark's wash), `--teal` (Quiz), `--magenta` (Writing) and `--violet` (Shopping:
+  the widest free hue, OKLCH 318°, measured against every tone in both themes).
 - **Words in a colour:** `--tone-text` is how much of a working colour small words take: 100% in dark, 70% in light
   (the rest is `--strong`), so a chip, a tinted eyebrow, `text-tone` and a colour's class (`text-red`) read 4.5:1 in
   both themes (light's tones alone read 2.9 to 4.3). Every rule that colours words reads it (Ask's failed line, the
   code's words, the drawings' labels), never a raw tone. Dark's muted, red, indigo and poor read just under 4.5 on
-  their tint, so those four classes set it to 88% in dark. The filled button's accent takes a tenth of the ink in light
-  (white words at 4.65:1). Marks keep the tone itself, 3:1 being their bar: a dot, an edge, a bar, an icon
-  (`.app-mark`), the ★ (`text-yellow` stays the tone for it; a word in yellow is `text-tone tone-yellow`). Measure
-  with `scripts/contrast-probe.js` (every visible text, in both themes, against the dev server; its header says how).
+  their tint, so those four classes set it to 88% in dark (the money pill takes that step for poor and grey). The
+  filled button's accent takes a tenth of the ink in light (white words at 4.65:1). Marks keep the tone itself, 3:1
+  being their bar: a dot, an edge, a bar, an icon (`.app-mark`), the ★ (`text-yellow` stays the tone for it; on a
+  starred pill in light it takes a tenth of the ink, 3.4:1 on the picked grey; a word in yellow is `text-tone
+  tone-yellow`). Measure with `scripts/contrast-probe.js` (every visible text, in both themes,
+  against the dev server; its header says how).
 - **Shades** for what floats: `--shade-dialog`, `--shade-dock`, `--shade-pip`, `--shade-seg`, `--backdrop`.
 - **Fonts:** IBM Plex Sans for text, Sans Condensed for headings and the wordmark, Mono for numbers, paths, labels and
   chips. All served from `web/public/fonts`. Only the weights that ship: Sans 400–600, Condensed 600/700, Mono
@@ -116,6 +119,11 @@ reading width is 720.
   Activity log too, never purple. `.money` is the pay or price pill
   (Mono 500 12, 22 tall) in the money scale's tone. A listing the rules set aside leads its card's head with its
   reason, in the Left out stage's grey ("Left out · US only"), until a stage is pressed. A filter's All comes first.
+  Shopping's labels (best overall, best value, budget, premium, best for a need) are one meaning, a role kestrel gave,
+  so one colour: Shopping's violet, the words telling them apart, best overall the filled chip (`.chip-fill`: the tone
+  as its ground, the page's ink as its words); thin evidence is orange, a warning. A price's `.money` pill and its
+  verdict's chip take their tone from one map (`priceTone`, `web/src/shopping/data.ts`), so a price never shows two
+  tones: a new low great, good good, typical fair, high and inflated poor, not enough history grey.
 - `Dialog` (`web/src/ui/dialog.tsx`) — every box: a native dialog opened with `showModal`, 440 wide (900 with `wide`),
   radius 14, its title on the section step. Props: `open`, `onClose`, `title`, `eyebrow`, `children`, `actions` (the
   main action last), `wide`, `busy`, `alert`. Esc, Back, a tap outside and ✕ close it; typed words stay; focus returns
@@ -155,10 +163,11 @@ reading width is 720.
   or the area it sits in, in a word or two and never its own title again; a child page's says where it sits (its parent
   group, its part and topic), the app's word when it sits nowhere else. The words: Learn "Lessons", Interview prep
   "Answers to say", Quiz "Learn" (it quizzes the lessons), Notes "Documents", Tasks "To do", Research "From the web",
-  Applications and Writing "Jobs", Cost and Models "The models", Chat "Agents". Searches tints its own by the hunt's
-  kind; News' is the day, muted; Live's is the view, muted ("Now", "This week": it has no colour). The line under the
-  title is one line, two at most, never a paragraph: facts with the values bold, or a state chip and facts; what a
-  page needs explained goes in a hint or a title. A top page's title is the title step; a child page (one with
+  Applications and Writing "Jobs", Shopping "To buy", Cost and Models "The models", Chat "Agents". Searches tints its
+  own by the hunt's kind; News' is the day, muted; Live's is the view, muted ("Now", "This week": it has no colour).
+  The line under the title is one line, two at most, never a paragraph: facts with the values bold, or a state chip
+  and facts; what a page needs explained goes in a hint or a title. A top page's title is the title step; a child page
+  (one with
   `back`) gets a back row (30 / 44) and its title a step down. Under a mouse at 48rem or
   wider a top page's buttons sit on the title row; otherwise they wrap 12 under the line. A page's state chip goes in
   the line under the title. `aside` (Home's "One app, one computer, local models.") sets a short statement beside the
@@ -184,7 +193,8 @@ reading width is 720.
   (`LeftOut`). /design shows each.
 - `Card` (`web/src/ui/card.tsx`) — plain; `to` makes the whole card a link; `title` gives it the Searches card's
   anatomy: `meta` (the top line's left: a chip first, then a muted group), `end` (its right end: the date or the
-  source, small and muted, a time in `font-mono`), the title with `figure` beside it (its key number: a `.money` pill,
+  source, small and muted, a time in `font-mono`), `star` (a bare `Star` after it, as Searches' and News' cards keep
+  theirs), the title with `figure` beside it (its key number: a `.money` pill,
   a ring), what it holds under it (one muted subline, facts with only the values bold), then `actions` (`.btn-sm`,
   `.btn-quiet`). `to` or `onOpen` opens it by its title; `onRemove` and `removeLabel` give it the ✕ (it waits out of
   sight under a mouse until hover or focus); `tone` colours its edge; `wide` spans the grid's row. A card built by hand
@@ -202,6 +212,24 @@ reading width is 720.
 - `.data-table` — figures compared row by row (Cost's models and prices, the Models page's calls), in a card: names
   on the left, every figure in mono and right-aligned in its column, eyebrows for heads, rows 40 tall on hairlines; a
   count that means trouble in red, a nothing in grey.
+- `KindList`, `KindFilters` and `useKind` (`web/src/ui/kind-list.tsx`) — one list for every kind of listing (a kind is
+  data, `src/shared/kinds.ts`: its fields, filters and sorts). `useKind` holds the picks (the words, each filter's
+  pill, the sort) and gives the rows that pass, in order. `KindFilters` is the filter card drawn from the kind: a row
+  per filter, each pill with how many rows it would leave under the others, the yes-or-no filters together in one row
+  after All, the sorts last; a row with nothing to choose stays out. `KindList` draws the rows: on a phone a `Card`
+  each (the kind's title and figure, the page's `meta` and `lines`, the kind's facts with each value bold in mono and
+  its unit after it); from 64rem one `.data-table` in a card, its first column the page's (a name, what goes under
+  it), then the columns it names (a column of words reads from the left in the words' font, numbers right in mono; one
+  the kind has no field for says `words`), each unit in its head and none in the cells, the best value of a number
+  column marked by a dot in the money scale's great, "—" for an unknown and "?" for an unsure value, both grey. A
+  `wide` column shows from 80rem; narrower, it folds with the page's `detail` into the row's open part, the ▶ at the
+  row's end. Shopping's products and offers are its first users; the homes hunt is the next kind.
+- `PriceLine` (`web/src/ui/price-line.tsx`) — a price over time, small: one stepped line (a price holds until the next
+  reading), its last point a dot in the verdict's tone with a ring of its ground and its value beside it, the regular
+  price dashed and my target a solid great line, each named where it sits, the first day and Now under it. One series,
+  so no legend: the heading over it names it. Hover, a touch or the arrow keys walk the readings with a hairline, a
+  marker and a tip; the page lists the readings under it, so the tip never gates a value. Its strokes don't stretch
+  with the plot (non-scaling), and its labels sit by `--x` and `--y`.
 - `SectionHead` (`web/src/ui/section.tsx`) — every section's heading: `title` on the section step, `count` in small
   muted mono beside it, `tone` a dot before it when the colour means something (News' sections, a lesson's state),
   `hint` one quiet line under it, `id` for the section's `aria-labelledby`. Never the count in the section's colour,
@@ -235,8 +263,8 @@ reading width is 720.
   `AppIcon` (the icon in its colour, a mark). Home's rows, the tab bar and the dock, PageHead's `app` and the Models
   page's groups (their eyebrows; Ask's group purple, as Ask's mark) read it. Searches green, Chat cyan, Learn purple,
   Notes lemon (a highlighter's: its hue the middle of the widest gap the others leave; the accent is no app's), Tasks
-  pink, News indigo, Research yellow, Quiz teal, Applications orange, Writing magenta, Interview prep good; Cost and
-  Models the models' yellow; Live none.
+  pink, News indigo, Research yellow, Shopping violet, Quiz teal, Applications orange, Writing magenta, Interview prep
+  good; Cost and Models the models' yellow; Live none.
 - `EmptyState` (`web/src/ui/empty.tsx`) — nothing here yet, in one voice, plain text in the flow (no box): `title`,
   `line`, `action`, `detail`. A page whose item is gone says so with it (Notes' reader, a lesson, a quiz, a research
   answer: its title "This lesson didn't open", the state's words "This lesson isn't here any more.", the way back as a

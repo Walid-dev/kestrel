@@ -1,5 +1,5 @@
 // The app's build: Vite builds web/ into web/dist, which the server serves as plain files. In development, vite's own
-// server proxies /api to the dev process on 8791.
+// server proxies /api to the dev process: on 8791, or the port KESTREL_API_PORT names (a second worktree's own server).
 // The pages are split (web/src/pages.tsx): each page is a file of its own. The libraries (React, the router, the
 // server-data cache) go in one "vendor" file, which changes only when a version does, so a deploy leaves its cached copy
 // good. What two or more pages share (the parts in web/src/ui/, the Markdown reader), the bundler puts in shared files
@@ -44,5 +44,5 @@ export default defineConfig({
       },
     },
   },
-  server: { proxy: { "/api": "http://127.0.0.1:8791" } },
+  server: { proxy: { "/api": `http://127.0.0.1:${process.env.KESTREL_API_PORT ?? 8791}` } },
 });

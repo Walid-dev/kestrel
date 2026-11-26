@@ -9,6 +9,7 @@ import { openDb } from "../db/db.ts";
 import { migrate } from "../db/migrate.ts";
 import { newsTick } from "../domain/news/brief.ts";
 import { sweepDeepChecks } from "../domain/search/deep.ts";
+import { shoppingTick, startNext } from "../domain/shopping/run.ts";
 import { loadSettings } from "../platform/config.ts";
 import { dataDir, isDeployed } from "../platform/paths.ts";
 import { alertRun } from "./alerts.ts";
@@ -29,6 +30,7 @@ import { mountNotes } from "./notes.ts";
 import { mountResearch } from "./research.ts";
 import { startScheduler } from "./scheduler.ts";
 import { mountSearch } from "./search.ts";
+import { mountShopping } from "./shopping.ts";
 import { mountTasks } from "./tasks.ts";
 import { mountVoice } from "./voice.ts";
 
@@ -106,6 +108,7 @@ mountLive(app, db, settings.oldLive ?? "");
 mountCost(app, settings);
 mountBrief(app, db, settings);
 mountNews(app, db, settings);
+mountShopping(app, db, settings, { started: () => startNext(db, settings) });
 mountEvents(app);
 // an api path with no door answers so, in words — never the app's page with a 200. It comes last: a route mounted
 // after it is never reached (the live stream was, until 2026-11-22, so every screen fell back to its timer)
@@ -116,6 +119,7 @@ startScheduler(db, {
   mirrorFile: join(dataDir(), "mirror-v1.json"),
   afterRun: (spec, run) => alertRun(db, settings, spec, run),
   news: (now, applying) => newsTick(db, settings, now, {}, applying),
+  shopping: (now, applying) => shoppingTick(db, settings, now, applying),
 });
 
 // every request through the identity check: enforced when deployed, open on made-up data (identity.ts says why).

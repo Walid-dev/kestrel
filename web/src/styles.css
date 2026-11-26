@@ -33,6 +33,7 @@
   --color-cyan: color-mix(in srgb, var(--cyan) var(--tone-text), var(--strong));
   --color-teal: color-mix(in srgb, var(--teal) var(--tone-text), var(--strong));
   --color-magenta: color-mix(in srgb, var(--magenta) var(--tone-text), var(--strong));
+  --color-violet: color-mix(in srgb, var(--violet) var(--tone-text), var(--strong));
   --color-indigo: color-mix(in srgb, var(--indigo) var(--tone-text), var(--strong));
   --color-lemon: color-mix(in srgb, var(--lemon) var(--tone-text), var(--strong));
   --color-lemon-soft: var(--lemon-soft);
@@ -146,6 +147,9 @@
   --cyan: #86e1fc;
   --teal: #5fd4c8;
   --magenta: #e88bd6;
+  /* Shopping's own: a violet in the widest free gap of hue (OKLCH 318°, between the purple and the magenta, 16° from
+     each in dark, measured), 6.7:1 on the surface as a mark and 5.2:1 as words on its chip */
+  --violet: #d28ae8;
   /* News' own blue: a periwinkle, between the accent's sky and the purple, 5.5:1 on the surface (measured) */
   --indigo: #818cf8;
   /* Notes' own colour: a highlighter's lemon, the mark a note leaves on words (the reader's marks wear it). Its hue
@@ -245,6 +249,7 @@
     --cyan: #0b7a99;
     --teal: #0e8a7f;
     --magenta: #a8327f;
+    --violet: #9438ae;
     --indigo: #4f46e5;
     /* the lemon as ink is an olive (a mark at 4:1 on the page, words at 6:1 through --tone-text); a note's mark keeps a
        highlighter's yellow wash, its olive line under at 3.7:1 */
@@ -559,6 +564,10 @@ h3 {
 .tone-magenta {
   --tone: var(--magenta);
 }
+/* Shopping's own colour: its eyebrow, its icon, the labels it gives a product */
+.tone-violet {
+  --tone: var(--violet);
+}
 /* the money scale's tones: a match or a deal, from great to poor */
 .tone-great {
   --tone: var(--great);
@@ -578,8 +587,9 @@ h3 {
   :is(.tone-muted, .tone-red, .tone-indigo, .tone-poor) {
     --tone-text: 88%;
   }
-  /* the money pill draws the tone itself (light's pills read 4.5:1 as they are); only poor's needs the step here */
-  .money.tone-poor {
+  /* the money pill draws the tone itself (light's pills read 4.5:1 as they are); only poor's and grey's (a price with
+     no verdict yet, Shopping's) need the step here */
+  .money:is(.tone-poor, .tone-muted) {
     color: color-mix(in srgb, var(--tone) var(--tone-text), var(--strong));
   }
 }
@@ -1051,6 +1061,13 @@ span.filter-row-name {
   border-color: color-mix(in srgb, var(--strong) 40%, transparent);
   background: color-mix(in srgb, var(--strong) 8%, var(--surface));
   color: var(--strong);
+}
+/* a starred pill's ★ (Star in a sheet): on the picked pill's grey, light's yellow read 2.9:1; a tenth of the ink brings
+   it to 3.4:1, a mark's bar, still the yellow */
+@media (prefers-color-scheme: light) {
+  .pill[aria-pressed="true"] > .text-yellow {
+    color: color-mix(in srgb, var(--yellow) 90%, var(--strong));
+  }
 }
 @media (pointer: coarse) {
   .pill {
@@ -2842,6 +2859,205 @@ pre.code .f {
 .data-table :where(tfoot td) {
   font-weight: 500;
   color: var(--strong);
+}
+/* KindList (web/src/ui/kind-list.tsx): one list for every kind of listing. On a phone its rows are cards, 12 apart;
+   from 64rem one table in a card (.data-table's columns) takes their place. A wide column shows from 80rem; under that
+   its value sits in the row's open part (the ▶ at the row's end). A head's unit keeps its own case; the best value of a
+   number column carries a dot in the money scale's great (a mark) */
+.kind-cards {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.kind-table-card {
+  display: none;
+  padding-block: 6px;
+}
+@media (min-width: 64rem) {
+  .kind-cards {
+    display: none;
+  }
+  .kind-table-card {
+    display: block;
+  }
+}
+.kind-unit {
+  text-transform: none;
+  letter-spacing: 0;
+}
+.kind-table :where(.kind-wide) {
+  display: none;
+}
+@media (min-width: 80rem) {
+  .kind-table :where(.kind-wide) {
+    display: table-cell;
+  }
+  .kind-detail-narrow {
+    display: none;
+  }
+}
+.kind-table :where(.kind-words) {
+  text-align: left;
+  font-family: var(--sans);
+}
+.kind-best {
+  color: var(--strong);
+  font-weight: 500;
+}
+.kind-best::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 6px 1px 0;
+  border-radius: 999px;
+  background: var(--great);
+}
+.kind-table :where(.kind-fold, .kind-fold-head) {
+  width: 40px;
+  padding-left: 4px;
+}
+.kind-fold-mark {
+  display: inline-block;
+  font: 400 var(--text-label) / 1 var(--sans);
+  color: var(--muted);
+  transition: transform var(--t-move);
+}
+.kind-fold-mark-open {
+  transform: rotate(90deg);
+}
+/* a row's open part: under its row, on no hairline of its own, in the words' voice */
+.kind-table :where(.kind-detail-row > td) {
+  height: auto;
+  padding-top: 0;
+  border-top: 0;
+  font-family: var(--sans);
+}
+.kind-detail {
+  display: grid;
+  gap: 8px;
+  max-width: 72ch;
+  padding-bottom: 8px;
+}
+/* PriceLine (web/src/ui/price-line.tsx): a price over time, small. The plot is 112 tall under room for a label; the
+   line, the dashed regular price and the solid target keep their width however the plot stretches (non-scaling
+   strokes). The labels, the dot, the hairline and the tip are placed by --x and --y (% of the plot, from the data). The
+   dot's ring is the ground it sits on (--ring: the sunk ground inside a verdict's box) */
+.price-line {
+  display: grid;
+  gap: 4px;
+  --ring: var(--surface);
+}
+.read-box .price-line,
+.inner .price-line {
+  --ring: var(--surface-2);
+}
+.price-line-plot {
+  position: relative;
+  height: 112px;
+  margin: 18px 0 0;
+  touch-action: pan-y;
+  cursor: crosshair;
+}
+.price-line-plot svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.price-line-path {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 2px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.price-line-regular,
+.price-line-target {
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+.price-line-regular {
+  stroke: var(--muted);
+  stroke-dasharray: 4 4;
+}
+.price-line-target {
+  stroke: var(--great);
+}
+.price-line-ref,
+.price-line-now,
+.price-line-tip {
+  position: absolute;
+  font: 400 var(--text-label) / var(--text-label--line-height) var(--mono);
+  white-space: nowrap;
+}
+.price-line-ref {
+  left: 0;
+  top: calc(var(--y) * 1%);
+  transform: translateY(-100%);
+  padding-bottom: 1px;
+  color: var(--muted);
+}
+.price-line-now {
+  right: 10px;
+  top: calc(var(--y) * 1%);
+  transform: translateY(-100%);
+  padding-bottom: 2px;
+  color: var(--strong);
+  font-weight: 500;
+}
+.price-line-under {
+  transform: none;
+  padding: 2px 0 0;
+}
+.price-line-dot {
+  position: absolute;
+  left: calc(var(--x) * 1%);
+  top: calc(var(--y) * 1%);
+  width: 10px;
+  height: 10px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: var(--tone, var(--text));
+  box-shadow: 0 0 0 2px var(--ring);
+}
+/* the reading under the hairline: a smaller dot in the line's ink */
+.price-line-dot-here {
+  width: 8px;
+  height: 8px;
+  background: var(--text);
+}
+.price-line-cross {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--x) * 1%);
+  width: 1px;
+  background: var(--line-strong);
+}
+.price-line-tip {
+  top: -18px;
+  left: calc(var(--x) * 1%);
+  transform: translateX(-50%);
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  box-shadow: 0 0 0 1px var(--line-strong);
+  color: var(--muted);
+}
+.price-line-tip b {
+  color: var(--strong);
+  font-weight: 500;
+}
+.price-line-axis {
+  display: flex;
+  justify-content: space-between;
+  font: 400 var(--text-label) / var(--text-label--line-height) var(--mono);
+  color: var(--muted);
 }
 .data-table :where(tfoot td:first-child) {
   font-weight: 600;
@@ -5490,6 +5706,114 @@ body:has(.paper-view) {
   align-items: center;
   gap: 2px 8px;
   margin-top: 2px;
+}
+/* Shopping (web/src/shopping/): a new want's fold, its budget and its note side by side from 48rem (the budget as wide
+   as its number) */
+.shop-more-rows {
+  display: grid;
+  gap: 12px;
+  padding: 4px 0 8px;
+}
+@media (min-width: 48rem) {
+  .shop-more-rows {
+    grid-template-columns: 10rem minmax(0, 1fr);
+  }
+}
+/* a want's page: a failed run in one red line over the last good one; a pick's deal under its facts; the offers'
+   product heads (the name opens its sheet) and the store or product name in a table's first column, ink until
+   hovered; the notes the list rests on, side by side where they fit; the foot's parts, a control's height apart */
+.shop-failed {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: var(--text-detail);
+  line-height: var(--text-detail--line-height);
+  color: color-mix(in srgb, var(--red) var(--tone-text), var(--strong));
+}
+.shop-failed > .dot {
+  flex: none;
+  transform: translateY(-1px);
+}
+.shop-deal {
+  display: grid;
+  gap: 2px;
+  margin-top: 4px;
+}
+.shop-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.shop-group-name,
+.shop-product-name,
+.shop-store {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--strong);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.shop-group-name {
+  font: 600 var(--text-head) / var(--text-head--line-height) var(--cond);
+}
+.shop-product-name,
+.shop-store {
+  font: 500 var(--text-detail) / var(--text-detail--line-height) var(--sans);
+}
+@media (hover: hover) {
+  :is(.shop-group-name, .shop-product-name, .shop-store):hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+.shop-notes {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  align-items: start;
+}
+.shop-also > .list,
+.shop-foot details > .list {
+  margin-top: 4px;
+}
+.shop-foot {
+  display: grid;
+  gap: 4px;
+}
+.shop-foot > .flex {
+  margin-top: 8px;
+}
+/* a product's sheet: its parts 18 apart; what the sources measured as a table in a card; the readings fold under the
+   price line, their table on the verdict's sunk ground */
+.shop-sheet {
+  display: grid;
+  gap: 18px;
+  padding-bottom: 4px;
+}
+.shop-sheet-table {
+  padding-block: 6px;
+}
+/* the best store's button at the sheet's foot: a long name is cut short, so Watch keeps its line */
+.shop-sheet-store {
+  min-width: 0;
+  max-width: 45%;
+}
+@media (pointer: coarse) {
+  .shop-sheet-store {
+    max-width: 34%;
+  }
+}
+.shop-readings > .data-table {
+  margin-top: 4px;
+}
+/* a chip filled with its tone, for the label that leads (Shopping's best overall): the page's ground as its words,
+   7.3:1 in dark and 5.9:1 in light on Shopping's violet (measured) */
+.chip.chip-fill {
+  background: var(--tone, var(--muted));
+  color: var(--bg);
 }
 /* work in progress: a thin bar that sweeps while a list refills, a shimmer where a card is coming, a small spinner on
    the button that was pressed */

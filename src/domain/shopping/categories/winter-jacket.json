@@ -1,0 +1,88 @@
+{
+  "key": "winter-jacket",
+  "name": "Winter jacket",
+  "words": ["winter jacket", "winter coat", "parka", "down jacket", "puffer"],
+  "refreshMonths": 12,
+  "listSize": 6,
+  "criteria": [
+    {
+      "key": "warmth",
+      "label": "Warmth",
+      "type": "score",
+      "better": "higher",
+      "weight": 30,
+      "how": "how warm it kept testers in a cold test, or its temperature rating"
+    },
+    {
+      "key": "weight",
+      "label": "Weight",
+      "type": "number",
+      "unit": "g",
+      "better": "lower",
+      "weight": 10,
+      "how": "the weight of a medium"
+    },
+    {
+      "key": "waterproof",
+      "label": "Waterproof",
+      "type": "bool",
+      "better": "higher",
+      "weight": 15,
+      "how": "a waterproof shell with sealed seams"
+    },
+    {
+      "key": "wind",
+      "label": "Wind",
+      "type": "score",
+      "better": "higher",
+      "weight": 10,
+      "how": "how well it blocks wind"
+    },
+    {
+      "key": "mobility",
+      "label": "Fit and movement",
+      "type": "score",
+      "better": "higher",
+      "weight": 10,
+      "how": "fit and freedom of movement"
+    },
+    {
+      "key": "hood",
+      "label": "Hood",
+      "type": "score",
+      "better": "higher",
+      "weight": 10,
+      "how": "how the hood fits and seals"
+    },
+    {
+      "key": "durability",
+      "label": "Durability",
+      "type": "score",
+      "better": "higher",
+      "weight": 15,
+      "how": "the shell's wear over weeks of use"
+    }
+  ],
+  "uses": {
+    "extreme-cold": { "warmth": 45 },
+    "city": { "weight": 15, "mobility": 15 },
+    "wet": { "waterproof": 30 }
+  },
+  "implied": [{ "when": "-30", "needs": ["warm to extreme cold"] }],
+  "questions": [
+    {
+      "key": "activity",
+      "q": "Mostly standing and walking, or active outside?",
+      "options": [
+        { "label": "Standing and walking", "weights": { "warmth": 40 } },
+        { "label": "Active", "weights": { "mobility": 20, "weight": 15 } }
+      ],
+      "default": 0
+    }
+  ],
+  "traps": ["a men's and a women's version can differ in fill and price"],
+  "tags": [],
+  "sources": ["outdoorgearlab.com", "switchbacktravel.com", "nytimes.com", "gearjunkie.com"],
+  "storeGroups": ["outdoor", "clothing"],
+  "draft": false
+}

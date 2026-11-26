@@ -1,0 +1,99 @@
+{
+  "key": "tv",
+  "name": "TV",
+  "words": ["tv", "television", "oled", "qled", "smart tv"],
+  "refreshMonths": 12,
+  "listSize": 8,
+  "criteria": [
+    {
+      "key": "picture",
+      "label": "Picture",
+      "type": "score",
+      "better": "higher",
+      "weight": 30,
+      "how": "a lab's mixed-use picture score: contrast, colour and uniformity"
+    },
+    {
+      "key": "brightness",
+      "label": "Brightness",
+      "type": "number",
+      "unit": "nits",
+      "measured": true,
+      "better": "higher",
+      "weight": 15,
+      "how": "peak brightness measured in HDR"
+    },
+    {
+      "key": "reflections",
+      "label": "Reflections",
+      "type": "score",
+      "better": "higher",
+      "weight": 15,
+      "how": "how well the screen handles room light"
+    },
+    {
+      "key": "gaming",
+      "label": "Gaming",
+      "type": "score",
+      "better": "higher",
+      "weight": 15,
+      "how": "input lag and variable refresh rate"
+    },
+    {
+      "key": "motion",
+      "label": "Motion",
+      "type": "score",
+      "better": "higher",
+      "weight": 10,
+      "how": "response time and motion handling"
+    },
+    {
+      "key": "angle",
+      "label": "Viewing angle",
+      "type": "score",
+      "better": "higher",
+      "weight": 10,
+      "how": "how the picture holds up off to the side"
+    },
+    {
+      "key": "smart",
+      "label": "Software",
+      "type": "score",
+      "better": "higher",
+      "weight": 5,
+      "how": "the built-in software's speed, ads and updates"
+    }
+  ],
+  "uses": {
+    "bright-room": { "brightness": 30, "reflections": 25 },
+    "gaming": { "gaming": 30 },
+    "movies": { "picture": 40 },
+    "sports": { "motion": 25, "angle": 15 }
+  },
+  "implied": [{ "when": "bright", "needs": ["a bright screen that handles reflections"] }],
+  "questions": [
+    {
+      "key": "gaming",
+      "q": "Will you play games on it?",
+      "options": [{ "label": "Yes", "weights": { "gaming": 25 } }, { "label": "No", "weights": {} }],
+      "default": 1
+    },
+    {
+      "key": "room",
+      "q": "Is the room bright in the day?",
+      "options": [
+        { "label": "Bright", "weights": { "brightness": 25, "reflections": 20 } },
+        { "label": "Dim", "weights": { "picture": 40 } }
+      ],
+      "default": 0
+    }
+  ],
+  "traps": [
+    "the same model name can hide a different panel by size",
+    "a store's own model code can differ by a letter"
+  ],
+  "tags": ["mains-powered"],
+  "sources": ["rtings.com", "consumerreports.org", "nytimes.com", "cnet.com"],
+  "storeGroups": ["electronics"],
+  "draft": false
+}

@@ -1,0 +1,104 @@
+{
+  "key": "robot-vacuum",
+  "name": "Robot vacuum",
+  "words": ["robot vacuum", "robovac", "robot vac", "robotic vacuum", "vacuum robot"],
+  "refreshMonths": 9,
+  "listSize": 8,
+  "criteria": [
+    {
+      "key": "pickup-carpet",
+      "label": "Carpet pickup",
+      "type": "score",
+      "better": "higher",
+      "weight": 25,
+      "how": "share of embedded debris or hair picked up from low-pile carpet in a lab run"
+    },
+    {
+      "key": "pickup-hard",
+      "label": "Hard-floor pickup",
+      "type": "score",
+      "better": "higher",
+      "weight": 20,
+      "how": "share of debris picked up from bare floors"
+    },
+    {
+      "key": "tangle",
+      "label": "Hair tangle",
+      "type": "score",
+      "better": "higher",
+      "weight": 15,
+      "how": "how little long hair wraps around the brushroll"
+    },
+    {
+      "key": "navigation",
+      "label": "Navigation",
+      "type": "score",
+      "better": "higher",
+      "weight": 10,
+      "how": "how well it maps rooms, avoids obstacles and finishes a run"
+    },
+    {
+      "key": "battery",
+      "label": "Runtime",
+      "type": "number",
+      "unit": "min",
+      "measured": true,
+      "better": "higher",
+      "weight": 10,
+      "how": "minutes from a full charge to the dock"
+    },
+    {
+      "key": "noise",
+      "label": "Noise",
+      "type": "number",
+      "unit": "dB",
+      "measured": true,
+      "better": "lower",
+      "weight": 10,
+      "how": "loudness at full power"
+    },
+    {
+      "key": "mop",
+      "label": "Mop",
+      "type": "bool",
+      "better": "higher",
+      "weight": 10,
+      "how": "it mops as well as vacuums"
+    }
+  ],
+  "uses": {
+    "pets": { "tangle": 25, "pickup-carpet": 30 },
+    "carpet": { "pickup-carpet": 35 },
+    "hard-floors": { "pickup-hard": 35, "mop": 15 }
+  },
+  "implied": [
+    { "when": "pet", "needs": ["a tangle-resistant brushroll"] },
+    { "when": "long hair", "needs": ["a tangle-resistant brushroll"] }
+  ],
+  "questions": [
+    {
+      "key": "floors",
+      "q": "Mostly carpet or hard floors?",
+      "options": [
+        { "label": "Mostly carpet", "weights": { "pickup-carpet": 35 } },
+        { "label": "Mostly hard floors", "weights": { "pickup-hard": 35 } },
+        { "label": "A mix", "weights": {} }
+      ],
+      "default": 2
+    },
+    {
+      "key": "pets",
+      "q": "Pets that shed?",
+      "options": [{ "label": "Yes", "weights": { "tangle": 25 } }, { "label": "No", "weights": {} }],
+      "default": 1
+    }
+  ],
+  "traps": [
+    "the same line sold under a value brand is not the same product",
+    "a self-emptying dock sold with it is often another model code"
+  ],
+  "tags": ["mains-powered"],
+  "sources": ["rtings.com", "vacuumwars.com", "consumerreports.org", "nytimes.com"],
+  "storeGroups": ["electronics", "appliances"],
+  "draft": false
+}

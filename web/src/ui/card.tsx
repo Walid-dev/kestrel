@@ -1,9 +1,9 @@
 // A card: the .card ground (a surface, a hairline, room inside), in three uses. Plain: a block of the page. A link:
 // the whole card opens a page. With a title, the Searches card's anatomy: its top line (the meta on the left, a chip
-// first; the date or the source at its right end; the ✕ last), the title in the heading voice with its key number
-// beside it, what it holds under it, muted, then its actions. The title opens it (a page, or something on this page)
-// and stretches over the whole card, and the ✕ deletes it, the page asking first with Confirm. A tone marks its edge
-// for what matters now (needs me, review today).
+// first; the date or the source at its right end, the ★ after it; the ✕ last), the title in the heading voice with its
+// key number beside it, what it holds under it, muted, then its actions. The title opens it (a page, or something on
+// this page) and stretches over the whole card, and the ✕ deletes it, the page asking first with Confirm. A tone marks
+// its edge for what matters now (needs me, review today).
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { cx } from "./cx.ts";
@@ -29,6 +29,8 @@ type Titled = Base & {
   meta?: ReactNode;
   // the top line's right end: when (in mono) or where from, small and muted
   end?: ReactNode;
+  // the ★ (Star bare) at the very end of the top line, where Searches' and News' cards keep theirs
+  star?: ReactNode;
   // the key number beside the title (a .money pill, a ring), at the title row's right
   figure?: ReactNode;
   // the card's buttons, last (.btn-sm, .btn-quiet; a plain .btn for the one that matters)
@@ -54,7 +56,7 @@ export function Card(props: Block | Titled) {
     ) : (
       <div className={cx(look(false), "card-stack")}>{children}</div>
     );
-  const { title, meta, end, figure, actions, to, onOpen, onRemove, removeLabel = "Delete" } = props;
+  const { title, meta, end, star, figure, actions, to, onOpen, onRemove, removeLabel = "Delete" } = props;
   const heading = (
     <h3 className="card-title">
       {to ? (
@@ -72,10 +74,11 @@ export function Card(props: Block | Titled) {
   );
   return (
     <div className={cx(look(Boolean(to || onOpen)), "card-titled")}>
-      {(meta || end || onRemove) && (
+      {(meta || end || star || onRemove) && (
         <div className="card-meta">
           <div className="card-meta-main">{meta}</div>
           {end && <span className="card-end">{end}</span>}
+          {star}
           {onRemove && (
             <button
               type="button"

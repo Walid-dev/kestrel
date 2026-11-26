@@ -1,0 +1,92 @@
+{
+  "key": "laptop",
+  "name": "Laptop",
+  "words": ["laptop", "notebook", "ultrabook", "macbook", "chromebook"],
+  "refreshMonths": 9,
+  "listSize": 8,
+  "criteria": [
+    {
+      "key": "performance",
+      "label": "Performance",
+      "type": "score",
+      "better": "higher",
+      "weight": 20,
+      "how": "benchmarks under a sustained load"
+    },
+    {
+      "key": "battery",
+      "label": "Battery",
+      "type": "number",
+      "unit": "h",
+      "measured": true,
+      "better": "higher",
+      "weight": 20,
+      "how": "hours of web browsing at a fixed brightness"
+    },
+    {
+      "key": "display",
+      "label": "Display",
+      "type": "score",
+      "better": "higher",
+      "weight": 15,
+      "how": "brightness, colour and contrast measured"
+    },
+    {
+      "key": "keyboard",
+      "label": "Keyboard",
+      "type": "score",
+      "better": "higher",
+      "weight": 10,
+      "how": "key feel and touchpad"
+    },
+    {
+      "key": "build",
+      "label": "Build",
+      "type": "score",
+      "better": "higher",
+      "weight": 10,
+      "how": "chassis, hinge and flex"
+    },
+    {
+      "key": "weight",
+      "label": "Weight",
+      "type": "number",
+      "unit": "kg",
+      "better": "lower",
+      "weight": 15,
+      "how": "the maker's stated weight"
+    },
+    {
+      "key": "ports",
+      "label": "Ports",
+      "type": "score",
+      "better": "higher",
+      "weight": 10,
+      "how": "the ports it has and their speed"
+    }
+  ],
+  "uses": {
+    "travel": { "weight": 25, "battery": 25 },
+    "work": { "keyboard": 15, "display": 20 },
+    "gaming": { "performance": 40 },
+    "school": { "battery": 25, "weight": 20 }
+  },
+  "implied": [{ "when": "travel", "needs": ["a light laptop with a long battery"] }],
+  "questions": [
+    {
+      "key": "work",
+      "q": "What will you do most on it?",
+      "options": [
+        { "label": "Writing and browsing", "weights": {} },
+        { "label": "Photo or video editing", "weights": { "performance": 30, "display": 25 } },
+        { "label": "Games", "weights": { "performance": 40 } }
+      ],
+      "default": 0
+    }
+  ],
+  "traps": ["the same model ships with different chips and screens: the exact configuration matters"],
+  "tags": ["mains-powered"],
+  "sources": ["notebookcheck.net", "rtings.com", "nytimes.com", "pcmag.com"],
+  "storeGroups": ["electronics", "computers"],
+  "draft": false
+}

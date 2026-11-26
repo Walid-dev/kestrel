@@ -7,7 +7,7 @@ import { homedir } from "node:os";
 import type { Settings } from "./config.ts";
 
 export type Alert = {
-  channel: "deals" | "jobs";
+  channel: "deals" | "jobs" | "shopping";
   title: string;
   message: string;
   click?: string; // opened when the ping is tapped
@@ -23,7 +23,9 @@ function fit(message: string): string {
 }
 
 export async function sendAlert(settings: Settings, a: Alert): Promise<{ sent: boolean; why: string }> {
-  const file = settings.alerts?.topics[a.channel];
+  // Shopping's pings go to their own topic, else the deals one
+  const topics = settings.alerts?.topics;
+  const file = topics?.[a.channel] ?? (a.channel === "shopping" ? topics?.deals : undefined);
   if (!settings.alerts || !file) return { sent: false, why: "no alert channel set" };
   let topic = "";
   try {

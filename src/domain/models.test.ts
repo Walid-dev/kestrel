@@ -48,8 +48,12 @@ test("the settings answer until a pick is made; the pick wins and survives a reo
       ["letter", "careful-model"],
       ["news-pick", "careful-model"], // the morning news, written while I sleep: the careful model for both steps
       ["news-write", "careful-model"],
+      ["shopping", "careful-model"], // Shopping reads and writes with care; its checker follows it, no swap between them
+      ["shopping-check", "careful-model"],
     ],
   );
+  setModelFor(db, "shopping", "another-made-up");
+  assert.equal(modelFor(db, settings, "shopping-check"), "another-made-up");
 });
 
 test("Research's questions follow a pick on Research alone; their own pick wins over it", () => {

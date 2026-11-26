@@ -22,6 +22,7 @@ import { newsHelper } from "../news/ask.ts";
 import { notesHelper } from "../notes/ask.ts";
 import { Refused } from "../notes/documents.ts";
 import { searchesHelper } from "../search/ask.ts";
+import { shoppingHelper } from "../shopping/ask.ts";
 import { tasksHelper } from "../tasks/ask.ts";
 import { applicationsHelper, researchHelper, writingHelper } from "./pages.ts";
 import {
@@ -63,6 +64,14 @@ type Helper = {
   // model writes; one that doesn't (read alone, when unsaid) is a page of my own, which has the web too, each search
   // on my tap
   tools?: ToolName[] | ((db: DatabaseSync, ref: string) => ToolName[]);
+  // code's guard on the web tools for a page that holds something private (a want's budget and note): a search's words
+  // cleaned, or the look refused in words, before it runs
+  scrub?: (
+    db: DatabaseSync,
+    ref: string,
+    tool: "web" | "page",
+    args: unknown,
+  ) => { args: unknown } | { refused: string };
 };
 const WEB: ToolName[] = ["read", "web", "page"];
 const HELPERS: Record<string, Helper> = {
@@ -75,6 +84,7 @@ const HELPERS: Record<string, Helper> = {
   writing: writingHelper,
   applications: applicationsHelper,
   news: { ...newsHelper, tools: WEB },
+  shopping: { ...shoppingHelper, tools: WEB },
 };
 export const ASK_APPS = Object.keys(HELPERS) as [string, ...string[]];
 
@@ -425,6 +435,10 @@ async function answer(
     if (runnable.length && work.round < FIND_ROUNDS) {
       const found: string[] = [];
       let wait = "";
+      // a page that holds something private (a want's budget and note) cleans a look's words or refuses it, in code,
+      // before it runs
+      const guard = (tool: "web" | "page", args: unknown): { args: unknown } | { refused: string } =>
+        helper.scrub ? helper.scrub(db, row.ref, tool, args) : { args };
       for (const l of runnable) {
         if (l.tool === "find") {
           live.step("Looking through the page");
@@ -434,10 +448,15 @@ async function answer(
           found.push(readLook(db, l.args, mode));
         } else if (l.tool === "page") {
           live.step(DOING.page);
-          found.push(await pageLook(settings, l.args, mode, work.known, work.sources));
+          const g = guard("page", l.args);
+          found.push("refused" in g ? g.refused : await pageLook(settings, g.args, mode, work.known, work.sources));
         } else {
-          const q = queryOf(l.args);
-          if (!q) found.push("A search needs words: that one had none, so nothing ran.");
+          // the words as they will go: only what draws (queryOf), then a private page's scrub (a want's budget)
+          const seen = queryOf(l.args);
+          const g = seen ? guard("web", { query: seen }) : null;
+          const q = g && !("refused" in g) ? queryOf(g.args) : "";
+          if (g && "refused" in g) found.push(g.refused);
+          else if (!q) found.push("A search needs words: that one had none, so nothing ran.");
           else if (mode === "tap") {
             // a page of my own: the search waits for my tap with its exact words, one at a time
             if (!wait) wait = q;

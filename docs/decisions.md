@@ -71,6 +71,142 @@ technical; the plan and the runbook carry the detail.
   Interview prep's olive green is near in hue: accepted, as Home's list and the dock keep them apart and the eyebrow
   names the app. Rejected: violet, rose and a green (each a near twin of a neighbour or of Searches), a paper tan
   (Research's hue).
+- **2026-11-25 · Shopping's review fixes: offers for every finalist, ratio scaling, an identity check that reads every
+  name.** Offers were read only for labelled finalists, and with no prices at Compose time only Best overall was ever
+  labelled, so best value, budget and premium never appeared: a whole run now finds offers for every finalist up to
+  the list's size (the labelled first, then by place) within the run's 24 searches, then re-ranks. Criteria are
+  scaled by ratio to the best value (v/best, or best/v when lower is better; the spread only at or under zero): min-max
+  made 87 against 90 a 0 and kept close, cheaper products from best value. As scores now sit higher, the quality floor
+  for best value and budget rises from 60% to 70% of the top, and premium needs 3% of the best value on the decisive
+  criterion (a tenth asked for more than a top lab score leaves). Budget goes only to a product cheaper than the best
+  overall and not above the finalists' median. `identity()` (`product-data.ts`) reads every name and code: a
+  "T9 Plus" name is a mismatch unless another name shows the code plainly, and a country's tag after the code
+  ("T9-US") is another region's model unless it is the region's own (`ReadDeps.region`). A store search uses the
+  maker's code, else the whole name; a product with no code takes the first read page's `mpn` or `model`. Rejected:
+  checking only the first matching string (a bare SKU "T9" passed a $199 "Tidal T9 Plus" page as a $899 product).
+- **2026-11-25 · Shopping's questions and budget as the page shows them; a missing region file never stops kestrel.**
+  The want's page shows only the questions whose answer moves the top pick (`deciding()`, `rank.ts`: each option ranked
+  again, the other answers held), plus any I answered; the rest are counted in one line. One `budgetOf()` (`view.ts`,
+  set, else from my words) feeds the gate, the page ("Budget $500 (from my words)"), each product's budget line and
+  Ask. A drafted category with under four criteria fails in words; over seven keeps the seven that weigh most. A
+  `shopping.region` with no file falls back to the shipped default with one log line (`loadRegion`). With
+  `shopping.read` off, a watch check reads no page. One mode's card leads with the named product, and its log counts
+  that product's offers. Rejected: a zod refine on the setting (a file added later would need a code change).
+
+- **2026-11-25 · A product's sheet: its address is `?product=`, Watch is its one filled button, the readings sit under
+  the line.** `web/src/shopping/product.tsx`, opened from a want's page by its address (a ping's link opens it; opened
+  from the page it is a history step, so Back and the ✕ both close it). The deal's box holds its word, its line, the
+  lowest price read over time (from the page's data only, new, not out of stock: what the verdict judges) as the
+  price line, the policies and the readings themselves, so no value hides behind a hover; the outside histories sit
+  under the box, where a quiet link reads 4.5:1 (on the box's sunk ground it read 4.15). Watch is the foot's primary
+  (Save watch once watching), its length and pace two Segs in Mine beside my star, my mark and my target; a product
+  with no offers can Find offers (Look again when it has some). The light theme's starred pill showed its ★ at 2.9:1
+  (the shared Star pill, Searches' sheet too): it takes a tenth of the ink there, 3.4:1. Rejected: the watch's two
+  Segs in the dialog's foot (a phone's foot holds three buttons at most).
+- **2026-11-25 · A want's page: the picks' offers only, Watch on the lead, and a re-read that fails keeps its price.**
+  `web/src/shopping/want.tsx`. The Offers section shows the picks' offers (the products Find offers ran on); every
+  other product's are in its sheet, so a phone isn't a wall of store cards. The head's Watch watches the lead (my star,
+  else best overall) with the plan's defaults (two weeks, a check a day) in one press, then reads Watching and opens
+  that product's sheet. My budget and note sit in Worth knowing and change in a box; my mark on the want (Still need
+  it, Bought, Passed) and Delete sit at the foot; a deleted want's page says so and offers Restore (its 404 carries
+  when). The compared filters start folded: a kind with seven criteria is a dozen rows on a phone. The page asks again
+  every 2 seconds while the want waits or works, so its steps show as they happen. `Card` gains a `star` slot and
+  `KindList`'s cards an `actions` slot. The engine gap the screens showed: a watch's re-read of a page that didn't
+  open (a time-out, a name that doesn't resolve) overwrote a good price with nothing, so the product showed no price
+  for a day and its return would have pinged "back in stock". A page that didn't open is now `offline` in the
+  reader's answer (`product-data.ts`), and the watch and Run again keep the last reading for it (`watch.ts`,
+  `offers.ts`, each with a test that fails without it).
+- **2026-11-25 · One list part for every kind, and a price line: the switch by width in CSS, no text stretched.**
+  `web/src/ui/kind-list.tsx` draws both the cards and the table and lets CSS show one (the table from 64rem, a wide
+  column from 80rem, its value in the row's open part below that), so the width decides as the plan says and no script
+  watches the window. A kind's yes-or-no filters share one row after All (pick several, All clears them), so offers read
+  "All, In stock, New only" as planned; a row with nothing to choose stays out. A unit sits in its column's head and
+  never in the cells. `web/src/ui/price-line.tsx` steps (a price holds until the next reading); its SVG stretches to
+  the plot with non-scaling strokes, and every word and dot is HTML placed by `--x` and `--y`, so no label is
+  distorted. Both are on `/design`. Rejected: a chart library (none is needed for one line), and a JS media query for
+  the table (two renders of 5 to 8 rows cost nothing).
+- **2026-11-25 · Shopping's colour is violet, the widest free hue; its page keeps deleted wants for Restore.**
+  Measured in OKLCH against every tone in both themes, the money scale's yellow-to-green left out: the widest free hue
+  is 318°, between the purple and the magenta, 16.9° from the nearest tone in either theme; the next gaps (teal to cyan
+  at 202°, great to teal at 168°) are narrower, so the plan's start candidate stays. `--violet` is #d28ae8 in dark and
+  #9438ae in light: 6.7:1 and 6.1:1 on the surface as a mark, 5.2:1 and 6.8:1 as words on its chip. The contrast probe
+  passes Shopping, Home, Live and Models in both themes; the dark grey money pill (a price with no verdict yet) read
+  4.16:1, so it takes the text-safe step poor's pill already took. `/shopping` (`web/src/shopping/`): a new want stays
+  on the page, its card first and at work, so several can be added in a row; Run again reuses Search now's two-label
+  button. The engine gap: Shopping's home lists the deleted wants (`deletedWants`, `ShoppingHome.deleted`), and the
+  page's foot offers each back, the Undo for a want's Delete. Rejected: opening the want's page on Add (a run takes
+  minutes, and its card shows the steps).
+- **2026-11-25 · Shopping's watch: pings in the want's log, the deals channel as fallback.**
+  `src/domain/shopping/watch.ts` re-reads only the offers read from a page's data, and a blocked store after a day's
+  rest; a price from a page's words and a link store are never re-read, so a check never needs the model. A ping is a
+  line in the want's log (with why when it wasn't sent), which the page's rail reads; no table of its own. Shopping's
+  pings use `alerts.topics.shopping`, else the deals topic (`platform/alert.ts`). The scheduler's Shopping hook
+  (`shoppingTick`, `run.ts`) sits beside News' before the searches in its own try: it starts a want a restart left
+  queued (held while an application has the model) and the due checks (never held), both in the background.
+- **2026-11-25 · Shopping's run: one at a time, Understand once, the scrub in Ask's loop.**
+  `src/domain/shopping/run.ts` runs one want at a time in this process and starts the next queued one itself; a run
+  waits while an application holds the model. Understand runs once per want: Run again keeps the need card, so my
+  answers keep their meaning. Products and the result are written only after Compare and the checks succeed, so a
+  failed run keeps the last good one; offers are kept as they are read. Ask's helper on a want (`shopping/ask.ts`) shows
+  my words without money, "a budget is set" and each finalist within it or not, never the note; the `scrub` hook runs
+  in Ask's loop before the web and page tools (`domain/ask/ask.ts`, three lines). Two model uses, `shopping` and
+  `shopping-check` (it follows `shopping`, as Research's questions follow Research), and a Live kind, `shopping`.
+- **2026-11-25 · The deal's "good" needs a price that moves; a store with no page found keeps its link.**
+  `src/domain/shopping/verdict.ts`: at or under the 90-day low is good only when that low sits under the 90-day median;
+  a flat price at its own low every day reads typical, since the plan's order would have called it good. The bounds
+  (1%, 10%) are compared in whole numbers (1.1 × 56000 is a hair over 61600 in floating point). `offers.ts`: a readable
+  store whose search found no page for the product keeps its search link as a `link` row, so the page still lists
+  every store; with `shopping.read` off every store is a link and nothing is searched.
+- **2026-11-25 · Shopping's Understand and Compare: what code adds to the plan's rules.**
+  `src/domain/shopping/understand.ts`, `compare.ts`, `compose.ts`, `rank.ts`, `scrub.ts`, `categories.ts`, the six
+  starter categories, `sources.json`, `regions/ca.json`; the stand-in eval (`evals/shopping/run.ts`) joins the check.
+  A host the source file doesn't list counts as B when its page states a testing method, else C, so a drafted category
+  (no listed testers) still compares while a listicle never brings a product. No label goes to a product with under
+  half its weight known. A line that addresses an assistant or says to ignore instructions is taken out of a page
+  before the model reads it, and a page holding none of the kind's words gives nothing. "Under 2 kg" is a size and
+  stays in a query; a bare "4K" isn't money; a budget my words state is the ranking's budget when I set none. Code
+  writes the assumptions for unanswered questions. Canada's file ships the research's four readable stores as `page`
+  and the fifteen it found blocked or priceless as `link`, with the test's date; no price-match or price-protection
+  policy ships until it is checked. Rejected: trusting a page's own claim of testing for a host the file lists as C.
+- **2026-11-25 · Shopping's store-page reader: what counts as blocked, and as the same product.**
+  `src/ai/shopping/product-data.ts` reads as `personal-shopping-reader/1.0`, never a browser's name. A challenge
+  marker ("Just a moment...", "Access Denied", "press and hold", generic and no site names) blocks a page only when
+  the page holds no data price or is small: the research's readable store pages carried captcha words in their
+  scripts. A 403 or 429, or a challenge, rests the host a day. A robots.txt that can't be read allows, as the
+  standard says; one is read once per host a day and shared by the reads waiting on it. Identity: a matching GTIN is
+  enough; otherwise one of the product's codes must be on the page as a whole token (R7 never matches R70), a code
+  followed by a longer model's word (Plus, Pro, Max, Ultra, Lite, Mini, SE, XL) not in the product's name is a
+  mismatch, and so is a code the region's rules give to another region. A page that names no code is a mismatch,
+  never a guess. A price from the page's words keeps the page's own words around the number, not the model's.
+- **2026-11-25 · Shopping's store: a want keeps its need card whole; a product no longer found stays.**
+  Migration 030 (`wants`, `products`, `offers`, `price_readings`, `shop_deleted`), `src/domain/shopping/store.ts` and
+  `view.ts`. The need card keeps its category's criteria, questions, uses and list size, so an edited category file or
+  a replaced draft never changes a want's list, and an answer re-ranks from the card alone. A product a run again no
+  longer finds keeps its row, marks, offers and readings, out of the ranking as "no longer in any source", instead of
+  being deleted with its history. A deleted product's sheet opens through `GET /api/shopping/products/:id` (`deleted:
+  {at}`), as Searches' sheet does. The list engine (`src/shared/kinds.ts`): an unknown or unsure value never passes a
+  threshold and sorts last either way; number steps are the values' quartiles at two significant digits, a step every
+  row passes dropped. Rejected: reading the category file at each view (a draft re-written for a later want would
+  change an older want's criteria).
+- **2026-11-25 · Shopping planned on shared parts; its own tables until listings take kinds.**
+  The plan: `docs/tasks/v1.2-shopping.md`. A kind of listing becomes data (fields, filters, sorts, card, marks) with one
+  pure engine (`src/shared/kinds.ts`) and one list part (`web/src/ui/kind-list.tsx`); Shopping's products (a kind per
+  want, its fields the want's criteria) and offers (a fixed kind) are its first users, the homes hunt next. Shopping
+  keeps its own tables (`wants`, `products`, `offers`, `price_readings`, `shop_deleted`) because widening the CHECK
+  on `listings.kind` rebuilds the live hunts' table; after v1.0's cutover one rebuild drops it and offers and homes
+  become listings. Prices come from the store page's own data (Shopify JSON, JSON-LD, meta, microdata) read by kestrel
+  through News' public fetch, moved to `ai/web.ts` (the door's reader drops scripts and keeps only the page's head);
+  the model reads a page's words only as the last method, its number kept only when code finds it on the page by the
+  product, marked, never Best price, never a ping. Stores found blocking a plain reader ship as links, and only listed
+  brand stores are read. Constraints, labels, history and verdicts are computed in code; the model reads pages (each
+  value kept only when its quote is in the product's own part of the page), writes reasons with refs, and checks
+  them; numbers go through News' `numbersIn`, moved to a shared module, after the products' names are stripped. A
+  code scrub drops money amounts and note words from every Shopping query and from Ask's web tools on a want. The
+  verdict's "inflated" is kestrel's own rule after the Competition Bureau's tests, used only on long history.
+  Categories, source tiers and regions are data files. Rejected: offers in `listings` now; a model-planned query
+  list; prices from snippets, reviews or the model unchecked; waiting for my answers to the questions (defaults go
+  on, an answer re-ranks in code); a browser-like user agent; reading Amazon, the paid deal forum, price-history or
+  flyer sites (links only).
 - **2026-11-25 · My marks in kestrel stick through the mirror; the old setup's own stages still arrive.**
   A stage, a star, a note or a delete made in kestrel is kestrel's from then on: `listings.mine` (migration 029) keeps
   when each was set here, and the mirror leaves a marked field as it is. A listing never marked here follows the old

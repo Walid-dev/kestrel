@@ -5,6 +5,7 @@
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import type { Drawing as D } from "../../src/shared/blocks.ts";
+import { formatMoney, type Row as KindRow, type ListKind } from "../../src/shared/kinds.ts";
 import { LiveBadge, PipBody, type Status } from "./app.tsx";
 import { type AskCard, LeftOut, SearchCard } from "./ask.tsx";
 import { Drawing } from "./drawing.tsx";
@@ -18,9 +19,11 @@ import { EmptyState } from "./ui/empty.tsx";
 import { Field } from "./ui/field.tsx";
 import { Figure, Figures } from "./ui/figures.tsx";
 import { FilterPanel, FilterRow } from "./ui/filters.tsx";
+import { KindFilters, KindList, useKind } from "./ui/kind-list.tsx";
 import { List, Row } from "./ui/list.tsx";
 import { Page, PageHead } from "./ui/page.tsx";
 import { Pills, type Tone } from "./ui/pills.tsx";
+import { PriceLine } from "./ui/price-line.tsx";
 import { RailPart, WithRail } from "./ui/rail.tsx";
 import { SectionHead } from "./ui/section.tsx";
 import { Seg } from "./ui/seg.tsx";
@@ -84,6 +87,7 @@ const COLOURS: { group: string; when: string; tokens: [string, string, string][]
       ["--lemon", "Notes: its word, its icon, a note's mark (--lemon-soft)", "tone-lemon, text-lemon"],
       ["--teal", "Quiz: its eyebrow, its icon", "tone-teal"],
       ["--magenta", "Writing: its eyebrow, its icon", "tone-magenta"],
+      ["--violet", "Shopping: its eyebrow, its icon, the labels it gives", "tone-violet"],
     ],
   },
   {
@@ -179,6 +183,7 @@ const TONES: Tone[] = [
   "lemon",
   "teal",
   "magenta",
+  "violet",
   "muted",
 ];
 // every app with its colour, as the map has them (Home's order)
@@ -189,6 +194,7 @@ const APP_ORDER: AppName[] = [
   "Notes",
   "Tasks",
   "News",
+  "Shopping",
   "Research",
   "Quiz",
   "Applications",
@@ -274,6 +280,97 @@ const DRAWINGS: D[] = [
 
 // the three states the status shows, as the badge and the pip draw them
 const STATES: Status[] = [{ kind: "asleep" }, { kind: "needs", n: 2 }, { kind: "working", n: 1 }];
+
+// KindList's made-up kind: kettles, compared on what a tester measures. Fictional brands, made-up numbers
+const KETTLES: ListKind = {
+  key: "product:kettle",
+  name: "Kettle",
+  fields: [
+    { key: "name", label: "Product", type: "text" },
+    { key: "labels", label: "Labels", type: "list" },
+    { key: "price", label: "Price", type: "money", better: "lower" },
+    { key: "litres", label: "Holds", type: "number", unit: "L", better: "higher" },
+    { key: "boil", label: "Boils a litre", type: "number", unit: "s", better: "lower" },
+    { key: "noise", label: "Noise", type: "number", unit: "dB", better: "lower" },
+    { key: "dial", label: "Temperature dial", type: "bool" },
+  ],
+  filters: [
+    { key: "dial", label: "Temperature dial", field: "dial", how: "flag" },
+    { key: "boil", label: "Boils a litre", field: "boil", how: "atMost" },
+  ],
+  sorts: [
+    { key: "price", label: "Price", field: "price", dir: "asc" },
+    { key: "boil", label: "Boils a litre", field: "boil" },
+  ],
+  title: "name",
+  figure: "price",
+  facts: ["litres", "boil", "dial"],
+  currency: "CAD",
+};
+const KETTLE_ROWS: KindRow[] = [
+  ["Brisk K2", ["Best overall"], 8900, 1.7, 160, 58, true],
+  ["Fen Pour", ["Best value"], 5900, 1.5, 175, 61, true],
+  ["Orla Tall", [], 12900, 1.8, 150, 64, true],
+  ["Nimbo Mini", ["Budget"], 3900, 1, 190, 66, false],
+  ["Tidal Glass", [], 7400, 1.7, 168, null, false],
+].map(([name, labels, price, litres, boil, noise, dial], i) => ({
+  id: `k${i}`,
+  values: { name, labels, price, litres, boil, noise, dial } as KindRow["values"],
+  unsure: name === "Orla Tall" ? ["boil"] : [],
+}));
+
+function KindDemo() {
+  const state = useKind(KETTLES, KETTLE_ROWS, { find: (r) => String(r.values.name) });
+  return (
+    <div className="grid gap-3">
+      <KindFilters state={state} findLabel="Search the made-up kettles" />
+      <KindList
+        kind={KETTLES}
+        rows={state.shown}
+        label="Made-up kettles"
+        first={{
+          label: "Kettle",
+          cell: (r) => (
+            <span className="grid gap-1">
+              <span className="font-medium text-strong">{String(r.values.name)}</span>
+              {(r.values.labels as string[]).length > 0 && (
+                <span className="flex flex-wrap gap-1">
+                  {(r.values.labels as string[]).map((l) => (
+                    <span key={l} className={cx("chip chip-caps tone-violet", l === "Best overall" && "chip-fill")}>
+                      {l}
+                    </span>
+                  ))}
+                </span>
+              )}
+            </span>
+          ),
+        }}
+        columns={[
+          { field: "price" },
+          { field: "litres" },
+          { field: "boil" },
+          { field: "noise", wide: true },
+          { field: "dial", wide: true },
+        ]}
+        meta={(r) =>
+          (r.values.labels as string[]).map((l) => (
+            <span key={l} className={cx("chip chip-caps tone-violet", l === "Best overall" && "chip-fill")}>
+              {l}
+            </span>
+          ))
+        }
+        figure={(r) => <span className="money">{formatMoney(Number(r.values.price))}</span>}
+        detail={() => <p className="m-0 text-small text-muted">A made-up kettle: the page's own words fold here.</p>}
+      />
+    </div>
+  );
+}
+
+// PriceLine's made-up readings: a day each, $599 for three weeks, then $499, then $449 for the last six days
+const PRICE_POINTS = Array.from({ length: 40 }, (_, i) => ({
+  at: new Date(Date.now() - (39 - i) * 86_400_000).toISOString(),
+  value: i < 21 ? 59900 : i < 34 ? 49900 : 44900,
+}));
 
 function Part({ title, when, wide, children }: { title: string; when: string; wide?: boolean; children: ReactNode }) {
   return (
@@ -697,6 +794,30 @@ export function Design() {
             <span className="flex items-center gap-1.5 text-small text-muted">
               <span className="dot tone-green pulse" /> a working dot
             </span>
+          </div>
+          {/* Shopping's: the labels it gives, one meaning so one colour (best overall filled), thin evidence a warning;
+              a price's pill and its verdict's chip from one map, on the money scale */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="chip chip-caps chip-fill tone-violet">Best overall</span>
+            <span className="chip chip-caps tone-violet">Best value</span>
+            <span className="chip chip-caps tone-violet">Budget</span>
+            <span className="chip chip-caps tone-orange">Thin evidence</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {(
+              [
+                ["great", "New low", "$449"],
+                ["good", "Good price", "$479"],
+                ["fair", "Typical", "$519"],
+                ["poor", "High", "$589"],
+                ["muted", "Not enough history", "$529"],
+              ] as const
+            ).map(([tone, word, price]) => (
+              <span key={word} className="inline-flex items-center gap-1.5">
+                <span className={`money tone-${tone}`}>{price}</span>
+                <span className={`chip tone-${tone}`}>{word}</span>
+              </span>
+            ))}
           </div>
         </Part>
 
@@ -1151,6 +1272,32 @@ export function Design() {
               />
             </FilterRow>
           </FilterPanel>
+        </Part>
+
+        <Part
+          title="KindList"
+          when="One list for every kind of listing (src/shared/kinds.ts): useKind holds the picks, KindFilters draws the filter card from the kind (a row per filter with each pill's count under the others, the yes-or-no ones together after All, the sorts last), KindList the rows: cards on a phone with a slot for the page's own lines, from 64rem one table with units in the heads, the best in each number column marked, — for unknown and ? for unsure in grey. A wide column shows from 80rem; narrower, it folds into the row's open part (▶). Shopping's products and offers use it."
+          wide
+        >
+          <KindDemo />
+        </Part>
+
+        <Part
+          title="PriceLine"
+          when="A price over time, small: one stepped line, its last point a dot in the verdict's tone with its value, the regular price dashed and my target solid, each named where it sits. Hover, a touch or the arrow keys walk the readings with a hairline and a tip; the page lists the readings too, so the tip never gates a value. One series, no legend: the heading names it."
+        >
+          <div className="grid gap-1">
+            <span className="eyebrow">The lowest price read · 40 days</span>
+            <PriceLine
+              label="The lowest price read, over 40 days"
+              points={PRICE_POINTS}
+              regular={59900}
+              target={42000}
+              tone="good"
+              format={(c) => formatMoney(c)}
+              until={new Date().toISOString()}
+            />
+          </div>
         </Part>
 
         <Part

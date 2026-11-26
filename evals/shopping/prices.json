@@ -1,0 +1,40 @@
+{
+  "about": "Three made-up store pages with no structured price, for the last method: the model reads the page's words, and code keeps its number only when it is on the page within 300 characters of the product's name or code, in the region's currency. answer: the stand-in's answer. Nothing here is real.",
+  "currency": "CAD",
+  "cases": [
+    {
+      "name": "a price shown only in the page's words is kept, with its words",
+      "product": { "name": "Brisk R7", "brand": "Brisk", "models": ["R7-C", "R7"] },
+      "page": {
+        "url": "https://store-b.example/brisk-r7",
+        "html": "<html><head><title>Brisk R7-C Robot Vacuum | Store B</title></head><body><header>Store B · Free shipping on orders over $49</header><h1>Brisk R7-C Robot Vacuum with Self-Empty Dock</h1><div class='price'><span>Now $449.99</span> <s>Was $599.99</s></div><p>Model: R7-C. Ships in 2 days.</p></body></html>"
+      },
+      "expect": { "price": 44999, "regular": 59999 },
+      "answer": {
+        "price": { "amount": 449.99, "words": "Now $449.99" },
+        "regular": { "amount": 599.99, "words": "Was $599.99" },
+        "currency": "CAD"
+      }
+    },
+    {
+      "name": "a made-up number that isn't on the page is refused",
+      "product": { "name": "Fen Clean 3", "brand": "Fen", "models": ["FC3"] },
+      "page": {
+        "url": "https://store-f.example/fen-clean-3",
+        "html": "<html><head><title>Fen Clean 3 | Store F</title></head><body><h1>Fen Clean 3 robot vacuum (FC3)</h1><p>Add it to your cart to see our price.</p><p>Quiet, light and made for small homes.</p></body></html>"
+      },
+      "expect": { "refused": true },
+      "answer": { "price": { "amount": 399, "words": "$399" }, "regular": null, "currency": "CAD" }
+    },
+    {
+      "name": "a number on the page but far from the product is refused",
+      "product": { "name": "Orla S20", "brand": "Orla", "models": ["S20-CA"] },
+      "page": {
+        "url": "https://store-g.example/orla-s20",
+        "html": "<html><head><title>Orla S20 | Store G</title></head><body><h1>Orla S20 robot vacuum and mop (S20-CA)</h1><p>Call us for today's price on this model.</p><p>Vacuums and mops in one pass. Lifts its mop on rugs. Maps every room and returns to its dock by itself. Works with the app on any phone. Comes with two spare brushes, a spare filter and a cleaning tool. The dock holds sixty days of dust before it needs emptying. A quiet mode runs at night. Edges and corners get a second pass with the side brush. The bumper protects furniture and the cliff sensors keep it off the stairs. Every unit ships with a two-year warranty from the maker.</p><p>More from our store: kitchen, garden, toys, books, tools and the rest of the catalogue, all with free returns within thirty days of delivery.</p><footer>Gift cards from $25</footer></body></html>"
+      },
+      "expect": { "refused": true },
+      "answer": { "price": { "amount": 25, "words": "Gift cards from $25" }, "regular": null, "currency": "CAD" }
+    }
+  ]
+}

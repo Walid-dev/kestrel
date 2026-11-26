@@ -21,6 +21,9 @@ export type SchedulerDirs = {
   // the morning news (domain/news/brief.ts): starts what is due in the background and says what it started; told
   // whether an application is at work, when the brief waits
   news?: (now: Date, applying: boolean) => string | null;
+  // Shopping (domain/shopping/run.ts): a want a restart left queued, and the due price checks, started in the
+  // background; told whether an application is at work, when a run waits (a price check doesn't)
+  shopping?: (now: Date, applying: boolean) => string | null;
 };
 
 // a copy that failed (a full disk, a folder it can't write) tries again an hour later, not every minute: each try
@@ -63,6 +66,13 @@ async function tickNow(db: DatabaseSync, dirs: SchedulerDirs, now: Date): Promis
     if (news) did.push(`news:${news}`);
   } catch (e) {
     console.error(`the news couldn't start: ${plainWords((e as Error).message)}`);
+  }
+  // Shopping beside it, in its own try: a failure is one line and never stops the searches
+  try {
+    const shop = dirs.shopping?.(now, applying);
+    if (shop) did.push(`shopping:${shop}`);
+  } catch (e) {
+    console.error(`Shopping's tick couldn't start: ${plainWords((e as Error).message)}`);
   }
   const specs = loadSpecs(dirs.specsDir).specs;
   // the round's due searches join the line together, so each says its place on Live ("3 of 20"); the line still runs
