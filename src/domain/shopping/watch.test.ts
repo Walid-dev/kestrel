@@ -1,7 +1,8 @@
 // The watch on the made-up want: due and not due; only the offers read from a page's data are re-read (never a price
 // from the page's words, a link store or another product's page); the target pings once per crossing; a drop since the
-// watch began pings; back in stock pings; one ping per want; a page that no longer matches becomes a mismatch; the
-// watch ends on its date with a line in the log, no ping. A stand-in store reader and a stand-in phone.
+// watch began pings; back in stock pings; one ping per want; a page that no longer matches becomes a mismatch; a page
+// that didn't open keeps the last reading (no false back-in-stock ping after it); the watch ends on its date with a
+// line in the log, no ping. A stand-in store reader and a stand-in phone.
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
@@ -158,6 +159,21 @@ test("a drop since the watch began pings; so does a return to stock; a page that
   later(25);
   await checkWatches(db, deps);
   assert.equal(offersOf(db, r7.id).find((o) => o.store === "store-a.example")?.read, "mismatch");
+});
+
+test("a page that didn't open keeps the last price: no price gone for a day, no false back-in-stock ping", async () => {
+  const { db, r7, deps, pings, at, later } = setup();
+  await checkWatches(db, deps); // the watch's first price: $449
+  at.extra = { read: "unreadable", price: null, method: "", why: "the page didn't open (a time-out)", offline: true };
+  later(25);
+  await checkWatches(db, deps);
+  const kept = offersOf(db, r7.id).find((o) => o.store === "store-a.example");
+  assert.deepEqual([kept?.read, kept?.price], ["ok", 44_900]);
+  at.extra = {};
+  later(25);
+  await checkWatches(db, deps);
+  assert.equal(pings.length, 0);
+  assert.equal(getProduct(db, r7.id)?.watch?.wasOut, false);
 });
 
 test("one ping per want, naming its best; a watch ends on its date with a line in the log and no ping", async () => {

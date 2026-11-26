@@ -5,6 +5,19 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · A want's page: the picks' offers only, Watch on the lead, and a re-read that fails keeps its price.**
+  `web/src/shopping/want.tsx`. The Offers section shows the picks' offers (the products Find offers ran on); every
+  other product's are in its sheet, so a phone isn't a wall of store cards. The head's Watch watches the lead (my star,
+  else best overall) with the plan's defaults (two weeks, a check a day) in one press, then reads Watching and opens
+  that product's sheet. My budget and note sit in Worth knowing and change in a box; my mark on the want (Still need
+  it, Bought, Passed) and Delete sit at the foot; a deleted want's page says so and offers Restore (its 404 carries
+  when). The compared filters start folded: a kind with seven criteria is a dozen rows on a phone. The page asks again
+  every 2 seconds while the want waits or works, so its steps show as they happen. `Card` gains a `star` slot and
+  `KindList`'s cards an `actions` slot. The engine gap the screens showed: a watch's re-read of a page that didn't
+  open (a time-out, a name that doesn't resolve) overwrote a good price with nothing, so the product showed no price
+  for a day and its return would have pinged "back in stock". A page that didn't open is now `offline` in the
+  reader's answer (`product-data.ts`), and the watch and Run again keep the last reading for it (`watch.ts`,
+  `offers.ts`, each with a test that fails without it).
 - **2026-11-25 · One list part for every kind, and a price line: the switch by width in CSS, the text never stretched.**
   `web/src/ui/kind-list.tsx` draws both the cards and the table and lets CSS show one (the table from 64rem, a wide
   column from 80rem, its value in the row's open part below that), so the width decides as the plan says and no script

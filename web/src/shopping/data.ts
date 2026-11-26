@@ -192,6 +192,11 @@ export function ago(iso: string | null | undefined): string {
   const h = Math.round(min / 60);
   return h < 48 ? `${h} h` : `${Math.round(h / 24)} d`;
 }
+// how long ago, in words: "just now", "5 min ago", "2 h ago"
+export const agoWords = (iso: string | null | undefined) => {
+  const a = ago(iso);
+  return a === "now" ? "just now" : a ? `${a} ago` : "";
+};
 // "Nov 25", in the order the browser says dates
 export const day = (iso: string | null | undefined) => {
   const t = Date.parse(iso ?? "");

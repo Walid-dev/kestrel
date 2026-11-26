@@ -1,7 +1,7 @@
 // Finding offers on a made-up region, a stand-in search and the store fixtures: a link store gets its search link with
 // no search; a mismatch is kept apart; a blocked store keeps its link; a brand store the region doesn't list is never
 // read; the run's search cap leaves unsearched rows; Best price goes only to a verified new total from the page's data,
-// never to a price read from its words; every reading is kept.
+// never to a price read from its words; every reading is kept; Run again while a page doesn't open keeps its reading.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
@@ -167,6 +167,30 @@ test("each store in its state: read, link, blocked, mismatch; a brand store nobo
       ["store-b.example", "text", 39999],
     ],
   );
+  // Run again while Store A's page doesn't open: the offer already read there keeps its reading
+  const timedOut: StoreRead = {
+    read: "unreadable",
+    method: "",
+    price: null,
+    regular: null,
+    shipping: null,
+    currency: "",
+    stock: "unknown",
+    condition: "new",
+    seller: "",
+    pickup: null,
+    validUntil: null,
+    gtin: null,
+    words: "",
+    why: "the page didn't open (a time-out)",
+    offline: true,
+  };
+  await findOffers(db, [p], MADE_UP_NEED, {
+    ...deps,
+    readPage: async (url, wanted, s) => (url.includes("store-a") ? timedOut : deps.readPage(url, wanted, s)),
+  });
+  const kept = offersOf(db, p.id).find((o) => o.store === "store-a.example");
+  assert.deepEqual([kept?.read, kept?.price], ["ok", 44999]);
 });
 
 test("the run's search cap leaves the stores after it unsearched, each with its search link", async () => {

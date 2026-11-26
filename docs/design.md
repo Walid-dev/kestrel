@@ -180,7 +180,8 @@ reading width is 720.
   in red with what to do, never a developer's hint.
 - `Card` (`web/src/ui/card.tsx`) — plain; `to` makes the whole card a link; `title` gives it the Searches card's
   anatomy: `meta` (the top line's left: a chip first, then a muted group), `end` (its right end: the date or the
-  source, small and muted, a time in `font-mono`), the title with `figure` beside it (its key number: a `.money` pill,
+  source, small and muted, a time in `font-mono`), `star` (a bare `Star` after it, as Searches' and News' cards keep
+  theirs), the title with `figure` beside it (its key number: a `.money` pill,
   a ring), what it holds under it (one muted subline, facts with only the values bold), then `actions` (`.btn-sm`,
   `.btn-quiet`). `to` or `onOpen` opens it by its title; `onRemove` and `removeLabel` give it the ✕ (it waits out of
   sight under a mouse until hover or focus); `tone` colours its edge; `wide` spans the grid's row. A card built by hand

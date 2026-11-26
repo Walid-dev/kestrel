@@ -75,17 +75,19 @@ export function KindFilters({
   findLabel,
   sorts = true,
   fold,
+  folded = false,
 }: {
   state: KindState;
   // the search box's name, read out ("Search the products")
   findLabel: string;
   // the sort row (a list whose order is its meaning, as offers by total, can leave it out)
   sorts?: boolean;
-  // the rows fold away behind a button, as Searches' card does
+  // the rows fold away behind a button, as Searches' card does; folded: they start folded (a long list of criteria)
   fold?: boolean;
+  folded?: boolean;
 }) {
   const { kind } = state;
-  const [shown, setShown] = useState(true);
+  const [shown, setShown] = useState(!folded);
   const flags = kind.filters.filter((f) => f.how === "flag");
   const rows = kind.filters
     .filter((f) => f.how !== "flag")
@@ -239,6 +241,7 @@ export function KindList({
   lines,
   facts,
   detail,
+  actions,
   onOpen,
   onRemove,
   removeLabel,
@@ -260,6 +263,8 @@ export function KindList({
   facts?: string[];
   // what a row's open part holds besides the columns that didn't fit
   detail?: (row: Row) => ReactNode;
+  // a card's buttons, last (an offer's Open the store)
+  actions?: (row: Row) => ReactNode;
   // a card's title opens it; the ✕ deletes it, the page asking first
   onOpen?: (row: Row) => void;
   onRemove?: (row: Row) => void;
@@ -272,6 +277,11 @@ export function KindList({
   const factFields = facts ?? kind.facts ?? [];
   const wide = columns.filter((c) => c.wide);
   const best = new Map(columns.map((c) => [c.field, bestOf(fieldOf(kind, c.field), rows)]));
+  // a column of words (a yes or no, a state, a name) reads from the left in the words' font; numbers stay right, in mono
+  const words = (c: KindColumn) => {
+    const t = fieldOf(kind, c.field)?.type;
+    return t === "bool" || t === "enum" || t === "text" || t === "list" || t === "date";
+  };
   const head = (c: KindColumn) => {
     const f = fieldOf(kind, c.field);
     return (
@@ -310,6 +320,7 @@ export function KindList({
                 onOpen={onOpen ? () => onOpen(r) : undefined}
                 onRemove={onRemove ? () => onRemove(r) : undefined}
                 removeLabel={removeLabel?.(r)}
+                actions={actions?.(r)}
               >
                 {lines?.(r)}
                 {factFields.length > 0 && (
@@ -336,7 +347,11 @@ export function KindList({
                 {first.label}
               </th>
               {columns.map((c) => (
-                <th key={c.field} scope="col" className={cx("eyebrow", c.wide && "kind-wide")}>
+                <th
+                  key={c.field}
+                  scope="col"
+                  className={cx("eyebrow", c.wide && "kind-wide", words(c) && "kind-words")}
+                >
                   {head(c)}
                 </th>
               ))}
@@ -356,7 +371,7 @@ export function KindList({
                   <tr className={cx(isOpen && "kind-row-open")}>
                     <td>{first.cell(r)}</td>
                     {columns.map((c) => (
-                      <td key={c.field} className={cx(c.wide && "kind-wide")}>
+                      <td key={c.field} className={cx(c.wide && "kind-wide", words(c) && "kind-words")}>
                         {cell(c, r)}
                       </td>
                     ))}

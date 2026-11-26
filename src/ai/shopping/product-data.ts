@@ -36,6 +36,8 @@ export type StoreRead = {
   gtin: string | null;
   words: string; // a price read from the page's words: those words
   why: string; // a read with no price: why, in words
+  // the page didn't open (a network failure, a time-out): no answer about the price, so a check keeps the last one
+  offline?: boolean;
 };
 
 export type ReadDeps = {
@@ -712,7 +714,7 @@ export async function readStorePage(url: string, wanted: Wanted, deps: ReadDeps)
       pacer.rest(url);
       return none("blocked", `the store turned the reader away (it answered ${page.status})`);
     }
-    return none("unreadable", `the page didn't open (${page.why})`);
+    return { ...none("unreadable", `the page didn't open (${page.why})`), offline: true };
   }
   const html = page.text;
   const ld = readJsonLd(html);

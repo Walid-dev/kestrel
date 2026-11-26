@@ -2876,6 +2876,10 @@ pre.code .f {
     display: none;
   }
 }
+.kind-table :where(.kind-words) {
+  text-align: left;
+  font-family: var(--sans);
+}
 .kind-best {
   color: var(--strong);
   font-weight: 500;
@@ -5658,6 +5662,73 @@ body:has(.paper-view) {
   .shop-more-rows {
     grid-template-columns: 10rem minmax(0, 1fr);
   }
+}
+/* a want's page: a failed run in one red line over the last good one; a pick's deal under its facts; the offers'
+   product heads (the name opens its sheet) and the store or product name in a table's first column, ink until
+   hovered; the notes the list rests on, side by side where they fit; the foot's parts, a control's height apart */
+.shop-failed {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: var(--text-detail);
+  line-height: var(--text-detail--line-height);
+  color: color-mix(in srgb, var(--red) var(--tone-text), var(--strong));
+}
+.shop-failed > .dot {
+  flex: none;
+  transform: translateY(-1px);
+}
+.shop-deal {
+  display: grid;
+  gap: 2px;
+  margin-top: 4px;
+}
+.shop-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.shop-group-name,
+.shop-product-name,
+.shop-store {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--strong);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.shop-group-name {
+  font: 600 var(--text-head) / var(--text-head--line-height) var(--cond);
+}
+.shop-product-name,
+.shop-store {
+  font: 500 var(--text-detail) / var(--text-detail--line-height) var(--sans);
+}
+@media (hover: hover) {
+  :is(.shop-group-name, .shop-product-name, .shop-store):hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+.shop-notes {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  align-items: start;
+}
+.shop-also > .list,
+.shop-foot details > .list {
+  margin-top: 4px;
+}
+.shop-foot {
+  display: grid;
+  gap: 4px;
+}
+.shop-foot > .flex {
+  margin-top: 8px;
 }
 /* a chip filled with its tone, for the label that leads (Shopping's best overall): the page's ground as its words,
    7.3:1 in dark and 5.9:1 in light on Shopping's violet (measured) */

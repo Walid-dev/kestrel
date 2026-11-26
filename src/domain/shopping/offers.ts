@@ -12,7 +12,7 @@ import type { Hit } from "../../ai/web.ts";
 import type { Need } from "../../shared/shopping.ts";
 import { hostOf, type Region, type Store } from "./region.ts";
 import { type ScrubContext, scrubQuery } from "./scrub.ts";
-import { type OfferInput, type ProductRow, saveOffer } from "./store.ts";
+import { type OfferInput, offersOf, type ProductRow, saveOffer } from "./store.ts";
 import { storesFor } from "./verdict.ts";
 
 export type OfferDeps = {
@@ -161,6 +161,11 @@ export async function findOffers(
       }
       deps.step?.(`Finding offers: ${p.name} (${n + 1} of ${products.length}), reading ${s.name}`);
       const r = await deps.readPage(url, wanted, s);
+      // a page that didn't open says nothing about the price: an offer already read at this address keeps its reading
+      if (r.offline && offersOf(db, p.id).some((o) => o.url === url && o.read === "ok")) {
+        found.read++;
+        continue;
+      }
       keep({
         store: s.domain,
         url,

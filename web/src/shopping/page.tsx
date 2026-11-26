@@ -18,7 +18,7 @@ import { Page } from "../ui/page.tsx";
 import { Pills } from "../ui/pills.tsx";
 import { RailPart, WithRail } from "../ui/rail.tsx";
 import { SectionHead } from "../ui/section.tsx";
-import { ago, doors, MARK, money, plural, sentence, useChange, useShopping, when, working } from "./data.ts";
+import { ago, agoWords, doors, MARK, money, plural, sentence, useChange, useShopping, when, working } from "./data.ts";
 import { Price, RunAgain, StateChip } from "./parts.tsx";
 
 // the status row: what I still need (the page opens on it), what kestrel watches, what I bought or passed on
@@ -97,8 +97,7 @@ export function Shopping() {
             {d.lastRead && (
               <>
                 {" "}
-                · prices read <b className="text-ink">{ago(d.lastRead)}</b>
-                {ago(d.lastRead) === "now" ? "" : " ago"}
+                · prices read <b className="text-ink">{agoWords(d.lastRead)}</b>
               </>
             )}
           </>
@@ -150,7 +149,7 @@ export function Shopping() {
                       key={`${p.want}-${p.at}`}
                       to={`/shopping/${encodeURIComponent(p.want)}${p.product ? `?product=${encodeURIComponent(p.product)}` : ""}`}
                       title={<span className="block truncate">{p.text}</span>}
-                      line={<span title={when(p.at)}>{ago(p.at)} ago</span>}
+                      line={<span title={when(p.at)}>{agoWords(p.at)}</span>}
                     />
                   ))}
                 </List>
@@ -351,7 +350,7 @@ export function Shopping() {
                   <Row
                     key={g.id}
                     title={<span className="block truncate">{g.words}</span>}
-                    line={<span title={when(g.at)}>Deleted {ago(g.at)} ago</span>}
+                    line={<span title={when(g.at)}>Deleted {agoWords(g.at)}</span>}
                     end={
                       <button
                         type="button"

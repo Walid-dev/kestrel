@@ -62,6 +62,9 @@ async function checkOne(db: DatabaseSync, p: ProductRow, w: Watch, deps: WatchDe
     const rested = o.read === "blocked" && now.getTime() - Date.parse(o.seen) >= 24 * HOUR;
     if (!fromData && !rested) continue;
     const r = await deps.readPage(o.url, wanted, storeOf(deps.region, o.store));
+    // a page that didn't open says nothing about the price: the last reading stands (a price never vanishes for a
+    // day over a time-out, and its return is never pinged as back in stock); the next check tries again
+    if (r.offline) continue;
     saveOffer(
       db,
       p.id,
