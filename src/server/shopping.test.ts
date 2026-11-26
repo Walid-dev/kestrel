@@ -62,7 +62,7 @@ test("a new want is queued and the run told; Run again queues a whole run", asyn
   const res = await send(app, "POST", "/api/shopping/wants", { words: "made-up winter boots", budget: 180 });
   assert.equal(res.status, 202);
   const { id } = (await res.json()) as { id: string };
-  assert.equal(kicked(), 1);
+  assert.equal(kicked(), 2); // once at mount (a queued want waits for no one), once for this want
   const home = (await (await app.request("/api/shopping")).json()) as ShoppingHome;
   assert.equal(home.wants.find((w) => w.id === id)?.state, "queued");
   assert.equal(home.figures.wants, 2);

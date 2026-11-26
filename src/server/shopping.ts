@@ -25,6 +25,7 @@ import {
   setProductMarks,
   setWantMarks,
   setWatch,
+  sweepWants,
 } from "../domain/shopping/store.ts";
 import {
   deletedProductView,
@@ -65,6 +66,8 @@ export type ShoppingHooks = {
 };
 
 export function mountShopping(app: Hono, db: DatabaseSync, settings: Settings, hooks: ShoppingHooks = {}) {
+  // a run a restart cut short says so; a queued want keeps its job and starts when the model is free
+  sweepWants(db);
   // the region's currency and store names, read once: a region file that doesn't read stops kestrel with its reason
   const region = loadRegion(settings);
   const place = placeOf(region);
@@ -75,6 +78,7 @@ export function mountShopping(app: Hono, db: DatabaseSync, settings: Settings, h
     ...hooks.view?.(),
   });
   const kick = () => hooks.started?.();
+  kick();
 
   app.get("/api/shopping", (c) => c.json(shoppingHome(db, opts())));
 

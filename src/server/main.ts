@@ -9,6 +9,7 @@ import { openDb } from "../db/db.ts";
 import { migrate } from "../db/migrate.ts";
 import { newsTick } from "../domain/news/brief.ts";
 import { sweepDeepChecks } from "../domain/search/deep.ts";
+import { startNext } from "../domain/shopping/run.ts";
 import { loadSettings } from "../platform/config.ts";
 import { dataDir, isDeployed } from "../platform/paths.ts";
 import { alertRun } from "./alerts.ts";
@@ -107,7 +108,7 @@ mountLive(app, db, settings.oldLive ?? "");
 mountCost(app, settings);
 mountBrief(app, db, settings);
 mountNews(app, db, settings);
-mountShopping(app, db, settings);
+mountShopping(app, db, settings, { started: () => startNext(db, settings) });
 mountEvents(app);
 // an api path with no door answers so, in words — never the app's page with a 200. It comes last: a route mounted
 // after it is never reached (the live stream was, until 2026-11-22, so every screen fell back to its timer)

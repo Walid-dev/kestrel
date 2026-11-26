@@ -14,7 +14,9 @@ export type Use =
   | "quiz-explain"
   | "letter"
   | "news-pick"
-  | "news-write";
+  | "news-write"
+  | "shopping"
+  | "shopping-check";
 export const USES: { use: Use; what: string }[] = [
   { use: "notes-careful", what: "Notes' careful asks: changes written with time to think" },
   { use: "notes-fast", what: "Notes' fast asks: changes in seconds" },
@@ -27,6 +29,11 @@ export const USES: { use: Use; what: string }[] = [
   { use: "letter", what: "Cover letters: a letter written the way an application writes it" },
   { use: "news-pick", what: "The morning news: choosing the day's stories from what the feeds brought" },
   { use: "news-write", what: "The morning news: the brief, written in plain words" },
+  { use: "shopping", what: "Shopping: understanding a want, reading reviews and store pages, writing the reasons" },
+  {
+    use: "shopping-check",
+    what: "Shopping: checking each reason against its quotes, on Shopping's model unless picked apart",
+  },
 ];
 
 // the fast model for what wants speed: Notes' fast asks, the quiz's explanations (written while I answer), and Ask's
@@ -35,7 +42,8 @@ const FAST: Use[] = ["notes-fast", "quiz-explain", "ask"];
 // a use with no pick of its own that runs on another use's model, picked or not. Research's questions follow the
 // research: the two models don't fit in the computer's memory together, so a switch between the two steps costs about
 // 25 s to swap and 25 s more for the first answer
-const FOLLOWS: Partial<Record<Use, Use>> = { "research-ask": "research" };
+// Shopping's checker follows Shopping's model the same way
+const FOLLOWS: Partial<Record<Use, Use>> = { "research-ask": "research", "shopping-check": "shopping" };
 
 export function fallbackFor(db: DatabaseSync, settings: Settings, use: Use): string {
   const lead = FOLLOWS[use];

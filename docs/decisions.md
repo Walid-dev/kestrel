@@ -5,6 +5,14 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Shopping's run: one at a time, Understand once, the scrub in Ask's loop.**
+  `src/domain/shopping/run.ts` runs one want at a time in this process and starts the next queued one itself; a run
+  waits while an application holds the model. Understand runs once per want: Run again keeps the need card, so my
+  answers keep their meaning. Products and the result are written only after Compare and the checks succeed, so a
+  failed run keeps the last good one; offers are kept as they are read. Ask's helper on a want (`shopping/ask.ts`) shows
+  my words without money, "a budget is set" and each finalist within it or not, never the note; the `scrub` hook runs
+  in Ask's loop before the web and page tools (`domain/ask/ask.ts`, three lines). Two model uses, `shopping` and
+  `shopping-check` (it follows `shopping`, as Research's questions follow Research), and a Live kind, `shopping`.
 - **2026-11-25 · The deal's "good" needs a price that moves; a store with no page found keeps its link.**
   `src/domain/shopping/verdict.ts`: at or under the 90-day low is good only when that low sits under the 90-day median;
   a flat price at its own low every day reads typical, since the plan's order would have called it good. The bounds

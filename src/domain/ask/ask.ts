@@ -20,6 +20,7 @@ import { newsHelper } from "../news/ask.ts";
 import { notesHelper } from "../notes/ask.ts";
 import { Refused } from "../notes/documents.ts";
 import { searchesHelper } from "../search/ask.ts";
+import { shoppingHelper } from "../shopping/ask.ts";
 import { tasksHelper } from "../tasks/ask.ts";
 import { applicationsHelper, researchHelper, writingHelper } from "./pages.ts";
 import { isTool, runTool, TOOLS, type ToolName, toolLines } from "./tools.ts";
@@ -49,6 +50,14 @@ type Helper = {
   // the shared read tools this page allows (tools.ts), for the app or per page; read alone when unsaid: a page of my
   // own gets no web tool
   tools?: ToolName[] | ((db: DatabaseSync, ref: string) => ToolName[]);
+  // code's guard on the web tools for a page that holds something private (a want's budget and note): a search's words
+  // cleaned, or the look refused in words, before it runs
+  scrub?: (
+    db: DatabaseSync,
+    ref: string,
+    tool: "web" | "page",
+    args: unknown,
+  ) => { args: unknown } | { refused: string };
 };
 const WEB: ToolName[] = ["read", "web", "page"];
 const HELPERS: Record<string, Helper> = {
@@ -61,6 +70,7 @@ const HELPERS: Record<string, Helper> = {
   writing: writingHelper,
   applications: applicationsHelper,
   news: { ...newsHelper, tools: WEB },
+  shopping: { ...shoppingHelper, tools: WEB },
 };
 export const ASK_APPS = Object.keys(HELPERS) as [string, ...string[]];
 
@@ -281,7 +291,9 @@ async function answer(
           found.push(helper.find?.(db, row.ref, l.args) ?? "");
         } else {
           live.step(TOOLS[l.tool].doing);
-          found.push(await runTool(db, settings, l.tool, l.args, tools));
+          const guarded =
+            helper.scrub && l.tool !== "read" ? helper.scrub(db, row.ref, l.tool, l.args) : { args: l.args };
+          found.push("refused" in guarded ? guarded.refused : await runTool(db, settings, l.tool, guarded.args, tools));
         }
       }
       messages.push(
