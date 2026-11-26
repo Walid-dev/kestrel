@@ -33,6 +33,7 @@ export type Need = {
   category: string;
   name: string; // the category's name ("Robot vacuum")
   draft: boolean; // a category Understand drafted
+  words?: string[]; // the words that name the kind ("robot vacuum", "robovac")
   product: string; // the product my words name, in one mode
   use: string; // a key of uses, or ""
   hard: Hard[];

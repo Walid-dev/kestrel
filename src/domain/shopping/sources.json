@@ -1,0 +1,59 @@
+{
+  "about": "How far kestrel trusts each source of product reviews. A buys its own units and publishes its method and numbers; B tests hands-on without numbers; C is a signal only (store reviews, forums) and never brings a product in; never is never evidence (paid seals, pages with no method). family groups sister sites, which count once. access: plain (read), paywalled (snippets only), blocked (never fetched). A host not listed counts as B only when its page states a testing method, else C.",
+  "hosts": [
+    { "host": "rtings.com", "tier": "A", "access": "plain", "how": "buys its own units; lab measurements published" },
+    {
+      "host": "consumerreports.org",
+      "tier": "A",
+      "access": "paywalled",
+      "how": "buys at retail; lab ratings behind a paywall"
+    },
+    { "host": "notebookcheck.net", "tier": "A", "access": "plain", "how": "measured battery, display and performance" },
+    { "host": "vacuumwars.com", "tier": "A", "access": "plain", "how": "repeatable pickup and runtime tests" },
+    {
+      "host": "outdoorgearlab.com",
+      "tier": "A",
+      "access": "plain",
+      "family": "gearlab",
+      "how": "buys its gear; side-by-side field and lab tests"
+    },
+    {
+      "host": "techgearlab.com",
+      "tier": "A",
+      "access": "plain",
+      "family": "gearlab",
+      "how": "buys its gear; side-by-side tests"
+    },
+    { "host": "soundguys.com", "tier": "A", "access": "plain", "how": "measured frequency response and isolation" },
+    { "host": "which.co.uk", "tier": "A", "access": "paywalled", "how": "buys at retail; lab tests behind a paywall" },
+    { "host": "nytimes.com", "tier": "B", "access": "paywalled", "how": "Wirecutter: long hands-on testing" },
+    { "host": "cnet.com", "tier": "B", "access": "plain", "how": "hands-on reviews, some lab numbers" },
+    {
+      "host": "pcmag.com",
+      "tier": "B",
+      "access": "plain",
+      "family": "ziff",
+      "how": "hands-on reviews with some benchmarks"
+    },
+    { "host": "whathifi.com", "tier": "B", "access": "plain", "family": "future", "how": "listening tests" },
+    { "host": "techradar.com", "tier": "B", "access": "plain", "family": "future", "how": "hands-on reviews" },
+    { "host": "tomsguide.com", "tier": "B", "access": "plain", "family": "future", "how": "hands-on reviews" },
+    { "host": "theverge.com", "tier": "B", "access": "plain", "how": "hands-on reviews" },
+    { "host": "engadget.com", "tier": "B", "access": "plain", "how": "hands-on reviews" },
+    { "host": "wired.com", "tier": "B", "access": "plain", "how": "hands-on reviews" },
+    { "host": "switchbacktravel.com", "tier": "B", "access": "plain", "how": "field tests of outdoor gear" },
+    { "host": "gearjunkie.com", "tier": "B", "access": "plain", "how": "field tests of outdoor gear" },
+    { "host": "treelinereview.com", "tier": "B", "access": "plain", "how": "long field tests of outdoor gear" },
+    { "host": "reddit.com", "tier": "C", "access": "blocked", "how": "owners' reports: a signal, never a source" },
+    { "host": "amazon.ca", "tier": "C", "access": "blocked", "how": "store reviews: a signal, never a source" },
+    { "host": "amazon.com", "tier": "C", "access": "blocked", "how": "store reviews: a signal, never a source" },
+    { "host": "redflagdeals.com", "tier": "C", "access": "blocked", "how": "a deal forum: a signal, never a source" },
+    { "host": "youtube.com", "tier": "C", "access": "blocked", "how": "videos kestrel can't read" },
+    {
+      "host": "productoftheyear.ca",
+      "tier": "never",
+      "access": "blocked",
+      "how": "a paid-entry award with no testing method"
+    }
+  ]
+}

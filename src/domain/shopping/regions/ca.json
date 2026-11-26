@@ -1,0 +1,203 @@
+{
+  "key": "ca",
+  "name": "Canada",
+  "currency": "CAD",
+  "searchWords": "canada",
+  "stores": [
+    {
+      "domain": "costco.ca",
+      "name": "Costco",
+      "groups": ["electronics", "appliances", "home", "kitchen", "outdoor", "clothing", "computers"],
+      "read": "page",
+      "searchUrl": "https://www.costco.ca/CatalogSearch?dept=All&keyword={q}",
+      "tested": "2026-11-25"
+    },
+    {
+      "domain": "visions.ca",
+      "name": "Visions Electronics",
+      "groups": ["electronics", "appliances", "computers"],
+      "read": "page",
+      "searchUrl": "https://www.visions.ca/search?q={q}",
+      "tested": "2026-11-25"
+    },
+    {
+      "domain": "altitude-sports.com",
+      "name": "Altitude Sports",
+      "groups": ["outdoor", "clothing", "footwear", "sports"],
+      "read": "page",
+      "searchUrl": "https://www.altitude-sports.com/search?q={q}",
+      "tested": "2026-11-25"
+    },
+    {
+      "domain": "ikea.com",
+      "name": "IKEA",
+      "groups": ["home", "kitchen", "furniture"],
+      "read": "page",
+      "searchUrl": "https://www.ikea.com/ca/en/search/?q={q}",
+      "tested": "2026-11-25"
+    },
+    {
+      "domain": "bestbuy.ca",
+      "name": "Best Buy",
+      "groups": ["electronics", "appliances", "computers", "kitchen"],
+      "read": "link",
+      "searchUrl": "https://www.bestbuy.ca/en-ca/search?search={q}",
+      "tested": "2026-11-25",
+      "why": "turned a plain reader away (Access Denied)"
+    },
+    {
+      "domain": "canadiantire.ca",
+      "name": "Canadian Tire",
+      "groups": ["electronics", "appliances", "home", "kitchen", "outdoor", "sports"],
+      "read": "link",
+      "searchUrl": "https://www.canadiantire.ca/en/search-results.html?q={q}",
+      "tested": "2026-11-25",
+      "why": "turned a plain reader away (Access Denied)"
+    },
+    {
+      "domain": "walmart.ca",
+      "name": "Walmart",
+      "groups": ["electronics", "appliances", "home", "kitchen", "clothing", "footwear", "sports", "computers"],
+      "read": "link",
+      "searchUrl": "https://www.walmart.ca/en/search?q={q}",
+      "tested": "2026-11-25",
+      "why": "asked for a human check (press and hold)"
+    },
+    {
+      "domain": "amazon.ca",
+      "name": "Amazon",
+      "groups": [
+        "electronics",
+        "appliances",
+        "home",
+        "kitchen",
+        "outdoor",
+        "clothing",
+        "footwear",
+        "sports",
+        "computers"
+      ],
+      "read": "link",
+      "searchUrl": "https://www.amazon.ca/s?k={q}",
+      "tested": "2026-11-25",
+      "why": "its rules bar automated readers"
+    },
+    {
+      "domain": "staples.ca",
+      "name": "Staples",
+      "groups": ["electronics", "computers"],
+      "read": "link",
+      "searchUrl": "https://www.staples.ca/search?q={q}",
+      "tested": "2026-11-25",
+      "why": "asked for a human check (Just a moment)"
+    },
+    {
+      "domain": "newegg.ca",
+      "name": "Newegg",
+      "groups": ["electronics", "computers"],
+      "read": "link",
+      "searchUrl": "https://www.newegg.ca/p/pl?d={q}",
+      "tested": "2026-11-25",
+      "why": "asked for a human check (Just a moment)"
+    },
+    {
+      "domain": "canadacomputers.com",
+      "name": "Canada Computers",
+      "groups": ["electronics", "computers"],
+      "read": "link",
+      "searchUrl": "https://www.canadacomputers.com/en/search?s={q}",
+      "tested": "2026-11-25",
+      "why": "gave no page to a plain reader"
+    },
+    {
+      "domain": "memoryexpress.com",
+      "name": "Memory Express",
+      "groups": ["electronics", "computers"],
+      "read": "link",
+      "searchUrl": "https://www.memoryexpress.com/Search/Products?Search={q}",
+      "tested": "2026-11-25",
+      "why": "showed no price to a plain reader"
+    },
+    {
+      "domain": "homedepot.ca",
+      "name": "Home Depot",
+      "groups": ["appliances", "home", "outdoor"],
+      "read": "link",
+      "searchUrl": "https://www.homedepot.ca/search?q={q}",
+      "tested": "2026-11-25",
+      "why": "gave no page to a plain reader"
+    },
+    {
+      "domain": "rona.ca",
+      "name": "RONA",
+      "groups": ["appliances", "home", "outdoor"],
+      "read": "link",
+      "searchUrl": "https://www.rona.ca/en/search?q={q}",
+      "tested": "2026-11-25",
+      "why": "asked for a human check (Just a moment)"
+    },
+    {
+      "domain": "londondrugs.com",
+      "name": "London Drugs",
+      "groups": ["electronics", "appliances", "kitchen", "computers"],
+      "read": "link",
+      "searchUrl": "https://www.londondrugs.com/search?q={q}",
+      "tested": "2026-11-25",
+      "why": "asked for a human check (a captcha)"
+    },
+    {
+      "domain": "mec.ca",
+      "name": "MEC",
+      "groups": ["outdoor", "clothing", "footwear", "sports"],
+      "read": "link",
+      "searchUrl": "https://www.mec.ca/en/search?q={q}",
+      "tested": "2026-11-25",
+      "why": "asked for a human check (Attention Required)"
+    },
+    {
+      "domain": "simons.ca",
+      "name": "Simons",
+      "groups": ["clothing", "footwear", "home"],
+      "read": "link",
+      "searchUrl": "https://www.simons.ca/en/search?q={q}",
+      "tested": "2026-11-25",
+      "why": "showed no price to a plain reader"
+    },
+    {
+      "domain": "structube.com",
+      "name": "Structube",
+      "groups": ["home", "furniture"],
+      "read": "link",
+      "searchUrl": "https://www.structube.com/en_ca/catalogsearch/result/?q={q}",
+      "tested": "2026-11-25",
+      "why": "showed no price to a plain reader"
+    },
+    {
+      "domain": "sportchek.ca",
+      "name": "Sport Chek",
+      "groups": ["outdoor", "clothing", "footwear", "sports"],
+      "read": "link",
+      "searchUrl": "https://www.sportchek.ca/en/search-results.html?q={q}",
+      "why": "not tested; its group's other stores turn a plain reader away"
+    }
+  ],
+  "brandStores": {},
+  "tagRules": {
+    "mains-powered": "A recognised safety mark (CSA, cUL, cETL or another accredited mark) on the product itself.",
+    "child-seat": "The National Safety Mark on the seat itself.",
+    "sunscreen": "A DIN or NPN number on the label."
+  },
+  "linkTools": [
+    { "name": "Amazon's price history", "url": "https://ca.camelcamelcamel.com/search?sq={q}", "groups": [] },
+    { "name": "PC parts prices", "url": "https://ca.pcpartpicker.com/search/?q={q}", "groups": ["computers"] }
+  ],
+  "modelRules": [{ "brand": "Samsung", "here": "ZC", "elsewhere": ["ZA"] }],
+  "reviewSources": [
+    {
+      "host": "protegez-vous.ca",
+      "tier": "A",
+      "access": "paywalled",
+      "how": "buys and tests products; its ratings behind a paywall"
+    }
+  ]
+}

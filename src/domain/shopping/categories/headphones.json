@@ -1,0 +1,87 @@
+{
+  "key": "headphones",
+  "name": "Headphones",
+  "words": ["headphones", "earbuds", "earphones", "headset", "noise cancelling", "noise-cancelling"],
+  "refreshMonths": 12,
+  "listSize": 8,
+  "criteria": [
+    {
+      "key": "anc",
+      "label": "Noise cancelling",
+      "type": "score",
+      "better": "higher",
+      "weight": 25,
+      "how": "noise blocked, measured on a test head"
+    },
+    {
+      "key": "sound",
+      "label": "Sound",
+      "type": "score",
+      "better": "higher",
+      "weight": 20,
+      "how": "frequency response against a target"
+    },
+    {
+      "key": "comfort",
+      "label": "Comfort",
+      "type": "score",
+      "better": "higher",
+      "weight": 15,
+      "how": "clamp, fit and heat over hours"
+    },
+    {
+      "key": "battery",
+      "label": "Battery",
+      "type": "number",
+      "unit": "h",
+      "measured": true,
+      "better": "higher",
+      "weight": 15,
+      "how": "hours of playback from a full charge"
+    },
+    {
+      "key": "calls",
+      "label": "Calls",
+      "type": "score",
+      "better": "higher",
+      "weight": 10,
+      "how": "how clear the microphone is in noise"
+    },
+    {
+      "key": "weight",
+      "label": "Weight",
+      "type": "number",
+      "unit": "g",
+      "better": "lower",
+      "weight": 5,
+      "how": "the maker's stated weight"
+    },
+    {
+      "key": "multipoint",
+      "label": "Two devices at once",
+      "type": "bool",
+      "better": "higher",
+      "weight": 10,
+      "how": "it connects to two devices at once"
+    }
+  ],
+  "uses": {
+    "travel": { "anc": 35, "battery": 20, "comfort": 20 },
+    "calls": { "calls": 30 },
+    "gym": { "weight": 15, "comfort": 20 }
+  },
+  "implied": [{ "when": "flight", "needs": ["strong noise cancelling"] }],
+  "questions": [
+    {
+      "key": "calls",
+      "q": "Will you take calls on them?",
+      "options": [{ "label": "Yes, often", "weights": { "calls": 20 } }, { "label": "Rarely", "weights": {} }],
+      "default": 1
+    }
+  ],
+  "traps": ["earbuds and over-ear models share names across a line"],
+  "tags": [],
+  "sources": ["rtings.com", "soundguys.com", "nytimes.com", "whathifi.com"],
+  "storeGroups": ["electronics"],
+  "draft": false
+}

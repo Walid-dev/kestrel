@@ -16,6 +16,7 @@ import {
   type WatchedView,
 } from "../../shared/shopping.ts";
 import { rank } from "./rank.ts";
+import { budgetIn } from "./scrub.ts";
 import {
   deletedOf,
   deletedProduct,
@@ -176,6 +177,7 @@ export function rerank(db: DatabaseSync, wantId: string, place: Place = NO_PLACE
       evidence: p.evidence,
       price: priceOf(p, offersOf(db, p.id), place).price,
     })),
+    w.budget ?? budgetIn(w.words),
   );
   for (const r of ranked) setRank(db, r.id, r);
 }

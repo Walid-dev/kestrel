@@ -31,7 +31,12 @@ test("a want's view; my answer re-ranks it at once; a bad answer is refused in w
   const { app, id } = setup();
   const view = (await (await app.request(`/api/shopping/wants/${id}`)).json()) as WantView;
   assert.equal(view.words, "a robot vacuum for pet hair");
-  assert.equal(view.products.length, 8);
+  // the budget of 600 sends Tidal T9 (usual price $899) to also considered, with its reason
+  assert.equal(view.products.length, 7);
+  assert.deepEqual(
+    view.also.map((p) => [p.name, p.out]),
+    [["Tidal T9", "over the budget"]],
+  );
   assert.equal(view.questions.length, 2);
   assert.equal(
     view.kind.fields.some((f) => f.key === "c:noise"),

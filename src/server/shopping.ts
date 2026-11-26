@@ -8,6 +8,7 @@ import { zValidator } from "@hono/zod-validator";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
 import { Refused } from "../domain/notes/documents.ts";
+import { loadRegion, placeOf } from "../domain/shopping/region.ts";
 import {
   addWant,
   deletedProduct,
@@ -63,7 +64,9 @@ export type ShoppingHooks = {
 };
 
 export function mountShopping(app: Hono, db: DatabaseSync, settings: Settings, hooks: ShoppingHooks = {}) {
-  const opts = (): ViewOpts => ({ read: shoppingOf(settings).read, ...hooks.view?.() });
+  // the region's currency and store names, read once: a region file that doesn't read stops kestrel with its reason
+  const place = placeOf(loadRegion(settings));
+  const opts = (): ViewOpts => ({ read: shoppingOf(settings).read, place, ...hooks.view?.() });
   const kick = () => hooks.started?.();
 
   app.get("/api/shopping", (c) => c.json(shoppingHome(db, opts())));

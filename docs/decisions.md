@@ -5,6 +5,17 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Shopping's Understand and Compare: what code adds to the plan's rules.**
+  `src/domain/shopping/understand.ts`, `compare.ts`, `compose.ts`, `rank.ts`, `scrub.ts`, `categories.ts`, the six
+  starter categories, `sources.json`, `regions/ca.json`; the stand-in eval (`evals/shopping/run.ts`) joins the check.
+  A host the source file doesn't list counts as B when its page states a testing method, else C, so a drafted category
+  (no listed testers) still compares while a listicle never brings a product. No label goes to a product with under
+  half its weight known. A line that addresses an assistant or says to ignore instructions is taken out of a page
+  before the model reads it, and a page holding none of the kind's words gives nothing. "Under 2 kg" is a size and
+  stays in a query; a bare "4K" isn't money; a budget my words state is the ranking's budget when I set none. Code
+  writes the assumptions for unanswered questions. Canada's file ships the research's four readable stores as `page`
+  and the fifteen it found blocked or priceless as `link`, with the test's date; no price-match or price-protection
+  policy ships until it is checked. Rejected: trusting a page's own claim of testing for a host the file lists as C.
 - **2026-11-25 · Shopping's store-page reader: what counts as blocked, and as the same product.**
   `src/ai/shopping/product-data.ts` reads as `personal-shopping-reader/1.0`, never a browser's name. A challenge
   marker ("Just a moment...", "Access Denied", "press and hold", generic and no site names) blocks a page only when
