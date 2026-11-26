@@ -5,6 +5,15 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · One list part for every kind, and a price line: the switch by width in CSS, the text never stretched.**
+  `web/src/ui/kind-list.tsx` draws both the cards and the table and lets CSS show one (the table from 64rem, a wide
+  column from 80rem, its value in the row's open part below that), so the width decides as the plan says and no script
+  watches the window. A kind's yes-or-no filters share one row after All (pick several, All clears them), so offers read
+  "All, In stock, New only" as planned; a row with nothing to choose stays out. A unit sits in its column's head and
+  never in the cells. `web/src/ui/price-line.tsx` steps (a price holds until the next reading); its SVG stretches to
+  the plot with non-scaling strokes, and every word and dot is HTML placed by `--x` and `--y`, so no label is
+  distorted. Both are on `/design`. Rejected: a chart library (none is needed for one line), and a JS media query for
+  the table (two renders of 5 to 8 rows cost nothing).
 - **2026-11-25 · Shopping's colour is violet, the widest free hue; its page keeps deleted wants for Restore.**
   Measured in OKLCH against every tone in both themes, the money scale's yellow-to-green left out: the widest free hue
   is 318°, between the purple and the magenta, 16.9° from the nearest tone in either theme; the next gaps (teal to cyan

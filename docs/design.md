@@ -117,6 +117,11 @@ reading width is 720.
   Activity log too, never purple. `.money` is the pay or price pill
   (Mono 500 12, 22 tall) in the money scale's tone. A listing the rules set aside leads its card's head with its
   reason, in the Left out stage's grey ("Left out · US only"), until a stage is pressed. A filter's All comes first.
+  Shopping's labels (best overall, best value, budget, premium, best for a need) are one meaning, a role kestrel gave,
+  so one colour: Shopping's violet, the words telling them apart, best overall the filled chip (`.chip-fill`: the tone
+  as its ground, the page's ink as its words); thin evidence is orange, a warning. A price's `.money` pill and its
+  verdict's chip take their tone from one map (`priceTone`, `web/src/shopping/data.ts`), so a price never shows two
+  tones: a new low great, good good, typical fair, high and inflated poor, not enough history grey.
 - `Dialog` (`web/src/ui/dialog.tsx`) — every box: a native dialog opened with `showModal`, 440 wide (900 with `wide`),
   radius 14, its title on the section step. Props: `open`, `onClose`, `title`, `eyebrow`, `children`, `actions` (the
   main action last), `wide`, `busy`, `alert`. Esc, Back, a tap outside and ✕ close it; typed words stay; focus returns
@@ -193,6 +198,23 @@ reading width is 720.
 - `.data-table` — figures compared row by row (Cost's models and prices, the Models page's calls), in a card: names
   on the left, every figure in mono and right-aligned in its column, eyebrows for heads, rows 40 tall on hairlines; a
   count that means trouble in red, a nothing in grey.
+- `KindList`, `KindFilters` and `useKind` (`web/src/ui/kind-list.tsx`) — one list for every kind of listing (a kind
+  is data, `src/shared/kinds.ts`: its fields, filters and sorts). `useKind` holds the picks (the words, each filter's
+  pill, the sort) and gives the rows that pass, in order. `KindFilters` is the filter card drawn from the kind: a row
+  per filter, each pill with how many rows it would leave under the others, the yes-or-no filters together in one row
+  after All, the sorts last; a row with nothing to choose stays out. `KindList` draws the rows: on a phone a `Card`
+  each (the kind's title and figure, the page's `meta` and `lines`, the kind's facts with each value bold in mono and
+  its unit after it); from 64rem one `.data-table` in a card, its first column the page's (a name, what goes under it),
+  then the columns it names, each unit in its head and none in the cells, the best value of a number column marked by
+  a dot in the money scale's great, "—" for an unknown and "?" for an unsure value, both grey. A `wide` column shows
+  from 80rem; narrower, it folds with the page's `detail` into the row's open part, the ▶ at the row's end. Shopping's
+  products and offers are its first users; the homes hunt is the next kind.
+- `PriceLine` (`web/src/ui/price-line.tsx`) — a price over time, small: one stepped line (a price holds until the next
+  reading), its last point a dot in the verdict's tone with a ring of its ground and its value beside it, the regular
+  price dashed and my target a solid great line, each named where it sits, the first day and Now under it. One series,
+  so no legend: the heading over it names it. Hover, a touch or the arrow keys walk the readings with a hairline, a
+  marker and a tip; the page lists the readings under it, so the tip never gates a value. Its strokes don't stretch
+  with the plot (non-scaling), and its labels sit by `--x` and `--y`.
 - `SectionHead` (`web/src/ui/section.tsx`) — every section's heading: `title` on the section step, `count` in small
   muted mono beside it, `tone` a dot before it when the colour means something (News' sections, a lesson's state),
   `hint` one quiet line under it, `id` for the section's `aria-labelledby`. Never the count in the section's colour,

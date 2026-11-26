@@ -2838,6 +2838,201 @@ pre.code .f {
   font-weight: 500;
   color: var(--strong);
 }
+/* KindList (web/src/ui/kind-list.tsx): one list for every kind of listing. On a phone its rows are cards, 12 apart;
+   from 64rem one table in a card (.data-table's columns) takes their place. A wide column shows from 80rem; under that
+   its value sits in the row's open part (the ▶ at the row's end). A head's unit keeps its own case; the best value of a
+   number column carries a dot in the money scale's great (a mark) */
+.kind-cards {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.kind-table-card {
+  display: none;
+  padding-block: 6px;
+}
+@media (min-width: 64rem) {
+  .kind-cards {
+    display: none;
+  }
+  .kind-table-card {
+    display: block;
+  }
+}
+.kind-unit {
+  text-transform: none;
+  letter-spacing: 0;
+}
+.kind-table :where(.kind-wide) {
+  display: none;
+}
+@media (min-width: 80rem) {
+  .kind-table :where(.kind-wide) {
+    display: table-cell;
+  }
+  .kind-detail-narrow {
+    display: none;
+  }
+}
+.kind-best {
+  color: var(--strong);
+  font-weight: 500;
+}
+.kind-best::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 6px 1px 0;
+  border-radius: 999px;
+  background: var(--great);
+}
+.kind-table :where(.kind-fold, .kind-fold-head) {
+  width: 40px;
+  padding-left: 4px;
+}
+.kind-fold-mark {
+  display: inline-block;
+  font: 400 var(--text-label) / 1 var(--sans);
+  color: var(--muted);
+  transition: transform var(--t-move);
+}
+.kind-fold-mark-open {
+  transform: rotate(90deg);
+}
+/* a row's open part: under its row, on no hairline of its own, in the words' voice */
+.kind-table :where(.kind-detail-row > td) {
+  height: auto;
+  padding-top: 0;
+  border-top: 0;
+  font-family: var(--sans);
+}
+.kind-detail {
+  display: grid;
+  gap: 8px;
+  max-width: 72ch;
+  padding-bottom: 8px;
+}
+/* PriceLine (web/src/ui/price-line.tsx): a price over time, small. The plot is 112 tall under room for a label; the
+   line, the dashed regular price and the solid target keep their width however the plot stretches (non-scaling
+   strokes). The labels, the dot, the hairline and the tip are placed by --x and --y (% of the plot, from the data). The
+   dot's ring is the ground it sits on (--ring: the sunk ground inside a verdict's box) */
+.price-line {
+  display: grid;
+  gap: 4px;
+  --ring: var(--surface);
+}
+.read-box .price-line,
+.inner .price-line {
+  --ring: var(--surface-2);
+}
+.price-line-plot {
+  position: relative;
+  height: 112px;
+  margin: 18px 0 0;
+  touch-action: pan-y;
+  cursor: crosshair;
+}
+.price-line-plot svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.price-line-path {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 2px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.price-line-regular,
+.price-line-target {
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+.price-line-regular {
+  stroke: var(--muted);
+  stroke-dasharray: 4 4;
+}
+.price-line-target {
+  stroke: var(--great);
+}
+.price-line-ref,
+.price-line-now,
+.price-line-tip {
+  position: absolute;
+  font: 400 var(--text-label) / var(--text-label--line-height) var(--mono);
+  white-space: nowrap;
+}
+.price-line-ref {
+  left: 0;
+  top: calc(var(--y) * 1%);
+  transform: translateY(-100%);
+  padding-bottom: 1px;
+  color: var(--muted);
+}
+.price-line-now {
+  right: 10px;
+  top: calc(var(--y) * 1%);
+  transform: translateY(-100%);
+  padding-bottom: 2px;
+  color: var(--strong);
+  font-weight: 500;
+}
+.price-line-under {
+  transform: none;
+  padding: 2px 0 0;
+}
+.price-line-dot {
+  position: absolute;
+  left: calc(var(--x) * 1%);
+  top: calc(var(--y) * 1%);
+  width: 10px;
+  height: 10px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: var(--tone, var(--text));
+  box-shadow: 0 0 0 2px var(--ring);
+}
+/* the reading under the hairline: a smaller dot in the line's ink */
+.price-line-dot-here {
+  width: 8px;
+  height: 8px;
+  background: var(--text);
+}
+.price-line-cross {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--x) * 1%);
+  width: 1px;
+  background: var(--line-strong);
+}
+.price-line-tip {
+  top: -18px;
+  left: calc(var(--x) * 1%);
+  transform: translateX(-50%);
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  box-shadow: 0 0 0 1px var(--line-strong);
+  color: var(--muted);
+}
+.price-line-tip b {
+  color: var(--strong);
+  font-weight: 500;
+}
+.price-line-axis {
+  display: flex;
+  justify-content: space-between;
+  font: 400 var(--text-label) / var(--text-label--line-height) var(--mono);
+  color: var(--muted);
+}
 .data-table :where(tfoot td:first-child) {
   font-weight: 600;
 }
