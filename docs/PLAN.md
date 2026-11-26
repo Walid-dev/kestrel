@@ -171,6 +171,18 @@ Each gets its own step-by-step plan, reviewed, before it starts.
   for three days, then takes over; the bridges (the mirror, Search now and Live through the old server, the old
   collectors) go after two quiet weeks. The plan: [docs/tasks/v1.0-searches-own.md](tasks/v1.0-searches-own.md).
 
+### v1.1 · Homes (proposed 2026-11-25, waiting for my GO)
+
+- One homes hunt in Searches collects condos and apartments to rent and to buy, at the job and deal hunts' standard:
+  the same page, cards, Priority, sheet, Ask, deep checks and pings. Rent or buy, bedrooms, price, area, the site and
+  who lists are filters I pick. My details (the areas, the budget, the must-haves) go into the hunt's settings in my
+  data folder when I have them; nothing waits for them.
+- One home on several sites is one listing. Plain code finds the common scam signs to rent and the condo's risks to
+  buy; a deep check on my tap makes the call, and a scam becomes Not real.
+- A third kind of listing on Shopping's kind engine. The sites' own alert emails come first, read by a collector in my
+  data folder. The build runs on made-up data; the real hunt waits for v1.0's own collectors. The plan:
+  [docs/tasks/v1.1-homes.md](tasks/v1.1-homes.md).
+
 ## The structure
 
 How the one process is organised and who talks to whom: the diagram in
