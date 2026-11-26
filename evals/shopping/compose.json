@@ -1,0 +1,220 @@
+{
+  "about": "Four made-up cases of records (what Read kept from each source) for Compare's merge, ranking, writing and checking, and ten labelled sentence-and-quote pairs for the checker. write: the stand-in's answer, products by name and refs as [product, criterion] (the runner turns them into the prompt's ids and quote numbers). checkSays: the sentences the stand-in checker calls unsupported. Labels were worked out by hand from the plan's rules. Nothing here is real.",
+  "need": {
+    "mode": "compare",
+    "category": "robot-vacuum",
+    "name": "Robot vacuum",
+    "draft": false,
+    "product": "",
+    "use": "",
+    "hard": [],
+    "implied": [],
+    "questions": [],
+    "criteria": [
+      { "key": "pickup-carpet", "label": "Carpet pickup", "type": "score", "better": "higher", "weight": 30 },
+      { "key": "pickup-hard", "label": "Hard-floor pickup", "type": "score", "better": "higher", "weight": 25 },
+      {
+        "key": "noise",
+        "label": "Noise",
+        "type": "number",
+        "unit": "dB",
+        "measured": true,
+        "better": "lower",
+        "weight": 15
+      },
+      { "key": "battery", "label": "Battery", "type": "number", "unit": "min", "better": "higher", "weight": 15 },
+      { "key": "mop", "label": "Mop", "type": "bool", "better": "higher", "weight": 15 }
+    ],
+    "uses": {},
+    "searchWords": "robot vacuum",
+    "listSize": 8,
+    "tags": [],
+    "traps": [],
+    "sources": ["labs.example", "handson.example"],
+    "storeGroups": ["electronics"],
+    "refreshMonths": 9
+  },
+  "sources": [
+    {
+      "ref": "s1",
+      "host": "labs.example",
+      "url": "https://labs.example/best-robot-vacuums",
+      "title": "The best robot vacuums, tested",
+      "tier": "A",
+      "date": "2026-10",
+      "read": "page"
+    },
+    {
+      "ref": "s2",
+      "host": "handson.example",
+      "url": "https://handson.example/robot-vacuums",
+      "title": "Robot vacuums we lived with",
+      "tier": "B",
+      "date": "2026-09",
+      "read": "page"
+    },
+    {
+      "ref": "s3",
+      "host": "forum.example",
+      "url": "https://forum.example/t/robot-vacuums",
+      "title": "Which robot vacuum?",
+      "tier": "C",
+      "date": "2026-11",
+      "read": "page"
+    }
+  ],
+  "lab": [
+    ["Brisk R7", "Brisk", ["R7-C"], 92, 95, 64, 180],
+    ["Tidal T9", "Tidal", ["T9"], 96, 90, 68, 170],
+    ["Fen Clean 3", "Fen", ["FC3"], 91, 93, 61, 170],
+    ["Orla S20", "Orla", ["S20-CA"], 86, 86, 66, 200],
+    ["Brisk R5", "Brisk", ["R5-C"], 86, 89, 60, 160],
+    ["Nimbo Swift", "Nimbo", ["NS-1"], 70, 82, 63, 120],
+    ["Fen 300", "Fen", ["F300"], 78, 80, 60, 130]
+  ],
+  "handson": [
+    ["Brisk R7", true, 599],
+    ["Tidal T9", true, 899],
+    ["Fen Clean 3", true, 449],
+    ["Orla S20", true, 529],
+    ["Brisk R5", false, 299],
+    ["Nimbo Swift", false, 229],
+    ["Fen 300", false, 269]
+  ],
+  "cases": [
+    {
+      "name": "the expected finalists and labels",
+      "budget": null,
+      "products": ["Brisk R7", "Tidal T9", "Fen Clean 3", "Orla S20", "Brisk R5", "Nimbo Swift"],
+      "forum": [],
+      "expect": {
+        "finalists": ["Brisk R7", "Tidal T9", "Fen Clean 3", "Orla S20", "Brisk R5", "Nimbo Swift"],
+        "labels": { "overall": "Brisk R7", "value": "Fen Clean 3", "budget": "Brisk R5", "premium": "Tidal T9" }
+      },
+      "write": {
+        "products": [
+          {
+            "name": "Brisk R7",
+            "why": [
+              { "text": "It picked up 92% of the embedded hair on carpet.", "refs": [["Brisk R7", "pickup-carpet"]] }
+            ]
+          },
+          {
+            "name": "Fen Clean 3",
+            "why": [{ "text": "It measured 61 dB at full power.", "refs": [["Fen Clean 3", "noise"]] }]
+          }
+        ],
+        "assumptions": [{ "text": "Floors taken as a mix of carpet and hard floors.", "refs": [] }],
+        "changeIf": [],
+        "conflicts": []
+      },
+      "checkSays": { "unsupported": [] }
+    },
+    {
+      "name": "a product from a forum alone never enters",
+      "budget": null,
+      "products": ["Brisk R7", "Tidal T9", "Fen Clean 3", "Orla S20", "Brisk R5", "Nimbo Swift"],
+      "forum": [["ZapVac Z1", "ZapVac", ["Z1"], 99, 99, 50, 300]],
+      "expect": {
+        "finalists": ["Brisk R7", "Tidal T9", "Fen Clean 3", "Orla S20", "Brisk R5", "Nimbo Swift"],
+        "notIn": ["ZapVac Z1"],
+        "labels": { "overall": "Brisk R7" }
+      },
+      "write": { "products": [], "assumptions": [], "changeIf": [], "conflicts": [] },
+      "checkSays": { "unsupported": [] }
+    },
+    {
+      "name": "an over-budget product sits in also considered with its reason",
+      "budget": 500,
+      "products": ["Brisk R7", "Tidal T9", "Fen Clean 3", "Orla S20", "Brisk R5", "Nimbo Swift"],
+      "forum": [],
+      "expect": {
+        "finalists": ["Fen Clean 3", "Brisk R5", "Nimbo Swift"],
+        "labels": { "overall": "Fen Clean 3", "budget": "Brisk R5" },
+        "also": [
+          { "name": "Brisk R7", "reason": "over the budget" },
+          { "name": "Tidal T9", "reason": "over the budget" },
+          { "name": "Orla S20", "reason": "over the budget" }
+        ]
+      },
+      "write": { "products": [], "assumptions": [], "changeIf": [], "conflicts": [] },
+      "checkSays": { "unsupported": [] }
+    },
+    {
+      "name": "planted and wrong sentences dropped, a correct one naming Fen 300 kept",
+      "budget": null,
+      "products": ["Brisk R7", "Fen 300", "Brisk R5", "Orla S20"],
+      "forum": [],
+      "expect": {
+        "dropped": ["99%", "240 minutes", "never gets stuck"],
+        "kept": ["92%", "Fen 300 measured 60 dB"]
+      },
+      "write": {
+        "products": [
+          {
+            "name": "Brisk R7",
+            "why": [
+              { "text": "It picked up 92% of the embedded hair on carpet.", "refs": [["Brisk R7", "pickup-carpet"]] },
+              { "text": "It picked up 99% of the hair on hard floors.", "refs": [["Brisk R7", "pickup-hard"]] },
+              { "text": "It never gets stuck under the sofa.", "refs": [["Brisk R7", "pickup-carpet"]] }
+            ]
+          },
+          {
+            "name": "Fen 300",
+            "why": [
+              { "text": "The Fen 300 measured 60 dB, quieter than the Brisk R5.", "refs": [["Fen 300", "noise"]] }
+            ]
+          },
+          {
+            "name": "Orla S20",
+            "why": [{ "text": "It ran 240 minutes on one charge.", "refs": [["Orla S20", "battery"]] }]
+          }
+        ],
+        "assumptions": [],
+        "changeIf": [],
+        "conflicts": []
+      },
+      "checkSays": { "unsupported": ["never gets stuck"] }
+    }
+  ],
+  "checker": [
+    { "sentence": "It measured 64 dB at full power.", "quotes": ["measured 64 dB at full power"], "supported": true },
+    {
+      "sentence": "It is the quietest robot vacuum ever made.",
+      "quotes": ["measured 61 dB at full power"],
+      "supported": false
+    },
+    {
+      "sentence": "Its battery lasted 200 minutes.",
+      "quotes": ["ran for 200 minutes before it docked"],
+      "supported": true
+    },
+    {
+      "sentence": "It picked up more hair on carpet than the others tested this year.",
+      "quotes": ["picked up 92% of the embedded hair on our low-pile carpet, the best result this year"],
+      "supported": true
+    },
+    { "sentence": "Its mop lifts on carpet.", "quotes": ["its mop pad lifts on carpet"], "supported": true },
+    {
+      "sentence": "It works well on thick shag rugs.",
+      "quotes": ["Skip it if you have deep shag rugs: it stalled on them twice."],
+      "supported": false
+    },
+    {
+      "sentence": "It costs less than $300.",
+      "quotes": ["The Nimbo Swift costs far less and still cleans hard floors well."],
+      "supported": false
+    },
+    {
+      "sentence": "It handled hardwood well and maps each room.",
+      "quotes": ["handled our hardwood well and has an app that maps each room"],
+      "supported": true
+    },
+    {
+      "sentence": "Its testers bought it at retail.",
+      "quotes": ["We used each robot vacuum at home for four weeks."],
+      "supported": false
+    },
+    { "sentence": "It ran 130 minutes on a charge.", "quotes": ["it ran 130 minutes on a charge"], "supported": true }
+  ]
+}
