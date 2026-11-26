@@ -46,8 +46,27 @@ test("a model that runs out of room while thinking says so, so the budget gets r
   assert.ok(!chat.ok && chat.why === "out-of-room");
 });
 
+test("an error the door sends inside the stream fails the answer, never half an answer kept as whole (the News bug)", async () => {
+  // oMLX, once it has answered 200, reports a failure in the stream: a prompt too big for the memory left, a
+  // generation that broke off. The words before it are half an answer
+  const s = await startStandIn(() => ({
+    content: "It reads two million words, and it",
+    error: "made-up memory limit",
+  }));
+  const chat = await chatModel(settings(s.url), { ...ask, messages: [{ role: "user", content: ask.prompt }] });
+  const shaped = await callModel(settings(s.url), ask, Shape);
+  await s.close();
+  assert.ok(!chat.ok && chat.why === "broke");
+  assert.match(chat.detail, /after 34 characters: made-up memory limit/); // the calls log's hint, never the words
+  assert.ok(!shaped.ok && shaped.why === "broke");
+  assert.equal(
+    failureWords("broke", "Ask again, or ask in fewer words"),
+    "The computer's model stopped with an error. Ask again, or ask in fewer words.",
+  );
+});
+
 test("each failure reads as plain words with what to do next, never a developer's hint", () => {
-  const outcomes: Outcome[] = ["unlisted", "too-long", "down", "timeout", "refusal", "out-of-room", "shape"];
+  const outcomes: Outcome[] = ["unlisted", "too-long", "down", "timeout", "refusal", "out-of-room", "shape", "broke"];
   for (const why of outcomes) {
     const said = failureWords(why, "Ask again");
     assert.match(said, /^[A-Z].*[.?]$/, why); // a sentence of its own

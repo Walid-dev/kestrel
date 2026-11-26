@@ -13,11 +13,12 @@ The look since 2026-11-24: small, calm and precise under a mouse, comfortable on
 - **Lines:** `--line`, quiet, draws structure (cards, lists, dividers, bars); `--line-strong` draws a control's edge
   and a hovered card.
 - **Ink:** `--text` for body, `--strong` for headings, `--muted` for secondary lines.
-- **The lead:** `--accent` — One Dark's blue. The one filled button, links, focus rings.
-- **The working colours**, the editor's neon shades: `--pink` (the wolf, the note marks, needs me), `--purple`,
-  `--green` (ok, done, diff plus), `--orange` (warnings, asleep), `--yellow` (the moon), `--red` (danger), `--indigo`
-  (News' own blue, between the accent and the purple: each app has its own colour and the accent is Notes'),
-  `--teal` (Quiz) and `--magenta` (Writing).
+- **The lead:** `--accent` — One Dark's blue. The one filled button, links, focus rings: it means act, and is no
+  app's colour.
+- **The working colours**, the editor's neon shades: `--pink` (the wolf, needs me, Tasks), `--purple`, `--green` (ok,
+  done, diff plus), `--orange` (warnings, asleep), `--yellow` (the moon), `--red` (danger), `--indigo` (News' own blue,
+  between the accent and the purple: each app has its own colour), `--lemon` (Notes: a highlighter's lemon, an olive as
+  ink in light; `--lemon-soft` is a note mark's wash), `--teal` (Quiz) and `--magenta` (Writing).
 - **Words in a colour:** `--tone-text` is how much of a working colour small words take: 100% in dark, 70% in light
   (the rest is `--strong`), so a chip, a tinted eyebrow, `text-tone` and a colour's class (`text-red`) read 4.5:1 in
   both themes (light's tones alone read 2.9 to 4.3). Every rule that colours words reads it (Ask's failed line, the
@@ -142,7 +143,8 @@ reading width is 720.
   the accent edge and a ✓, on its own ground (no tint).
 - `Doc` (`web/src/ui/doc.tsx`) — every document: Read, Edit and (1024 px and wider) Side by side, with a Download
   menu (the text, Save as PDF, Copy). Its Markdown is `src/shared/markdown.ts`, drawn by `web/src/ui/markdown.tsx` in
-  `.md`. A note's mark is `.doc-mark` (`--pink-soft`, a `--pink` line under). The editor `.doc-src` is mono, 16 px on
+  `.md`. A note's mark is `.doc-mark`, Notes' highlighter (`--lemon-soft`, a `--lemon` line under; a note's words in
+  the review sheet take the lemon edge, `.note-said`). The editor `.doc-src` is mono, 16 px on
   touch. `tools` puts a page's own buttons in the document's head while reading. A document only read can leave its
   head out (`bar={false}`) when its page shows `Downloads` itself, in a card's actions (a Writing try: one card for
   the try, the document under it); the menu opens under its button, right edges lined up, or left edges near the
@@ -163,14 +165,23 @@ reading width is 720.
   head, past a thin rule: plain text on the small step with its own line height, centred on the eyebrow and the
   title, wrapping as words do (balanced), never stretched to their height. It takes the place of `line`, and it wraps
   before the title does.
-- `Ask` (`web/src/ask.tsx`) — the same box on every app: its head, the conversation, starters, a line to ask. `bare`
-  puts it inside a card that belongs to the page (a news story): no card and no head of its own, the page opens and
-  closes it, Start over beside the line to ask. A change the model proposes is a card under its answer (`.ask-card`):
-  what it does, and Do it; done (green) it says what happened, a stage or a delete with Undo (`.btn-sm`) until used;
-  failed in red; undone quiet, its edge the line's grey. A change to many says under its words, on the small
-  step in muted ink, what it leaves out, and folds out the titles it covers ("The listings 37", a `.disclosure`), each
-  a quiet link as an inline source, in a list that scrolls inside 240 at most. A failed answer is one plain sentence
-  in red with what to do, never a developer's hint.
+- `Ask` (`web/src/ask.tsx`) — the same box on every app: its head, the conversation (a chat: each answer rereads it),
+  starters, a line to ask, which waits while an answer is written. `bare` puts it inside a card that belongs to the
+  page (a news story): no card and no head of its own, the page opens and closes it, Start over beside the line to
+  ask. A change the model proposes is a card under its answer (`.ask-card`): what it does, and Do it; done (green) it
+  says what happened, a stage or a delete with Undo (`.btn-sm`) until used; failed in red; undone quiet, its edge the
+  line's grey. A change to many says under its words, on the small step in muted ink, what it leaves out, and folds
+  out the titles it covers ("The listings 37", a `.disclosure`), each a quiet link as an inline source, in a list that
+  scrolls inside 240 at most. A failed answer is one plain sentence in red with what to do, never a developer's hint;
+  the words it had written before it stopped stay over it as plain paragraphs, no lead tile, ending in "…".
+  A web search is a card too (`SearchCard`, `.ask-search`, on the detail step): on a page of my own "Search the web
+  for “…”", its exact words (only what draws: `visibleWords`), "Only these words go to the search.", and Skip (quiet) and Search (filled) on the control
+  step, on their own row where the box is under 30rem; while it runs, the spinner and Searching, its edge still the
+  accent; run, it says "Searched the web for “…”" and its count in green, or in red that it found nothing or didn't
+  work; skipped, "Not searched" and why, its edge the line's grey. A fact from the web cites its page as Research's do
+  (`.cite`, by its number across the conversation; on Ask's sunk tiles the accent mixes with the ink instead of the
+  muted grey). An answer whose call left the oldest questions out says so first, in one muted line on the small step
+  (`LeftOut`). /design shows each.
 - `Card` (`web/src/ui/card.tsx`) — plain; `to` makes the whole card a link; `title` gives it the Searches card's
   anatomy: `meta` (the top line's left: a chip first, then a muted group), `end` (its right end: the date or the
   source, small and muted, a time in `font-mono`), the title with `figure` beside it (its key number: a `.money` pill,
@@ -219,12 +230,13 @@ reading width is 720.
   them. A block in a tone (`.callout`, a guide's; `.read-box`, a verdict; `.quiz-answer`, the lesson's answer; the
   drawings' tip, warning and check) says its meaning with a 3 px edge in its tone (the accent unless a `tone-*` says
   otherwise) and its tinted eyebrow or chip. A change Ask proposes (`.ask-card`): its 2 px edge, the accent while it
-  waits, green done, red failed.
+  waits, green done, red failed, the line's grey undone or skipped (a search I said no to).
 - The app map (`web/src/ui/apps.tsx`) — each app's address, icon and colour, set once: `APPS`, `appTone(app)`,
   `AppIcon` (the icon in its colour, a mark). Home's rows, the tab bar and the dock, PageHead's `app` and the Models
-  page's groups (their eyebrows; Ask's group purple, as Ask's mark) read it. Searches green, Chat cyan, Learn purple, Notes the accent, Tasks pink, News indigo, Research
-  yellow, Quiz teal, Applications orange, Writing magenta, Interview prep good; Cost and Models the models' yellow;
-  Live none.
+  page's groups (their eyebrows; Ask's group purple, as Ask's mark) read it. Searches green, Chat cyan, Learn purple,
+  Notes lemon (a highlighter's: its hue the middle of the widest gap the others leave; the accent is no app's), Tasks
+  pink, News indigo, Research yellow, Quiz teal, Applications orange, Writing magenta, Interview prep good; Cost and
+  Models the models' yellow; Live none.
 - `EmptyState` (`web/src/ui/empty.tsx`) — nothing here yet, in one voice, plain text in the flow (no box): `title`,
   `line`, `action`, `detail`. A page whose item is gone says so with it (Notes' reader, a lesson, a quiz, a research
   answer: its title "This lesson didn't open", the state's words "This lesson isn't here any more.", the way back as a

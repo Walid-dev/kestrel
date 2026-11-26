@@ -6,7 +6,9 @@ import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 
 import { Link } from "react-router";
 import type { Drawing as D } from "../../src/shared/blocks.ts";
 import { LiveBadge, PipBody, type Status } from "./app.tsx";
+import { type AskCard, LeftOut, SearchCard } from "./ask.tsx";
 import { Drawing } from "./drawing.tsx";
+import { type Cite, Cites, Inline } from "./learn/blocks.tsx";
 import { APPS, AppIcon, type AppName } from "./ui/apps.tsx";
 import { Card } from "./ui/card.tsx";
 import { useConfirm } from "./ui/confirm.tsx";
@@ -23,6 +25,12 @@ import { RailPart, WithRail } from "./ui/rail.tsx";
 import { SectionHead } from "./ui/section.tsx";
 import { Seg } from "./ui/seg.tsx";
 import { Star } from "./ui/star.tsx";
+
+// the made-up pages Ask's example cites, by their numbers
+const DESIGN_CITES = new Map<number, Cite>([
+  [1, { title: "Frames, explained", url: "https://bees.example.org/frames" }],
+  [2, { title: "A full frame's weight", url: "https://hive.example.net/weight" }],
+]);
 
 // each role: its variable, what it is for, and the class that paints with it
 const COLOURS: { group: string; when: string; tokens: [string, string, string][] }[] = [
@@ -70,9 +78,10 @@ const COLOURS: { group: string; when: string; tokens: [string, string, string][]
       ["--orange", "warnings, the computer asleep", "tone-orange"],
       ["--yellow", "waiting, the moon", "tone-yellow"],
       ["--purple", "Ask, deep work, learning", "tone-purple"],
-      ["--pink", "needs me, the wolf, note marks", "tone-pink, text-pink"],
+      ["--pink", "needs me, the wolf, Tasks", "tone-pink, text-pink"],
       ["--cyan", "review today, drawings' fifth colour", "tone-cyan"],
       ["--indigo", "News: its word, its icon", "tone-indigo, text-indigo"],
+      ["--lemon", "Notes: its word, its icon, a note's mark (--lemon-soft)", "tone-lemon, text-lemon"],
       ["--teal", "Quiz: its eyebrow, its icon", "tone-teal"],
       ["--magenta", "Writing: its eyebrow, its icon", "tone-magenta"],
     ],
@@ -167,6 +176,7 @@ const TONES: Tone[] = [
   "pink",
   "cyan",
   "indigo",
+  "lemon",
   "teal",
   "magenta",
   "muted",
@@ -358,6 +368,7 @@ export function Design() {
   const [typed, setTyped] = useState("");
   const [saved, setSaved] = useState("");
   const [answer, setAnswer] = useState("");
+  const [searchTap, setSearchTap] = useState<AskCard["state"]>("open");
   const [cards, setCards] = useState(["A kept answer", "Another one"]);
   const [rows, setRows] = useState(["bee-yard.md", "frames.md", "made-up-field-guide.md"]);
   const [slow, setSlow] = useState(false);
@@ -551,7 +562,7 @@ export function Design() {
 
         <Part
           title="The apps' colours"
-          when="Each app has its own colour, set once in the app map (web/src/ui/apps.tsx): its icon on Home, in the dock and the tab bar (the open app's icon in its colour, the rest grey), and its page's eyebrow (PageHead's app). Small accents only: an icon, an eyebrow, never a ground. An icon is a mark, drawn in the tone itself; an eyebrow is words, in the tone's text-safe shade. Live has none: its colours are the status's."
+          when="Each app has its own colour, set once in the app map (web/src/ui/apps.tsx): its icon on Home, in the dock and the tab bar (the open app's icon in its colour, the rest grey), and its page's eyebrow (PageHead's app). Small accents only: an icon, an eyebrow, never a ground. An icon is a mark, drawn in the tone itself; an eyebrow is words, in the tone's text-safe shade. Live has none: its colours are the status's. The accent is no app's (it means act): Notes has a highlighter's lemon, the mark its notes leave on words."
         >
           <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-3">
             {APP_ORDER.map((a) => (
@@ -561,6 +572,9 @@ export function Design() {
               </span>
             ))}
           </div>
+          <p className="m-0 text-read text-ink">
+            A note's mark on words: the hive holds <mark className="doc-mark">ten frames</mark> in summer.
+          </p>
           <Frame label="A page's eyebrow, in its app's colour">
             <PageHead
               titleAs="div"
@@ -1198,6 +1212,43 @@ export function Design() {
           <div className="read-box tone-green grid gap-2">
             <span className="chip chip-caps tone-green justify-self-start">Partly right</span>
             <p className="m-0 text-body">The cooling is right; the nectar was missed.</p>
+          </div>
+        </Part>
+
+        <Part
+          title="Ask's turns"
+          when="An answer that used the web cites its pages as Research does. A web search is a card with its exact words: on a page of my own it waits for Search or Skip; once run it says what it found, in green, or in red that it found nothing or didn't work. An answer whose call left the oldest questions out says so in one quiet line."
+        >
+          <div className="ask">
+            <Cites.Provider value={DESIGN_CITES}>
+              <div className="ask-answer">
+                <LeftOut n={4} />
+                <p className="ask-p">
+                  <Inline text="A frame holds about **3,500** cells a side [1], and a full one weighs near 2 kg [2]." />
+                </p>
+                <SearchCard
+                  card={{
+                    label: "",
+                    state: searchTap,
+                    result: searchTap === "skipped" ? "It answers without the web." : "",
+                    search: "hive frame weight",
+                  }}
+                  searching={searchTap === "done"}
+                  onAnswer={(go) => setSearchTap(go ? "done" : "skipped")}
+                />
+                <SearchCard
+                  card={{ label: "", state: "done", result: "3 results", search: "langstroth frame cells" }}
+                />
+                <SearchCard
+                  card={{ label: "", state: "failed", result: "Nothing found.", search: "made-up hive law" }}
+                />
+              </div>
+            </Cites.Provider>
+            {searchTap !== "open" && (
+              <button type="button" className="btn btn-sm justify-self-start" onClick={() => setSearchTap("open")}>
+                Ask for the search again
+              </button>
+            )}
           </div>
         </Part>
 

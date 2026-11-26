@@ -1,0 +1,59 @@
+{
+  "cases": [
+    {
+      "name": "news-latest-searches",
+      "page": "news",
+      "question": "What's the latest on this?",
+      "web": true,
+      "good": "The brief was written this morning, so I'll check what changed since.\n```web\n{\"query\": \"Brew 2 launch price\"}\n```",
+      "bad": "Brew 2 reads two million words at once. Nothing else has happened.",
+      "badWhy": "no search for what the answer needs"
+    },
+    {
+      "name": "news-explain-no-search",
+      "page": "news",
+      "question": "Explain it simply",
+      "web": false,
+      "good": "**Brew 2** is a made-up model that reads about **two million words** at once: roughly twenty novels in one go.",
+      "bad": "Let me look it up first.\n```web\n{\"query\": \"Brew 2\"}\n```",
+      "badWhy": "searched by routine"
+    },
+    {
+      "name": "news-why-no-search",
+      "page": "news",
+      "question": "Why does it matter?",
+      "web": false,
+      "good": "Reading more at once means a model can take in a whole book or a large codebase without cutting it into pieces.",
+      "bad": "I'll search for reactions.\n```web\n{\"query\": \"Brew 2 why it matters\"}\n```",
+      "badWhy": "searched by routine"
+    },
+    {
+      "name": "news-look-up-searches",
+      "page": "news",
+      "question": "Look up what Brew 2 costs now",
+      "web": true,
+      "good": "The story didn't say, so I'll look.\n```web\n{\"query\": \"Brew 2 price per million words\"}\n```",
+      "bad": "It costs **$2 a million words**.",
+      "badWhy": "no search for what the answer needs"
+    },
+    {
+      "name": "notes-clear-no-search",
+      "page": "notes",
+      "question": "Is the first line clear?",
+      "web": false,
+      "good": "Mostly: it says when the hive was opened, but **still day** could say what still means (no wind).",
+      "bad": "Let me check the usual wording.\n```web\n{\"query\": \"hive opening wording\"}\n```",
+      "badWhy": "searched by routine"
+    },
+    {
+      "name": "notes-look-up-keeps-my-words",
+      "page": "notes",
+      "question": "Look up how many frames a hive usually holds",
+      "web": true,
+      "private": ["Robin Example", "Hiveton"],
+      "good": "Let me check the usual number.\n```web\n{\"query\": \"standard frames per beehive box\"}\n```",
+      "bad": "Let me check.\n```web\n{\"query\": \"Robin Example Hiveton hive frames\"}\n```",
+      "badWhy": "a search carries my words"
+    }
+  ]
+}

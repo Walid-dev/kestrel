@@ -1,6 +1,8 @@
 // Ask against the stand-in model: a question on a lesson is kept and its answer lands; the next question carries the
-// conversation and the page; one answer at a time; a failure says why; a restart ends a stuck answer; start over
-// clears. Made-up lessons only.
+// conversation, what its looks found and the page, as much as fits; one answer at a time; a failure says why; a
+// restart ends a stuck answer; start over clears. The web: a page of my own asks my tap for each search, a page without
+// my things searches as the model writes, and a search that finds nothing or fails is said plainly. Made-up lessons,
+// documents, stories and pages only.
 import assert from "node:assert/strict";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -21,7 +23,8 @@ import { addUpload, Refused } from "../notes/documents.ts";
 import { listNotes } from "../notes/notes.ts";
 import { findListings } from "../search/ask.ts";
 import { addTask, listTasks } from "../tasks/tasks.ts";
-import { actOn, askPage, clearConversation, conversation, sweepAsks } from "./ask.ts";
+import { actOn, askPage, clearConversation, conversation, searchOn, sweepAsks } from "./ask.ts";
+import { queryOf } from "./tools.ts";
 
 function setup() {
   const base = mkdtempSync(join(tmpdir(), "kestrel-ask-"));
@@ -32,16 +35,20 @@ function setup() {
   addLesson(db, pack, "About lids", { say: ["A lid keeps the heat in."] }, 1, "lid");
   return db;
 }
-const settings = (url: string): Settings => ({
+const settings = (url: string, contextChars = 100_000): Settings => ({
   tailscaleLogin: "made-up",
   notes: { folders: [] },
-  models: { url, careful: "careful-model", fast: "fast-model", contextChars: 100_000 },
+  models: { url, careful: "careful-model", fast: "fast-model", contextChars },
   voice: { url: "http://127.0.0.1:1", name: "made-up" },
   profile: {},
   omlxHome: "",
   apply: { folder: "", skill: "", pdf: "", check: "" },
   links: [],
 });
+// what the stand-in heard: each chat's messages, and what reached the door's web (a search's words, a page's address)
+type Heard = { messages: { role: string; content: string }[]; query?: string; url?: string };
+const lastOf = (b: Heard) => b.messages.at(-1)?.content ?? "";
+const hit = (title: string, url: string) => ({ title, url, snippet: `${title}, in made-up words.` });
 
 test("a question on a lesson is kept, its answer lands, and the next question carries the conversation", async () => {
   const db = setup();
@@ -203,35 +210,37 @@ test("on Searches the model looks through the hunt, answers from what it found, 
   assert.throws(() => actOn(db, settings(s.url), { id: answer.id, card: 0 }), /already made/);
 });
 
-test("the shared read tools: a lesson opens another by its id; a page of my own never runs a web search", async () => {
+test("the shared read tools: a lesson opens another by its id, and every page's prompt says when to search and how to cite", async () => {
   const db = setup();
-  const seen: { messages: { role: string; content: string }[] }[] = [];
+  const seen: Heard[] = [];
   const s = await startStandIn((body) => {
-    seen.push(body as never);
+    seen.push(body);
     return {
-      content:
-        seen.length === 1
-          ? 'Let me read it.\n```read\n{"ref": "lesson:lid"}\n```'
-          : seen.length === 2
-            ? "A lid keeps the heat in."
-            : 'I will check.\n```web\n{"query": "hive frames"}\n```\nTen is usual.',
+      content: seen.length === 1 ? 'Let me read it.\n```read\n{"ref": "lesson:lid"}\n```' : "A lid keeps the heat in.",
     };
   });
-  await askPage(db, settings(s.url), { app: "learn", ref: "spout", text: "And the lid?" }).done;
-  assert.equal(seen.length, 2); // one look, then the answer
-  assert.match(seen[0].messages[0].content, /```web\n\{"query"/); // a lesson's page offers the web
-  assert.match(
-    seen[1].messages.at(-1)?.content ?? "",
-    /WHAT YOUR LOOKS RETURNED[\s\S]*lesson:lid:\nAbout lids\nA lid keeps the heat in\./,
-  );
-  assert.equal(conversation(db, "learn", "spout")[1].text, "A lid keeps the heat in.");
-  // Notes: the web isn't among its tools, so a web block is never run and its answer stands as written
   const doc = addUpload(db, "hive.md", "The hive holds ten frames.\n");
-  await askPage(db, settings(s.url), { app: "notes", ref: doc.id, text: "How many frames are usual?" }).done;
-  await s.close();
-  assert.equal(seen.length, 3);
-  assert.doesNotMatch(seen[2].messages[0].content, /```web/);
-  assert.equal(conversation(db, "notes", doc.id)[1].text, "I will check.\n\nTen is usual.");
+  try {
+    await askPage(db, settings(s.url), { app: "learn", ref: "spout", text: "And the lid?" }).done;
+    await askPage(db, settings(s.url), { app: "notes", ref: doc.id, text: "Is ten usual?" }).done;
+  } finally {
+    await s.close();
+  }
+  assert.equal(seen.length, 3); // one look, then the answer; then Notes' answer
+  assert.match(lastOf(seen[1]), /WHAT YOUR LOOKS RETURNED[\s\S]*lesson:lid:\nAbout lids\nA lid keeps the heat in\./);
+  assert.match(lastOf(seen[1]), /Now answer my question from it\.$/);
+  assert.equal(conversation(db, "learn", "spout")[1].text, "A lid keeps the heat in.");
+  // a field lesson searches as the model writes; Notes, a page of my own, has the web too, each search on my tap
+  for (const [heard, tap] of [
+    [seen[0], false],
+    [seen[2], true],
+  ] as const) {
+    const system = heard.messages[0].content;
+    assert.match(system, /```web\n\{"query"/);
+    assert.match(system, /Search only when the answer needs it: facts that change/);
+    assert.match(system, /Cite each fact you took from the web with its source's number right after it, as \[2\]/);
+    assert.equal(/it runs only if I tap Search/.test(system), tap);
+  }
 });
 
 test("on Notes a note on words the document has becomes a card; one on words it hasn't is dropped; my tap adds it", async () => {
@@ -333,7 +342,7 @@ test("an answer that breaks while it is written fails, so the page takes the nex
   }
 });
 
-test("my own words never reach the web: Interview prep, the Personal group and interview quizzes get read alone (review)", async () => {
+test("my own words never leave unseen: on my prepared answers, my own lessons and an interview quiz a search waits for my tap, and no address goes out (review)", async () => {
   const db = setup();
   const answers = addPack(db, "Made-up interview", "answer-pack");
   addLesson(
@@ -349,10 +358,15 @@ test("my own words never reach the web: Interview prep, the Personal group and i
   addLesson(db, mine, "My made-up shelf", { say: ["The shelf holds jars."] }, 0, "shelf");
   const quiz = startQuiz(db, { area: "interview", count: 1 });
   const doc = addUpload(db, "secret.md", "A made-up private line.\n");
-  const seen: { messages?: { content: string }[]; query?: string; url?: string }[] = [];
-  let web = true; // the web looks, or the read alone
-  const s = await startStandIn((body) => {
-    seen.push(body as never);
+  const reached: string[] = []; // every request that went to the door's web
+  const seen: Heard[] = [];
+  let web = true; // the web looks, or the reads alone
+  const s = await startStandIn((body, path) => {
+    if (path.includes("/web/")) {
+      reached.push(path);
+      return { json: { ok: true, results: [] } };
+    }
+    seen.push(body);
     return {
       content: [
         "I will check.",
@@ -375,19 +389,30 @@ test("my own words never reach the web: Interview prep, the Personal group and i
     ]) {
       seen.length = 0;
       await askPage(db, settings(s.url), { app, ref, text: "Tell me more" }).done;
-      assert.doesNotMatch(seen[0].messages?.[0].content ?? "", /```web/, `${app} ${ref} offers the web`);
+      assert.match(seen[0].messages[0].content, /it runs only if I tap Search/, `${app} ${ref} asks my tap`);
+      const answer = conversation(db, app, ref)[1];
       assert.deepEqual(
-        seen.filter((b) => b.query || b.url),
-        [],
-        `${app} ${ref} sent my words to the web`,
+        answer.cards.map((c) => [c.search, c.state]),
+        [["Made-up Corp reorg", "open"]],
+        `${app} ${ref} shows the search's words`,
       );
+      assert.deepEqual(reached, [], `${app} ${ref} sent my words to the web`);
+      // Skip: nothing leaves, and the answer goes on; the page block's address was never opened either
+      await searchOn(db, settings(s.url), { id: answer.id, card: 0, go: false }).done;
+      assert.deepEqual(reached, [], `${app} ${ref} sent my words to the web`);
+      assert.match(
+        lastOf(seen.at(-1) as Heard),
+        /example\.com\/\?q=Made-up\+Corp: here only a page one of my approved/,
+      );
+      assert.match(lastOf(seen.at(-1) as Heard), /I skipped the search for "Made-up Corp reorg"/);
     }
-    // a page that has the web can't pull a Notes document, my prepared answer or my own lesson into the conversation
+    // a page whose searches run without my tap can't pull a Notes document, my prepared answer or my own lesson into
+    // the conversation
     seen.length = 0;
     web = false;
     await askPage(db, settings(s.url), { app: "learn", ref: "spout", text: "Tell me more" }).done;
-    const looked = seen.at(-1)?.messages?.at(-1)?.content ?? "";
-    assert.match(looked, /lesson:why-leave/); // the read ran, and said no
+    const looked = lastOf(seen.at(-1) as Heard);
+    assert.match(looked, /lesson:why-leave: a lesson of my own isn't opened/); // the read ran, and said no
     assert.doesNotMatch(looked, /private line|team moved|holds jars/);
   } finally {
     await s.close();
@@ -494,5 +519,302 @@ test("on News a story's page is the story, its sources and its day, with the web
   assert.throws(
     () => askPage(db, settings(s.url), { app: "news", ref: "nb:2", text: "And now?" }),
     (e) => e instanceof Refused && /isn't there any more/.test(e.message),
+  );
+});
+
+test("on a page of my own a search waits for my tap with its exact words: Search runs them and the answer goes on from what they found", async () => {
+  const db = setup();
+  const doc = addUpload(db, "hive.md", "The hive holds ten frames.\n");
+  const web: string[] = []; // what reached the door's web: each search's words, each page's address
+  const chats: Heard[] = [];
+  const s = await startStandIn((body, path) => {
+    if (path.endsWith("/web/search")) {
+      web.push(`search ${body.query}`);
+      // the second result sits on this computer: the page guard refuses it without asking the network
+      return {
+        json: {
+          ok: true,
+          results: [hit("Frames per hive", "https://bees.example.org/frames"), hit("Keepers", "https://localhost/k")],
+        },
+      };
+    }
+    if (path.endsWith("/web/fetch")) {
+      web.push(`fetch ${body.url}`);
+      return { json: { ok: true, content: "A full hive holds ten frames in most boxes, the made-up guide says." } };
+    }
+    chats.push(body);
+    const last = lastOf(body);
+    if (last.includes("THE WEB SEARCH FOR")) return { content: "Ten is usual [1]." };
+    if (last.startsWith("WHAT YOUR LOOKS RETURNED")) return { content: "From the page: ten [1]." };
+    if (last === "Open them")
+      return {
+        content:
+          'Opening them.\n```page\n{"url": "https://localhost/k"}\n```\n```page\n{"url": "https://made-up.example.com/x"}\n```',
+      };
+    return { content: 'I will check.\n```web\n{"query": "frames per hive"}\n```' };
+  });
+  try {
+    await askPage(db, settings(s.url), { app: "notes", ref: doc.id, text: "How many frames are usual?" }).done;
+    let answer = conversation(db, "notes", doc.id)[1];
+    // nothing left: the answer stops at its card, which shows the exact words
+    assert.deepEqual(web, []);
+    assert.deepEqual(
+      [answer.state, answer.text, answer.cards.map((c) => [c.search, c.state])],
+      ["done", "I will check.", [["frames per hive", "open"]]],
+    );
+    // a restart keeps it: the work waits with the card
+    sweepAsks(db);
+    assert.equal(conversation(db, "notes", doc.id)[1].state, "done");
+    // Search: those words go, and the answer goes on from what they found, citing it by its number
+    await searchOn(db, settings(s.url), { id: answer.id, card: 0, go: true }).done;
+    assert.throws(() => searchOn(db, settings(s.url), { id: answer.id, card: 0, go: true }), /answered already/);
+    assert.deepEqual(web, ["search frames per hive"]);
+    assert.match(lastOf(chats[1]), /\[1\] Frames per hive \(https:\/\/bees\.example\.org\/frames\)/);
+    answer = conversation(db, "notes", doc.id)[1];
+    assert.deepEqual(
+      [answer.text, answer.sources, answer.cards.map((c) => [c.state, c.result])],
+      [
+        "Ten is usual [1].",
+        [
+          { n: 1, title: "Frames per hive", url: "https://bees.example.org/frames" },
+          { n: 2, title: "Keepers", url: "https://localhost/k" },
+        ],
+        [["done", "2 results"]],
+      ],
+    );
+    // the next question rereads that answer with its search, what it found and its sources
+    await askPage(db, settings(s.url), { app: "notes", ref: doc.id, text: "Who says so?" }).done;
+    const reread =
+      chats
+        .at(-1)
+        ?.messages.map((m) => m.content)
+        .join("\n") ?? "";
+    assert.match(reread, /THE WEB SEARCH FOR "frames per hive"[\s\S]*\[1\] Frames per hive/);
+    assert.match(reread, /\(Its sources: \[1\] Frames per hive https:\/\/bees\.example\.org\/frames; \[2\] Keepers/);
+    // asking something else while a search waits skips it: nothing leaves, and its card says so
+    const waiting = conversation(db, "notes", doc.id)[3];
+    assert.equal(waiting.cards[0]?.state, "open");
+    await askPage(db, settings(s.url), { app: "notes", ref: doc.id, text: "Never mind: is it warm?" }).done;
+    assert.deepEqual(
+      conversation(db, "notes", doc.id)[3].cards.map((c) => [c.state, c.result]),
+      [["skipped", "You asked something else."]],
+    );
+    assert.throws(() => searchOn(db, settings(s.url), { id: waiting.id, card: 0, go: true }), /answered already/);
+    assert.deepEqual(web, ["search frames per hive"]);
+    // the page reader goes on to an address an approved search returned (here the guard refuses it, as it is on this
+    // computer); one no approved search returned stays shut before anything is asked of the network
+    await askPage(db, settings(s.url), { app: "notes", ref: doc.id, text: "Open them" }).done;
+    const opened = lastOf(chats.at(-1) as Heard);
+    assert.match(opened, /https:\/\/localhost\/k: it didn't open \(localhost: that address isn't on the public web\)/);
+    assert.match(opened, /https:\/\/made-up\.example\.com\/x: here only a page one of my approved searches returned/);
+    assert.deepEqual(web, ["search frames per hive"]);
+    clearConversation(db, "notes", doc.id); // a search waiting for my tap never holds Start over
+    assert.deepEqual(conversation(db, "notes", doc.id), []);
+  } finally {
+    await s.close();
+  }
+});
+
+test("a search's card shows every word it sends: characters that draw nothing never ride along (review: hidden words)", async () => {
+  const db = setup();
+  const doc = addUpload(db, "hive.md", "My secret note: the hive holds ten frames.\n");
+  // "my secret note" in Unicode's tag characters, which draw nothing, after a zero-width space and a bidi control
+  const hidden = `\u200b\u202e${[..."my secret note"].map((c) => String.fromCodePoint(0xe0000 + (c.codePointAt(0) ?? 0))).join("")}`;
+  assert.equal(queryOf({ query: ` bees${hidden}\n\tframes\ufe0f ` }), "bees frames");
+  const searched: string[] = [];
+  const s = await startStandIn((body, path) => {
+    if (path.endsWith("/web/search")) {
+      searched.push(body.query ?? "");
+      return { json: { ok: true, results: [hit("Frames per hive", "https://bees.example.org/frames")] } };
+    }
+    if (lastOf(body).includes("THE WEB SEARCH FOR")) return { content: "Ten [1]." };
+    return { content: `I will check.\n\`\`\`web\n{"query": "bees frames${hidden}"}\n\`\`\`` };
+  });
+  try {
+    await askPage(db, settings(s.url), { app: "notes", ref: doc.id, text: "How many frames?" }).done;
+    const answer = conversation(db, "notes", doc.id)[1];
+    assert.deepEqual(
+      answer.cards.map((c) => [c.search, c.label]),
+      [["bees frames", "Search the web for “bees frames”"]],
+    );
+    await searchOn(db, settings(s.url), { id: answer.id, card: 0, go: true }).done;
+    assert.deepEqual(searched, ["bees frames"]);
+  } finally {
+    await s.close();
+  }
+});
+
+// a made-up door for News: each question's words decide what the model looks for, and what the web gives back
+async function newsDoor(chats: Heard[], searched: string[]) {
+  return startStandIn((body, path) => {
+    if (path.endsWith("/web/search")) {
+      searched.push(body.query ?? "");
+      if (body.query?.includes("nothing")) return { json: { ok: true, results: [] } };
+      // oMLX answers a refused search 200 with ok false: its engine rate limited it
+      if (body.query?.includes("break")) return { json: { ok: false, error: { code: "rate_limited", message: "no" } } };
+      return {
+        json: {
+          ok: true,
+          results: body.query?.includes("ships")
+            ? [
+                hit("Brew 2 ships", "https://wire.example.net/ships"),
+                hit("Kettles react", "https://blog.example.com/k"),
+              ]
+            : [
+                hit("Brew 2 priced", "https://news.example.org/price"),
+                hit("Brew 2 ships", "https://wire.example.net/ships"),
+              ],
+        },
+      };
+    }
+    if (path.endsWith("/web/fetch")) return { json: { ok: false, error: { message: "The page did not respond" } } };
+    chats.push(body);
+    const last = lastOf(body);
+    const asked = body.messages.filter((m) => m.role === "user" && !m.content.startsWith("WHAT YOUR")).at(-1)?.content;
+    if (last.startsWith("WHAT YOUR LOOKS RETURNED")) {
+      // one that always wants another look, even after its last
+      if (asked === "Keep looking")
+        return { content: `Still not sure.\n\`\`\`web\n{"query": "brew 2 look ${body.messages.length}"}\n\`\`\`` };
+      return { content: /\[(\d+)\]/.test(last) ? "From the web [1]." : "The web had nothing I can use." };
+    }
+    if (last === "Keep looking") return { content: 'Looking.\n```web\n{"query": "brew 2 price"}\n```' };
+    if (last === "Look it up")
+      return {
+        content: 'Checking.\n```web\n{"query": "nothing here"}\n```\n```web\n{"query": "break the search"}\n```',
+      };
+    // a source the page guard refuses without asking the network (it sits on this computer)
+    if (last === "Read its source") return { content: 'Reading.\n```page\n{"url": "https://localhost/brew-2"}\n```' };
+    if (last === "What did the second one say?") return { content: "The second said it ships." };
+    return {
+      content: `Checking.\n\`\`\`web\n{"query": "${last === "And when?" ? "brew 2 ships" : "brew 2 price"}"}\n\`\`\``,
+    };
+  });
+}
+
+test("on News a search runs as the model writes it, the next question rereads what it found, and a search that finds nothing or fails is said plainly (the News bug)", async () => {
+  const db = setup();
+  newsBrief(db);
+  const searched: string[] = [];
+  const chats: Heard[] = [];
+  const s = await newsDoor(chats, searched);
+  try {
+    for (const q of ["What does it cost?", "And when?", "What did the second one say?", "Look it up"])
+      await askPage(db, settings(s.url), { app: "news", ref: "nb:2", text: q }).done;
+  } finally {
+    await s.close();
+  }
+  // no tap: each ran as written (the empty and the refused ones twice, as the door turns some away)
+  assert.deepEqual(searched, [
+    "brew 2 price",
+    "brew 2 ships",
+    "nothing here",
+    "nothing here",
+    "break the search",
+    "break the search",
+  ]);
+  const answers = conversation(db, "news", "nb:2").filter((m) => m.role === "model");
+  assert.deepEqual(answers[0].sources, [
+    { n: 1, title: "Brew 2 priced", url: "https://news.example.org/price" },
+    { n: 2, title: "Brew 2 ships", url: "https://wire.example.net/ships" },
+  ]);
+  // a page found again keeps its number; a new one takes the next
+  assert.deepEqual(answers[1].sources, [{ n: 3, title: "Kettles react", url: "https://blog.example.com/k" }]);
+  assert.deepEqual(
+    answers[0].cards.map((c) => [c.search, c.state, c.result]),
+    [["brew 2 price", "done", "2 results"]],
+  );
+  // the follow-up's call reread both answers with what their searches found: before, it had their words alone and
+  // [2] meant nothing to it
+  const followUp = chats.find((b) => lastOf(b) === "What did the second one say?");
+  const reread = followUp?.messages.map((m) => m.content).join("\n") ?? "";
+  assert.match(reread, /\[2\] Brew 2 ships \(https:\/\/wire\.example\.net\/ships\)/);
+  assert.match(reread, /\(Searched the web: "brew 2 ships" — 2 results\)/);
+  // nothing found and a failed search: the model is told which, and the cards say it in red
+  const told = lastOf(chats.at(-1) as Heard);
+  assert.match(told, /The web search for "nothing here" found nothing\. Say so plainly/);
+  assert.match(told, /The web search for "break the search" didn't work \(it didn't go through\)\. Say plainly/);
+  assert.deepEqual(
+    answers[3].cards.map((c) => [c.state, c.result]),
+    [
+      ["failed", "Nothing found."],
+      ["failed", "The search didn't work."],
+    ],
+  );
+  assert.equal(answers[3].text, "The web had nothing I can use.");
+});
+
+test("after its last round of looks the model is told to answer now, and one that still wants to look says so; a page that won't load is said (the News bug)", async () => {
+  const db = setup();
+  newsBrief(db);
+  const chats: Heard[] = [];
+  const s = await newsDoor(chats, []);
+  try {
+    await askPage(db, settings(s.url), { app: "news", ref: "nb:2", text: "Keep looking" }).done;
+    await askPage(db, settings(s.url), { app: "news", ref: "nb:2", text: "Read its source" }).done;
+  } finally {
+    await s.close();
+  }
+  // two rounds of looks, then the answer: the second round's return says it was the last look
+  const looking = chats.slice(0, 3);
+  assert.equal(lastOf(chats[3]), "Read its source"); // three calls for the first question, no more
+  assert.match(lastOf(looking[1]), /Now answer my question from it\.$/);
+  assert.match(
+    lastOf(looking[2]),
+    /That was your last look: answer my question now from what you have, with no more blocks\.$/,
+  );
+  // it still wrote a look: its words stand, with a line that says it wanted more, never a bare preamble
+  assert.equal(
+    conversation(db, "news", "nb:2")[1].text,
+    "Still not sure.\n\n*(I wanted to look further: ask me to go on)*",
+  );
+  // the story's source didn't open: the model is told so, and says it
+  assert.match(lastOf(chats[4]), /https:\/\/localhost\/brew-2: it didn't open \(localhost: that address isn't/);
+});
+
+test("a conversation longer than the model reads at once keeps its latest questions, says how many it left out, and never fails", async () => {
+  const db = setup();
+  const seen: Heard[] = [];
+  let fail = false;
+  const s = await startStandIn((body) => {
+    seen.push(body);
+    if (fail) return { status: 503 };
+    return { content: `${lastOf(body)}: ${"x".repeat(900)}` };
+  });
+  try {
+    await askPage(db, settings(s.url), { app: "learn", ref: "spout", text: "q1" }).done;
+    const room = seen[0].messages[0].content.length + 2500; // the page and two questions with their answers, no more
+    for (const q of ["q2", "q3"])
+      await askPage(db, settings(s.url, room), { app: "learn", ref: "spout", text: q }).done;
+    // a failed answer stays out with its question, so the turns still take turns
+    fail = true;
+    await askPage(db, settings(s.url, room), { app: "learn", ref: "spout", text: "q4" }).done;
+    fail = false;
+    await askPage(db, settings(s.url, room), { app: "learn", ref: "spout", text: "q5" }).done;
+  } finally {
+    await s.close();
+  }
+  const last = seen.at(-1) as Heard;
+  // q5's call read the latest questions that fit, each with its answer: q2 and q3; q1 stayed out, q4 failed
+  assert.deepEqual(
+    last.messages.slice(1).map((m) => [m.role, m.content.slice(0, 2)]),
+    [
+      ["user", "q2"],
+      ["assistant", "q2"],
+      ["user", "q3"],
+      ["assistant", "q3"],
+      ["user", "q5"],
+    ],
+  );
+  assert.deepEqual(
+    conversation(db, "learn", "spout")
+      .filter((m) => m.role === "model")
+      .map((m) => [m.state, m.leftOut]),
+    [
+      ["done", 0],
+      ["done", 0],
+      ["done", 0],
+      ["failed", 1],
+      ["done", 1],
+    ],
   );
 });

@@ -1,6 +1,7 @@
 // The web, read from this computer through the model door's own tools: oMLX's search (DuckDuckGo, no account or key)
 // and its page fetch. A deep check and Research use them, with search words from a listing or my question, never
-// from a profile. The page fetch opens public addresses only (publicUrl, below).
+// from a profile; Ask with the words its model wrote, which wait for my tap on a page of my own. The page fetch opens
+// public addresses only (publicUrl, below).
 import { lookup } from "node:dns/promises";
 import { BlockList, isIP } from "node:net";
 import type { ModelSettings } from "./client.ts";
@@ -19,25 +20,36 @@ async function web<T>(settings: ModelSettings, path: "search" | "fetch", body: R
   return j;
 }
 
-export async function searchWeb(settings: ModelSettings, query: string, pauseMs = 2000): Promise<Hit[]> {
-  // the search engine turns a request away now and then (the first Research came back empty, the same words worked
-  // a minute later): one more try after a short pause before calling it empty
+// a search's hits, and when it found none, whether it failed: failed holds why the last try didn't go through ("" when
+// the door answered, even with nothing), so Ask can tell the model a search that failed from one that found nothing
+export async function webSearch(
+  settings: ModelSettings,
+  query: string,
+  pauseMs = 2000,
+): Promise<{ hits: Hit[]; failed: string }> {
+  // the search engine turns a request away now and then, or answers with nothing (the first Research came back empty,
+  // the same words worked a minute later): one more try after a short pause before calling it empty
+  let failed = "";
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const j = await web<{ results?: { title?: string; url?: string; snippet?: string }[] }>(settings, "search", {
         query,
       });
+      failed = "";
       const hits = (j.results ?? [])
         .map((r) => ({ title: String(r.title ?? ""), url: String(r.url ?? ""), snippet: String(r.snippet ?? "") }))
         .filter((r) => /^https?:\/\//.test(r.url));
-      if (hits.length) return hits;
-    } catch {
-      // tried again below
+      if (hits.length) return { hits, failed };
+    } catch (e) {
+      failed = e instanceof Error && e.name === "TimeoutError" ? "it took too long" : "it didn't go through";
     }
     if (attempt === 0) await new Promise((r) => setTimeout(r, pauseMs));
   }
-  return []; // no web this time: the work goes on with what kestrel knows
+  return { hits: [], failed }; // no web this time: the work goes on with what kestrel knows
 }
+
+export const searchWeb = async (settings: ModelSettings, query: string, pauseMs = 2000): Promise<Hit[]> =>
+  (await webSearch(settings, query, pauseMs)).hits;
 
 // a page as plain text: links become their words, menus and short link lines go
 export function readable(markdown: string, max = 8000): string {

@@ -1,10 +1,11 @@
-// The web search tries once more after a refusal, and two empty answers are empty; the page reader opens public
-// addresses only, after resolving and through redirects. A made-up door on this computer, made-up names and addresses.
+// The web search tries once more after a refusal, two empty answers are empty, and one refused both times says it
+// failed; the page reader opens public addresses only, after resolving and through redirects. A made-up door on this
+// computer, made-up names and addresses.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { test } from "node:test";
-import { fetchPage, publicUrl, type Reach, searchWeb } from "./web.ts";
+import { fetchPage, publicUrl, type Reach, searchWeb, webSearch } from "./web.ts";
 
 async function door(answers: { status: number; body: unknown }[]) {
   let calls = 0;
@@ -48,6 +49,23 @@ test("two empty answers are empty, after two tries only", async () => {
   assert.deepEqual(await searchWeb(d.settings, "nothing", 5), []);
   assert.equal(d.calls(), 2);
   d.close();
+});
+
+test("a search refused both times says it failed; an empty one says only that it found nothing (the News bug)", async () => {
+  // oMLX answers a failed search 200 with ok false (its search engine rate limited it): that is a failure, never
+  // "nothing found", or the model says the web had nothing on it
+  const refused = await door([
+    { status: 200, body: { ok: false, error: { code: "rate_limited", message: "made-up engine rate limited it" } } },
+  ]);
+  assert.deepEqual(await webSearch(refused.settings, "teapots", 5), { hits: [], failed: "it didn't go through" });
+  assert.equal(refused.calls(), 2);
+  refused.close();
+  const empty = await door([
+    { status: 200, body: { ok: false, error: { message: "busy" } } },
+    { status: 200, body: { ok: true, results: [] } },
+  ]);
+  assert.deepEqual(await webSearch(empty.settings, "teapots", 5), { hits: [], failed: "" });
+  empty.close();
 });
 
 // a made-up internet: names resolve as listed, and a HEAD answers a redirect where one is listed

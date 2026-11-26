@@ -1,8 +1,10 @@
 // Each app's own colour and icon, set once and read everywhere: Home's rows, the tab bar and the dock (the open app's
 // icon in its colour), a page's eyebrow (PageHead's app) and the Models page's groups. No two apps share a colour;
 // Searches is green (my pick), Cost and Models share the models' yellow, and Live has none: its colours are the
-// status's. A colour is a tone, so it follows the theme. An icon is a mark, drawn in the tone itself (a mark needs
-// 3:1, which every tone has); a word in an app's colour (an eyebrow) takes the text-safe shade (styles.css).
+// status's. The accent is no app's: it means act (links, the filled button), so Notes has its own lemon, a
+// highlighter's mark on words. A colour is a tone, so it follows the theme. An icon is a mark, drawn in the tone itself
+// (a mark needs 3:1, which every tone has); a word in an app's colour (an eyebrow) takes the text-safe shade
+// (styles.css).
 import type { ReactNode } from "react";
 import { cx } from "./cx.ts";
 import type { Tone } from "./pills.tsx";
@@ -65,7 +67,7 @@ export const APPS: Record<AppName, { tone?: Tone; to: string; icon: ReactNode }>
     ),
   },
   Notes: {
-    tone: "accent",
+    tone: "lemon",
     to: "/notes",
     icon: icon(
       <>
