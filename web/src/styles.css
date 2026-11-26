@@ -34,6 +34,8 @@
   --color-teal: color-mix(in srgb, var(--teal) var(--tone-text), var(--strong));
   --color-magenta: color-mix(in srgb, var(--magenta) var(--tone-text), var(--strong));
   --color-indigo: color-mix(in srgb, var(--indigo) var(--tone-text), var(--strong));
+  --color-lemon: color-mix(in srgb, var(--lemon) var(--tone-text), var(--strong));
+  --color-lemon-soft: var(--lemon-soft);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
@@ -146,6 +148,11 @@
   --magenta: #e88bd6;
   /* News' own blue: a periwinkle, between the accent's sky and the purple, 5.5:1 on the surface (measured) */
   --indigo: #818cf8;
+  /* Notes' own colour: a highlighter's lemon, the mark a note leaves on words (the reader's marks wear it). Its hue
+     (61°) is the middle of the widest gap the apps' colours leave, between Research's gold and Interview prep's lime,
+     each two places or more from Notes on Home's list and in the dock (12:1 on the surface) */
+  --lemon: #e0e35e;
+  --lemon-soft: rgba(224, 227, 94, 0.16);
   /* how much of a working colour small words take (a chip, a tinted eyebrow, text-tone, a colour's class): all of it
      here, where every tone reads 4.5:1 on the grounds; light takes less (its block below) */
   --tone-text: 100%;
@@ -239,6 +246,10 @@
     --teal: #0e8a7f;
     --magenta: #a8327f;
     --indigo: #4f46e5;
+    /* the lemon as ink is an olive (a mark at 4:1 on the page, words at 6:1 through --tone-text); a note's mark keeps a
+       highlighter's yellow wash, its olive line under at 3.7:1 */
+    --lemon: #7d8200;
+    --lemon-soft: rgba(232, 230, 0, 0.3);
     /* light's tones read 2.9 to 4.3:1 as small words on their tint or the page; 70% of the tone and 30% of the ink
        reads 4.6:1 at least (yellow's chip, the lowest), each colour still its own */
     --tone-text: 70%;
@@ -536,6 +547,10 @@ h3 {
 }
 .tone-indigo {
   --tone: var(--indigo);
+}
+/* Notes' own colour: its eyebrow, its icon, a note's mark on words */
+.tone-lemon {
+  --tone: var(--lemon);
 }
 /* two apps' own colours, as tones for their eyebrow and icon: Quiz and Writing */
 .tone-teal {
@@ -4059,13 +4074,13 @@ li.md-task {
   border: 0;
   border-top: 1px solid var(--line);
 }
-/* my notes on the words, like a highlighter: pink with a line under, across bold text and links alike; a tap opens
-   the note */
+/* my notes on the words, a highlighter's mark: Notes' lemon with a line under, across bold text and links alike; a
+   tap opens the note */
 .doc-mark {
   padding: 0;
   border-radius: 0;
-  background: var(--pink-soft);
-  box-shadow: inset 0 -2px var(--pink);
+  background: var(--lemon-soft);
+  box-shadow: inset 0 -2px var(--lemon);
   color: inherit;
   cursor: pointer;
   -webkit-box-decoration-break: clone;
@@ -4777,11 +4792,11 @@ body:has(.paper-view) {
   align-items: flex-start;
   gap: 12px;
 }
-/* my note's words, marked as the notes are in the text: a pink edge */
+/* my note's words, marked as the notes are in the text: a lemon edge */
 .note-said {
   margin: 0;
   padding-left: 10px;
-  box-shadow: inset 2px 0 0 var(--pink);
+  box-shadow: inset 2px 0 0 var(--lemon);
   font: 400 var(--text-detail) / var(--text-detail--line-height) var(--sans);
   color: var(--text);
 }

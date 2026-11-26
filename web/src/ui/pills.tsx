@@ -16,6 +16,7 @@ export type Tone =
   | "pink"
   | "cyan"
   | "indigo"
+  | "lemon"
   | "teal"
   | "magenta"
   | "muted"

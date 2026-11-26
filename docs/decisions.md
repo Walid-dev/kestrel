@@ -5,6 +5,18 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Notes gets a colour of its own: a highlighter's lemon.**
+  `--lemon` (#e0e35e dark, #7d8200 light; `tone-lemon`, `text-lemon`) replaces the accent as Notes' colour in the app
+  map, so Home's row, the tab bar and the dock, Notes' eyebrows and the Models page's group follow, and the eyebrow no
+  longer reads as a second link under the blue back link: the accent means act (links, the filled button). Its hue,
+  61°, is the middle of the widest gap the apps' colours leave, between Research's gold (35 to 42°) and Interview
+  prep's lime (85°), each two places or more from Notes on Home's list and in the dock, where its neighbours are
+  Learn's purple and Tasks' pink. Words in it read 6.3:1 in light (70% of the olive, the text-safe rule) and 12:1 in
+  dark; as a mark, 4:1 and 12:1; the probe passes on Notes, Home, Models and /design in both themes. The reader's note
+  marks take it too (`.doc-mark`: a `--lemon-soft` wash, a highlighter's yellow in light, with the lemon line under at
+  3.7:1; `.note-said`'s edge): a highlighter's mark on words is what the colour means, and pink keeps needs me, the
+  wolf and Tasks. Rejected: violet, rose and a green (each a near twin of a neighbour or of Searches), a paper tan
+  (Research's hue).
 - **2026-11-25 · My marks in kestrel stick through the mirror; the old setup's own stages still arrive.**
   A stage, a star, a note or a delete made in kestrel is kestrel's from then on: `listings.mine` (migration 029) keeps
   when each was set here, and the mirror leaves a marked field as it is. A listing never marked here follows the old
@@ -78,9 +90,10 @@ technical; the plan and the runbook carry the detail.
   classes set `--tone-text` to 88% in dark (4.6 at least), and poor's money pill reads it too. The probe is
   `scripts/contrast-probe.js`, run with playwright-cli on the dev server; every page passes in both themes. A block
   after `WithRail` on its page (Ask under Writing's try and under a report, the report's foot) is as wide as the layout
-  from 64rem, so a screen has one right edge. Open for my yes: the light-theme change darkens Searches' and News'
-  chips, tinted eyebrows, red words, links and the Listen button a little; the old look is one line back
-  (`--tone-text: 100%` and no `.btn-primary` fill in the light block), at the price of 2.9 to 4.3:1 words. Rejected:
+  from 64rem, so a screen has one right edge. On trial since 2026-11-25: the light-theme change darkens Searches' and
+  News' chips, tinted eyebrows, red words, links and the Listen button a little. The way back, in
+  `web/src/styles.css`: `--tone-text: 100%` in the light block, and the light `.btn-primary` rule's `--fill` line
+  removed (its danger line stays), at the price of 2.9 to 4.3:1 words. Rejected:
   the probe inside `node --run check` (it needs a browser and a running server); Ask moved into the main column
   (its order on a phone would change).
 

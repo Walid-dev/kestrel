@@ -13,11 +13,12 @@ The look since 2026-11-24: small, calm and precise under a mouse, comfortable on
 - **Lines:** `--line`, quiet, draws structure (cards, lists, dividers, bars); `--line-strong` draws a control's edge
   and a hovered card.
 - **Ink:** `--text` for body, `--strong` for headings, `--muted` for secondary lines.
-- **The lead:** `--accent` — One Dark's blue. The one filled button, links, focus rings.
-- **The working colours**, the editor's neon shades: `--pink` (the wolf, the note marks, needs me), `--purple`,
-  `--green` (ok, done, diff plus), `--orange` (warnings, asleep), `--yellow` (the moon), `--red` (danger), `--indigo`
-  (News' own blue, between the accent and the purple: each app has its own colour and the accent is Notes'),
-  `--teal` (Quiz) and `--magenta` (Writing).
+- **The lead:** `--accent` — One Dark's blue. The one filled button, links, focus rings: it means act, and is no
+  app's colour.
+- **The working colours**, the editor's neon shades: `--pink` (the wolf, needs me, Tasks), `--purple`, `--green` (ok,
+  done, diff plus), `--orange` (warnings, asleep), `--yellow` (the moon), `--red` (danger), `--indigo` (News' own blue,
+  between the accent and the purple: each app has its own colour), `--lemon` (Notes: a highlighter's lemon, an olive as
+  ink in light; `--lemon-soft` is a note mark's wash), `--teal` (Quiz) and `--magenta` (Writing).
 - **Words in a colour:** `--tone-text` is how much of a working colour small words take: 100% in dark, 70% in light
   (the rest is `--strong`), so a chip, a tinted eyebrow, `text-tone` and a colour's class (`text-red`) read 4.5:1 in
   both themes (light's tones alone read 2.9 to 4.3). Every rule that colours words reads it (Ask's failed line, the
@@ -142,7 +143,8 @@ reading width is 720.
   the accent edge and a ✓, on its own ground (no tint).
 - `Doc` (`web/src/ui/doc.tsx`) — every document: Read, Edit and (1024 px and wider) Side by side, with a Download
   menu (the text, Save as PDF, Copy). Its Markdown is `src/shared/markdown.ts`, drawn by `web/src/ui/markdown.tsx` in
-  `.md`. A note's mark is `.doc-mark` (`--pink-soft`, a `--pink` line under). The editor `.doc-src` is mono, 16 px on
+  `.md`. A note's mark is `.doc-mark`, Notes' highlighter (`--lemon-soft`, a `--lemon` line under; a note's words in
+  the review sheet take the lemon edge, `.note-said`). The editor `.doc-src` is mono, 16 px on
   touch. `tools` puts a page's own buttons in the document's head while reading. A document only read can leave its
   head out (`bar={false}`) when its page shows `Downloads` itself, in a card's actions (a Writing try: one card for
   the try, the document under it); the menu opens under its button, right edges lined up, or left edges near the
@@ -222,9 +224,10 @@ reading width is 720.
   waits, green done, red failed.
 - The app map (`web/src/ui/apps.tsx`) — each app's address, icon and colour, set once: `APPS`, `appTone(app)`,
   `AppIcon` (the icon in its colour, a mark). Home's rows, the tab bar and the dock, PageHead's `app` and the Models
-  page's groups (their eyebrows; Ask's group purple, as Ask's mark) read it. Searches green, Chat cyan, Learn purple, Notes the accent, Tasks pink, News indigo, Research
-  yellow, Quiz teal, Applications orange, Writing magenta, Interview prep good; Cost and Models the models' yellow;
-  Live none.
+  page's groups (their eyebrows; Ask's group purple, as Ask's mark) read it. Searches green, Chat cyan, Learn purple,
+  Notes lemon (a highlighter's: its hue the middle of the widest gap the others leave; the accent is no app's), Tasks
+  pink, News indigo, Research yellow, Quiz teal, Applications orange, Writing magenta, Interview prep good; Cost and
+  Models the models' yellow; Live none.
 - `EmptyState` (`web/src/ui/empty.tsx`) — nothing here yet, in one voice, plain text in the flow (no box): `title`,
   `line`, `action`, `detail`. A page whose item is gone says so with it (Notes' reader, a lesson, a quiz, a research
   answer: its title "This lesson didn't open", the state's words "This lesson isn't here any more.", the way back as a
