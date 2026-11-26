@@ -5,6 +5,87 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-26 · Shopping after its first live run: each failure a test from the recorded evidence.**
+  The live run (three made-up wants, the real models, the door's real search and reader) ran clean but its lists
+  weren't usable. Each failure is now a test built from what it recorded (`domain/shopping/live-run.test.ts`, its page
+  excerpts in `fixtures/live-run.ts`), and the three wants run end to end on a stand-in door that answers in the real
+  models' shapes and a stand-in web that replays the night's hits and pages (`replay.test.ts`, `fixtures/replay.ts`).
+  The prompts are version 2 in the calls log. The entries below are the decisions.
+- **2026-11-26 · Ads and tracking redirects leave every search (`ai/web.ts`).**
+  DuckDuckGo shows Bing's ads among its results (`bing.com/aclick`, redirecting to the advertiser): 7 of the vacuum's 9
+  sources were ads, one dressed as Consumer Reports. `isAdUrl` drops engines' ad and click paths (Bing, DuckDuckGo,
+  Google, Yahoo) and affiliate networks' click hosts in `webSearch`, so News, Research and Ask lose them too; Shopping's
+  `tierOf` and `readOrder` also rank an ad host `never`, whatever path brings it. Rejected: following the ad's `u=` to
+  its target (a paid placement is no source wherever it lands).
+- **2026-11-26 · A value must measure its criterion: unit, range and words (`domain/shopping/units.ts`).**
+  The quote check proved a number was on the page, not what it measured: a headphone's 254 g became its comfort, a
+  jacket's 4.65 lbs its weight in grams. Each criterion now has its unit, an optional `range` and the `names` that say
+  what it measures (category files; a draft's come from its label and key, a score's range is 0 to 100). The unit the
+  page writes after the number decides: of another kind it is refused (254 g is no comfort score), of the same kind it
+  converts (g, kg, oz, lb; s, min, h; °F and °C); a unit per something ("250 grams/ sq meter") is another measure. A
+  value outside the range is refused, and so is one whose quote, line, table head or section heading names none of
+  the criterion's words, unless its unit already says the kind. Each refusal is counted in the run's notes. Rejected:
+  trusting the model's own unit when the page writes one.
+- **2026-11-26 · Hair tangle is a share wrapped, lower is better.**
+  The robot vacuum's `tangle` was a score, higher better, so the lab's "0% brush wrap" (no tangles) ranked as the worst.
+  It is now "Hair wrap", a measured number in %, lower better, 0 to 100. A lab's 10-point hair-wrap score is another
+  scale and is refused rather than ranked the wrong way round.
+- **2026-11-26 · A missing value is never perfect; too little measured stays off the list (`rank.ts`).**
+  The old rule gave a missing value's weight to the known ones, so a pair known on battery and weight alone scored 100
+  above the best overall, and a vacuum known only for "mop: yes" sat at 100. Now a criterion no product has a value for
+  weighs nothing; a missing or unsure value counts as the lowest any product has there, and half at most; a product
+  with under two fifths of its weight known is "also considered: too little measured to rank: n of m criteria" (half
+  still needed for a label; a list where under two products reach the floor keeps them all); the best overall is
+  always place 1. Rejected: a missing value as 0 (a strong product with one gap would fall under weak complete ones);
+  half as the list's floor (it kept out a vacuum known on carpet and navigation, 47% of the weight).
+- **2026-11-26 · The writer: three products a call, no thinking, every sentence on a quote, never silent (`compose.ts`).**
+  All three wants lost every reason. Two write calls failed to parse (one answer 202 characters long after 254 s, most
+  likely its room of 8,000 spent on thinking), and the third's sentences were all dropped. The answer's shape now
+  reads every form seen from local models (a sentence as a string with its refs inside, refs as numbers or one string,
+  a source's ref, other key names, products as an object by id); the writer gets three products a call with 4,000
+  tokens and no thinking, so one bad answer costs three products' reasons; a sentence with no valid ref is dropped
+  (none skipped the checker any more, and the model's own assumptions need a quote too). What was lost is one line in
+  the run's log ("Reasons: 12 written, 7 kept (3 cited no quote kestrel gave, …)") and in the notes. A finalist left
+  with no reason shows its sources' own words: its values on the criteria that weigh most, each in its quote, then a
+  pro; its first con stands in as the trade-off and a "skip" line as who it's not for. Unsure: the calls log records
+  no token counts (the door's stream sends no usage unless asked; `ai/client.ts` is outside this change).
+- **2026-11-26 · Prices from what can honestly be read; the price level apart from where to buy.**
+  One offer read for the vacuum, three for the headphones (all "out of stock"), one for the jacket (the wrong product).
+  (a) The region lists brands' own Canadian stores a plain reader opened on 2026-11-26 (`brandStores`: Narwal, Dreame,
+  Roborock, Eufy, Anker and Soundcore, Bose, Canada Goose, Outdoor Research, Baffin, Kamik); never a shop a search
+  found. (b) A review's list price is kept with its source and its currency (`evidence.list`): read only in the
+  product's part of the page, its currency from the sign beside it (a bare "$" off the region's own web is US dollars);
+  it is the usual price only in the region's currency, and a US one compares only with other US list prices for the
+  labels, never with my budget. (c) A price in a search result's words for a listed store's page stays on that store's
+  row as the search result's: no reading, never the best, shown as "a search result shows $499.99". The price the
+  ranking reads: the best in-stock offer, else a page-data price not shown in stock (the price level), else the list
+  price, else a search result's; where to buy now is the in-stock offer alone. Out of stock in a page's data counts
+  only when its words say so too (a store whose data says OutOfStock until its scripts ask its stock service reads
+  "stock unknown"). Best value and Budget need two priced products to compare, and the page says when prices are
+  missing. Amends the plan's rejection of snippet and review prices: they are kept, marked, and never verified.
+- **2026-11-26 · The wrong product is never an offer: brand and model, searched and on the page.**
+  The jacket's "Stormhenge 850" matched a keyboard because the store search used "850". Store searches and store links
+  use the brand and the model: the maker's code when one tells products apart (letters with digits, or five digits and
+  more), else the whole name with its brand. `identity` refuses a page that doesn't name the brand (its title, names or
+  JSON-LD brand) and counts only codes that tell products apart; a merged product keeps only such codes as its models.
+  Every product first gets one search (its brand's store, else an open search in the region) before any gets a second.
+- **2026-11-26 · Every product keeps its brand.**
+  Pages often name the model alone ("L40 Ultra", "Nuuk Parka"). The reader takes the brand from the page (the known
+  brand written just before the name) when the model gives none; the merge takes any source's brand, else a known one
+  the name starts with, and shows and searches the name with its brand first. Each category lists its known `brands`.
+- **2026-11-26 · Stores by kind.**
+  Jackets were searched at Home Depot and Costco: "outdoor" mixed garden centres with outdoor clothing, and the cap of
+  eight cut the clothing stores. Groups are now by what they sell: `outerwear` (Altitude Sports, Sail, MEC, Sport Chek,
+  Sporting Life, Simons, Mark's, Atmosphere), `footwear`, `appliances` (robot vacuums), `computers`, `garden` (Home
+  Depot, RONA); the region file lists the specialists before the stores that sell everything. Sail joins as a readable
+  store (Shopify, CAD); Sporting Life, Mark's and Atmosphere turned a plain reader away on 2026-11-26 and are links.
+- **2026-11-26 · A tester's page drawn from its data is read (`compare.ts`, `reviewText`).**
+  RTINGS, tier A for four of the six starter kinds, gave no product: its picks live in JSON in an attribute and its
+  visible words are the menu. When a page's words are thin, the prose in its JSON (attributes and JSON scripts) is read
+  after them, each piece once, under its title and product name; masked placeholder copies are skipped. No site names.
+- **2026-11-26 · An implied need once.**
+  "tangle-resistant brushroll" and "a tangle-resistant brushroll" were two needs: case, articles and punctuation no
+  longer make a second, and a need inside a longer one gives way to it.
 - **2026-11-25 · A search's words are only what draws; a failed answer's words trail off (review).**
   On a page of my own the card promised its exact words, but `queryOf` kept characters that draw nothing: zero-width
   and bidi controls, and Unicode's tag characters (U+E0000 to U+E007F), which can spell any hidden text, so a card

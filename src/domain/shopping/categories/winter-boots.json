@@ -11,7 +11,8 @@
       "type": "score",
       "better": "higher",
       "weight": 25,
-      "how": "how warm they stayed in a cold test"
+      "how": "how warm they stayed in a cold test",
+      "names": ["warm", "insulat", "cold", "temperature"]
     },
     {
       "key": "traction",
@@ -19,7 +20,8 @@
       "type": "score",
       "better": "higher",
       "weight": 20,
-      "how": "grip on ice and packed snow"
+      "how": "grip on ice and packed snow",
+      "names": ["traction", "grip", "ice", "icy", "slip", "tread", "outsole"]
     },
     {
       "key": "waterproof",
@@ -27,7 +29,8 @@
       "type": "bool",
       "better": "higher",
       "weight": 15,
-      "how": "they keep water out when standing in it"
+      "how": "they keep water out when standing in it",
+      "names": ["waterproof", "watertight", "sealed", "water resist", "water-resist", "membrane", "gore-tex", "dry"]
     },
     {
       "key": "comfort",
@@ -35,7 +38,8 @@
       "type": "score",
       "better": "higher",
       "weight": 15,
-      "how": "comfort on a long walk"
+      "how": "comfort on a long walk",
+      "names": ["comfort", "fit", "cushion"]
     },
     {
       "key": "weight",
@@ -44,7 +48,9 @@
       "unit": "g",
       "better": "lower",
       "weight": 10,
-      "how": "the weight of a pair"
+      "how": "the weight of a pair",
+      "range": [300, 4000],
+      "names": ["weigh", "weight"]
     },
     {
       "key": "rating",
@@ -53,21 +59,42 @@
       "unit": "°C",
       "better": "lower",
       "weight": 15,
-      "how": "the maker's temperature rating"
+      "how": "the maker's temperature rating",
+      "range": [-80, 10],
+      "names": ["rated", "rating", "temperature", "down to"]
     }
   ],
   "uses": {
-    "ice": { "traction": 35 },
-    "extreme-cold": { "warmth": 35, "rating": 20 }
+    "ice": {
+      "traction": 35
+    },
+    "extreme-cold": {
+      "warmth": 35,
+      "rating": 20
+    }
   },
-  "implied": [{ "when": "ice", "needs": ["grip on ice"] }],
+  "implied": [
+    {
+      "when": "ice",
+      "needs": ["grip on ice"]
+    }
+  ],
   "questions": [
     {
       "key": "walking",
       "q": "Long walks, or short trips outside?",
       "options": [
-        { "label": "Long walks", "weights": { "comfort": 25, "weight": 15 } },
-        { "label": "Short trips", "weights": {} }
+        {
+          "label": "Long walks",
+          "weights": {
+            "comfort": 25,
+            "weight": 15
+          }
+        },
+        {
+          "label": "Short trips",
+          "weights": {}
+        }
       ],
       "default": 1
     }
@@ -75,6 +102,29 @@
   "traps": ["a temperature rating is the maker's claim, not a test"],
   "tags": [],
   "sources": ["outdoorgearlab.com", "switchbacktravel.com", "nytimes.com", "treelinereview.com"],
-  "storeGroups": ["outdoor", "footwear"],
+  "brands": [
+    "Sorel",
+    "Kamik",
+    "Baffin",
+    "Columbia",
+    "The North Face",
+    "Merrell",
+    "Salomon",
+    "Keen",
+    "Oboz",
+    "Vasque",
+    "Bogs",
+    "Muck",
+    "Blundstone",
+    "Timberland",
+    "UGG",
+    "Pajar",
+    "Cougar",
+    "Lowa",
+    "Danner",
+    "Xtratuf",
+    "L.L.Bean"
+  ],
+  "storeGroups": ["footwear"],
   "draft": false
 }

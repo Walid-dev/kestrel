@@ -145,21 +145,71 @@ export const ReadAnswer = z.object({
 });
 export type ReadAnswer = z.infer<typeof ReadAnswer>;
 
-const sentence = z.object({ text: text(400), refs: strings });
-export const WriteAnswer = z.object({
-  products: tolerant(
-    z.object({
-      id: z.string(),
-      why: tolerant(sentence, 4),
-      tradeoff: sentence.nullable().catch(null).default(null),
-      notFor: sentence.nullable().catch(null).default(null),
-    }),
-    12,
-  ),
-  assumptions: tolerant(sentence, 6),
-  changeIf: tolerant(sentence, 6),
-  conflicts: tolerant(sentence, 6),
-});
+// The writer's answer, read in every shape the local models were seen to write: a sentence as {text, refs}, as a plain
+// string with its refs inside ("… [q3]"), or under other names (sentence, reason; ref, sources, quotes); refs as
+// strings, numbers or one string ("q3, q4"); why as one sentence or a list; the products as a list or as an object by id.
+// The first live run lost every reason: nothing here may drop a sentence for its shape (compose.ts then checks each one,
+// its refs and its numbers, and says how many it dropped and why).
+const refList = (v: unknown): string[] =>
+  (Array.isArray(v) ? v : v == null ? [] : [v]).flatMap((r) =>
+    typeof r === "number" ? [String(r)] : typeof r === "string" ? r.split(/[\s,;]+/).filter(Boolean) : [],
+  );
+const first = (o: Record<string, unknown>, keys: string[]): unknown => keys.map((k) => o[k]).find((v) => v != null);
+const asSentence = (v: unknown): unknown => {
+  if (typeof v === "string") return { text: v, refs: [] };
+  if (Array.isArray(v)) return asSentence(v[0]);
+  if (!v || typeof v !== "object") return v;
+  const o = v as Record<string, unknown>;
+  return {
+    text: first(o, ["text", "sentence", "reason", "claim", "why", "line"]) ?? "",
+    refs: refList(first(o, ["refs", "ref", "sources", "source", "quotes", "quote", "citations", "cite"])),
+  };
+};
+const sentence = z.preprocess(asSentence, z.object({ text: text(400), refs: z.array(z.string()) }));
+const sentences = (max: number) =>
+  z.preprocess(
+    (v) => (typeof v === "string" || (v && typeof v === "object" && !Array.isArray(v)) ? [v] : v),
+    tolerant(sentence, max),
+  );
+const product = z.preprocess(
+  (v) => {
+    if (!v || typeof v !== "object") return v;
+    const o = v as Record<string, unknown>;
+    return {
+      id: String(first(o, ["id", "product", "key"]) ?? ""),
+      why: first(o, ["why", "reasons", "because"]),
+      tradeoff: first(o, ["tradeoff", "tradeOff", "trade_off", "tradeoffs"]),
+      notFor: first(o, ["notFor", "not_for", "whoNotFor", "notfor"]),
+    };
+  },
+  z.object({
+    id: z.string(),
+    why: sentences(4).catch([]),
+    tradeoff: sentence.nullable().catch(null).default(null),
+    notFor: sentence.nullable().catch(null).default(null),
+  }),
+);
+export const WriteAnswer = z.preprocess(
+  (v) => (Array.isArray(v) ? { products: v } : v),
+  z.object({
+    // a list, or an object by id ({"p1": {...}})
+    products: z
+      .preprocess(
+        (v) =>
+          v && typeof v === "object" && !Array.isArray(v)
+            ? Object.entries(v as Record<string, unknown>).map(([id, x]) => ({
+                id,
+                ...(x && typeof x === "object" ? x : { why: x }),
+              }))
+            : v,
+        tolerant(product, 12),
+      )
+      .catch([]),
+    assumptions: sentences(6).catch([]),
+    changeIf: sentences(6).catch([]),
+    conflicts: sentences(6).catch([]),
+  }),
+);
 export type WriteAnswer = z.infer<typeof WriteAnswer>;
 
 export const CheckAnswer = z.object({

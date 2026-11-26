@@ -275,6 +275,7 @@ function Want({ view: v, onOpen }: { view: WantView; onOpen: (product: string | 
                   : "The products the ranking labelled, each with its best verified price."
               }
             />
+            {v.pricing && <p className="m-0 text-detail text-muted">{v.pricing}</p>}
             <div className="grid gap-3 md:grid-cols-2">
               {picks.map((p) => (
                 <Pick key={p.id} p={p} v={v} onOpen={() => onOpen(p.id)} onRemove={() => dropProduct(p)} />
@@ -649,11 +650,13 @@ function Pick({ p, v, onOpen, onRemove }: { p: ProductView; v: WantView; onOpen:
           </p>
         ) : !best ? (
           <p className="m-0 text-small">
-            {noBest(p)}
-            {p.usual !== null && (
+            {/* a price read on a store's page but not in stock says so itself; any other note follows why there is no best */}
+            {p.priceFrom === "stock" ? (
+              p.priceNote
+            ) : (
               <>
-                {" "}
-                · a source says <b className="font-mono font-medium text-ink">{money(p.usual, v.currency)}</b>
+                {noBest(p)}
+                {p.priceNote && <> · {p.priceNote}</>}
               </>
             )}
           </p>
@@ -900,6 +903,7 @@ export function AlsoCheck({ offers }: { offers: OfferView[] }) {
           </a>
           {o.read === "blocked" && " (blocked)"}
           {o.read === "unsearched" && " (not searched)"}
+          {o.price !== null && ` (a search result shows ${money(o.price, o.currency)})`}
         </span>
       ))}
     </p>

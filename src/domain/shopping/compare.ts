@@ -7,12 +7,14 @@
 import { callModel, type ModelAnswer, type ModelSettings } from "../../ai/client.ts";
 import { readPrompt, SYSTEM } from "../../ai/shopping/prompt.ts";
 import { ReadAnswer } from "../../ai/shopping/shape.ts";
-import type { Hit } from "../../ai/web.ts";
+import { decode, type Hit, isAdUrl, pageText } from "../../ai/web.ts";
 import type { FactValue, Need, SourceRef } from "../../shared/shopping.ts";
 import { numbersIn } from "../grounding.ts";
 import { gatherPages } from "../web-pages.ts";
+import { brandIn } from "./compose.ts";
 import { type Host, hostEntry, hostOf, type Region } from "./region.ts";
 import { type ScrubContext, scrubQuery, withWords } from "./scrub.ts";
+import { fitNumber, fitWords } from "./units.ts";
 
 // what Read kept of one product on one page
 export type Found = {
@@ -25,7 +27,9 @@ export type Found = {
   pros: { text: string; quote: string }[];
   cons: { text: string; quote: string }[];
   skip: { text: string; quote: string }[];
-  price: number | null; // cents in the region's currency, when the page states one
+  // a price the page states for it, in the product's own part: cents, the currency the page writes beside it (a bare
+  // "$" read by the source's country), and the page's words around it
+  price: { cents: number; currency: string; quote: string } | null;
 };
 export type Method = { buysOwn: boolean; numbers: boolean; date: string | null };
 export type PageRead = {
@@ -35,6 +39,7 @@ export type PageRead = {
   method: Method;
   products: Found[];
   dropped: number; // lines that gave orders, taken out
+  refused: string[]; // values that don't measure their criterion (a weight under comfort), each with why
 };
 
 // text as the checks compare it: Unicode quotes and dashes made plain, the table and markup marks gone, case and runs
@@ -59,12 +64,12 @@ export function withoutOrders(text: string): { text: string; dropped: number } {
   return { text: kept.join("\n"), dropped: lines.length - kept.length };
 }
 
-// a name or code as a pattern on folded text: its letters and digits in order, a dash or a space allowed between, never
-// inside a longer word or code
+// a name or code as a pattern on folded text: its letters and digits in order, a dash, a space or a mark allowed between
+// ("Men's", "Bowers & Wilkins"), never inside a longer word or code
 const nameRe = (s: string): RegExp | null => {
   const chars = fold(s).replace(/[^a-z0-9]/g, "");
   if (chars.length < 2) return null;
-  return new RegExp(`(?<![a-z0-9])${[...chars].join("[-\\s]?")}(?![a-z0-9])`, "g");
+  return new RegExp(`(?<![a-z0-9])${[...chars].join("[^a-z0-9\\n]{0,3}")}(?![a-z0-9])`, "g");
 };
 const positions = (flat: string, names: string[]): number[] => {
   const out: number[] = [];
@@ -88,13 +93,87 @@ function inPart(at: number, folded: string, mine: number[], all: { at: number; w
   return before?.who === who;
 }
 
-// the model's answer for one page, checked: see the top of this file
+// what a quote stands in, for the check that it measures its criterion: its own line, its table's header row (a
+// table cell "92%" says what it is in the column's head) and its section's heading
+function contextOf(quote: string, text: string): string {
+  const q = fold(quote).replace(/\n/g, " ");
+  const lines = text.split("\n");
+  const at = lines.findIndex((l) => fold(l).includes(q));
+  if (at === -1) return quote;
+  const out = [quote, lines[at]];
+  if (lines[at].includes(" | ")) {
+    let head = at;
+    while (head > 0 && lines[head - 1].includes(" | ")) head--;
+    out.push(lines[head]);
+  }
+  for (let i = at; i >= 0; i--)
+    if (lines[i].startsWith("## ")) {
+      out.push(lines[i]);
+      break;
+    }
+  return fold(out.join("\n"));
+}
+
+// a value as the model may write it: a number in a string ("9.5"), a yes or no in words
+function asValue(v: FactValue, type: string): FactValue {
+  if (typeof v !== "string") return v;
+  if ((type === "number" || type === "score") && /^-?\d[\d,]*(\.\d+)?$/.test(v.trim()))
+    return Number.parseFloat(v.replace(/,/g, ""));
+  if (type === "bool" && /^(yes|true)$/i.test(v.trim())) return true;
+  if (type === "bool" && /^(no|false)$/i.test(v.trim())) return false;
+  return v;
+}
+
+// a price the model read, kept only where the page writes it in the product's own part; its currency from the page's
+// own sign beside it (C$, CA$ or CAD; US$ or USD; € and £), a bare "$" being the source's country's (bare), and the
+// region's or the model's word when the page writes none
+function priceInPart(
+  price: { amount: number; currency: string },
+  flat: string,
+  mineAt: (at: number) => boolean,
+  region: string,
+  bare: string,
+): { cents: number; currency: string; quote: string } | null {
+  const cents = Math.round(price.amount * 100);
+  const whole = Math.floor(cents / 100);
+  const part = String(cents % 100).padStart(2, "0");
+  const grouped = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const writings = [
+    ...new Set([`${grouped}.${part}`, `${whole}.${part}`, ...(part === "00" ? [grouped, String(whole)] : [])]),
+  ];
+  for (const w of writings)
+    for (const m of flat.matchAll(new RegExp(`(?<![\\d.,])${w.replace(/[.,]/g, "\\$&")}(?![\\d]|[.,]\\d)`, "g"))) {
+      const at = m.index ?? 0;
+      if (!mineAt(at)) continue;
+      const before = flat.slice(Math.max(0, at - 6), at);
+      const after = flat.slice(at + w.length, at + w.length + 5);
+      const sign =
+        /(us\s?\$|usd)\s?$/.test(before) || /^\s?usd/.test(after)
+          ? "USD"
+          : /(c\s?\$|ca\$|cad)\s?$/.test(before) || /^\s?cad/.test(after)
+            ? "CAD"
+            : /€\s?$/.test(before)
+              ? "EUR"
+              : /£\s?$/.test(before)
+                ? "GBP"
+                : /\$\s?$/.test(before)
+                  ? bare
+                  : (price.currency || region).toUpperCase();
+      const quote = flat.slice(Math.max(0, at - 30), at + w.length + 12).trim();
+      return { cents, currency: sign, quote };
+    }
+  return null;
+}
+
+// the model's answer for one page, checked: see the top of this file. refused hears each value kept off its criterion
 export function checkPage(
   answer: ReadAnswer,
   text: string,
-  need: Pick<Need, "name" | "criteria"> & { words?: string[] },
+  need: Pick<Need, "name" | "criteria"> & { words?: string[]; brands?: string[] },
   currency: string,
   source: string,
+  refused: string[] = [],
+  bare = "USD",
 ): Found[] {
   const folded = fold(text);
   const flat = folded.replace(/\n/g, " ");
@@ -108,6 +187,10 @@ export function checkPage(
   for (const { p, who, names } of products) {
     const mine = all.filter((m) => m.who === who).map((m) => m.at);
     if (!mine.length) continue; // the page never names it
+    // a name given without its maker: the known brand the page writes right before it ("Dreame L40 Ultra")
+    const brand =
+      p.brand.trim() ||
+      brandIn(p.name, need.brands ?? [], flat.slice(Math.max(0, Math.min(...mine) - 40), Math.min(...mine)));
     const named = (q: string) => names.some((n) => nameRe(n)?.test(fold(q)));
     const placeOf = (quote: string): "part" | "page" | "none" => {
       const q = fold(quote).replace(/\n/g, " ");
@@ -119,33 +202,40 @@ export function checkPage(
       return "page";
     };
     const facts: Found["facts"] = {};
-    for (const [key, f] of Object.entries(p.facts)) {
+    for (const [key, raw] of Object.entries(p.facts)) {
       const c = criteria.get(key);
       if (!c) continue;
-      if (typeof f.v === "number" && !sameNumber(f.v, f.quote)) continue; // the number isn't in its quote
-      if (typeof f.v === "string" && !fold(f.quote).includes(fold(f.v))) continue;
-      if (c.type === "bool" && typeof f.v !== "boolean") continue;
-      if ((c.type === "number" || c.type === "score") && typeof f.v !== "number") continue;
-      const where = placeOf(f.quote);
+      const v = asValue(raw.v, c.type);
+      if (typeof v === "number" && !sameNumber(v, raw.quote)) continue; // the number isn't in its quote
+      if (typeof v === "string" && !fold(raw.quote).includes(fold(v))) continue;
+      if (c.type === "bool" && typeof v !== "boolean") continue;
+      if ((c.type === "number" || c.type === "score") && typeof v !== "number") continue;
+      const where = placeOf(raw.quote);
       if (where === "none") continue; // the quote isn't on the page
+      // on the page is not enough: the value must measure this criterion, in its unit and its range
+      const context = contextOf(raw.quote, text);
+      const fit = typeof v === "number" ? fitNumber(c, v, raw.quote, context, raw.unit) : fitWords(c, context);
+      if (!fit.ok) {
+        refused.push(`${p.name}: ${fit.why}`);
+        continue;
+      }
       facts[key] = {
-        v: f.v,
-        ...(f.unit || c.unit ? { unit: f.unit || c.unit } : {}),
-        quote: f.quote,
+        v: typeof v === "number" && fit.ok ? fit.v : v,
+        ...(typeof v === "number" ? (fit.unit ? { unit: fit.unit } : {}) : {}),
+        quote: raw.quote,
         ...(where === "page" ? { unsure: true } : {}),
       };
     }
     const lines = (list: { text: string; quote: string }[]) =>
       list.filter((x) => placeOf(x.quote) === "part").slice(0, 4);
     const label = p.label && (placeOf(p.label) === "part" || lineWith(folded, p.label, mine)) ? p.label : "";
-    const priceOk =
-      p.price && (!p.price.currency || p.price.currency.toUpperCase() === currency) && sameNumber(p.price.amount, flat)
-        ? Math.round(p.price.amount * 100)
-        : null;
+    const priceOk = p.price
+      ? priceInPart(p.price, flat, (at) => inPart(at, folded, mine, all, who), currency, bare)
+      : null;
     out.push({
       source,
       name: p.name,
-      brand: p.brand,
+      brand,
       models: p.models,
       label,
       facts,
@@ -176,6 +266,7 @@ export async function readReviewPage(
   ask: { models: ModelSettings; model: string; record: (a: ModelAnswer<unknown>) => void },
   currency: string,
   source: string,
+  bare = "USD",
 ): Promise<PageRead> {
   const { text, dropped } = withoutOrders(page.text);
   const got = await callModel(
@@ -185,22 +276,85 @@ export async function readReviewPage(
   );
   ask.record(got);
   const none = { buysOwn: false, numbers: false, date: null };
-  if (!got.ok) return { ok: false, why: got.why, text, method: none, products: [], dropped };
+  if (!got.ok) return { ok: false, why: got.why, text, method: none, products: [], dropped, refused: [] };
+  const refused: string[] = [];
   return {
     ok: true,
     why: "",
     text,
     method: got.value.method,
-    products: checkPage(got.value, text, need, currency, source),
+    products: checkPage(got.value, text, need, currency, source, refused, bare),
     dropped,
+    refused,
   };
 }
 
 // ── The searches ───────────────────────────────────────────────────────────────────────────────────────────────────
 
+// A page whose words live in its data: some testers' best-of pages draw their picks with scripts from JSON held in an
+// attribute or a JSON script, and their visible words are the menu alone (RTINGS, the top-tier lab for four of the six
+// starter kinds, read as a page with no product in the first live run). The prose in that JSON, as text: each long
+// piece of HTML or sentences once, under a heading made of the title and the product name beside it. A blurred or
+// placeholder copy is skipped. Generic: no site's names, only the shapes
+export function dataText(html: string, max = 20_000): string {
+  const blobs: unknown[] = [];
+  const tryParse = (raw: string) => {
+    try {
+      blobs.push(JSON.parse(raw));
+    } catch {
+      // not JSON: nothing from this one
+    }
+  };
+  for (const m of html.matchAll(/\s[\w:-]+\s*=\s*"(\{[^"]{200,})"/g)) tryParse(decode(m[1]));
+  for (const m of html.matchAll(/<script\b[^>]*type\s*=\s*["']application\/json["'][^>]*>([\s\S]*?)<\/script>/gi))
+    tryParse(m[1]);
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const str = (v: unknown) => (typeof v === "string" && v.trim().length > 1 && v.length < 120 ? v.trim() : "");
+  const walk = (v: unknown, depth: number) => {
+    if (depth > 14 || !v || typeof v !== "object") return;
+    if (Array.isArray(v)) {
+      for (const x of v) walk(x, depth + 1);
+      return;
+    }
+    const o = v as Record<string, unknown>;
+    // the heading: the object's own title or name, and the name of a product it holds
+    const child = Object.values(o).find((x) => x && typeof x === "object" && !Array.isArray(x)) as
+      | Record<string, unknown>
+      | undefined;
+    const heading = [str(o.title), str(o.fullname) || str(o.name) || str(child?.fullname) || str(child?.name)]
+      .filter(Boolean)
+      .join(": ");
+    for (const [k, x] of Object.entries(o)) {
+      // by whole parts of the key: a blurred copy, an address, an image, an edit link, never "description"'s "script"
+      if (typeof x !== "string" || x.length < 120 || /(^|[_-])(blurred|url|image|img|edit|css|js)([_-]|$)/i.test(k))
+        continue;
+      if (!/<(p|li|h[1-6])\b/i.test(x) && !/[a-z]\. [A-Z]/.test(x)) continue;
+      if (/X{4,}/.test(x)) continue; // a placeholder copy, its names masked
+      const text = pageText(x, 8000);
+      const key = text.slice(0, 80);
+      if (!text || seen.has(key)) continue;
+      seen.add(key);
+      out.push(...(heading ? [`## ${heading}`] : []), text);
+    }
+    for (const x of Object.values(o)) if (x && typeof x === "object") walk(x, depth + 1);
+  };
+  for (const b of blobs) walk(b, 0);
+  return out.join("\n").slice(0, max);
+}
+
+// a review page as the model reads it: its words (tables kept as rows), and when those are thin, the prose its data
+// holds after them
+export function reviewText(html: string, max = 20_000): string {
+  const text = pageText(html, max);
+  if (text.length >= 4000) return text;
+  const data = dataText(html, max);
+  return data.length > text.length ? `${text}\n\n${data}`.slice(0, max) : text;
+}
+
 // a source's tier: the source file's, else B when its page states a testing method, else C
 export const tierOf = (hosts: Host[], url: string, method?: Method): "A" | "B" | "C" | "never" =>
-  hostEntry(hosts, url)?.tier ?? (method && (method.buysOwn || method.numbers) ? "B" : "C");
+  isAdUrl(url) ? "never" : (hostEntry(hosts, url)?.tier ?? (method && (method.buysOwn || method.numbers) ? "B" : "C"));
 
 // the searches, planned in code: one per trusted source of the category (four at most), one open search, one in the
 // region; each scrubbed, and one left with no product word is skipped
@@ -224,6 +378,7 @@ export function planSearches(need: Need, region: Region, hosts: Host[], scrub: S
 // paywalled sites are never read (their snippets stay as sources)
 export function readOrder(hits: Hit[], hosts: Host[]): Hit[] {
   const rankOf = (h: Hit) => {
+    if (isAdUrl(h.url)) return -1; // an ad is never a source, whatever search it came from
     const e = hostEntry(hosts, h.url);
     if (!e) return 2;
     if (e.tier === "never" || e.tier === "C" || e.access !== "plain") return -1;

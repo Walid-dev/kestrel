@@ -21,6 +21,8 @@ export type Criterion = {
   how?: string;
   measured?: boolean;
   options?: string[];
+  range?: [number, number]; // a sane value, in its unit: one outside is refused (a weight of 4.65 g)
+  names?: string[]; // words that say what it measures; a value whose quote, line or table head says none is refused
 };
 // a must-have: on a criterion when one fits (a bool to be true, a number within min and max, an enum to be one value)
 export type Hard = { criterion: string; says: string; min?: number; max?: number; is?: boolean | string };
@@ -46,6 +48,7 @@ export type Need = {
   tags: string[];
   traps: string[];
   sources: string[];
+  brands?: string[]; // the makers this kind is sold under: a name a page gives without its brand takes one from here
   storeGroups: string[];
   refreshMonths: number;
 };
@@ -81,6 +84,8 @@ export type Evidence = {
   thin: boolean; // one independent source only
   old: boolean; // every source older than 12 months or the category's refresh
   refs: string[];
+  // a list price a testing source states, in the currency its page writes (a US review's in US dollars), with its words
+  list?: { price: number; currency: string; ref: string; quote: string };
 };
 export type LabelKey = "overall" | "value" | "budget" | "premium" | "for";
 export type Label = { key: LabelKey; text: string };
@@ -177,8 +182,12 @@ export type ProductView = {
   watch: Watch | null;
   found: string;
   updated: string;
-  price: number | null; // what it ranks on: the best verified total, else the usual price
-  priceFrom: "offer" | "usual" | null;
+  // what it ranks on, in the region's currency: the best verified total in stock (offer); else the lowest price read on a
+  // store's page that isn't shown in stock (stock: the price level, for value); else a list price a source states
+  // (usual); else a price a search result shows for a store's page (snippet)
+  price: number | null;
+  priceFrom: "offer" | "stock" | "usual" | "snippet" | null;
+  priceNote: string; // where a price that isn't the best offer comes from, in words ("" when the best offer shows it)
   best: OfferView | null;
   verdict: Verdict | null;
   offers: OfferView[]; // read prices first (by total), then the rest
@@ -246,6 +255,7 @@ export type WantView = WantSummary & {
   result: WantResult | null;
   rule: string; // how it ranks, printed on the page
   read: boolean; // kestrel reads store pages itself (shopping.read)
+  pricing: string; // said when best value and budget can't be named for want of prices; "" when they can
 };
 
 export type WatchedView = {

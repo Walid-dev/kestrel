@@ -16,6 +16,25 @@ export type Understood = { ok: true; need: Need; raw: UnderstandAnswer } | { ok:
 
 const fold = (s: string) => s.toLowerCase().replace(/[^a-z0-9-]+/g, " ");
 
+// each need once: the model's and the category's often say the same in other words ("tangle-resistant brushroll" and
+// "a tangle-resistant brushroll" in the first live run), so case, articles and punctuation don't make a second one, and
+// a need inside a longer one ("strong noise cancelling" in "strong noise cancelling for flights") gives way to it
+export function onceEach(needs: string[]): string[] {
+  const kept: { key: string; text: string }[] = [];
+  for (const raw of needs) {
+    const text = raw.trim();
+    const key = ` ${fold(text)
+      .replace(/\b(a|an|the|some)\b/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()} `;
+    if (!key.trim() || kept.some((k) => k.key.includes(key))) continue;
+    const inside = kept.findIndex((k) => key.includes(k.key));
+    if (inside !== -1) kept[inside] = { key, text };
+    else kept.push({ key, text });
+  }
+  return kept.map((k) => k.text);
+}
+
 export async function understand(
   want: { words: string; budget: number | null; note: string },
   ask: { models: ModelSettings; model: string; record: (a: ModelAnswer<unknown>) => void },
@@ -91,7 +110,7 @@ export async function understand(
     product: mode === "one" ? raw.product : "",
     use: raw.use in category.uses ? raw.use : "",
     hard: raw.hard.filter(hardOk).slice(0, 6),
-    implied: [...new Set(implied)].slice(0, 5),
+    implied: onceEach(implied).slice(0, 5),
     questions,
     criteria: category.criteria,
     uses: category.uses,
@@ -100,6 +119,7 @@ export async function understand(
     tags: category.tags,
     traps: category.traps,
     sources: category.sources,
+    brands: category.brands,
     storeGroups: category.storeGroups,
     refreshMonths: category.refreshMonths,
   };

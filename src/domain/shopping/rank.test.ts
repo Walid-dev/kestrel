@@ -1,6 +1,6 @@
 // The ranking on made-up products: the finalists by gate and score, coverage breaking a tie, the rest below the list;
-// each label's rule, best value never under the quality floor; a must-have failed or unknown; coverage under half bars
-// the top label; option weights replace the category's and scale back to 100; a draft's six; an answer re-ranks; a
+// each label's rule, best value never under the quality floor; a must-have failed or unknown; under half the weight
+// known keeps a product off the list; option weights replace the category's and scale back to 100; a draft's six; an answer re-ranks; a
 // close trio scored by ratio, Budget never dearer than the best overall, a question that never moves the top.
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -120,7 +120,7 @@ test("a must-have failed sends a product to also considered with its reason; an 
   assert.equal(r.P1.place, 1);
 });
 
-test("coverage under half bars the top label; coverage breaks a tie in score", () => {
+test("too little measured keeps a product off the list, saying so; a missing value never beats a known one", () => {
   const r = byId(
     rank({ ...NEED, listSize: 8 }, {}, [
       p("Q1", { noise: 50 }, 30_000),
@@ -128,8 +128,11 @@ test("coverage under half bars the top label; coverage breaks a tie in score", (
       p("Q3", { a: 70, b: 50, noise: 70, mop: false }, 20_000),
     ]),
   );
-  assert.equal(r.Q1.place, 1); // its one known value is the best: a perfect score on a tenth of the weight
+  // its one known value is the best, on a tenth of the weight: once a perfect 100 at place 1, now off the list
+  assert.equal(r.Q1.place, null);
+  assert.equal(r.Q1.out, "too little measured to rank: 1 of 4 criteria");
   assert.deepEqual(r.Q1.labels, []);
+  assert.equal(r.Q2.place, 1);
   assert.equal(r.Q2.labels[0]?.key, "overall");
   const tie = byId(
     rank({ ...NEED, listSize: 8 }, {}, [

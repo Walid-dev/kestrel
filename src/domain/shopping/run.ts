@@ -17,7 +17,7 @@ import {
 } from "../../ai/shopping/product-data.ts";
 import { SHOPPING_VERSION } from "../../ai/shopping/prompt.ts";
 import type { TextPrice } from "../../ai/shopping/shape.ts";
-import { fetchPage, fetchPublic, type Hit, pageText, searchWeb } from "../../ai/web.ts";
+import { fetchPage, fetchPublic, type Hit, searchWeb } from "../../ai/web.ts";
 import { begin } from "../../platform/activity.ts";
 import { type Alert, sendAlert } from "../../platform/alert.ts";
 import { type Settings, shoppingOf } from "../../platform/config.ts";
@@ -27,7 +27,7 @@ import type { Need, SourceRef } from "../../shared/shopping.ts";
 import { recordCall } from "../calls.ts";
 import { modelFor } from "../models.ts";
 import { draftsDir, loadCategories, saveDraft } from "./categories.ts";
-import { type Found, gatherReviews, planSearches, readReviewPage, tierOf } from "./compare.ts";
+import { type Found, gatherReviews, planSearches, readReviewPage, reviewText, tierOf } from "./compare.ts";
 import { beforeYouBuy, composeList, keyOf, type Merged, mergeFound, type Source } from "./compose.ts";
 import { findOffers } from "./offers.ts";
 import { hostEntry, hostOf, loadHosts, loadRegion, placeOf, type Region, type Store } from "./region.ts";
@@ -80,7 +80,7 @@ export function networkWeb(settings: Settings, region: Region): RunWeb {
     page: async (url) => {
       if (own) {
         const got = await fetchPublic(url, { accept: "text/html", agent: SHOP_AGENT, maxBytes: 4_000_000 });
-        const text = got.ok ? pageText(got.text) : "";
+        const text = got.ok ? reviewText(got.text) : "";
         if (text.length > 600) return text;
       }
       return fetchPage(settings.models, url, 20_000);
@@ -349,6 +349,7 @@ async function compareAndCompose(
   // each page through the model, then the code's checks
   const found: Found[] = [];
   const sources: Source[] = [];
+  const refused: string[] = [];
   for (const [i, page] of reviews.pages.entries()) {
     step(`Reading reviews (${i + 1} of ${reviews.pages.length})`);
     const ref = `s${sources.length + 1}`;
@@ -358,6 +359,8 @@ async function compareAndCompose(
       { models: settings.models, model: ask.model, record: ask.record("read") },
       region.currency,
       ref,
+      // a bare "$" on a page from the region's own web is the region's currency; elsewhere, US dollars
+      hostOf(page.url).endsWith(`.${region.key}`) ? region.currency : "USD",
     );
     if (!got.ok) {
       notes.push(
@@ -369,6 +372,7 @@ async function compareAndCompose(
     }
     const tier = tierOf(hosts, page.url, got.method);
     if (tier === "never") continue;
+    refused.push(...got.refused);
     sources.push({
       ref,
       host: hostOf(page.url),
@@ -389,10 +393,27 @@ async function compareAndCompose(
   const kept = need.mode === "one" ? keepOne(merged, need.product) : merged;
   const budget = budgetOf(w);
   const composed = await composeList(
-    { seed: w.id, need, answers: w.answers, budget, merged: kept, price: (m) => m.usual },
+    {
+      seed: w.id,
+      need,
+      answers: w.answers,
+      budget,
+      merged: kept,
+      price: (m) => m.usual,
+      other: (m) =>
+        m.evidence.list && m.evidence.list.currency !== region.currency
+          ? { price: m.evidence.list.price, currency: m.evidence.list.currency }
+          : null,
+    },
     { models: settings.models, model: ask.model, checkModel: ask.checkModel, record: (p, a) => ask.record(p)(a), step },
   );
   notes.push(...composed.notes);
+  // what the checks kept out, said once each: a value off its criterion, the reasons lost on the way
+  if (refused.length)
+    notes.push(
+      `${refused.length} ${refused.length === 1 ? "value" : "values"} left out for not measuring ${refused.length === 1 ? "its criterion" : "their criteria"} (${refused[0]})`,
+    );
+  if (composed.lost) addLog(db, w.id, { kind: "run", text: composed.lost }, now());
   // saved together: a failure before here keeps the last good run's products and result
   const ids = new Map<string, string>();
   for (const m of kept) {

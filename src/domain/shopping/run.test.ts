@@ -99,14 +99,14 @@ const REGION: Region = {
     {
       domain: "store-a.example",
       name: "Store A",
-      groups: ["electronics"],
+      groups: ["electronics", "appliances"],
       read: "page",
       searchUrl: "https://store-a.example/s?q={q}",
     },
     {
       domain: "store-d.example",
       name: "Store D",
-      groups: ["electronics"],
+      groups: ["electronics", "appliances"],
       read: "link",
       searchUrl: "https://store-d.example/s?q={q}",
       why: "made-up block",
@@ -246,7 +246,7 @@ test("a want end to end: understood, compared, written, checked, its offers foun
   const purposes = (
     db.prepare("SELECT DISTINCT purpose FROM model_calls ORDER BY purpose").all() as { purpose: string }[]
   ).map((r) => r.purpose);
-  assert.deepEqual(purposes, ["shopping-check:v1", "shopping-read:v1", "shopping-understand:v1", "shopping-write:v1"]);
+  assert.deepEqual(purposes, ["shopping-check:v2", "shopping-read:v2", "shopping-understand:v2", "shopping-write:v2"]);
   assert.ok(
     w?.log.some((l) => l.kind === "run" && /^Compared 3 products from 2 pages/.test(l.text)),
     JSON.stringify(w?.log),
@@ -339,7 +339,7 @@ test("one mode finds the named product's offers before any review; a reader out 
   const view = wantView(db, id);
   assert.equal(view?.products[0]?.name, "Brisk R7");
   assert.deepEqual([view?.best?.name, view?.best?.price], ["Brisk R7", 44_900]);
-  const line = w?.log.find((l) => l.kind === "run")?.text ?? "";
+  const line = w?.log.find((l) => l.kind === "run" && l.text.startsWith("Compared"))?.text ?? "";
   assert.match(line, /^Compared \d+ products? from \d+ pages?; [1-9]\d* offers? read/);
   // searched by its whole name, never a bare "R7"
   assert.ok(

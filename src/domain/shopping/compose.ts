@@ -3,16 +3,18 @@
 // colour suffixes, the region's model rules) or the same brand and name are one product; independent sources counted (a
 // family once); a product with no tier A or B source dropped; each criterion's value from one source (the one that
 // covers most products on it), the others kept as notes and a difference over 10% kept as a conflict. The write: the
-// finalists in shuffled order with the labels code gave and their quotes numbered. The check: code first (each ref
+// finalists in shuffled order, three a call, with the labels code gave and their quotes numbered; a finalist whose
+// reasons were all lost shows its sources' own words, and the loss is logged. The check: code first (each ref
 // exists; every number in the sentence is in its quotes, the products' names and codes taken out first, so "Fen 300"
 // is a name, not a claim), then the checker model, sentence by sentence; if it fails, the code-checked ones stay.
 import { callModel, type ModelAnswer, type ModelSettings } from "../../ai/client.ts";
+import { distinctive } from "../../ai/shopping/product-data.ts";
 import { checkPrompt, SYSTEM, type WriteProduct, writePrompt } from "../../ai/shopping/prompt.ts";
 import { CheckAnswer, WriteAnswer } from "../../ai/shopping/shape.ts";
 import type { Evidence, Fact, Need, ProductWords, Said, SourceRef } from "../../shared/shopping.ts";
 import { holds, numbersIn } from "../grounding.ts";
 import type { Found } from "./compare.ts";
-import { type Ranked, rank } from "./rank.ts";
+import { type Ranked, rank, weightsFor } from "./rank.ts";
 import type { Region } from "./region.ts";
 import type { ProductInput } from "./store.ts";
 import { NO_WORDS } from "./store.ts";
@@ -33,6 +35,32 @@ export function normCode(code: string, brand: string, region?: Pick<Region, "mod
       for (const e of r.elsewhere) if (c.endsWith(e.toUpperCase())) c = c.slice(0, c.length - e.length) + r.here;
   return plain(c);
 }
+// brands compared as letters only, accents and marks aside ("Fjällräven" is "Fjallraven", "Arc'teryx" is "Arcteryx")
+const letters = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+// a product's name with its brand first: a page often names the model alone ("L40 Ultra", "Nuuk Parka"), and a name
+// without its maker can't be searched or recognised in a store
+export function withBrand(brand: string, name: string): string {
+  const b = brand.trim();
+  if (!b || letters(name).startsWith(letters(b))) return name.trim();
+  return `${b} ${name.trim()}`;
+}
+// a known brand a name starts with, or that stands right before it on the page ("Dreame L40 Ultra" for "L40 Ultra")
+export function brandIn(name: string, brands: string[], before = ""): string {
+  const n = letters(name);
+  const tail = letters(before.slice(-40));
+  const long = [...brands].sort((a, b) => b.length - a.length);
+  return (
+    long.find((b) => letters(b).length > 1 && n.startsWith(letters(b))) ??
+    long.find((b) => letters(b).length > 1 && tail.endsWith(letters(b))) ??
+    ""
+  );
+}
+
 // a product's key: its brand and its name without the brand, so a run again finds it
 export const keyOf = (brand: string, name: string): string => {
   const b = brand.trim().toLowerCase();
@@ -53,7 +81,7 @@ export function mergeFound(
   found: Found[],
   sources: Source[],
   need: Need,
-  region: Pick<Region, "modelRules">,
+  region: Pick<Region, "modelRules"> & { currency?: string },
   now: Date,
 ): Merged[] {
   const src = new Map(sources.map((s) => [s.ref, s]));
@@ -91,7 +119,10 @@ export function mergeFound(
     const testers = refs.filter((r) => ["A", "B"].includes(src.get(r)?.tier ?? "C"));
     if (!testers.length) continue; // no source that tests: a forum or a listicle alone never brings a product
     const families = new Set(testers.map((r) => src.get(r)?.family || src.get(r)?.host || r));
-    const head = g.find((f) => ["A", "B"].includes(src.get(f.source)?.tier ?? "C")) ?? g[0];
+    const first = g.find((f) => ["A", "B"].includes(src.get(f.source)?.tier ?? "C")) ?? g[0];
+    // the brand from any of its sources, else a known maker its name starts with; the name shown and searched with it
+    const brand = g.find((f) => f.brand.trim())?.brand.trim() || brandIn(first.name, need.brands ?? []);
+    const head = { ...first, brand, name: withBrand(brand, first.name) };
     const facts: Record<string, Fact> = {};
     const conflicts: Said[] = [];
     for (const c of need.criteria) {
@@ -127,9 +158,22 @@ export function mergeFound(
     }
     const dates = refs.map((r) => src.get(r)?.date ?? null);
     const ages = dates.map((d) => months(d, now)).filter((m): m is number => m !== null);
+    // the list price a testing source states, the region's currency first, then the better tier
     const priced = g
-      .filter((f) => f.price !== null)
-      .sort((a, b) => (src.get(a.source)?.tier ?? "C").localeCompare(src.get(b.source)?.tier ?? "C"));
+      .filter((f) => f.price !== null && ["A", "B"].includes(src.get(f.source)?.tier ?? "C"))
+      .sort(
+        (a, b) =>
+          Number(b.price?.currency === region.currency) - Number(a.price?.currency === region.currency) ||
+          (src.get(a.source)?.tier ?? "C").localeCompare(src.get(b.source)?.tier ?? "C"),
+      );
+    const list = priced[0]?.price
+      ? {
+          price: priced[0].price.cents,
+          currency: priced[0].price.currency,
+          ref: priced[0].source,
+          quote: priced[0].price.quote,
+        }
+      : null;
     const evidence: Evidence = {
       sources: families.size,
       a: testers.filter((r) => src.get(r)?.tier === "A").length,
@@ -142,11 +186,13 @@ export function mergeFound(
       thin: families.size < 2,
       old: ages.length > 0 && ages.every((m) => m > Math.min(12, need.refreshMonths)),
       refs,
+      ...(list ? { list } : {}),
     };
     // pros, cons and who should skip it, in the page's own words (checked to be on it), never the model's summary
     const said = (list: (f: Found) => { text: string; quote: string }[]) =>
       g.flatMap((f) => list(f).map((x) => ({ text: x.quote, refs: [f.source] }))).slice(0, 4);
-    const models = [...new Set(g.flatMap((f) => f.models))];
+    // the codes it is sold under, only those that tell it apart: "850" or "Heritage" alone is no model to show or match
+    const models = [...new Set(g.flatMap((f) => f.models))].filter(distinctive);
     out.push({
       key: keyOf(head.brand, head.name),
       name: head.name,
@@ -159,7 +205,7 @@ export function mergeFound(
         cons: said((f) => f.cons),
         skip: said((f) => f.skip),
       },
-      usual: priced[0]?.price ?? null,
+      usual: list && list.currency === region.currency ? list.price : null,
       evidence,
       conflicts,
     });
@@ -235,6 +281,7 @@ export type Composed = {
   checked: boolean;
   wrote: number; // sentences the model wrote, before any check
   notes: string[];
+  lost: string; // where the reasons were lost, in one line for the run's log; "" when none was
 };
 
 type Ask = {
@@ -245,6 +292,54 @@ type Ask = {
   step?: (s: string) => void;
 };
 
+// products per write call: a small answer fits its room with no thinking, and one answer that can't be read loses three
+// products' reasons, not the list's (the first live run's single call ran out of room twice in three wants)
+export const WRITE_BATCH = 3;
+const WRITE_ROOM = 4000;
+
+// a sentence's refs as the model gave them, made the prompt's own: "q3", "Q3", "[q3]", 3 and "3" are q3; a source's
+// ref ("s1") stands for the product's quotes from that source; refs written inside the text ("… [q3]") count too and
+// leave the text
+export function refsOf(raw: string[], text: string, bySource: Map<string, string[]>): { refs: string[]; text: string } {
+  // inside square brackets a bare number is a ref ("[3]"); inside parentheses only a q or s one is ("(q3)"), so "(40)"
+  // in a sentence stays a number
+  const REF = /\[\s*((?:[qs]?\d+\s*[,;]?\s*)+)\]|\(\s*((?:[qs]\d+\s*[,;]?\s*)+)\)/gi;
+  const inline = [...text.matchAll(REF)].flatMap((m) => (m[1] ?? m[2] ?? "").split(/[\s,;]+/));
+  const clean = text
+    .replace(new RegExp(`\\s*(?:${REF.source})`, "gi"), "")
+    .replace(/\s+([.,;:!?])/g, "$1")
+    .trim();
+  const refs: string[] = [];
+  for (const r of [...raw, ...inline].map((x) => x.replace(/[[\]()\s]/g, "").toLowerCase()).filter(Boolean)) {
+    const q = /^q?(\d+)$/.exec(r);
+    if (q) refs.push(`q${Number(q[1])}`);
+    else if (/^s\d+$/.test(r)) refs.push(...(bySource.get(r) ?? []));
+  }
+  return { refs: [...new Set(refs)], text: clean };
+}
+
+// reasons from the sources themselves, for a finalist whose written ones were all lost: its values on the criteria that
+// weigh most, each in its source's words, then a pro in the page's words. A product on the list always says why
+export function sourcesWhy(m: Merged, need: Need, weights: Record<string, number>): Said[] {
+  const out: Said[] = [];
+  const quoted = new Set<string>();
+  const order = [...need.criteria].sort((a, b) => (weights[b.key] ?? 0) - (weights[a.key] ?? 0));
+  for (const c of order) {
+    const f = m.facts[c.key];
+    if (!f || f.unsure || out.length >= 2 || quoted.has(f.quote)) continue;
+    quoted.add(f.quote);
+    // the criterion named once: "Warmth 8.5" says what it is, "93% of embedded sand" needs "Carpet pickup:" before it
+    const says = f.quote.toLowerCase().includes(c.label.toLowerCase());
+    out.push({ text: says ? `“${f.quote}”` : `${c.label}: “${f.quote}”`, refs: [f.ref] });
+  }
+  for (const p of m.words.pros)
+    if (out.length < 3 && !quoted.has(p.text)) {
+      quoted.add(p.text);
+      out.push({ text: `“${p.text}”`, refs: p.refs });
+    }
+  return out;
+}
+
 // the merged products ranked, their reasons written and checked. price: each product's price for the ranking (cents)
 export async function composeList(
   input: {
@@ -254,6 +349,7 @@ export async function composeList(
     budget: number | null;
     merged: Merged[];
     price: (m: Merged) => number | null;
+    other?: (m: Merged) => { price: number; currency: string } | null;
   },
   ask: Ask,
 ): Promise<Composed> {
@@ -261,7 +357,13 @@ export async function composeList(
   const ranked = rank(
     need,
     answers,
-    merged.map((m) => ({ id: m.key, facts: m.facts, price: input.price(m), evidence: m.evidence })),
+    merged.map((m) => ({
+      id: m.key,
+      facts: m.facts,
+      price: input.price(m),
+      other: input.other?.(m) ?? null,
+      evidence: m.evidence,
+    })),
     input.budget,
   );
   const byKey = new Map(merged.map((m) => [m.key, m]));
@@ -273,9 +375,9 @@ export async function composeList(
   const conflicts: Said[] = merged.flatMap((m) => m.conflicts).slice(0, 6);
   const words = new Map<string, ProductWords>(merged.map((m) => [m.key, { ...m.words }]));
   if (!finalists.length)
-    return { ranked, words, assumptions, changeIf: [], conflicts, checked: false, wrote: 0, notes };
+    return { ranked, words, assumptions, changeIf: [], conflicts, checked: false, wrote: 0, notes, lost: "" };
 
-  // the prompt: shuffled, ids that say nothing of the place, every quote numbered
+  // the prompt: shuffled, ids that say nothing of the place, every quote numbered across the whole list
   ask.step?.("Writing");
   const order = shuffled(finalists, input.seed);
   const quotes = new Map<string, { quote: string; ref: string; product: string }>();
@@ -306,37 +408,20 @@ export async function composeList(
     };
   });
   const idOf = new Map(products.map((p, i) => [p.id, order[i].id]));
-  const write = await callModel(
-    { ...ask.models, careful: ask.model, fast: ask.model },
-    {
-      model: ask.model,
-      system: SYSTEM,
-      prompt: writePrompt(
-        {
-          name: need.name,
-          use: need.use,
-          implied: need.implied,
-          answers: need.questions
-            .filter((q) => answers[q.key] !== undefined)
-            .map((q) => `${q.q} ${q.options[answers[q.key]]?.label ?? ""}`),
-        },
-        products,
-      ),
-      maxTokens: 8000,
-      thinking: true,
-    },
-    WriteAnswer,
-  );
-  ask.record("write", write);
-  if (!write.ok) {
-    notes.push(
-      write.why === "out-of-room"
-        ? "the writer ran out of room: the reasons are missing"
-        : "the reasons couldn't be written",
-    );
-    return { ranked, words, assumptions, changeIf: [], conflicts, checked: false, wrote: 0, notes };
-  }
-  const names = finalists.map((r) => byKey.get(r.id) as Merged);
+  // an id as a model may write it: "p3", "P3", 3, or the product's name
+  const productOf = (id: string): string | undefined => {
+    const n = /^p?(\d+)$/i.exec(id.trim())?.[1];
+    const named = products.find((p) => p.name.toLowerCase() === id.trim().toLowerCase());
+    return idOf.get(n ? `p${Number(n)}` : (named?.id ?? ""));
+  };
+  const needWords = {
+    name: need.name,
+    use: need.use,
+    implied: need.implied,
+    answers: need.questions
+      .filter((q) => answers[q.key] !== undefined)
+      .map((q) => `${q.q} ${q.options[answers[q.key]]?.label ?? ""}`),
+  };
   type Line = {
     product: string | null;
     slot: "why" | "tradeoff" | "notFor" | "assumptions" | "changeIf" | "conflicts";
@@ -344,42 +429,92 @@ export async function composeList(
     refs: string[];
   };
   const lines: Line[] = [];
-  const refsOf = (refs: string[]) => refs.map((r) => r.replace(/[[\]\s]/g, "").toLowerCase());
-  for (const p of write.value.products) {
-    const product = idOf.get(p.id);
-    if (!product) continue;
-    for (const s of p.why.slice(0, 3)) lines.push({ product, slot: "why", text: s.text, refs: refsOf(s.refs) });
-    if (p.tradeoff) lines.push({ product, slot: "tradeoff", text: p.tradeoff.text, refs: refsOf(p.tradeoff.refs) });
-    if (p.notFor) lines.push({ product, slot: "notFor", text: p.notFor.text, refs: refsOf(p.notFor.refs) });
+  let unread = 0; // products whose batch's answer couldn't be read
+  let roomOut = false;
+  for (let at = 0; at < products.length; at += WRITE_BATCH) {
+    const batch = products.slice(at, at + WRITE_BATCH);
+    const write = await callModel(
+      { ...ask.models, careful: ask.model, fast: ask.model },
+      {
+        model: ask.model,
+        system: SYSTEM,
+        prompt: writePrompt(needWords, batch, at === 0),
+        maxTokens: WRITE_ROOM,
+        thinking: false,
+      },
+      WriteAnswer,
+    );
+    ask.record("write", write);
+    if (!write.ok) {
+      unread += batch.length;
+      if (write.why === "out-of-room") roomOut = true;
+      continue;
+    }
+    const inBatch = new Set(batch.map((p) => idOf.get(p.id)));
+    // a source's ref ("s1") stands for the product's quotes from that source (the list's: this batch's products')
+    const sourcesOf = (product: string | null) => {
+      const by = new Map<string, string[]>();
+      for (const [q, x] of quotes)
+        if (product === null ? inBatch.has(x.product) : x.product === product)
+          by.set(x.ref, [...(by.get(x.ref) ?? []), q]);
+      return by;
+    };
+    const push = (product: string | null, slot: Line["slot"], s: { text: string; refs: string[] }) => {
+      const r = refsOf(s.refs, s.text, sourcesOf(product));
+      lines.push({ product, slot, text: r.text, refs: r.refs });
+    };
+    for (const p of write.value.products) {
+      const product = productOf(p.id);
+      if (!product || !inBatch.has(product)) continue;
+      for (const s of p.why.slice(0, 3)) push(product, "why", s);
+      if (p.tradeoff) push(product, "tradeoff", p.tradeoff);
+      if (p.notFor) push(product, "notFor", p.notFor);
+    }
+    if (at === 0)
+      for (const slot of ["assumptions", "changeIf", "conflicts"] as const)
+        for (const s of write.value[slot]) push(null, slot, s);
   }
-  for (const slot of ["assumptions", "changeIf", "conflicts"] as const)
-    for (const s of write.value[slot]) lines.push({ product: null, slot, text: s.text, refs: refsOf(s.refs) });
-  const wrote = lines.length;
-  // the code's check: every ref exists; every number is in the refs' quotes, the names taken out first; a sentence with
-  // no ref holds no number
+  if (unread)
+    notes.push(
+      roomOut
+        ? `the writer ran out of room for ${unread} ${unread === 1 ? "product" : "products"}: their reasons are their sources' own words`
+        : `the writer's answer for ${unread} ${unread === 1 ? "product" : "products"} couldn't be read: their reasons are their sources' own words`,
+    );
+  const wrote = lines.filter((l) => l.text).length;
+  const names = finalists.map((r) => byKey.get(r.id) as Merged);
+  // the code's check: every sentence rests on a quote kestrel gave, every ref exists, and every number is in its quotes
+  // (the names taken out first). A sentence with no ref is never kept: nothing would check it
+  const dropped = { refs: 0, numbers: 0, checker: 0 };
   const passed = lines.filter((l) => {
     if (!l.text) return false;
-    if (l.refs.some((r) => !quotes.has(r))) return false;
-    if (!l.refs.length) return numbersIn(withoutNames(l.text, names)).length === 0;
-    return numbersHold(
-      l.text,
-      l.refs.map((r) => quotes.get(r)?.quote ?? ""),
-      names,
-    );
+    if (!l.refs.length || l.refs.some((r) => !quotes.has(r))) {
+      dropped.refs++;
+      return false;
+    }
+    if (
+      !numbersHold(
+        l.text,
+        l.refs.map((r) => quotes.get(r)?.quote ?? ""),
+        names,
+      )
+    ) {
+      dropped.numbers++;
+      return false;
+    }
+    return true;
   });
   // the checker: each sentence with its quotes, supported only when they say it
   ask.step?.("Checking");
   let kept = passed;
   let checked = false;
-  const toCheck = passed.filter((l) => l.refs.length);
-  if (toCheck.length) {
+  if (passed.length) {
     const check = await callModel(
       { ...ask.models, careful: ask.checkModel, fast: ask.checkModel },
       {
         model: ask.checkModel,
         system: SYSTEM,
         prompt: checkPrompt(
-          toCheck.map((l, i) => ({ n: i + 1, text: l.text, quotes: l.refs.map((r) => quotes.get(r)?.quote ?? "") })),
+          passed.map((l, i) => ({ n: i + 1, text: l.text, quotes: l.refs.map((r) => quotes.get(r)?.quote ?? "") })),
         ),
         maxTokens: 3000,
         thinking: false,
@@ -390,7 +525,8 @@ export async function composeList(
     if (check.ok) {
       checked = true;
       const no = new Set(check.value.verdicts.filter((v) => !v.supported).map((v) => v.n));
-      kept = passed.filter((l) => !l.refs.length || !no.has(toCheck.indexOf(l) + 1));
+      kept = passed.filter((_l, i) => !no.has(i + 1));
+      dropped.checker = passed.length - kept.length;
     } else notes.push("the second check didn't run: the reasons kept passed the code's checks only");
   } else checked = true;
   // what is kept, its quote refs turned into its sources
@@ -398,16 +534,45 @@ export async function composeList(
     text: l.text,
     refs: [...new Set(l.refs.map((r) => quotes.get(r)?.ref ?? "").filter(Boolean))],
   });
-  for (const [key, w] of words) {
-    const mine = kept.filter((l) => l.product === key);
-    words.set(key, {
+  const weights = weightsFor(need, answers);
+  const lead = finalists.find((r) => r.labels.some((l) => l.key === "overall"))?.id;
+  let fromSources = 0;
+  for (const r of finalists) {
+    const m = byKey.get(r.id) as Merged;
+    const w = words.get(r.id) as ProductWords;
+    const mine = kept.filter((l) => l.product === r.id);
+    const one = (slot: Line["slot"]) => mine.find((l) => l.slot === slot);
+    let why = mine.filter((l) => l.slot === "why").map(said);
+    if (!why.length) {
+      why = sourcesWhy(m, need, weights);
+      fromSources++;
+    }
+    const tradeoff = one("tradeoff");
+    const notFor = one("notFor");
+    words.set(r.id, {
       ...w,
-      why: mine.filter((l) => l.slot === "why").map(said),
-      tradeoff: mine.find((l) => l.slot === "tradeoff") ? said(mine.find((l) => l.slot === "tradeoff") as Line) : null,
-      notFor: mine.find((l) => l.slot === "notFor") ? said(mine.find((l) => l.slot === "notFor") as Line) : null,
+      why,
+      // with none written, the page's own words stand in: its first con as the trade-off, who should skip it
+      tradeoff: tradeoff ? said(tradeoff) : r.id !== lead && m.words.cons[0] ? m.words.cons[0] : null,
+      notFor: notFor ? said(notFor) : (m.words.skip[0] ?? null),
     });
   }
   const general = (slot: Line["slot"]) => kept.filter((l) => l.slot === slot).map(said);
+  // where the reasons were lost, never silent: the page's notes and the run's log say it
+  const lostParts = [
+    dropped.refs && `${dropped.refs} cited no quote kestrel gave`,
+    dropped.numbers && `${dropped.numbers} held a number their quotes don't`,
+    dropped.checker && `${dropped.checker} the checker found unsupported`,
+    unread && `${unread} ${unread === 1 ? "product" : "products"} unread`,
+  ].filter(Boolean);
+  const lost =
+    lostParts.length || fromSources
+      ? `Reasons: ${wrote} written, ${kept.length} kept${lostParts.length ? ` (${lostParts.join(", ")})` : ""}${
+          fromSources
+            ? `; ${fromSources} ${fromSources === 1 ? "product shows its" : "products show their"} sources' own words instead`
+            : ""
+        }`
+      : "";
   return {
     ranked,
     words,
@@ -417,6 +582,7 @@ export async function composeList(
     checked,
     wrote,
     notes,
+    lost,
   };
 }
 

@@ -2,6 +2,7 @@
 // want's view (its need, questions, finalists and also considered, each with its offers, best price and reach) and a
 // product's; and the re-rank a budget, an answer or new prices start, which writes the ranking back on the products.
 import type { DatabaseSync } from "node:sqlite";
+import { formatMoney } from "../../shared/kinds.ts";
 import {
   DATA_METHODS,
   type LogLine,
@@ -110,12 +111,65 @@ export function offerViews(offers: OfferRow[], place: Place = NO_PLACE): OfferVi
     }));
 }
 
-// what the ranking reads as a product's price: the best verified total, else a usual price a source states
+// a price on a row kestrel didn't read is a search result's (offers.ts keeps it so, never as a reading)
+export const fromSearch = (o: OfferRow): boolean => o.read !== "ok" && o.price !== null;
+
+// what the ranking reads as a product's price, in the region's currency: the best verified total in stock; else the
+// lowest new price read from a store page's data that isn't shown in stock (still the price level, for best value);
+// else a list price a testing source states; else the lowest price a search result shows for a listed store's page.
+// Where to buy now (the best offer) stays the in-stock one alone
 export function priceOf(p: ProductRow, offers: OfferRow[], place: Place = NO_PLACE) {
   const best = bestOffer(offers, place);
-  if (best) return { price: totalOf(best), from: "offer" as const, best };
-  if (p.usual !== null) return { price: p.usual, from: "usual" as const, best: null };
-  return { price: null, from: null, best: null };
+  if (best) return { price: totalOf(best), from: "offer" as const, best, offer: best };
+  const low = (list: OfferRow[]) => [...list].sort((a, b) => (totalOf(a) ?? 0) - (totalOf(b) ?? 0))[0];
+  const level = low(
+    offers.filter(
+      (o) => o.read === "ok" && DATA_METHODS.includes(o.method) && o.price !== null && o.condition === "new",
+    ),
+  );
+  if (level) return { price: totalOf(level), from: "stock" as const, best: null, offer: level };
+  if (p.usual !== null) return { price: p.usual, from: "usual" as const, best: null, offer: null };
+  const search = low(offers.filter(fromSearch));
+  if (search) return { price: search.price, from: "snippet" as const, best: null, offer: search };
+  return { price: null, from: null, best: null, offer: null };
+}
+
+// a list price in another currency (a US review's): shown, and used for best value among products priced the same way,
+// never against my budget
+export const otherPrice = (p: ProductRow, currency: string): { price: number; currency: string } | null =>
+  p.evidence.list && p.evidence.list.currency !== currency
+    ? { price: p.evidence.list.price, currency: p.evidence.list.currency }
+    : null;
+
+// where a price that isn't the best offer comes from, in words from code
+function priceNote(
+  p: ProductRow,
+  got: ReturnType<typeof priceOf>,
+  place: Place,
+  sourceHost: (ref: string) => string,
+): string {
+  // another currency's dollars say whose: US$1,895 never reads as a Canadian price
+  const money = (cents: number, currency = place.currency) =>
+    `${currency !== place.currency && currency === "USD" ? "US" : ""}${formatMoney(cents, currency)}`;
+  const store = got.offer ? place.storeName(got.offer.store) : "";
+  const list = p.evidence.list;
+  const from = list ? sourceHost(list.ref) : "";
+  const review = from ? ` in ${from}'s review` : "";
+  if (got.price === null)
+    return list
+      ? `${money(list.price, list.currency)} list price${review} (${list.currency}, not checked against my budget)`
+      : "";
+  if (got.from === "stock")
+    return `${money(got.price)} at ${store}, ${
+      got.offer?.stock === "out"
+        ? "out of stock"
+        : got.offer?.stock === "in"
+          ? "from another seller"
+          : "not shown in stock"
+    }`;
+  if (got.from === "usual") return `${money(got.price)} list price${review}`;
+  if (got.from === "snippet") return `${money(got.price)} in a search result for ${store}, not read on its page`;
+  return "";
 }
 
 // the verdict on a product's best price; the deal judge fills it in (verdict.ts)
@@ -151,7 +205,9 @@ export function productView(
   judge: Judge = NO_JUDGE,
   offers: OfferRow[] = offersOf(db, p.id),
 ): ProductView {
-  const { price, from, best } = priceOf(p, offers, place);
+  const got = priceOf(p, offers, place);
+  const { price, from, best } = got;
+  const host = (ref: string) => w?.result?.sources.find((x) => x.ref === ref)?.host ?? "";
   const views = offerViews(offers, place);
   const count = (f: (o: OfferRow) => boolean) => offers.filter(f).length;
   return {
@@ -178,6 +234,7 @@ export function productView(
     updated: p.updated,
     price,
     priceFrom: from,
+    priceNote: priceNote(p, got, place, host),
     best: views.find((o) => o.best) ?? null,
     verdict: best ? judge(p, offers, best) : null,
     offers: views,
@@ -209,6 +266,7 @@ export function rerank(db: DatabaseSync, wantId: string, place: Place = NO_PLACE
       facts: p.facts,
       evidence: p.evidence,
       price: priceOf(p, offersOf(db, p.id), place).price,
+      other: otherPrice(p, place.currency),
     })),
     budgetOf(w),
   );
@@ -311,7 +369,18 @@ export function wantView(db: DatabaseSync, id: string, opts: ViewOpts = {}): Wan
       : null,
     rule: RANK_RULE,
     read: opts.read ?? false,
+    pricing: pricingLine(views.filter((p) => p.place !== null && !p.out)),
   };
+}
+
+// best value and budget need prices: said plainly when too few finalists have one to compare
+function pricingLine(finalists: ProductView[]): string {
+  if (finalists.length < 2) return "";
+  const priced = finalists.filter((p) => p.price !== null || p.evidence.list).length;
+  if (priced >= 2) return "";
+  return priced === 0
+    ? "Best value and Budget need prices, and none is known for these products yet: no store page kestrel could read and no review gave one."
+    : `Best value and Budget need prices, and only ${priced} of these ${finalists.length} products has one so far.`;
 }
 
 // the questions whose answer moves the top pick, on the products as ranked now (the named one left out in one mode: it

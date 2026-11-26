@@ -193,7 +193,7 @@ test("every name and code is read: a base SKU never outweighs a Plus name; a cou
     false,
   );
   // the region's own tag is no mismatch; another country's is
-  assert.equal(identity(T9, { codes: ["T9-CA"], gtins: [], names: [] }, [], "ca").ok, true);
+  assert.equal(identity(T9, { codes: ["T9-CA"], gtins: [], names: [], brands: ["Tidal"] }, [], "ca").ok, true);
   assert.match(
     (identity(T9, { codes: ["T9-US"], gtins: [], names: ["Tidal T9"] }, [], "ca") as { why: string }).why,
     /another region's model \(T9-US\)/,

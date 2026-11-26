@@ -1,13 +1,16 @@
 // Find the offers: for each product picked, where to buy it now in my region. The region's stores that sell this kind
 // (eight at most, the readable ones first) and the brand's own store when the region file lists it. A store kestrel
-// only links to gets its search link at once, with no search and no fetch. A readable store gets one search,
-// "<model>" site:<store>, then one "<brand> <model>" for the stores still without a page, each scrubbed and inside the
-// run's searches; a hit counts only when its title or address holds one of the product's codes, and a snippet's price is
-// never used. The page is read by the store-page reader (ai/shopping/product-data.ts). A store left when the searches
-// run out is unsearched, with its search link. A store an open search turns up but the region file doesn't list is never
-// read. Every offer is kept by its address, every reading with it.
+// only links to gets its search link at once, with no search and no fetch. The search words are the brand and the model,
+// never a bare word or number. Every product first gets one search (its brand's own store when listed, else an open
+// search in the region), so each has a chance at a price; then each readable store still without a page gets
+// "<brand model>" site:<store>, while the run's searches last. A hit counts only when its title or address holds a code
+// that tells the product apart. A price in a search result's words, for a listed store's page, is kept on that store's
+// row as the search result's: never read from the page, never a reading, never the best price. The page is read by the
+// store-page reader (ai/shopping/product-data.ts). A store left when the searches run out is unsearched, with its
+// search link. A store an open search turns up but the region file doesn't list is never read. Every offer is kept by
+// its address, every reading with it.
 import type { DatabaseSync } from "node:sqlite";
-import type { StoreRead, Wanted } from "../../ai/shopping/product-data.ts";
+import { distinctive, type StoreRead, type Wanted } from "../../ai/shopping/product-data.ts";
 import type { Hit } from "../../ai/web.ts";
 import type { Need } from "../../shared/shopping.ts";
 import { hostOf, type Region, type Store } from "./region.ts";
@@ -26,11 +29,42 @@ export type OfferDeps = {
 };
 export type Found = { read: number; links: number; blocked: number; unsearched: number; mismatch: number };
 
-// the product as a store page must show it: its codes (the region's first), its name without the brand, its GTIN
+// the product as a store page must show it: its codes that tell it apart (the region's first; never a bare "850"), its
+// name without the brand, its brand, its GTIN
 export function wantedOf(p: Pick<ProductRow, "name" | "brand" | "models">): Wanted {
   const bare =
     p.brand && p.name.toLowerCase().startsWith(p.brand.toLowerCase()) ? p.name.slice(p.brand.length).trim() : "";
-  return { name: p.name, brand: p.brand, codes: [...new Set([...p.models, ...(bare ? [bare] : [])])], gtin: null };
+  const codes = p.models.filter(distinctive);
+  return { name: p.name, brand: p.brand, codes: [...new Set([...codes, ...(bare ? [bare] : [])])], gtin: null };
+}
+
+// the words a store search and a store's link use: the brand and the model, never a bare word or number. The maker's
+// code when one tells it apart ("Sony WH-1000XM6"), else the whole name with its brand ("REI Co-op Stormhenge 850 Down
+// Hybrid Parka"): the first live run searched "850" and found a keyboard
+export function searchName(p: Pick<ProductRow, "name" | "brand" | "models">): string {
+  const code = p.models.find(distinctive);
+  const brand = p.brand.trim();
+  if (code) return code.toLowerCase().startsWith(brand.toLowerCase()) || !brand ? code : `${brand} ${code}`;
+  return !brand || p.name.toLowerCase().startsWith(brand.toLowerCase()) ? p.name : `${brand} ${p.name}`;
+}
+
+// a price a search result's words show for a store's page, in the region's currency ("$449.99", "C$449"), never one in
+// another currency or a monthly payment: kept as the search result's, never read from the page and never the best
+export function snippetPrice(snippet: string, currency: string): { cents: number; words: string } | null {
+  for (const m of snippet.matchAll(
+    /(US\s?\$|USD\s?|C\s?\$|CA\$|CAD\s?\$?|\$)\s?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?|\d+(?:\.\d{2})?)/gi,
+  )) {
+    const sign = m[1].toUpperCase().replace(/\s/g, "");
+    if (sign.startsWith("US")) continue;
+    if (currency !== "CAD" && sign !== "$") continue;
+    const after = snippet.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 14);
+    if (/^\s*(\/\s?mo|per month|a month|\/month|bi-?weekly)/i.test(after)) continue;
+    const cents = Math.round(Number.parseFloat(m[2].replace(/,/g, "")) * 100);
+    if (cents < 500) continue; // a shipping fee or a gift card's, never a product's
+    const from = Math.max(0, (m.index ?? 0) - 30);
+    return { cents, words: snippet.slice(from, (m.index ?? 0) + m[0].length + 10).trim() };
+  }
+  return null;
 }
 
 // the stores for a product: the region's in the kind's groups, the readable first, eight at most; the brand's own when
@@ -61,7 +95,7 @@ const onStore = (url: string, store: Store) => {
 // a hit that is this product: its title or its address holds one of the product's codes
 const codeRe = (code: string) => {
   const chars = code.toLowerCase().replace(/[^a-z0-9]/g, "");
-  return chars.length < 2 ? null : new RegExp(`(?<![a-z0-9])${[...chars].join("[-\\s_]?")}(?![a-z0-9])`, "i");
+  return chars.length < 2 ? null : new RegExp(`(?<![a-z0-9])${[...chars].join("[^a-z0-9]{0,3}")}(?![a-z0-9])`, "i");
 };
 const holdsCode = (hit: Hit, wanted: Wanted) =>
   wanted.codes.some((c) => {
@@ -69,9 +103,9 @@ const holdsCode = (hit: Hit, wanted: Wanted) =>
     return re !== null && (re.test(hit.title) || re.test(decodeURIComponent(hit.url)));
   });
 
-const linkRow = (store: Store, model: string, read: "link" | "unsearched", why: string): OfferInput => ({
+const linkRow = (store: Store, words: string, read: "link" | "unsearched", why: string): OfferInput => ({
   store: store.domain,
-  url: store.searchUrl.replace("{q}", encodeURIComponent(model)),
+  url: store.searchUrl.replace("{q}", encodeURIComponent(words)),
   seller: "",
   condition: "new",
   price: null,
@@ -94,74 +128,124 @@ export async function findOffers(
   deps: OfferDeps,
 ): Promise<Found> {
   const found: Found = { read: 0, links: 0, blocked: 0, unsearched: 0, mismatch: 0 };
-  for (const [n, p] of products.entries()) {
-    const wanted = wantedOf(p);
-    // the search words: the maker's code, else the whole name ("Brisk R7", never a bare "R7" that finds anything)
-    const model = p.models[0] ?? p.name;
+  type Plan = {
+    p: ProductRow;
+    n: number;
+    wanted: Wanted;
+    words: string;
+    stores: Store[];
+    readable: Store[];
+    pages: Map<string, string>; // a readable store's product page, by its domain
+    snippets: Map<string, { url: string; cents: number; words: string }>; // a store's search-result price
+    looked: Set<string>; // the readable stores already searched
+    ctx: ScrubContext;
+  };
+  const plans: Plan[] = products.map((p, n) => {
     const stores = storesOf(deps.region, need, p.brand);
     // the product's own words are product words here: its name, brand and codes never go in the scrub
     const own = `${p.name} ${p.brand} ${p.models.join(" ")}`
       .toLowerCase()
       .split(/[^a-z0-9]+/)
       .filter(Boolean);
-    const ctx = {
-      ...deps.scrub,
-      phrases: [...deps.scrub.phrases, p.name, ...p.models],
-      keep: [...deps.scrub.keep, ...own],
+    return {
+      p,
+      n,
+      wanted: wantedOf(p),
+      words: searchName(p),
+      stores,
+      readable: deps.read ? stores.filter((s) => s.read === "page") : [],
+      pages: new Map(),
+      snippets: new Map(),
+      looked: new Set(),
+      ctx: { ...deps.scrub, phrases: [...deps.scrub.phrases, p.name, ...p.models], keep: [...deps.scrub.keep, ...own] },
     };
-    const keep = (o: OfferInput) => {
-      saveOffer(db, p.id, o, deps.now());
-      if (o.read === "ok") found.read++;
-      else if (o.read === "link") found.links++;
-      else if (o.read === "blocked") found.blocked++;
-      else if (o.read === "unsearched") found.unsearched++;
-      else if (o.read === "mismatch") found.mismatch++;
-    };
-    // the stores kestrel only links to, and every store when it doesn't read pages here: a search link, at once
-    const readable: Store[] = [];
-    for (const s of stores) {
-      if (s.read === "link") keep(linkRow(s, model, "link", s.why ?? "this store turns automated readers away"));
-      else if (!deps.read)
-        keep(linkRow(s, model, "link", "kestrel doesn't read store pages here (shopping.read is off)"));
-      else readable.push(s);
+  });
+  let spent = false;
+  // one search, its hits sorted onto the plan's stores: a readable store's page, and any listed store's price in the
+  // search result's words (a store kestrel only links to included)
+  const look = async (plan: Plan, q: string) => {
+    const query = scrubQuery(q, plan.ctx);
+    if (!query) return;
+    const hits = await deps.search(query);
+    if (hits === null) {
+      spent = true;
+      return;
     }
-    // the readable stores: their pages found by a search each, then one search for the brand and model
-    const pages = new Map<string, string>();
-    let spent = false;
-    let learnt = false;
-    const look = async (q: string, among: Store[]) => {
-      const query = scrubQuery(q, ctx);
-      if (!query) return;
-      const hits = await deps.search(query);
-      if (hits === null) {
-        spent = true;
-        return;
+    for (const s of plan.stores)
+      for (const h of hits) {
+        if (!onStore(h.url, s) || !holdsCode(h, plan.wanted)) continue;
+        if (s.read === "page" && !plan.pages.has(s.domain)) plan.pages.set(s.domain, h.url);
+        const price = snippetPrice(`${h.title} ${h.snippet}`, deps.region.currency);
+        if (price && !plan.snippets.has(s.domain)) plan.snippets.set(s.domain, { url: h.url, ...price });
       }
-      for (const s of among)
-        if (!pages.has(s.domain)) {
-          const hit = hits.find((h) => onStore(h.url, s) && holdsCode(h, wanted));
-          if (hit) pages.set(s.domain, hit.url);
-        }
-    };
-    for (const s of readable) {
+  };
+  const step = (plan: Plan, store: string) =>
+    deps.step?.(`Finding offers: ${plan.p.name} (${plan.n + 1} of ${products.length}), searching ${store}`);
+  // first, one search for every product, so each has a chance at a price before any has a second: its brand's own store
+  // when the region lists one, else an open search in the region (its hits land on any listed store)
+  for (const plan of plans) {
+    if (spent || !deps.read) break;
+    const own = plan.readable.find((s) => s.name.endsWith("(its own store)"));
+    step(plan, own?.name ?? "the web");
+    if (own) {
+      await look(plan, `"${plan.words}" site:${own.domain}`);
+      if (!spent) plan.looked.add(own.domain);
+    } else await look(plan, `"${plan.words}" ${deps.region.searchWords}`.trim());
+  }
+  // then each product's readable stores still without a page, while the run's searches last
+  for (const plan of plans)
+    for (const s of plan.readable) {
       if (spent) break;
-      deps.step?.(`Finding offers: ${p.name} (${n + 1} of ${products.length}), searching ${s.name}`);
-      await look(`"${model}" site:${s.domain}`, [s]);
+      if (plan.pages.has(s.domain) || plan.looked.has(s.domain)) continue;
+      step(plan, s.name);
+      await look(plan, `"${plan.words}" site:${s.domain}`);
+      if (!spent) plan.looked.add(s.domain);
     }
-    const missing = readable.filter((s) => !pages.has(s.domain));
-    const named = model.toLowerCase().startsWith(p.brand.toLowerCase()) ? model : `${p.brand} ${model}`.trim();
-    if (missing.length && !spent) await look(`"${named}"`, missing);
-    for (const s of readable) {
-      const url = pages.get(s.domain);
+  // the rows: each page read, each store left with its link, a search result's price where nothing better was read
+  for (const plan of plans) {
+    const { p, wanted } = plan;
+    let learnt = false;
+    const keep = (o: OfferInput) => {
+      // a store whose page gave no price keeps a price its search result showed, as the search result's
+      // never on a page that was another product: its search result was about that page
+      const snip = o.read !== "ok" && o.read !== "mismatch" ? plan.snippets.get(o.store) : undefined;
+      const row: OfferInput = snip
+        ? {
+            ...o,
+            url: o.read === "link" || o.read === "unsearched" ? snip.url : o.url,
+            price: snip.cents,
+            currency: deps.region.currency,
+            method: o.method || "link",
+            words: snip.words,
+            why: `${o.why ? `${o.why}; ` : ""}a search result shows this price: kestrel didn't read it on the store's page`,
+          }
+        : o;
+      saveOffer(db, p.id, row, deps.now());
+      if (row.read === "ok") found.read++;
+      else if (row.read === "link") found.links++;
+      else if (row.read === "blocked") found.blocked++;
+      else if (row.read === "unsearched") found.unsearched++;
+      else if (row.read === "mismatch") found.mismatch++;
+    };
+    for (const s of plan.stores) {
+      if (s.read === "link") {
+        keep(linkRow(s, plan.words, "link", s.why ?? "this store turns automated readers away"));
+        continue;
+      }
+      if (!deps.read) {
+        keep(linkRow(s, plan.words, "link", "kestrel doesn't read store pages here (shopping.read is off)"));
+        continue;
+      }
+      const url = plan.pages.get(s.domain);
       if (!url) {
         keep(
-          spent
-            ? linkRow(s, model, "unsearched", "the run's searches ran out before this store")
-            : linkRow(s, model, "link", "a search found no page for it at this store"),
+          plan.looked.has(s.domain) || !spent
+            ? linkRow(s, plan.words, "link", "a search found no page for it at this store")
+            : linkRow(s, plan.words, "unsearched", "the run's searches ran out before this store"),
         );
         continue;
       }
-      deps.step?.(`Finding offers: ${p.name} (${n + 1} of ${products.length}), reading ${s.name}`);
+      deps.step?.(`Finding offers: ${p.name} (${plan.n + 1} of ${products.length}), reading ${s.name}`);
       const r = await deps.readPage(url, wanted, s);
       // a page that didn't open says nothing about the price: an offer already read at this address keeps its reading
       if (r.offline && offersOf(db, p.id).some((o) => o.url === url && o.read === "ok")) {
