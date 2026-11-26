@@ -34,6 +34,8 @@ export function researchPage(db: DatabaseSync, ref: string): AskPage | null {
       "ITS SOURCES:",
       ...rep.refs.map((s) => `[${s.n}] ${s.title} (${s.url})`),
     ].join("\n"),
+    // the report's own numbers: a page the conversation finds on the web takes the next one, so [2] stays the report's
+    sources: rep.refs.map((s) => ({ n: s.n, title: s.title, url: s.url })),
   };
 }
 

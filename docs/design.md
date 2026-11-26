@@ -165,14 +165,22 @@ reading width is 720.
   head, past a thin rule: plain text on the small step with its own line height, centred on the eyebrow and the
   title, wrapping as words do (balanced), never stretched to their height. It takes the place of `line`, and it wraps
   before the title does.
-- `Ask` (`web/src/ask.tsx`) — the same box on every app: its head, the conversation, starters, a line to ask. `bare`
-  puts it inside a card that belongs to the page (a news story): no card and no head of its own, the page opens and
-  closes it, Start over beside the line to ask. A change the model proposes is a card under its answer (`.ask-card`):
-  what it does, and Do it; done (green) it says what happened, a stage or a delete with Undo (`.btn-sm`) until used;
-  failed in red; undone quiet, its edge the line's grey. A change to many says under its words, on the small
-  step in muted ink, what it leaves out, and folds out the titles it covers ("The listings 37", a `.disclosure`), each
-  a quiet link as an inline source, in a list that scrolls inside 240 at most. A failed answer is one plain sentence
-  in red with what to do, never a developer's hint.
+- `Ask` (`web/src/ask.tsx`) — the same box on every app: its head, the conversation (a chat: each answer rereads it),
+  starters, a line to ask, which waits while an answer is written. `bare` puts it inside a card that belongs to the
+  page (a news story): no card and no head of its own, the page opens and closes it, Start over beside the line to
+  ask. A change the model proposes is a card under its answer (`.ask-card`): what it does, and Do it; done (green) it
+  says what happened, a stage or a delete with Undo (`.btn-sm`) until used; failed in red; undone quiet, its edge the
+  line's grey. A change to many says under its words, on the small step in muted ink, what it leaves out, and folds
+  out the titles it covers ("The listings 37", a `.disclosure`), each a quiet link as an inline source, in a list that
+  scrolls inside 240 at most. A failed answer is one plain sentence in red with what to do, never a developer's hint.
+  A web search is a card too (`SearchCard`, `.ask-search`, on the detail step): on a page of my own "Search the web
+  for “…”", its exact words, "Only these words go to the search.", and Skip (quiet) and Search (filled) on the control
+  step, on their own row where the box is under 30rem; while it runs, the spinner and Searching, its edge still the
+  accent; run, it says "Searched the web for “…”" and its count in green, or in red that it found nothing or didn't
+  work; skipped, "Not searched" and why, its edge the line's grey. A fact from the web cites its page as Research's do
+  (`.cite`, by its number across the conversation; on Ask's sunk tiles the accent mixes with the ink instead of the
+  muted grey). An answer whose call left the oldest questions out says so first, in one muted line on the small step
+  (`LeftOut`). /design shows each.
 - `Card` (`web/src/ui/card.tsx`) — plain; `to` makes the whole card a link; `title` gives it the Searches card's
   anatomy: `meta` (the top line's left: a chip first, then a muted group), `end` (its right end: the date or the
   source, small and muted, a time in `font-mono`), the title with `figure` beside it (its key number: a `.money` pill,
@@ -221,7 +229,7 @@ reading width is 720.
   them. A block in a tone (`.callout`, a guide's; `.read-box`, a verdict; `.quiz-answer`, the lesson's answer; the
   drawings' tip, warning and check) says its meaning with a 3 px edge in its tone (the accent unless a `tone-*` says
   otherwise) and its tinted eyebrow or chip. A change Ask proposes (`.ask-card`): its 2 px edge, the accent while it
-  waits, green done, red failed.
+  waits, green done, red failed, the line's grey undone or skipped (a search I said no to).
 - The app map (`web/src/ui/apps.tsx`) — each app's address, icon and colour, set once: `APPS`, `appTone(app)`,
   `AppIcon` (the icon in its colour, a mark). Home's rows, the tab bar and the dock, PageHead's `app` and the Models
   page's groups (their eyebrows; Ask's group purple, as Ask's mark) read it. Searches green, Chat cyan, Learn purple,

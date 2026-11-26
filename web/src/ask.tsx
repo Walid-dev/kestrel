@@ -1,24 +1,29 @@
-// Ask, on any page: a conversation with the computer's model about what the page shows. The same box on every app:
-// a one-line head (what it asks about, and Start over), the conversation so far (kept, so leaving loses nothing), a
-// few first questions to tap, and a line to ask with its send button inside. The answer grows as the model writes it
-// — the page reads it again three times a second until it lands — and reads like a lesson (my ask, 2026-11-23: "the
-// learn page has a good design with the little boxes"): the direct answer first in its own tile, each section under
-// a lesson's heading, each point of a list in a tile of its own, a quote in the example's box, code in colour.
+// Ask, on any page: a chat with the computer's model about what the page shows. The same box on every app: a
+// one-line head (what it asks about, and Start over), the conversation so far (kept, so leaving loses nothing; each
+// answer rereads it), a few first questions to tap, and a line to ask with its send button inside. While an answer is
+// written the line waits. The answer grows as the model writes it — the page reads it again three times a second until
+// it lands — and reads like a lesson (my ask, 2026-11-23: "the learn page has a good design with the little boxes"):
+// the direct answer first in its own tile, each section under a lesson's heading, each point of a list in a tile of its
+// own, a quote in the example's box, code in colour. A web search shows as a card under its answer with its exact
+// words: on a page of my own it waits for my Search or Skip; elsewhere it says what it found. A fact from the web cites
+// its page as Research's do (.cite).
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useContext, useState } from "react";
 import { type Drawing as D, isKind, readDrawing } from "../../src/shared/blocks.ts";
 import { Drawing } from "./drawing.tsx";
-import { Code, Inline } from "./learn/blocks.tsx";
+import { type Cite, Cites, Code, Inline } from "./learn/blocks.tsx";
 
 // a change the model proposed: what it does, and for many at once what it leaves out and the listings it covers; done,
-// what happened, and Undo while it can
-type Card = {
+// what happened, and Undo while it can. A web search is a card too (search: its exact words): open while it waits for
+// my tap, done with what it found, failed when it found nothing or didn't work, skipped when I said no
+export type AskCard = {
   label: string;
-  state: "open" | "done" | "failed" | "undone";
+  state: "open" | "done" | "failed" | "undone" | "skipped";
   result: string;
   detail?: string;
   items?: { id: string; title: string }[];
   undoable?: boolean;
+  search?: string;
 };
 type Message = {
   id: string;
@@ -28,7 +33,9 @@ type Message = {
   error: string;
   model: string;
   at: string;
-  cards?: Card[];
+  cards?: AskCard[];
+  sources?: { n: number; title: string; url: string }[];
+  leftOut?: number;
 };
 
 // an answer that didn't finish says why in the server's plain words; one kept from before them (the model client's
@@ -55,6 +62,69 @@ export const Spark = ({ size = 16 }: { size?: number }) => (
     <path d="M12 2.5c.6 4.6 2.9 6.9 7.5 7.5-4.6.6-6.9 2.9-7.5 7.5-.6-4.6-2.9-6.9-7.5-7.5 4.6-.6 6.9-2.9 7.5-7.5Z" />
     <path d="M19 15.5c.3 2 1.2 2.9 3.2 3.2-2 .3-2.9 1.2-3.2 3.2-.3-2-1.2-2.9-3.2-3.2 2-.3 2.9-1.2 3.2-3.2Z" />
   </svg>
+);
+
+// a web search the model asked for, with its exact words. On a page of my own it waits for Search or Skip (onAnswer);
+// once run it says what it found, in green, or in red that it found nothing or didn't work (searching: running now)
+export function SearchCard({
+  card,
+  searching = false,
+  busy = false,
+  onAnswer,
+}: {
+  card: AskCard;
+  searching?: boolean;
+  busy?: boolean;
+  onAnswer?: (go: boolean) => void;
+}) {
+  const open = card.state === "open";
+  return (
+    // a search running keeps the card's own edge, the accent, until it lands
+    <div className={`ask-card ask-search ${searching ? "running" : card.state}`}>
+      <span className="min-w-0 flex-1">
+        <span className="block text-strong">
+          {open || searching
+            ? "Search the web for "
+            : card.state === "skipped"
+              ? "Not searched: "
+              : "Searched the web for "}
+          <span className="font-semibold">“{card.search}”</span>
+        </span>
+        {open ? (
+          <span className="mt-0.5 block text-small text-muted">Only these words go to the search.</span>
+        ) : searching ? (
+          <span className="ask-thinking mt-0.5">
+            <span className="spin" /> Searching
+          </span>
+        ) : (
+          <span
+            className={`mt-0.5 block text-small ${card.state === "done" ? "text-green" : card.state === "failed" ? "text-red" : "text-muted"}`}
+          >
+            {card.state === "done" ? "✓ " : ""}
+            {card.result}
+          </span>
+        )}
+      </span>
+      {open && onAnswer && (
+        <span className="ask-card-acts">
+          <button type="button" className="btn btn-quiet" disabled={busy} onClick={() => onAnswer(false)}>
+            Skip
+          </button>
+          <button type="button" className="btn btn-primary" disabled={busy} onClick={() => onAnswer(true)}>
+            Search
+          </button>
+        </span>
+      )}
+    </div>
+  );
+}
+
+// the answer's call left the oldest questions out: one quiet line over it
+export const LeftOut = ({ n }: { n: number }) => (
+  <p className="ask-left-out">
+    {n === 1 ? "The oldest question was" : `The ${n} oldest questions were`} left out: the model can't read the whole
+    conversation at once.
+  </p>
 );
 
 export function Ask({
@@ -134,6 +204,11 @@ export function Ask({
       onChange?.();
     },
   });
+  // my tap on a search that waits for it: Search or Skip, and the answer goes on
+  const search = useMutation({
+    mutationFn: (input: { id: string; card: number; go: boolean }) => call("/api/ask/search", "POST", input),
+    onSuccess: (data) => queryClient.setQueryData(key, data),
+  });
   const clear = useMutation({
     mutationFn: () => call(`/api/ask?${where}`, "DELETE"),
     onSuccess: () => queryClient.setQueryData(key, { messages: [] }),
@@ -144,7 +219,14 @@ export function Ask({
   const ask = (q: string) => {
     if (q.trim() && !busy) send.mutate(q.trim());
   };
-  const failed = [thread, send, clear, act, undo].find((x) => x.isError);
+  const failed = [thread, send, search, clear, act, undo].find((x) => x.isError);
+  // the pages the answers cite, by their numbers across the conversation, after the page's own (a report's): [2]
+  // becomes a link named for its site
+  const outer = useContext(Cites);
+  const cites = new Map<number, Cite>([
+    ...(outer ?? []),
+    ...messages.flatMap((m) => (m.sources ?? []).map((x) => [x.n, x] as const)),
+  ]);
   const startOver = isOpen && messages.length > 0 && (
     <button
       type="button"
@@ -263,76 +345,26 @@ export function Ask({
         </header>
       )}
 
-      {isOpen &&
-        messages.map((m) =>
-          m.role === "me" ? (
-            <p key={m.id} className="ask-mine">
-              {m.text}
-            </p>
-          ) : (
-            <div key={m.id} className="ask-answer">
-              {m.text ? (
-                <Answer text={m.text} writing={m.state === "writing"} />
-              ) : m.state === "writing" ? (
-                <span className="ask-thinking">
-                  <span className="spin" /> Thinking
-                </span>
-              ) : null}
-              {m.state === "failed" && <p className="ask-failed">{failedWords(m.error)}</p>}
-              {(m.cards ?? []).map((c, i) => (
-                <div key={c.label} className={`ask-card ${c.state}`}>
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-semibold text-strong">{c.label}</span>
-                    {c.detail && <span className="mt-0.5 block text-small text-muted">{c.detail}</span>}
-                    {c.state !== "open" && (
-                      <span
-                        className={`mt-0.5 block text-small ${c.state === "done" ? "text-green" : c.state === "failed" ? "text-red" : "text-muted"}`}
-                      >
-                        {c.state === "done" ? "✓ " : ""}
-                        {c.result}
-                      </span>
-                    )}
-                  </span>
-                  {c.state === "open" && (
-                    <button
-                      type="button"
-                      className="btn btn-primary shrink-0"
-                      disabled={act.isPending}
-                      onClick={() => act.mutate({ id: m.id, card: i })}
-                    >
-                      Do it
-                    </button>
-                  )}
-                  {c.undoable && (
-                    <button
-                      type="button"
-                      className="btn btn-sm shrink-0"
-                      disabled={undo.isPending}
-                      onClick={() => undo.mutate({ id: m.id, card: i })}
-                    >
-                      Undo
-                    </button>
-                  )}
-                  {/* a change to many: the listings it covers, folded at first; each title opens its listing */}
-                  {c.items && c.items.length > 0 && (
-                    <details className="ask-card-list">
-                      <summary className="disclosure">
-                        The listings <span className="font-mono tabular-nums">{c.items.length}</span>
-                      </summary>
-                      <ol className="ask-card-items">
-                        {c.items.map((it) => (
-                          <li key={it.id}>
-                            <Inline text={`[${it.title.replace(/[[\]()]/g, "")}](listing:${it.id})`} />
-                          </li>
-                        ))}
-                      </ol>
-                    </details>
-                  )}
-                </div>
-              ))}
-            </div>
-          ),
-        )}
+      {isOpen && (
+        <Cites.Provider value={cites.size ? cites : null}>
+          {messages.map((m) =>
+            m.role === "me" ? (
+              <p key={m.id} className="ask-mine">
+                {m.text}
+              </p>
+            ) : (
+              <Turn
+                key={m.id}
+                m={m}
+                busy={act.isPending || undo.isPending || search.isPending}
+                onAct={(card) => act.mutate({ id: m.id, card })}
+                onUndo={(card) => undo.mutate({ id: m.id, card })}
+                onSearch={(card, go) => search.mutate({ id: m.id, card, go })}
+              />
+            ),
+          )}
+        </Cites.Provider>
+      )}
 
       {isOpen && messages.length === 0 && starters.length > 0 && (
         <div className="ask-starters">
@@ -356,6 +388,93 @@ export function Ask({
         ))}
       {isOpen && failed && <p className="ask-failed">{(failed.error as Error).message}</p>}
     </section>
+  );
+}
+
+// one answer: the line that says older questions were left out, its words as they grow (Thinking before the first,
+// unless a search is running), why it failed, then its cards: the searches it made or waits for, and the changes it
+// proposes
+function Turn({
+  m,
+  busy,
+  onAct,
+  onUndo,
+  onSearch,
+}: {
+  m: Message;
+  busy: boolean;
+  onAct: (card: number) => void;
+  onUndo: (card: number) => void;
+  onSearch: (card: number, go: boolean) => void;
+}) {
+  const writing = m.state === "writing";
+  const cards = m.cards ?? [];
+  // a search running (by itself, or on my tap) has no result until it lands
+  const searching = (c: AskCard) => writing && Boolean(c.search) && c.state === "done" && !c.result;
+  return (
+    <div className="ask-answer">
+      {(m.leftOut ?? 0) > 0 && <LeftOut n={m.leftOut ?? 0} />}
+      {m.text ? (
+        <Answer text={m.text} writing={writing} />
+      ) : writing && !cards.some(searching) ? (
+        <span className="ask-thinking">
+          <span className="spin" /> Thinking
+        </span>
+      ) : null}
+      {m.state === "failed" && <p className="ask-failed">{failedWords(m.error)}</p>}
+      {cards.map((c, i) =>
+        c.search ? (
+          <SearchCard
+            // biome-ignore lint/suspicious/noArrayIndexKey: an answer's cards only grow at their end
+            key={`${c.search}${i}`}
+            card={c}
+            searching={searching(c)}
+            busy={busy}
+            onAnswer={(go) => onSearch(i, go)}
+          />
+        ) : (
+          <div key={c.label} className={`ask-card ${c.state}`}>
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold text-strong">{c.label}</span>
+              {c.detail && <span className="mt-0.5 block text-small text-muted">{c.detail}</span>}
+              {c.state !== "open" && (
+                <span
+                  className={`mt-0.5 block text-small ${c.state === "done" ? "text-green" : c.state === "failed" ? "text-red" : "text-muted"}`}
+                >
+                  {c.state === "done" ? "✓ " : ""}
+                  {c.result}
+                </span>
+              )}
+            </span>
+            {c.state === "open" && (
+              <button type="button" className="btn btn-primary shrink-0" disabled={busy} onClick={() => onAct(i)}>
+                Do it
+              </button>
+            )}
+            {c.undoable && (
+              <button type="button" className="btn btn-sm shrink-0" disabled={busy} onClick={() => onUndo(i)}>
+                Undo
+              </button>
+            )}
+            {/* a change to many: the listings it covers, folded at first; each title opens its listing */}
+            {c.items && c.items.length > 0 && (
+              <details className="ask-card-list">
+                <summary className="disclosure">
+                  The listings <span className="font-mono tabular-nums">{c.items.length}</span>
+                </summary>
+                <ol className="ask-card-items">
+                  {c.items.map((it) => (
+                    <li key={it.id}>
+                      <Inline text={`[${it.title.replace(/[[\]()]/g, "")}](listing:${it.id})`} />
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            )}
+          </div>
+        ),
+      )}
+    </div>
   );
 }
 

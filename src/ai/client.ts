@@ -8,8 +8,9 @@ import type { z } from "zod";
 
 export type ModelSettings = { url: string; careful: string; fast: string; contextChars: number };
 // out-of-room: the answer's whole room went on thinking (the stream stopped for its length with nothing to show);
-// refusal: it ended with nothing to show for another reason
-export type Outcome = "unlisted" | "too-long" | "down" | "timeout" | "refusal" | "out-of-room" | "shape";
+// refusal: it ended with nothing to show for another reason; broke: the door sent an error in the stream (oMLX does that
+// once it has answered 200, for a prompt too big for the memory left or a generation that failed)
+export type Outcome = "unlisted" | "too-long" | "down" | "timeout" | "refusal" | "out-of-room" | "shape" | "broke";
 export type ModelAnswer<T> =
   | { ok: true; value: T; ms: number; model: string; tokensIn: number | null; tokensOut: number | null }
   | { ok: false; why: Outcome; detail: string; ms: number; model: string };
@@ -24,6 +25,7 @@ const SAID: Record<Outcome, (again: string) => string> = {
   timeout: (again) => `The model took too long, so kestrel stopped it. ${again}.`,
   shape: (again) => `The model's answer came back in a form kestrel can't read. ${again}.`,
   down: () => "The computer's model isn't answering: is oMLX open?",
+  broke: (again) => `The computer's model stopped with an error. ${again}.`,
   "too-long": () => "That is more than the model can read at once.",
   unlisted: () => "The model picked for this isn't one kestrel's settings list: pick another on the Models page.",
 };
@@ -62,7 +64,8 @@ type Streamed =
   | { ok: false; why: Outcome; detail: string };
 
 // the one request to the door: the checks first, then the answer's pieces as they come (onText hears the answer so
-// far), then why it stopped — "length" means it ran out of room
+// far), then why it stopped — "length" means it ran out of room. An error the door sends inside the stream ends it as
+// a failure: what came before it is half an answer, never one to keep
 async function stream(settings: ModelSettings, chat: Chat, onText?: (soFar: string) => void): Promise<Streamed> {
   const fail = (why: Outcome, detail: string): Streamed => ({ ok: false, why, detail });
   if (chat.model !== settings.careful && chat.model !== settings.fast)
@@ -96,11 +99,12 @@ async function stream(settings: ModelSettings, chat: Chat, onText?: (soFar: stri
   let finish = "";
   let tokensIn: number | null = null;
   let tokensOut: number | null = null;
+  let broke = "";
   try {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
-    for (;;) {
+    while (!broke) {
       const { done, value } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
@@ -114,7 +118,12 @@ async function stream(settings: ModelSettings, chat: Chat, onText?: (soFar: stri
           const piece = JSON.parse(data) as {
             choices?: { delta?: { content?: string }; finish_reason?: string | null }[];
             usage?: { prompt_tokens?: number; completion_tokens?: number };
+            error?: { message?: string };
           };
+          if (piece.error) {
+            broke = String(piece.error.message ?? "the door sent an error").slice(0, 300);
+            break;
+          }
           const more = piece.choices?.[0]?.delta?.content ?? "";
           if (more) {
             text += more;
@@ -133,6 +142,7 @@ async function stream(settings: ModelSettings, chat: Chat, onText?: (soFar: stri
   } catch (e) {
     return fail((e as Error).name === "TimeoutError" ? "timeout" : "down", (e as Error).message);
   }
+  if (broke) return fail("broke", `the door's error in the stream, after ${text.length} characters: ${broke}`);
   return { ok: true, text, finish, tokensIn, tokensOut };
 }
 

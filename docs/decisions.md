@@ -5,6 +5,48 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · The News bug: four ways a story's Ask failed, each fixed where it starts.**
+  Tried on made-up data with a stand-in door that answers as oMLX's own code does (its stream: the thinking apart in
+  `reasoning_content`, a keepalive chunk, a failure as `data: {"error": …}` after a 200; its `/v1/web/search` and
+  `/v1/web/fetch`: HTTP 200 with `ok` true or false): ask, a follow-up, a second story, Start over, a reload, a
+  question that needs the web, a search that finds nothing, one that fails, a page that won't load, a third look. Four
+  failed. (1) The door's failure inside the stream was ignored (`client.ts` read only the words): before any word it
+  read "The model answered nothing", after some it kept half an answer as a whole one. Now an outcome of its own,
+  `broke`: "The computer's model stopped with an error. Ask again, or ask in fewer words." (Notes' drafts word it too,
+  `web/src/notes/parts.tsx`.) (2) A follow-up couldn't see what the looks found: the conversation reread the answers'
+  words alone, so "[2]" or "the second source" meant nothing to the next answer. Now each answer keeps its looks and
+  what they returned (`ask_messages.steps`) and its sources (entry below). (3) A search the door refused (rate
+  limited) read to the model as "Nothing found", and the answer said the web had nothing: `webSearch` (`ai/web.ts`)
+  now tells a failure from an empty answer. (4) After the second round of looks nothing told the model to stop, so one
+  that wanted a third look ended on its preamble ("Let me look once more"), which became the whole answer: the last
+  round's return now says "That was your last look", and an answer that still asks for one keeps its words with `*(I
+  wanted to look further: ask me to go on)*`. Which of them I hit isn't known from here; each has a test named "(the
+  News bug)" in `client.test.ts`, `web.test.ts` and `ask.test.ts`. Rejected: reading the stream's `tool_calls` (oMLX
+  parses tool calls only when a request declares tools, and Ask declares none).
+- **2026-11-25 · Ask is a chat that keeps its context.**
+  Every answer rereads the conversation so far: my questions, its answers with the cards they proposed, what its looks
+  did and returned (`steps`), and its sources by number. As much as fits what the model reads at once
+  (`models.contextChars`): the latest questions whole with their answers, the oldest left out first, and the answer
+  says how many in one quiet line over it (`left_out`, `LeftOut`). Its own looks are cut to the room left, so a long
+  conversation never fails as too long. A failed or unfinished answer stays out with its question, so the turns still
+  alternate. No queue: while an answer is written, the line to ask waits, as before. Migration 030. Replaces: the
+  12-turn cap. Rejected: a server-side queue of questions (my ask: a chat, not a queue).
+- **2026-11-25 · The web on every Ask; on a page of my own each search waits for my tap.**
+  Every page lists read, web and page (Ask's prompt v6: search only when the answer needs it, for facts that change,
+  what the model doesn't know or what I ask it to look up, never by routine; cite each fact from the web by its number;
+  say plainly when a search found nothing or failed). A page whose helper lists the web (News, Research, Searches, the
+  field's lessons and their quiz) searches as the model writes and still opens no document or lesson of mine. Any other
+  page is mine (Notes, Writing, Applications, Tasks, my prepared answers, my own lessons and their quiz): the answer
+  stops at a card with the search's exact words, Skip and Search (`POST /api/ask/search`); Search runs those words and
+  the answer goes on from what they found, Skip goes on without. One search waits at a time; asking something else
+  skips it (no queue); a restart keeps it. There the page reader opens only an address one of my approved searches
+  returned. Every search is a card under its answer, green with its count, red when it found nothing or failed, grey
+  when skipped. Sources are numbered across the conversation, after a report's own (`AskPage.sources`), and cited as
+  Research's are (`.cite`; on Ask's sunk tiles the accent mixes with the ink, as the muted mix read 4.15:1 there in
+  light). The door's search gives about three results and sometimes none at first: it tries once more, as before. The
+  web eval (`evals/web`) scores "only when needed" and "never my words" on a story and a document, with the stand-in in
+  the check and live for the record. Replaces: the 2026-11-23 entries' "pages of my own read only: no web tool".
+  Rejected: every search on a tap (News and Research would stop on each one).
 - **2026-11-25 · Notes gets a colour of its own: a highlighter's lemon.**
   `--lemon` (#e0e35e dark, #7d8200 light; `tone-lemon`, `text-lemon`) replaces the accent as Notes' colour in the app
   map, so Home's row, the tab bar and the dock, Notes' eyebrows and the Models page's group follow, and the eyebrow no

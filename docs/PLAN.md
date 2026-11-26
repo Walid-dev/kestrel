@@ -145,6 +145,9 @@ Each gets its own step-by-step plan, reviewed, before it starts.
   finds through the whole hunt and proposes a stage, a delete, a deep check or an application as cards I tap, and a
   change to many listings as one rule kestrel resolves, with Undo. The other apps follow, one at a time. The design
   and the steps: [docs/tasks/v0.7-ask.md](tasks/v0.7-ask.md).
+- A chat that keeps its context (my questions, its answers and what its looks found, as much as the model reads at
+  once), with the web on every page: on a page of my own each search shows its exact words and runs only on my tap
+  (decisions.md, 2026-11-25).
 
 ### v0.8 · One set of blocks for every page (GO 2026-11-23; steps 1 to 3 built)
 

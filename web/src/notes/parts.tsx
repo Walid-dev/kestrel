@@ -15,6 +15,7 @@ const KINDS: Record<string, string> = {
   "out-of-room": "the model ran out of room while it thought",
   refusal: "the model answered nothing",
   shape: "the model's answer wasn't in the expected form",
+  broke: "the computer's model stopped with an error",
 };
 export function plainWhy(error: string): string {
   const kind = /^the model didn't answer well: ([a-z-]+)/.exec(error)?.[1];

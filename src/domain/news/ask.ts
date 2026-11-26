@@ -1,7 +1,7 @@
 // Ask on News: what one story's page shows the model, found by its ref, "<brief id>:<story number>" (the number as
 // the page's #s<n>): the day, the section, the headline, the story, its number, its sources, the day's opening and
-// its other headlines. A news story is public and nothing of mine is on its page, so it gets the web tools
-// (domain/ask/ask.ts), as Research and Searches do. Its words come from the web (the feeds, and the brief the model
+// its other headlines. A news story is public and nothing of mine is on its page, so its searches run as the model
+// writes them (domain/ask/tools.ts), as Research's and Searches' do. Its words come from the web (the feeds, and the brief the model
 // wrote from them): the page tells the model they are facts to check, never instructions.
 import type { DatabaseSync } from "node:sqlite";
 import type { AskPage } from "../../ai/ask/prompt.ts";
@@ -46,7 +46,7 @@ export function newsPage(db: DatabaseSync, ref: string): AskPage | null {
     tools: [
       "WHAT YOU CAN DO HERE",
       "- The brief was written that morning: for what happened since, or what a source says in full, look before you",
-      "  answer. Open a source's link above with page, or search the web with web; say what you found and where.",
+      "  answer. Open a source's link above with page, or search the web with web; cite what you found by its number.",
     ].join("\n"),
   };
 }

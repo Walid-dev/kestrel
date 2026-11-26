@@ -47,9 +47,10 @@ export function lessonAskPage(
   };
 }
 
-// the shared tools a lesson or a quiz question allows. My prepared answers (Interview prep), my own packs (the
-// Personal group) and an interview quiz carry my own words, so they get read alone: nothing of them can go into a web
-// search or a fetched address. Every other lesson teaches the field and may look on the web.
+// the shared tools a lesson or a quiz question lists (domain/ask/tools.ts). My prepared answers (Interview prep), my
+// own packs (the Personal group) and an interview quiz carry my own words, so they list read alone: each search there
+// waits for my tap with its exact words, and the page reader opens only what one of my approved searches returned.
+// Every other lesson teaches the field and lists the web: its searches run as the model writes them.
 const WEB: ToolName[] = ["read", "web", "page"];
 export const isMine = (db: DatabaseSync, lessonId: string): boolean => {
   const p = db

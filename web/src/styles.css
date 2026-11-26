@@ -3816,8 +3816,37 @@ pre.code .f {
   color: color-mix(in srgb, var(--accent) 75%, var(--text));
   text-decoration: underline;
 }
-.ask-card.undone {
+.ask-card.undone,
+.ask-card.skipped {
   box-shadow: inset 2px 0 0 var(--line);
+}
+/* a web search as a card: its exact words, on the UI's voice, so a search made reads as a quiet record under its
+   answer. One that waits for my tap has Skip and Search beside it (control buttons), on their own row where the box is
+   narrow (a phone, Notes' side column) */
+.ask-search {
+  flex-wrap: wrap;
+  padding-block: 8px;
+  font-size: var(--text-detail);
+  line-height: var(--text-detail--line-height);
+}
+.ask-card-acts {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  margin-left: auto;
+}
+@container (max-width: 30rem) {
+  .ask-card-acts {
+    flex-basis: 100%;
+    justify-content: flex-end;
+  }
+}
+/* the answer's call left the oldest questions out to fit what the model reads at once: one quiet line over it */
+.ask-left-out {
+  margin: 0;
+  font-size: var(--text-small);
+  line-height: var(--text-small--line-height);
+  color: var(--muted);
 }
 /* on a phone, the head that opens Ask takes a thumb's height, without making the row taller (Start over is a
    btn-icon, with its own touch area) */
@@ -5014,6 +5043,11 @@ body:has(.paper-view) {
   color: color-mix(in srgb, var(--accent) 75%, var(--text));
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+/* a page an Ask answer cites, on its sunk tiles: the accent mixed with the body ink instead of the muted grey, which
+   read 4.15:1 there in light (the hover above stays) */
+.ask-answer .cite:not(:hover) {
+  color: color-mix(in srgb, var(--accent) 60%, var(--text));
 }
 /* Writing: the open try's row in the list of tries takes the accent edge a card that matters has */
 .list-row:has(.writing-open) {

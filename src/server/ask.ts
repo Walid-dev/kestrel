@@ -1,12 +1,22 @@
-// The Ask routes, the same for every app: a page's conversation (read it, ask, start over), my tap on a change the
-// model proposed, and Undo on one it made. The answer streams into its row; the page reads the conversation again
-// while one is writing. A Refused answers 400 with its reason.
+// The Ask routes, the same for every app: a page's conversation (read it, ask, start over), my tap on a search that
+// waits for it (Search or Skip, on a page of my own), my tap on a change the model proposed, and Undo on one it made.
+// The answer streams into its row; the page reads the conversation again while one is writing. A Refused answers 400
+// with its reason.
 import type { DatabaseSync } from "node:sqlite";
 import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
 import { z } from "zod";
 import { listApplications } from "../domain/apply/apply.ts";
-import { ASK_APPS, actOn, askPage, clearConversation, conversation, sweepAsks, undoOn } from "../domain/ask/ask.ts";
+import {
+  ASK_APPS,
+  actOn,
+  askPage,
+  clearConversation,
+  conversation,
+  searchOn,
+  sweepAsks,
+  undoOn,
+} from "../domain/ask/ask.ts";
 import { Refused } from "../domain/notes/documents.ts";
 import type { Settings } from "../platform/config.ts";
 import { bus } from "./events.ts";
@@ -29,8 +39,17 @@ export function mountAsk(app: Hono, db: DatabaseSync, settings: Settings) {
       return refusing(c, e);
     }
   });
+  // an answer's cards: up to five changes after its searches (three a round, two rounds)
+  const card = z.object({ id: z.string().min(1).max(80), card: z.number().int().min(0).max(19) });
+  // my tap on a search that waits for it: go runs its exact words, else the answer goes on without the web
+  app.post("/api/ask/search", zValidator("json", card.extend({ go: z.boolean() })), (c) => {
+    try {
+      return c.json({ messages: searchOn(db, settings, c.req.valid("json")).messages });
+    } catch (e) {
+      return refusing(c, e);
+    }
+  });
   // my tap on a card: the change runs; an application it queued rings the bus, so the live strip hears it
-  const card = z.object({ id: z.string().min(1).max(80), card: z.number().int().min(0).max(9) });
   app.post("/api/ask/act", zValidator("json", card), (c) => {
     try {
       const messages = actOn(db, settings, c.req.valid("json"));
