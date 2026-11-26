@@ -28,6 +28,7 @@ import {
 } from "../domain/shopping/store.ts";
 import {
   deletedProductView,
+  judgeOf,
   productViewOf,
   rerank,
   shoppingHome,
@@ -65,8 +66,14 @@ export type ShoppingHooks = {
 
 export function mountShopping(app: Hono, db: DatabaseSync, settings: Settings, hooks: ShoppingHooks = {}) {
   // the region's currency and store names, read once: a region file that doesn't read stops kestrel with its reason
-  const place = placeOf(loadRegion(settings));
-  const opts = (): ViewOpts => ({ read: shoppingOf(settings).read, place, ...hooks.view?.() });
+  const region = loadRegion(settings);
+  const place = placeOf(region);
+  const opts = (): ViewOpts => ({
+    read: shoppingOf(settings).read,
+    place,
+    judge: judgeOf(db, region),
+    ...hooks.view?.(),
+  });
   const kick = () => hooks.started?.();
 
   app.get("/api/shopping", (c) => c.json(shoppingHome(db, opts())));

@@ -5,6 +5,12 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · The deal's "good" needs a price that moves; a store with no page found keeps its link.**
+  `src/domain/shopping/verdict.ts`: at or under the 90-day low is good only when that low sits under the 90-day median;
+  a flat price at its own low every day reads typical, since the plan's order would have called it good. The bounds
+  (1%, 10%) are compared in whole numbers (1.1 × 56000 is a hair over 61600 in floating point). `offers.ts`: a readable
+  store whose search found no page for the product keeps its search link as a `link` row, so the page still lists
+  every store; with `shopping.read` off every store is a link and nothing is searched.
 - **2026-11-25 · Shopping's Understand and Compare: what code adds to the plan's rules.**
   `src/domain/shopping/understand.ts`, `compare.ts`, `compose.ts`, `rank.ts`, `scrub.ts`, `categories.ts`, the six
   starter categories, `sources.json`, `regions/ca.json`; the stand-in eval (`evals/shopping/run.ts`) joins the check.

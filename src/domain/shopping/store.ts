@@ -95,6 +95,7 @@ export type OfferRow = {
 export type Reading = {
   offer: string;
   store: string;
+  condition: Condition;
   at: string;
   price: number;
   regular: number | null;
@@ -498,13 +499,14 @@ export function readingsOf(db: DatabaseSync, product: string): Reading[] {
   return (
     db
       .prepare(
-        `SELECT r.offer, o.store, r.at, r.price, r.regular, r.stock, r.method FROM price_readings r
+        `SELECT r.offer, o.store, o.condition, r.at, r.price, r.regular, r.stock, r.method FROM price_readings r
          JOIN offers o ON o.id = r.offer WHERE o.product = ? ORDER BY r.at`,
       )
       .all(product) as Record<string, unknown>[]
   ).map((r) => ({
     offer: String(r.offer),
     store: String(r.store),
+    condition: r.condition as Condition,
     at: String(r.at),
     price: Number(r.price),
     regular: num(r.regular),

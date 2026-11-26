@@ -16,6 +16,7 @@ import {
   type WatchedView,
 } from "../../shared/shopping.ts";
 import { rank } from "./rank.ts";
+import { placeOf, type Region } from "./region.ts";
 import { budgetIn } from "./scrub.ts";
 import {
   deletedOf,
@@ -31,6 +32,7 @@ import {
   setRank,
   type WantRow,
 } from "./store.ts";
+import { historyLinks, storesFor, verdict } from "./verdict.ts";
 
 // a product a run no longer found: kept with my marks and its history, out of the ranking
 export const DROPPED = "no longer in any source";
@@ -114,6 +116,27 @@ export function priceOf(p: ProductRow, offers: OfferRow[], place: Place = NO_PLA
 // the verdict on a product's best price; the deal judge fills it in (verdict.ts)
 export type Judge = (p: ProductRow, offers: OfferRow[], best: OfferRow | null) => Verdict | null;
 const NO_JUDGE: Judge = () => null;
+
+// the deal judge on this database and region: each product's readings, its want's kind of stores, my target
+export function judgeOf(db: DatabaseSync, region: Region, now = new Date()): Judge {
+  const place = placeOf(region);
+  const groups = new Map<string, string[]>();
+  return (p, _offers, best) => {
+    if (!best || best.price === null) return null;
+    if (!groups.has(p.want)) groups.set(p.want, getWant(db, p.want)?.need?.storeGroups ?? []);
+    const g = groups.get(p.want) ?? [];
+    return verdict({
+      readings: readingsOf(db, p.id),
+      best: { offer: best.id, store: best.store, price: best.price, regular: best.regular },
+      target: p.target,
+      stores: storesFor(region, g),
+      links: historyLinks(region, g, p.name),
+      storeName: place.storeName,
+      currency: region.currency,
+      now,
+    });
+  };
+}
 
 export function productView(
   db: DatabaseSync,
