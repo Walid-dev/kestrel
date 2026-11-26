@@ -1,11 +1,10 @@
-// The news feeds, read from this computer: one source's RSS, Atom or JSON, fetched over the public web only (publicUrl
-// checks the address and every redirect, here and on each hop of the GET), with a time limit, a size cap and an honest
-// user agent (a site that turns imitated browsers away answers a plain reader). Then a tolerant reader written here,
+// The news feeds, read from this computer: one source's RSS, Atom or JSON, fetched through the shared public fetch
+// (fetchPublic, ai/web.ts: the address and every redirect checked, a time limit, a size cap, an honest user agent).
+// Then a tolerant reader written here,
 // since Node has no XML parser: CDATA, entities, Atom's links, odd dates, a body cut short at the cap, gzip bytes sent
 // without their header. No database and no domain here (scripts/boundaries.ts): the domain keeps what comes back.
-import { constants, gunzipSync } from "node:zlib";
 import { WINDOW_HOURS } from "../../shared/news.ts";
-import { publicUrl, type Reach } from "../web.ts";
+import { asText, decode, fetchPublic, type PublicNet, READER_AGENT } from "../web.ts";
 
 // where a JSON feed keeps its fields: a path ("title", "paper.title"), alternatives ("paper.title|title"), or a
 // template with paths in braces ("https://huggingface.co/papers/{paper.id}")
@@ -42,15 +41,12 @@ export type FeedRead =
   | { ok: true; items: FeedItem[]; etag: string | null; lastModified: string | null; unchanged: boolean }
   | { ok: false; why: string };
 
-// how a read reaches the network; tests pass made-up ones (a Reach stand-in, a fetch that answers from fixtures)
-// timeoutMs: the whole read's limit, the address check and its name lookup included (15 s; tests pass a short one)
-export type FeedNet = { reach?: Reach; fetch?: typeof fetch; timeoutMs?: number };
+// how a read reaches the network (the shared fetch's); tests pass made-up ones
+export type FeedNet = PublicNet;
 
-const AGENT = "personal-feed-reader/1.0";
 const ACCEPT =
   "application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.9, application/json;q=0.8, */*;q=0.5";
 export const MAX_BYTES = 3_000_000; // the biggest feed seen was 0.87 MB, with 1,425 items back to 2015
-const TIMEOUT_MS = 15_000;
 const KEEP = 60; // the newest items kept from one read
 const SUMMARY = 500;
 const TITLE = 200;
@@ -68,146 +64,33 @@ export async function readFeed(
   now: Date,
   net: FeedNet = {},
 ): Promise<FeedRead> {
-  const get = net.fetch ?? fetch;
   // a templated address changes every day: a validator kept from another day's address must not answer for it
   const conditional = !spec.url.includes("{");
-  let url = expandUrl(spec.url, now);
-  let res: Response | null = null;
-  // one limit for the whole read: a name lookup that hangs, a server that never ends its body
-  const deadline = AbortSignal.timeout(net.timeoutMs ?? TIMEOUT_MS);
-  try {
-    for (let hop = 0; hop < 3; hop++) {
-      const checked = await inTime(publicUrl(url, net.reach), deadline);
-      res = await get(checked, {
-        redirect: "manual",
-        signal: deadline,
-        headers: {
-          "user-agent": AGENT,
-          accept: ACCEPT,
-          ...(conditional && prev.etag ? { "if-none-match": prev.etag } : {}),
-          ...(conditional && prev.lastModified ? { "if-modified-since": prev.lastModified } : {}),
-        },
-      });
-      const moved = res.headers.get("location");
-      if (res.status < 300 || res.status >= 400 || res.status === 304 || !moved) break;
-      // a site that moves a GET but not a HEAD: the new address is checked like the first, before it is asked
-      await res.body?.cancel().catch(() => {});
-      url = new URL(moved, checked).href;
-      res = null;
-    }
-    if (!res) return { ok: false, why: "moved too many times" };
-    if (res.status === 304)
-      return { ok: true, items: [], etag: prev.etag, lastModified: prev.lastModified, unchanged: true };
-    if (!res.ok) {
-      await res.body?.cancel().catch(() => {});
-      return { ok: false, why: `answered ${res.status}` };
-    }
-    let bytes = await readCapped(res, MAX_BYTES);
-    // gzip bytes, though no header said so: some servers send them to a reader that didn't ask
-    if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
-      try {
-        bytes = gunzipSync(bytes, { finishFlush: constants.Z_SYNC_FLUSH, maxOutputLength: MAX_BYTES * 3 });
-      } catch {
-        return { ok: false, why: "not a feed (its gzip can't be read)" };
-      }
-    }
-    const text = new TextDecoder().decode(bytes).replace(/^﻿/, "");
-    const items = spec.kind === "json" ? readJson(text, spec, now) : readXml(text, spec, now);
-    if (!items) return { ok: false, why: spec.kind === "json" ? "not JSON" : "not a feed" };
-    return {
-      ok: true,
-      items,
-      etag: res.headers.get("etag"),
-      lastModified: res.headers.get("last-modified"),
-      unchanged: false,
-    };
-  } catch (e) {
-    return { ok: false, why: reason(e) };
-  }
-}
-
-// a promise that gives up when the deadline passes (the lookup inside publicUrl has no limit of its own)
-function inTime<T>(p: Promise<T>, deadline: AbortSignal): Promise<T> {
-  if (deadline.aborted) return Promise.reject(deadline.reason);
-  return new Promise<T>((ok, no) => {
-    const stop = () => no(deadline.reason);
-    deadline.addEventListener("abort", stop, { once: true });
-    p.then(ok, no).finally(() => deadline.removeEventListener("abort", stop));
+  const got = await fetchPublic(expandUrl(spec.url, now), {
+    accept: ACCEPT,
+    agent: READER_AGENT,
+    maxBytes: MAX_BYTES,
+    net,
+    headers: {
+      ...(conditional && prev.etag ? { "if-none-match": prev.etag } : {}),
+      ...(conditional && prev.lastModified ? { "if-modified-since": prev.lastModified } : {}),
+    },
   });
-}
-
-// a failure in a few plain words for the sources table: never a stack, never a path
-function reason(e: unknown): string {
-  const err = e as Error & { cause?: { code?: string } };
-  if (err?.name === "TimeoutError" || err?.name === "AbortError") return "timed out";
-  const msg = String(err?.message ?? e);
-  if (/isn't on the public web/.test(msg)) return "not on the public web";
-  if (/doesn't resolve/.test(msg)) return "its name doesn't resolve";
-  if (/can't be read/.test(msg)) return "its address can't be read";
-  const code = err?.cause?.code;
-  return code ? `the connection failed (${code})` : "the connection failed";
-}
-
-// the body up to the cap: a bigger one is cut there, and the reader keeps what came (it works on a cut body)
-async function readCapped(res: Response, max: number): Promise<Buffer> {
-  if (!res.body) return Buffer.alloc(0);
-  const reader = res.body.getReader();
-  const parts: Uint8Array[] = [];
-  let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    parts.push(value);
-    size += value.length;
-    if (size >= max) {
-      await reader.cancel().catch(() => {});
-      break;
-    }
-  }
-  return Buffer.concat(parts).subarray(0, max);
+  if (!got.ok)
+    return { ok: false, why: got.why === "its gzip can't be read" ? "not a feed (its gzip can't be read)" : got.why };
+  if (got.unchanged) return { ok: true, items: [], etag: prev.etag, lastModified: prev.lastModified, unchanged: true };
+  const items = spec.kind === "json" ? readJson(got.text, spec, now) : readXml(got.text, spec, now);
+  if (!items) return { ok: false, why: spec.kind === "json" ? "not JSON" : "not a feed" };
+  return {
+    ok: true,
+    items,
+    etag: got.headers.get("etag"),
+    lastModified: got.headers.get("last-modified"),
+    unchanged: false,
+  };
 }
 
 // ── Reading ─────────────────────────────────────────────────────────────────────────────────────────────────────
-
-const NAMED: Record<string, string> = {
-  amp: "&",
-  lt: "<",
-  gt: ">",
-  quot: '"',
-  apos: "'",
-  nbsp: " ",
-  hellip: "…",
-  mdash: "—",
-  ndash: "–",
-  lsquo: "‘",
-  rsquo: "’",
-  ldquo: "“",
-  rdquo: "”",
-  laquo: "«",
-  raquo: "»",
-  middot: "·",
-  bull: "•",
-  copy: "©",
-  reg: "®",
-  trade: "™",
-  euro: "€",
-  pound: "£",
-  eacute: "é",
-  egrave: "è",
-  agrave: "à",
-  ccedil: "ç",
-  uuml: "ü",
-  ouml: "ö",
-  auml: "ä",
-};
-
-export function decode(s: string): string {
-  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);/gi, (whole, e: string) => {
-    if (e[0] !== "#") return NAMED[e.toLowerCase()] ?? whole;
-    const code = e[1] === "x" || e[1] === "X" ? Number.parseInt(e.slice(2), 16) : Number.parseInt(e.slice(1), 10);
-    return code > 0 && code < 0x110000 ? String.fromCodePoint(code) : "";
-  });
-}
 
 // an element's content as HTML: CDATA as written, anything else with its entities decoded once
 function asHtml(raw: string): string {
@@ -218,18 +101,6 @@ function asHtml(raw: string): string {
     at = m.index + m[0].length;
   }
   return out + decode(raw.slice(at));
-}
-
-// HTML as one line of plain text: comments, scripts and tags gone, entities decoded, spaces collapsed
-export function asText(html: string): string {
-  return decode(
-    html
-      .replace(/<!--[\s\S]*?(?:-->|$)/g, " ")
-      .replace(/<(script|style)\b[\s\S]*?(?:<\/\1\s*>|$)/gi, " ")
-      .replace(/<[^>]*>?/g, " "),
-  )
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

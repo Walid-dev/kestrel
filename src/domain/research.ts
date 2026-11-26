@@ -8,23 +8,16 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFile
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { callModel, failureWords } from "../ai/client.ts";
-import {
-  askPrompt,
-  type Level,
-  planPrompt,
-  RESEARCH_VERSION,
-  type Read,
-  reportPrompt,
-  SYSTEM,
-} from "../ai/research/prompt.ts";
+import { askPrompt, type Level, planPrompt, RESEARCH_VERSION, reportPrompt, SYSTEM } from "../ai/research/prompt.ts";
 import { Plan, Questions, ResearchReport } from "../ai/research/shape.ts";
-import { fetchPage, type Hit, searchWeb } from "../ai/web.ts";
+import { fetchPage, searchWeb } from "../ai/web.ts";
 import { begin } from "../platform/activity.ts";
 import type { Settings } from "../platform/config.ts";
 import { aboutFile, dataDir } from "../platform/paths.ts";
 import { recordCall } from "./calls.ts";
 import { modelFor } from "./models.ts";
 import { Refused } from "./notes/documents.ts";
+import { gatherPages } from "./web-pages.ts";
 
 export const LEVELS: Record<Level, { pages: number; chars: number; perSearch: number; maxTokens: number }> = {
   // the room for thinking and the answer together: a model that runs out while thinking answers nothing
@@ -104,13 +97,8 @@ export async function askFirst(db: DatabaseSync, settings: Settings, question: s
     .slice(0, 3);
 }
 
-// the hits of every search, each link once, in the order found
-export function mergeHits(lists: Hit[][], perSearch: number): Hit[] {
-  const out: Hit[] = [];
-  for (const list of lists)
-    for (const h of list.slice(0, perSearch)) if (!out.some((x) => x.url === h.url)) out.push(h);
-  return out;
-}
+// the hits of every search, each link once, in the order found (the shared gathering's, web-pages.ts)
+export { mergeHits } from "./web-pages.ts";
 
 // my answers to its questions, as the prompts read them
 export const answersText = (answers: { q: string; a: string }[] = []) =>
@@ -166,21 +154,17 @@ export function startResearch(
         recordCall(db, `research-plan:v${RESEARCH_VERSION}`, got);
         if (got.ok) queries = [question, ...got.value.queries.slice(0, 4)];
       }
-      step(queries.length > 1 ? `Searching the web: ${queries.length} searches` : "Searching the web");
-      const lists: Hit[][] = [];
-      for (const q of queries) lists.push(await searchWeb(settings.models, q));
-      const hits = mergeHits(lists, plan.perSearch);
+      // a few more pages than needed are opened at once; the first that read well, in the order found, are kept
+      const { hits, pages } = await gatherPages(queries, {
+        search: (q) => searchWeb(settings.models, q),
+        read: (h) => fetchPage(settings.models, h.url, plan.chars),
+        pages: plan.pages,
+        perSearch: plan.perSearch,
+        onSearch: (n) => step(n > 1 ? `Searching the web: ${n} searches` : "Searching the web"),
+        onRead: (n) => step(`Reading ${n} pages`),
+      });
       if (!hits.length)
         return finish("failed", null, "the web search found nothing: is the model door's web search up?");
-      // a few more pages than needed are opened at once; the first that read well, in the order found, are kept
-      step(`Reading ${plan.pages} pages`);
-      const tries = hits.slice(0, plan.pages + 3);
-      const opened = await Promise.allSettled(tries.map((h) => fetchPage(settings.models, h.url, plan.chars)));
-      const pages: Read[] = [];
-      opened.forEach((o, i) => {
-        if (o.status === "fulfilled" && o.value.length > 300 && pages.length < plan.pages)
-          pages.push({ n: i + 1, title: tries[i].title, url: tries[i].url, text: o.value });
-      });
       step("Writing the answer");
       const got = await callModel(
         effective,

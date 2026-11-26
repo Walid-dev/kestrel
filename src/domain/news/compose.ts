@@ -9,6 +9,7 @@ import { hostOf } from "../../ai/news/feeds.ts";
 import { type PromptItem, type PromptStory, pickPrompt, SYSTEM, writePrompt } from "../../ai/news/prompt.ts";
 import { BriefAnswer, PickAnswer } from "../../ai/news/shape.ts";
 import type { NewsBrief, NewsLink, NewsStory, Section } from "../../shared/news.ts";
+import { grounded, numbersIn } from "../grounding.ts";
 import { pool } from "./gather.ts";
 import { paywalled, type Source } from "./sources.ts";
 
@@ -125,36 +126,6 @@ const cutAt = (s: string, n: number) => {
   const cut = s.slice(0, n - 1);
   return `${cut.slice(0, Math.max(cut.lastIndexOf(" "), n / 2)).trimEnd()}…`;
 };
-
-// the numbers that carry a claim: one with a decimal, a currency, a percent or a size, or of two digits or more (a
-// lone digit is too common to check). Thousands' commas go, so 1,886 and 1886 are one number. Each keeps its unit
-// (%, thousand, million, billion, trillion) and its currency: $40bn is not $40tn, nor 40%
-const NUMBER =
-  /([$€£¥]\s?)?(\d+(?:[.,]\d+)*)(\s?(?:%|per\s?cent\b|percent\b|bn\b|billion\b|tn\b|trillion\b|mn?\b|million\b|k\b|thousand\b))?/gi;
-export type Num = { n: string; unit: string; cur: string };
-const UNIT: [RegExp, string][] = [
-  [/^(%|per\s?cent)$/, "%"],
-  [/^(k|thousand)$/, "k"],
-  [/^(mn?|million)$/, "m"],
-  [/^(bn|billion)$/, "bn"],
-  [/^(tn|trillion)$/, "tn"],
-];
-export function numbersIn(text: string, all = false): Num[] {
-  const out: Num[] = [];
-  for (const m of text.matchAll(NUMBER)) {
-    const n = m[2].replace(/,(?=\d{3}(?!\d))/g, "");
-    const word = (m[3] ?? "").trim().toLowerCase();
-    const unit = UNIT.find(([re]) => re.test(word))?.[1] ?? "";
-    if (all || m[1] || unit || /[.,]/.test(n) || n.replace(/^0+/, "").length >= 2)
-      out.push({ n, unit, cur: (m[1] ?? "").trim() });
-  }
-  return out;
-}
-// a number is grounded when its sources hold the same value with the same unit (a bare one, any unit), and the same
-// currency when both name one
-const holds = (source: Num[], x: Num) =>
-  source.some((s) => s.n === x.n && (!x.unit || s.unit === x.unit) && (!x.cur || !s.cur || s.cur === x.cur));
-const grounded = (text: string, source: Num[], all = false) => numbersIn(text, all).every((x) => holds(source, x));
 
 const linkOf = (i: WindowItem): NewsLink => {
   const host = hostOf(i.url);
