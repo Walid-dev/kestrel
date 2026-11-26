@@ -121,7 +121,9 @@ export const Settings = z.object({
   alerts: z
     .object({
       url: z.string().url().default("https://ntfy.sh"),
-      topics: z.object({ deals: z.string().optional(), jobs: z.string().optional() }).default({}),
+      topics: z
+        .object({ deals: z.string().optional(), jobs: z.string().optional(), shopping: z.string().optional() })
+        .default({}),
       page: z.string().default(""),
     })
     .optional(),

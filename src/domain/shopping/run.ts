@@ -19,6 +19,7 @@ import { SHOPPING_VERSION } from "../../ai/shopping/prompt.ts";
 import type { TextPrice } from "../../ai/shopping/shape.ts";
 import { fetchPage, fetchPublic, type Hit, pageText, searchWeb } from "../../ai/web.ts";
 import { begin } from "../../platform/activity.ts";
+import { type Alert, sendAlert } from "../../platform/alert.ts";
 import { type Settings, shoppingOf } from "../../platform/config.ts";
 import { plainWords } from "../../platform/plain.ts";
 import { formatMoney } from "../../shared/kinds.ts";
@@ -48,6 +49,7 @@ import {
 } from "./store.ts";
 import { understand } from "./understand.ts";
 import { DROPPED, priceOf, rerank } from "./view.ts";
+import { checkWatches, isDue, watched } from "./watch.ts";
 
 export const SEARCHES = 24; // a run's searches, every step together
 const GAP_MS = 2000; // the search tool drops requests sent faster
@@ -458,3 +460,45 @@ async function offersFor(
     step,
   });
 }
+
+// ── The scheduler's hook ─────────────────────────────────────────────────────────────────────────────────────────
+
+let checking = false; // one round of price checks at a time
+
+// the tick's Shopping hook: it returns at once. It starts a want a restart left queued (unless an application has the
+// model) and the due price checks, in the background, and says what it started
+export function shoppingTick(
+  db: DatabaseSync,
+  settings: Settings,
+  now: Date,
+  applying: boolean,
+  deps: RunDeps & { ping?: (a: Alert) => Promise<{ sent: boolean; why: string }> } = {},
+): string | null {
+  const did: string[] = [];
+  if (!applying && startNext(db, settings, deps)) did.push("run");
+  const due = watched(db).some((p) => p.watch && (isDue(p.watch, now) || Date.parse(p.watch.until) <= now.getTime()));
+  if (due && !checking) {
+    checking = true;
+    const region = deps.region ?? loadRegion(settings);
+    const web = deps.web ?? networkWeb(settings, region);
+    void checkWatches(db, {
+      region,
+      readPage: (url, wanted, store) => web.store(url, wanted, store, async () => null),
+      ping: deps.ping ?? ((a) => sendAlert(settings, a)),
+      page: settings.alerts?.page ?? "",
+      now: () => deps.now?.() ?? new Date(),
+    })
+      .catch((e) =>
+        console.error(`Shopping's price checks failed: ${plainWords(e instanceof Error ? e.message : String(e))}`),
+      )
+      .finally(() => {
+        checking = false;
+      });
+    did.push("watch");
+  }
+  return did.length ? did.join("+") : null;
+}
+// the checks in flight, for the tests
+export const checked = async (): Promise<void> => {
+  while (checking) await new Promise((r) => setTimeout(r, 5));
+};

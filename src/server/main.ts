@@ -9,7 +9,7 @@ import { openDb } from "../db/db.ts";
 import { migrate } from "../db/migrate.ts";
 import { newsTick } from "../domain/news/brief.ts";
 import { sweepDeepChecks } from "../domain/search/deep.ts";
-import { startNext } from "../domain/shopping/run.ts";
+import { shoppingTick, startNext } from "../domain/shopping/run.ts";
 import { loadSettings } from "../platform/config.ts";
 import { dataDir, isDeployed } from "../platform/paths.ts";
 import { alertRun } from "./alerts.ts";
@@ -119,6 +119,7 @@ startScheduler(db, {
   mirrorFile: join(dataDir(), "mirror-v1.json"),
   afterRun: (spec, run) => alertRun(db, settings, spec, run),
   news: (now, applying) => newsTick(db, settings, now, {}, applying),
+  shopping: (now, applying) => shoppingTick(db, settings, now, applying),
 });
 
 // every request through the identity check: enforced when deployed, open on made-up data (identity.ts says why).

@@ -5,6 +5,13 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Shopping's watch: pings in the want's log, the deals channel as fallback.**
+  `src/domain/shopping/watch.ts` re-reads only the offers read from a page's data, and a blocked store after a day's
+  rest; a price from a page's words and a link store are never re-read, so a check never needs the model. A ping is a
+  line in the want's log (with why when it wasn't sent), which the page's rail reads; no table of its own. Shopping's
+  pings use `alerts.topics.shopping`, else the deals topic (`platform/alert.ts`). The scheduler's Shopping hook
+  (`shoppingTick`, `run.ts`) sits beside News' before the searches in its own try: it starts a want a restart left
+  queued (held while an application has the model) and the due checks (never held), both in the background.
 - **2026-11-25 · Shopping's run: one at a time, Understand once, the scrub in Ask's loop.**
   `src/domain/shopping/run.ts` runs one want at a time in this process and starts the next queued one itself; a run
   waits while an application holds the model. Understand runs once per want: Run again keeps the need card, so my

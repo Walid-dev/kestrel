@@ -171,7 +171,7 @@ Each gets its own step-by-step plan, reviewed, before it starts.
   for three days, then takes over; the bridges (the mirror, Search now and Live through the old server, the old
   collectors) go after two quiet weeks. The plan: [docs/tasks/v1.0-searches-own.md](tasks/v1.0-searches-own.md).
 
-### v1.2 · Shopping (GO 2026-11-25)
+### v1.2 · Shopping (GO 2026-11-25; the engine built, the pages next)
 
 - A list of my wants, each in plain words. Each runs on its own: it understands the kind of product (up to three
   quick questions, never waiting for them), compares the products worth considering on the criteria that matter for

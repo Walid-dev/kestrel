@@ -15,8 +15,19 @@ import { migrate } from "../../db/migrate.ts";
 import { finished } from "../../platform/activity.ts";
 import type { Settings } from "../../platform/config.ts";
 import type { Region } from "./region.ts";
-import { idle, type RunDeps, startNext } from "./run.ts";
-import { addWant, claimNext, getWant, offersOf, productsOf, queueJob, setProductMarks, sweepWants } from "./store.ts";
+import { checked, idle, type RunDeps, shoppingTick, startNext } from "./run.ts";
+import {
+  addWant,
+  claimNext,
+  getProduct,
+  getWant,
+  offersOf,
+  productsOf,
+  queueJob,
+  setProductMarks,
+  setWatch,
+  sweepWants,
+} from "./store.ts";
 
 // a made-up paragraph: a gathered page must read past 300 characters to count
 const FILLER =
@@ -314,4 +325,40 @@ test("one mode finds the named product's offers before any review; a reader out 
   assert.ok(w?.result?.notes.includes("the reader ran out of room on bench.example"), JSON.stringify(w?.result?.notes));
   const named = productsOf(db, id).find((p) => p.name === "Brisk R7");
   assert.ok(named && offersOf(db, named.id).some((o) => o.read === "ok"));
+});
+
+test("the tick's hook starts a queued want and the due price checks; an application at work holds the run", async (t) => {
+  const { db, deps, settings } = await setup(t);
+  const first = addWant(db, { words: "a robot vacuum" });
+  startNext(db, settings, deps);
+  await idle();
+  const [p] = productsOf(db, first);
+  setWatch(db, p.id, {
+    until: "2026-12-31T00:00:00Z",
+    everyHours: 24,
+    stock: true,
+    began: "2026-11-25T00:00:00Z",
+    last: null,
+    low: null,
+    pinged: null,
+    wasOut: false,
+  });
+  // an application holds the model: the run waits, the price check doesn't
+  db.prepare(
+    "INSERT INTO applications (id, link, title, org, state, started, updated) VALUES ('a1', 'https://jobs.example/1', 'Made-up role', 'Made-up', 'applying', ?, ?)",
+  ).run(new Date().toISOString(), new Date().toISOString());
+  const second = addWant(db, { words: "a quiet robot vacuum" });
+  const pings: string[] = [];
+  const ping = async (a: { title: string }) => {
+    pings.push(a.title);
+    return { sent: true, why: "" };
+  };
+  assert.equal(shoppingTick(db, settings, new Date(), true, { ...deps, ping }), "watch");
+  await checked();
+  assert.equal(getWant(db, second)?.state, "queued");
+  assert.ok(getProduct(db, p.id)?.watch?.last);
+  db.prepare("DELETE FROM applications").run();
+  assert.equal(shoppingTick(db, settings, new Date(), false, { ...deps, ping }), "run");
+  await idle();
+  assert.equal(getWant(db, second)?.state, "done");
 });

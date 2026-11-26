@@ -142,3 +142,29 @@ test("the mirror brings the old setup's finds once its runs settle, one mirror a
   assert.deepEqual(await mirrored("2026-11-22T10:43:00Z", "2026-11-22T10:47:00Z"), ["10:45"]);
   old.close();
 });
+
+test("Shopping's hook runs beside the news; one that throws is one log line and never stops the tick", async (t) => {
+  const { base, db } = setup();
+  const backups = join(base, "backups");
+  const logged: string[] = [];
+  t.mock.method(console, "error", (line: string) => logged.push(line));
+  const did = await tick(
+    db,
+    {
+      specsDir: join(base, "searches"),
+      backupsDir: backups,
+      shopping: () => {
+        throw new Error("made-up failure in /a/made-up/path");
+      },
+    },
+    new Date("2026-11-23T21:00:00Z"),
+  );
+  assert.deepEqual(did, ["backup"]); // the rest of the tick went on
+  assert.deepEqual(logged, ["Shopping's tick couldn't start: made-up failure in (a path)"]);
+  const started = await tick(
+    db,
+    { specsDir: join(base, "searches"), backupsDir: backups, shopping: () => "watch" },
+    new Date("2026-11-24T21:00:00Z"),
+  );
+  assert.equal(started[0], "shopping:watch");
+});
