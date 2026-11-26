@@ -8,7 +8,7 @@
 // compared list on the shared list (cards on a phone, a table from 64rem), also considered, what was assumed and what
 // would change the pick, and the foot: how it ranks, my mark on the want, its deleted products, Delete. A deleted
 // want says so and offers Restore. A product opens its sheet (?product=, the link a ping opens).
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { formatMoney, type Row as KindRow } from "../../../src/shared/kinds.ts";
 import {
@@ -496,17 +496,13 @@ function WorthKnowing({
 }
 
 // my budget and note, in a box: a new budget re-ranks at once (a product over it is set aside)
+// closing the box (Esc, Back, a tap outside, the ✕) keeps what I typed for the next time it opens; Discard puts back
+// what is saved
 function BudgetBox({ v, open, onClose }: { v: WantView; open: boolean; onClose: () => void }) {
-  const [budget, setBudget] = useState(v.budget === null ? "" : String(v.budget));
-  const [note, setNote] = useState(v.note);
+  const saved = { budget: v.budget === null ? "" : String(v.budget), note: v.note };
+  const [budget, setBudget] = useState(saved.budget);
+  const [note, setNote] = useState(saved.note);
   const save = useChange(doors.markWant, () => onClose());
-  // the box opens on what is saved now
-  useEffect(() => {
-    if (open) {
-      setBudget(v.budget === null ? "" : String(v.budget));
-      setNote(v.note);
-    }
-  }, [open, v.budget, v.note]);
   return (
     <Dialog
       open={open}
@@ -515,8 +511,16 @@ function BudgetBox({ v, open, onClose }: { v: WantView; open: boolean; onClose: 
       busy={save.isPending}
       actions={
         <>
-          <button type="button" className="btn btn-quiet" onClick={onClose}>
-            Cancel
+          <button
+            type="button"
+            className="btn btn-quiet"
+            onClick={() => {
+              setBudget(saved.budget);
+              setNote(saved.note);
+              onClose();
+            }}
+          >
+            Discard
           </button>
           <button
             type="button"

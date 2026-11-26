@@ -185,7 +185,7 @@ export function Shopping() {
                 <input
                   className="input font-mono"
                   inputMode="numeric"
-                  placeholder="600"
+                  placeholder="none"
                   value={budget}
                   onChange={(e) => setBudget(dollars(e.target.value))}
                 />
