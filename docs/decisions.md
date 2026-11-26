@@ -5,6 +5,16 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Shopping's store-page reader: what counts as blocked, and as the same product.**
+  `src/ai/shopping/product-data.ts` reads as `personal-shopping-reader/1.0`, never a browser's name. A challenge
+  marker ("Just a moment...", "Access Denied", "press and hold", generic and no site names) blocks a page only when
+  the page holds no data price or is small: the research's readable store pages carried captcha words in their
+  scripts. A 403 or 429, or a challenge, rests the host a day. A robots.txt that can't be read allows, as the
+  standard says; one is read once per host a day and shared by the reads waiting on it. Identity: a matching GTIN is
+  enough; otherwise one of the product's codes must be on the page as a whole token (R7 never matches R70), a code
+  followed by a longer model's word (Plus, Pro, Max, Ultra, Lite, Mini, SE, XL) not in the product's name is a
+  mismatch, and so is a code the region's rules give to another region. A page that names no code is a mismatch,
+  never a guess. A price from the page's words keeps the page's own words around the number, not the model's.
 - **2026-11-25 · Shopping's store: a want keeps its need card whole; a product no longer found stays.**
   Migration 030 (`wants`, `products`, `offers`, `price_readings`, `shop_deleted`), `src/domain/shopping/store.ts` and
   `view.ts`. The need card keeps its category's criteria, questions, uses and list size, so an edited category file or

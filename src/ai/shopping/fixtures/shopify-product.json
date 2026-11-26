@@ -1,0 +1,26 @@
+{
+  "id": 5550001,
+  "title": "Brisk R7",
+  "handle": "brisk-r7",
+  "vendor": "Brisk",
+  "variants": [
+    {
+      "id": 111,
+      "title": "White",
+      "sku": "R7-W",
+      "barcode": "0001234567888",
+      "price": 42900,
+      "compare_at_price": 54900,
+      "available": false
+    },
+    {
+      "id": 222,
+      "title": "Black",
+      "sku": "R7-C",
+      "barcode": "0001234567895",
+      "price": 44900,
+      "compare_at_price": 59900,
+      "available": true
+    }
+  ]
+}
