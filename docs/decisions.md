@@ -5,6 +5,20 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Shopping planned on shared parts; its own tables until listings take kinds.**
+  The plan: `docs/tasks/v1.2-shopping.md`. A kind of listing becomes data (fields, filters, sorts, card, marks) with one
+  pure engine (`src/shared/kinds.ts`) and one list part (`web/src/ui/kind-list.tsx`); Shopping's products (a kind per
+  want, its fields the want's criteria) and offers (a fixed kind) are its first users, the homes hunt next. Shopping
+  keeps its own tables (`wants`, `products`, `offers`, `price_readings`, `shop_deleted`) because widening the CHECK
+  on `listings.kind` rebuilds the live hunts' table; after v1.0's cutover one rebuild drops it and offers and homes
+  become listings. Prices come from the store page's own data (Shopify JSON, JSON-LD, meta, microdata) read by kestrel
+  through News' public fetch, moved to `ai/web.ts` (the door's reader drops scripts); the model never writes a price,
+  and a blocked store is a link. Constraints, labels, history and verdicts are computed in code; the model reads
+  pages (each value kept only when its quote is in the page), writes reasons with refs, and checks them; numbers go
+  through News' `numbersIn`, moved to a shared module. Categories, source tiers and regions are data files. Rejected:
+  offers in `listings` now; a model-planned query list; prices from snippets, reviews or the model; waiting for my
+  answers to the questions (defaults go on, an answer re-ranks in code); a browser-like user agent; reading Amazon,
+  the paid deal forum, price-history or flyer sites (links only).
 - **2026-11-25 · My marks in kestrel stick through the mirror; the old setup's own stages still arrive.**
   A stage, a star, a note or a delete made in kestrel is kestrel's from then on: `listings.mine` (migration 029) keeps
   when each was set here, and the mirror leaves a marked field as it is. A listing never marked here follows the old
