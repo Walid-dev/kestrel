@@ -362,6 +362,12 @@ export function saveProduct(db: DatabaseSync, want: string, p: ProductInput, now
   return id;
 }
 
+// a product's maker codes, learnt from a store page's data when it had none (a want that names one product starts with
+// its name only)
+export function setModels(db: DatabaseSync, id: string, models: string[]): void {
+  db.prepare("UPDATE products SET models = ? WHERE id = ?").run(json(models), id);
+}
+
 // what the ranking gave a product: its score, place, labels, why it is only also considered, and its unknown must-haves
 export function setRank(
   db: DatabaseSync,

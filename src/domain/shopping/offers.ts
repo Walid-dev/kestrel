@@ -12,7 +12,7 @@ import type { Hit } from "../../ai/web.ts";
 import type { Need } from "../../shared/shopping.ts";
 import { hostOf, type Region, type Store } from "./region.ts";
 import { type ScrubContext, scrubQuery } from "./scrub.ts";
-import { type OfferInput, offersOf, type ProductRow, saveOffer } from "./store.ts";
+import { type OfferInput, offersOf, type ProductRow, saveOffer, setModels } from "./store.ts";
 import { storesFor } from "./verdict.ts";
 
 export type OfferDeps = {
@@ -96,7 +96,8 @@ export async function findOffers(
   const found: Found = { read: 0, links: 0, blocked: 0, unsearched: 0, mismatch: 0 };
   for (const [n, p] of products.entries()) {
     const wanted = wantedOf(p);
-    const model = wanted.codes[0] ?? p.name;
+    // the search words: the maker's code, else the whole name ("Brisk R7", never a bare "R7" that finds anything)
+    const model = p.models[0] ?? p.name;
     const stores = storesOf(deps.region, need, p.brand);
     // the product's own words are product words here: its name, brand and codes never go in the scrub
     const own = `${p.name} ${p.brand} ${p.models.join(" ")}`
@@ -127,6 +128,7 @@ export async function findOffers(
     // the readable stores: their pages found by a search each, then one search for the brand and model
     const pages = new Map<string, string>();
     let spent = false;
+    let learnt = false;
     const look = async (q: string, among: Store[]) => {
       const query = scrubQuery(q, ctx);
       if (!query) return;
@@ -165,6 +167,12 @@ export async function findOffers(
       if (r.offline && offersOf(db, p.id).some((o) => o.url === url && o.read === "ok")) {
         found.read++;
         continue;
+      }
+      // a product with no maker code takes the first read page's (its data's mpn or model): later checks match on it
+      if (r.read === "ok" && !p.models.length && !learnt && r.codes?.length) {
+        learnt = true;
+        setModels(db, p.id, r.codes);
+        wanted.codes.push(...r.codes.filter((c) => !wanted.codes.includes(c)));
       }
       keep({
         store: s.domain,

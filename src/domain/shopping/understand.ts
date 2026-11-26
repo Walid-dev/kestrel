@@ -44,15 +44,19 @@ export async function understand(
   const raw = got.value;
   // the kind: a known key, else a new one drafted and saved, else the one my words matched
   let category = cats.list.find((c) => c.key === raw.category) ?? null;
+  let refused = "";
   if (!category && raw.newCategory) {
     try {
       category = cats.save({ ...raw.newCategory, key: raw.newCategory.key || raw.category });
     } catch (e) {
       if (!(e instanceof Refused)) throw e;
+      refused = e.message;
       category = match;
     }
   }
   category ??= match;
+  // a draft refused says why (the model named the kind, its draft didn't hold): a new run drafts again
+  if (!category && refused) return { ok: false, why: `${refused}: Run again` };
   if (!category) return { ok: false, why: "it couldn't tell what kind of product this is: say it in other words" };
   const criteria = new Set(category.criteria.map((c) => c.key));
   const hardOk = (h: Hard) => (!h.criterion || criteria.has(h.criterion)) && (h.says || h.criterion);

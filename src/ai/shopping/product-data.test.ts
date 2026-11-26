@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { startStandIn } from "../stand-in.ts";
 import type { Reach } from "../web.ts";
-import { askTextPrice, Pacer, type ReadDeps, readStorePage, type Wanted } from "./product-data.ts";
+import { askTextPrice, identity, Pacer, type ReadDeps, readStorePage, type Wanted } from "./product-data.ts";
 
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8");
 const REACH: Reach = {
@@ -181,6 +181,43 @@ test("another region's code is a mismatch; a longer model is a mismatch; a price
   const refused = await readStorePage(usd, { name: "Fen 300", brand: "Fen", codes: ["F300"], gtin: null }, deps(e.net));
   assert.deepEqual([refused.read, refused.price], ["unreadable", null]);
   assert.match(refused.why, /USD/);
+});
+
+test("every name and code is read: a base SKU never outweighs a Plus name; a country's tag is another region's model", async () => {
+  const T9: Wanted = { name: "Tidal T9", brand: "Tidal", codes: ["T9"], gtin: null };
+  const plusName = { codes: ["T9"], gtins: [], names: ["Tidal T9 Plus"] };
+  assert.equal(identity(T9, plusName).ok, false);
+  assert.equal(identity(T9, { codes: ["T9-US"], gtins: [], names: ["Tidal T9 Plus"] }).ok, false);
+  assert.equal(
+    identity({ ...T9, name: "Brisk R7", codes: ["R7"] }, { codes: ["R7"], gtins: [], names: ["Brisk R7 Max"] }).ok,
+    false,
+  );
+  // the region's own tag is no mismatch; another country's is
+  assert.equal(identity(T9, { codes: ["T9-CA"], gtins: [], names: [] }, [], "ca").ok, true);
+  assert.match(
+    (identity(T9, { codes: ["T9-US"], gtins: [], names: ["Tidal T9"] }, [], "ca") as { why: string }).why,
+    /another region's model \(T9-US\)/,
+  );
+  // the page's own name plain beside a related Plus: still the product
+  assert.equal(identity(T9, { codes: [], gtins: [], names: ["Tidal T9 | Store", "Tidal T9 Plus"] }).ok, true);
+  // read end to end: a Plus page whose SKU is the base code is a mismatch, never a $199 best price
+  const url = "https://store-e.example/p/tidal-t9";
+  const { net } = internet({
+    [url]: {
+      body: '<html><head><script type="application/ld+json">{"@type":"Product","name":"Tidal T9 Plus","sku":"T9","offers":{"@type":"Offer","price":"199","priceCurrency":"CAD"}}</script></head><body></body></html>',
+    },
+  });
+  const got = await readStorePage(url, T9, deps(net));
+  assert.deepEqual([got.read, got.price], ["mismatch", null]);
+  // a read page gives the maker's codes (mpn, model), never the store's own sku
+  const ok = "https://store-f.example/p/tidal-t9";
+  const f = internet({
+    [ok]: {
+      body: '<html><head><script type="application/ld+json">{"@type":"Product","name":"Tidal T9","sku":"88123","mpn":"T9-C","offers":{"@type":"Offer","price":"499","priceCurrency":"CAD","availability":"https://schema.org/InStock"}}</script></head><body></body></html>',
+    },
+  });
+  const read = await readStorePage(ok, T9, deps(f.net));
+  assert.deepEqual([read.read, read.codes], ["ok", ["T9-C"]]);
 });
 
 test("robots.txt is obeyed and its crawl delay kept; one request per host at a time, five seconds apart", async () => {

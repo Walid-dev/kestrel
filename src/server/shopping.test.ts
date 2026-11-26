@@ -1,5 +1,6 @@
 // Shopping's doors on the made-up want: its view, my answer re-ranking it at once, a bad body refused in plain words,
-// a product's marks and watch, Delete and Restore of a product and of a want. No model is asked.
+// a product's marks and watch, Delete and Restore of a product and of a want; questions that move no top pick, a
+// budget in my words, a region with no file. No model is asked.
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
@@ -55,6 +56,30 @@ test("a want's view; my answer re-ranks it at once; a bad answer is refused in w
   const bad = await send(app, "POST", `/api/shopping/wants/${id}/answers`, { key: "floors", option: 7 });
   assert.deepEqual([bad.status, await bad.json()], [400, { error: "that question has no such option" }]);
   assert.equal((await app.request("/api/shopping/wants/nope")).status, 404);
+});
+
+test("questions that move no top pick are marked; a budget in my words shows; a region with no file falls back", async () => {
+  const db = new DatabaseSync(":memory:");
+  db.exec("PRAGMA foreign_keys = ON;");
+  migrate(db, ":memory:");
+  const id = seedMadeUpWant(db);
+  const app = new Hono();
+  // a region with no file: kestrel still starts, on the shipped region
+  mountShopping(app, db, { shopping: { read: false, region: "zz" } } as Settings);
+  const view = (await (await app.request(`/api/shopping/wants/${id}`)).json()) as WantView;
+  assert.equal(view.currency, "CAD");
+  // on the made-up want no answer moves Brisk R7 from the top, so neither question decides
+  assert.deepEqual(
+    view.questions.map((q) => [q.key, q.changes]),
+    [
+      ["floors", false],
+      ["pets", false],
+    ],
+  );
+  const res = await send(app, "POST", "/api/shopping/wants", { words: "a made-up kettle under $80" });
+  const { id: kettle } = (await res.json()) as { id: string };
+  const k = (await (await app.request(`/api/shopping/wants/${kettle}`)).json()) as WantView;
+  assert.deepEqual([k.budget, k.budgetWords, k.budgetSet], [null, 80, true]);
 });
 
 test("a new want is queued and the run told; Run again queues a whole run", async () => {

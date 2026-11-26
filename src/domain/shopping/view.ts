@@ -15,7 +15,7 @@ import {
   type WantView,
   type WatchedView,
 } from "../../shared/shopping.ts";
-import { rank } from "./rank.ts";
+import { deciding, rank } from "./rank.ts";
 import { placeOf, type Region } from "./region.ts";
 import { budgetIn } from "./scrub.ts";
 import {
@@ -41,6 +41,10 @@ export const DROPPED = "no longer in any source";
 // where the view gets what changes by region: the currency and each store's name
 export type Place = { currency: string; storeName: (domain: string) => string };
 export const NO_PLACE: Place = { currency: "CAD", storeName: (d) => d.replace(/^www\./, "") };
+
+// the budget that counts: the one I set, else one my words state ("under $500"); whole units. The ranking, the page and
+// Ask all read this one, so the screen never says "none" while the list is gated
+export const budgetOf = (w: Pick<WantRow, "budget" | "words">): number | null => w.budget ?? budgetIn(w.words);
 
 const totalOf = (o: OfferRow): number | null => (o.price === null ? null : o.price + (o.shipping ?? 0));
 const plain = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -183,8 +187,13 @@ export function productView(
       blocked: count((o) => o.read === "blocked"),
       text: count((o) => o.read === "ok" && o.method === "text"),
     },
-    budget: w?.budget == null ? null : price === null ? "unknown" : price <= w.budget * 100 ? "yes" : "no",
+    budget: budgetLine(w, price),
   };
+}
+
+function budgetLine(w: WantRow | null, price: number | null): ProductView["budget"] {
+  const budget = w ? budgetOf(w) : null;
+  return budget === null ? null : price === null ? "unknown" : price <= budget * 100 ? "yes" : "no";
 }
 
 // the want's products re-ranked from their facts, my answers and the prices read: written back on each product
@@ -201,7 +210,7 @@ export function rerank(db: DatabaseSync, wantId: string, place: Place = NO_PLACE
       evidence: p.evidence,
       price: priceOf(p, offersOf(db, p.id), place).price,
     })),
-    w.budget ?? budgetIn(w.words),
+    budgetOf(w),
   );
   // a want that names one product keeps it first, whatever its score: its offers are what I asked for
   const named = w.need.mode === "one" ? namedProduct(products, w.need.product) : undefined;
@@ -224,7 +233,11 @@ export function namedProduct<T extends { name: string }>(products: T[], name: st
 
 function summaryOf(w: WantRow, views: ProductView[], place: Place): WantSummary {
   const finalists = views.filter((p) => p.place !== null && !p.out);
-  const lead = finalists.find((p) => p.starred) ?? finalists.find((p) => p.labels.some((l) => l.key === "overall"));
+  // the lead: my star, else the best overall; in one mode the product I named (its offers are what I asked for)
+  const lead =
+    finalists.find((p) => p.starred) ??
+    (w.need?.mode === "one" ? finalists.find((p) => p.place === 0) : undefined) ??
+    finalists.find((p) => p.labels.some((l) => l.key === "overall"));
   const stores = (f: (o: OfferView) => boolean) =>
     new Set(views.flatMap((p) => p.offers.filter(f).map((o) => o.store))).size;
   return {
@@ -240,7 +253,7 @@ function summaryOf(w: WantRow, views: ProductView[], place: Place): WantSummary 
     updated: w.updated,
     ran: w.ran,
     error: w.error,
-    budgetSet: w.budget !== null,
+    budgetSet: budgetOf(w) !== null,
     currency: place.currency,
     best: lead
       ? {
@@ -266,13 +279,19 @@ export function wantView(db: DatabaseSync, id: string, opts: ViewOpts = {}): Wan
   if (!w) return null;
   const place = opts.place ?? NO_PLACE;
   const views = productsOf(db, id).map((p) => productView(db, p, w, place, opts.judge));
+  const changes = decidingOf(w, views);
   return {
     ...summaryOf(w, views, place),
     budget: w.budget,
+    budgetWords: w.budget === null ? budgetIn(w.words) : null,
     note: w.note,
     need: w.need,
     kind: productKind(w.need, place.currency),
-    questions: (w.need?.questions ?? []).map((q) => ({ ...q, picked: w.answers[q.key] ?? null })),
+    questions: (w.need?.questions ?? []).map((q) => ({
+      ...q,
+      picked: w.answers[q.key] ?? null,
+      changes: changes === null || changes.has(q.key),
+    })),
     products: views.filter((p) => p.place !== null && !p.out).sort((a, b) => (a.place ?? 0) - (b.place ?? 0)),
     also: views.filter((p) => p.place === null || p.out),
     deleted: deletedOf(db, id),
@@ -293,6 +312,21 @@ export function wantView(db: DatabaseSync, id: string, opts: ViewOpts = {}): Wan
     rule: RANK_RULE,
     read: opts.read ?? false,
   };
+}
+
+// the questions whose answer moves the top pick, on the products as ranked now (the named one left out in one mode: it
+// leads whatever the answers); null before there is a list to move
+function decidingOf(w: WantRow, views: ProductView[]): Set<string> | null {
+  if (!w.need?.questions.length) return new Set();
+  const named = w.need.mode === "one" ? namedProduct(views, w.need.product) : undefined;
+  const ranked = views.filter((p) => p.out !== DROPPED && p !== named);
+  if (!ranked.some((p) => p.score !== null)) return null;
+  return deciding(
+    w.need,
+    w.answers,
+    ranked.map((p) => ({ id: p.id, facts: p.facts, evidence: p.evidence, price: p.price })),
+    budgetOf(w),
+  );
 }
 
 export function productViewOf(db: DatabaseSync, id: string, opts: ViewOpts = {}): ProductView | null {

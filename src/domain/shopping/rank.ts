@@ -2,16 +2,22 @@
 // each product's score, place, labels and, for one only also considered, its reason out. A model never ranks.
 // - Weights: the category's, then the use's and my answers' (the weights they name replace those criteria's), all
 //   scaled back to 100.
-// - Each criterion is scaled across the products by which way is better; a score or a measured number holds one
-//   source's values only (the merge chose it), so scales never mix. A missing or unsure value gives its weight to the
-//   known ones; coverage is the share of weight known.
+// - Each criterion is scaled by its ratio to the best value (v/best when higher is better, best/v when lower is), so a
+//   product nearly as good scores nearly as much; a score or a measured number holds one source's values only (the merge
+//   chose it), so scales never mix. A missing or unsure value gives its weight to the known ones; coverage is the share
+//   of weight known.
 // - Must-haves are checked one by one, the check kept: one failed sends the product to also considered with its reason;
 //   an unknown is a flag, never a pass. Over the budget is a failed must-have; an unknown price is a flag.
 // - The finalists are the top scores that pass, up to the list's size, coverage breaking ties; the rest are also
 //   considered, each with why.
 // - Labels: best overall (the top finalist with half its weight known or more), best value, budget, premium and best
-//   for a need, two at most a product, and none for a product with under half its weight known.
+//   for a need, two at most a product, and none for a product with under half its weight known. Best value and budget
+//   sit above a quality floor of 70% of the top score.
 import type { Criterion, Evidence, Fact, Hard, Label, Need } from "../../shared/shopping.ts";
+
+// premium: better on the criterion that weighs most by 3% of the best value at least (3 points on a lab's 100-point
+// score: past a lab's noise; a tenth, under ratio scaling, asked for more than a top score leaves room for)
+const PREMIUM = 0.03;
 
 export type RankProduct = { id: string; facts: Record<string, Fact>; price: number | null; evidence: Evidence };
 export type Ranked = {
@@ -45,7 +51,9 @@ const usable = (f: Fact | undefined): number | null => {
   return null;
 };
 
-// each product's place on one criterion, 0 to 1 with 1 the best; null when unknown
+// each product's place on one criterion, 0 to 1 with 1 the best; null when unknown. By ratio to the best, not by the
+// spread: 87 against 90 is 0.97, never 0 because it is the lowest of three close ones. Values at or under zero have no
+// ratio, so they fall back to the spread
 function scaled(c: Criterion, products: RankProduct[]): Map<string, number> {
   const known = products.flatMap((p) => {
     const v = usable(p.facts[c.key]);
@@ -55,9 +63,12 @@ function scaled(c: Criterion, products: RankProduct[]): Map<string, number> {
   if (!known.length) return out;
   const lo = Math.min(...known.map((k) => k.v));
   const hi = Math.max(...known.map((k) => k.v));
+  const ratio = lo > 0;
   for (const k of known) {
-    const s = c.type === "bool" ? k.v : hi === lo ? 1 : (k.v - lo) / (hi - lo);
-    out.set(k.id, c.better === "lower" && c.type !== "bool" ? 1 - s : s);
+    if (c.type === "bool") out.set(k.id, k.v);
+    else if (hi === lo) out.set(k.id, 1);
+    else if (ratio) out.set(k.id, c.better === "lower" ? lo / k.v : k.v / hi);
+    else out.set(k.id, c.better === "lower" ? (hi - k.v) / (hi - lo) : (k.v - lo) / (hi - lo));
   }
   return out;
 }
@@ -156,7 +167,9 @@ export function rank(
   if (lead) {
     give(lead.p.id, { key: "overall", text: "Best overall" });
     const top = lead.score ?? 0;
-    const floor = 0.6 * top;
+    // the quality floor: 70% of the top score. Ratio scaling sits every score higher than min-max did (the weakest of a
+    // close list scores 55, not 0), so the first build's 60% let clearly weaker products carry Budget and Best value
+    const floor = 0.7 * top;
     const priced = finalists.filter(
       (r) => r !== lead && sure.has(r.p.id) && r.p.price !== null && (r.score ?? 0) >= floor,
     );
@@ -170,8 +183,13 @@ export function rank(
     const pool = near.length ? near : median === null ? [] : priced.filter((r) => (r.p.price ?? 0) <= 0.8 * median);
     const value = [...pool].sort((a, b) => (b.score ?? 0) / (b.p.price ?? 1) - (a.score ?? 0) / (a.p.price ?? 1))[0];
     if (value) give(value.p.id, { key: "value", text: "Best value" });
-    // budget: the cheapest above the quality floor
-    const cheapest = [...priced].sort((a, b) => (a.p.price ?? 0) - (b.p.price ?? 0))[0];
+    // budget: the cheapest above the quality floor, cheaper than the best overall and not above the finalists' median
+    // (a Budget dearer than the best overall would mislead)
+    const cheap = priced.filter(
+      (r) =>
+        (lead.p.price === null || (r.p.price ?? 0) < lead.p.price) && (median === null || (r.p.price ?? 0) <= median),
+    );
+    const cheapest = [...cheap].sort((a, b) => (a.p.price ?? 0) - (b.p.price ?? 0))[0];
     if (cheapest) give(cheapest.p.id, { key: "budget", text: "Budget" });
     // premium: clearly better on the criterion that weighs most, for more money
     const decisive = need.criteria.reduce((a, b) => ((weights[b.key] ?? 0) > (weights[a.key] ?? 0) ? b : a));
@@ -180,7 +198,7 @@ export function rank(
     if (s && leadOn !== undefined && lead.p.price !== null) {
       const better = finalists
         .filter((r) => r !== lead && sure.has(r.p.id) && r.p.price !== null && (r.p.price ?? 0) > (lead.p.price ?? 0))
-        .filter((r) => (s.get(r.p.id) ?? -1) - leadOn >= 0.1)
+        .filter((r) => (s.get(r.p.id) ?? -1) - leadOn >= PREMIUM - 1e-9)
         .sort((a, b) => (s.get(b.p.id) ?? 0) - (s.get(a.p.id) ?? 0))[0];
       if (better) give(better.p.id, { key: "premium", text: "Premium" });
     }
@@ -209,4 +227,24 @@ export function rank(
     flags: r.flags,
     coverage: r.coverage,
   }));
+}
+
+// the top pick of a ranking: the best overall, else the first finalist
+export const topOf = (ranked: Ranked[]): string | null =>
+  ranked.find((r) => r.labels.some((l) => l.key === "overall"))?.id ?? ranked.find((r) => r.place === 1)?.id ?? null;
+
+// the questions whose answer changes the top pick, my other answers held: each option ranked again (pure and cheap).
+// A question none of whose options moves the top is noise on the page
+export function deciding(
+  need: Need,
+  answers: Record<string, number>,
+  products: RankProduct[],
+  budget: number | null = null,
+): Set<string> {
+  const out = new Set<string>();
+  for (const q of need.questions) {
+    const tops = new Set(q.options.map((_, i) => topOf(rank(need, { ...answers, [q.key]: i }, products, budget))));
+    if (tops.size > 1) out.add(q.key);
+  }
+  return out;
 }

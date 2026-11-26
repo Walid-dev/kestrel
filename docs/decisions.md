@@ -5,6 +5,28 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-25 · Shopping's review fixes: offers for every finalist, ratio scaling, an identity check that reads every
+  name.** Offers were read only for labelled finalists, and with no prices at Compose time only Best overall was ever
+  labelled, so best value, budget and premium never appeared: a whole run now finds offers for every finalist up to
+  the list's size (the labelled first, then by place) within the run's 24 searches, then re-ranks. Criteria are
+  scaled by ratio to the best value (v/best, or best/v when lower is better; the spread only at or under zero): min-max
+  made 87 against 90 a 0 and kept close, cheaper products from best value. As scores now sit higher, the quality floor
+  for best value and budget rises from 60% to 70% of the top, and premium needs 3% of the best value on the decisive
+  criterion (a tenth asked for more than a top lab score leaves). Budget goes only to a product cheaper than the best
+  overall and not above the finalists' median. `identity()` (`product-data.ts`) reads every name and code: a
+  "T9 Plus" name is a mismatch unless another name shows the code plainly, and a country's tag after the code
+  ("T9-US") is another region's model unless it is the region's own (`ReadDeps.region`). A store search uses the
+  maker's code, else the whole name; a product with no code takes the first read page's `mpn` or `model`. Rejected:
+  checking only the first matching string (a bare SKU "T9" passed a $199 "Tidal T9 Plus" page as a $899 product).
+- **2026-11-25 · Shopping's questions and budget as the page shows them; a missing region file never stops kestrel.**
+  The want's page shows only the questions whose answer moves the top pick (`deciding()`, `rank.ts`: each option ranked
+  again, the other answers held), plus any I answered; the rest are counted in one line. One `budgetOf()` (`view.ts`,
+  set, else from my words) feeds the gate, the page ("Budget $500 (from my words)"), each product's budget line and
+  Ask. A drafted category with under four criteria fails in words; over seven keeps the seven that weigh most. A
+  `shopping.region` with no file falls back to the shipped default with one log line (`loadRegion`). With
+  `shopping.read` off, a watch check reads no page. One mode's card leads with the named product, and its log counts
+  that product's offers. Rejected: a zod refine on the setting (a file added later would need a code change).
+
 - **2026-11-25 · A product's sheet: its address is `?product=`, Watch is its one filled button, the readings sit under
   the line.** `web/src/shopping/product.tsx`, opened from a want's page by its address (a ping's link opens it; opened
   from the page it is a history step, so Back and the ✕ both close it). The deal's box holds its word, its line, the

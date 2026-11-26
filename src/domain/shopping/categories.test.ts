@@ -54,9 +54,17 @@ test("a bad key or one outside the folder is refused; a draft never takes a star
     tv.criteria.map((c) => c.weight),
     [49, 17, 17, 17],
   );
+  // under four criteria says so in plain words; eight keep the seven that weigh most, scaled back to 100
   assert.throws(
-    () => saveDraft({ key: "thin", name: "Thin", criteria: criteria.slice(0, 2) }, list, d),
-    /doesn't read/,
+    () => saveDraft({ key: "thin", name: "Thin", criteria: criteria.slice(0, 3) }, list, d),
+    /3 usable criteria, too few to compare/,
+  );
+  const extra = ["a1", "a2", "a3", "a4"].map((key) => ({ ...criteria[3], key, label: key, weight: 0.5 }));
+  const wide = saveDraft({ key: "wide", name: "Wide", criteria: [...criteria, ...extra] }, list, d);
+  assert.equal(wide.criteria.length, 7);
+  assert.equal(
+    wide.criteria.reduce((n, c) => n + c.weight, 0),
+    100,
   );
 });
 

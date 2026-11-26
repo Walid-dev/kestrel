@@ -31,7 +31,7 @@ import { type Found, gatherReviews, planSearches, readReviewPage, tierOf } from 
 import { beforeYouBuy, composeList, keyOf, type Merged, mergeFound, type Source } from "./compose.ts";
 import { findOffers } from "./offers.ts";
 import { hostEntry, hostOf, loadHosts, loadRegion, placeOf, type Region, type Store } from "./region.ts";
-import { budgetIn, scrubContext, scrubQuery, withWords } from "./scrub.ts";
+import { scrubContext, scrubQuery, withWords } from "./scrub.ts";
 import {
   addLog,
   claimNext,
@@ -48,12 +48,12 @@ import {
   type WantRow,
 } from "./store.ts";
 import { understand } from "./understand.ts";
-import { DROPPED, namedProduct, priceOf, rerank } from "./view.ts";
+import { budgetOf, DROPPED, namedProduct, priceOf, rerank } from "./view.ts";
 import { checkWatches, isDue, watched } from "./watch.ts";
 
 export const SEARCHES = 24; // a run's searches, every step together
 const GAP_MS = 2000; // the search tool drops requests sent faster
-const OFFER_PRODUCTS = 4;
+const NO_REACH = { read: 0, links: 0, blocked: 0, unsearched: 0, mismatch: 0 };
 const OUTCOMES = new Set(["unlisted", "too-long", "down", "timeout", "refusal", "out-of-room", "shape"]);
 // a failure in the words every screen uses: a model's, through the one mapping (ai/client.ts); the code's as it is
 const words = (why: string) => (OUTCOMES.has(why) ? failureWords(why as Outcome, "Run again") : why);
@@ -90,6 +90,7 @@ export function networkWeb(settings: Settings, region: Region): RunWeb {
         currency: region.currency,
         storeName: store.name,
         modelRules: region.modelRules,
+        region: region.key,
         pacer: PACER,
         textPrice,
       }),
@@ -213,19 +214,23 @@ export async function runWant(db: DatabaseSync, settings: Settings, w: WantRow, 
       for (const p of before.values())
         if (!after.some((x) => x.key === p.key && x.out !== DROPPED))
           addLog(db, w.id, { kind: "change", text: `${p.name} dropped: ${DROPPED}` }, now());
-      // Finding offers: the labelled finalists (the alternatives, in one mode), four at most; the top two when none is
-      // labelled yet
-      const finalists = productsOf(db, w.id).filter((p) => p.place !== null && p.id !== pinned);
-      const labelled = need.mode === "one" ? finalists : finalists.filter((p) => p.labels.length);
-      const picked = (labelled.length ? labelled : finalists.slice(0, 2)).slice(0, OFFER_PRODUCTS);
+      // Finding offers: every finalist up to the list's size, the labelled first and then by place, so best value, budget
+      // and premium (which need a price) can be named by the rerank after; the run's searches decide how far it reaches,
+      // and a store left when they run out keeps its search link (the alternatives, in one mode)
+      const finalists = productsOf(db, w.id)
+        .filter((p) => p.place !== null && p.id !== pinned?.id)
+        .sort((a, b) => Number(b.labels.length > 0) - Number(a.labels.length > 0) || (a.place ?? 0) - (b.place ?? 0));
+      const picked = finalists.slice(0, need.listSize);
       const reach = await offersFor(db, settings, w, need, picked, region, web, search, textPrice, step, now);
+      if (pinned) for (const k of Object.keys(reach) as (keyof typeof reach)[]) reach[k] += pinned.reach[k];
       const pages = getWant(db, w.id)?.result?.pages ?? 0;
+      const compared = finalists.length + (pinned ? 1 : 0);
       addLog(
         db,
         w.id,
         {
           kind: "run",
-          text: `Compared ${finalists.length + (pinned ? 1 : 0)} products from ${pages} ${pages === 1 ? "page" : "pages"}; ${reach.read} offers read, ${reach.links + reach.unsearched} links, ${reach.blocked} blocked`,
+          text: `Compared ${compared} ${compared === 1 ? "product" : "products"} from ${pages} ${pages === 1 ? "page" : "pages"}; ${reach.read} ${reach.read === 1 ? "offer" : "offers"} read, ${reach.links + reach.unsearched} ${reach.links + reach.unsearched === 1 ? "link" : "links"}, ${reach.blocked} blocked`,
         },
         now(),
       );
@@ -275,7 +280,8 @@ export async function runWant(db: DatabaseSync, settings: Settings, w: WantRow, 
   }
 }
 
-// one mode: the named product pinned (its codes from its name), its offers found before any review is read
+// one mode: the named product pinned (its name searched; its maker codes from the first store page read), its offers
+// found before any review is read
 async function pinNamed(
   db: DatabaseSync,
   settings: Settings,
@@ -307,8 +313,8 @@ async function pinNamed(
   if (!id) return null;
   setRank(db, id, { score: null, place: 1, labels: [], out: "", flags: [] });
   const p = productsOf(db, w.id).find((x) => x.id === id);
-  if (p) await offersFor(db, settings, w, need, [p], region, web, search, textPrice, step, now);
-  return id;
+  const reach = p ? await offersFor(db, settings, w, need, [p], region, web, search, textPrice, step, now) : NO_REACH;
+  return { id, reach };
 }
 
 // Searching, Reading reviews, Comparing, Writing, Checking: the products saved with my marks kept, the result kept
@@ -381,7 +387,7 @@ async function compareAndCompose(
   if (!merged.length && need.mode !== "one") return false;
   // one mode keeps the named product and three alternatives at most
   const kept = need.mode === "one" ? keepOne(merged, need.product) : merged;
-  const budget = w.budget ?? budgetIn(w.words);
+  const budget = budgetOf(w);
   const composed = await composeList(
     { seed: w.id, need, answers: w.answers, budget, merged: kept, price: (m) => m.usual },
     { models: settings.models, model: ask.model, checkModel: ask.checkModel, record: (p, a) => ask.record(p)(a), step },
@@ -450,7 +456,7 @@ async function offersFor(
   step: (s: string) => void,
   now: () => Date,
 ) {
-  if (!products.length) return { read: 0, links: 0, blocked: 0, unsearched: 0, mismatch: 0 };
+  if (!products.length) return { ...NO_REACH };
   step(`Finding offers (${products.length} ${products.length === 1 ? "product" : "products"})`);
   return findOffers(db, products, need, {
     region,
@@ -485,6 +491,7 @@ export function shoppingTick(
     const web = deps.web ?? networkWeb(settings, region);
     void checkWatches(db, {
       region,
+      read: shoppingOf(settings).read,
       readPage: (url, wanted, store) => web.store(url, wanted, store, async () => null),
       ping: deps.ping ?? ((a) => sendAlert(settings, a)),
       page: settings.alerts?.page ?? "",

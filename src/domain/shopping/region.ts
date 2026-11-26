@@ -1,8 +1,8 @@
 // The region kestrel buys in, and how far it trusts each source: data files, not code. A region file names its
 // currency, its stores (read: page, or link for a store kestrel only links to, with the date of the test), brand
 // stores kestrel may read, the rule each category tag asks for, price-history tools it links to, its model-code rules
-// and its own testers. settings.json's shopping.region names it; the one that ships is the default. A new region is a
-// new file.
+// and its own testers. settings.json's shopping.region names it; the one that ships is the default, and the fallback
+// when the named one has no file. A new region is a new file.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
@@ -49,13 +49,24 @@ export const Region = z.object({
 });
 export type Region = z.infer<typeof Region>;
 
-// the region settings name, else the one that ships; a file that doesn't read stops with its reason
+let warned = ""; // the missing region named once in the log, not at every tick
+
+// the region settings name, else the one that ships. A region with no file falls back to the one that ships, with one
+// line in the log: one app's setting never stops kestrel (News, Searches and the hunts share the process). A shipped
+// file that doesn't read still stops with its reason: that is a code fault the tests catch
 export function loadRegion(settings?: Settings): Region {
   const files = readdirSync(`${HERE}regions`).filter((f) => f.endsWith(".json"));
+  const fallback = files.length === 1 ? files[0] : "ca.json";
   const want = settings ? shoppingOf(settings).region : undefined;
-  const file = want ? `${want}.json` : files.length === 1 ? files[0] : "ca.json";
-  if (!files.includes(file))
-    throw new Error(`no region file for ${want ?? "the default"}: the regions are ${files.join(", ")}`);
+  let file = want ? `${want}.json` : fallback;
+  if (!files.includes(file)) {
+    if (warned !== file)
+      console.error(
+        `Shopping: no region file for ${want}; using ${fallback.slice(0, -5)} (the regions: ${files.join(", ")})`,
+      );
+    warned = file;
+    file = fallback;
+  }
   return Region.parse(JSON.parse(readFileSync(`${HERE}regions/${file}`, "utf8")));
 }
 

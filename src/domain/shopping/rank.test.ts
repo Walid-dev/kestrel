@@ -1,10 +1,11 @@
 // The ranking on made-up products: the finalists by gate and score, coverage breaking a tie, the rest below the list;
 // each label's rule, best value never under the quality floor; a must-have failed or unknown; coverage under half bars
-// the top label; option weights replace the category's and scale back to 100; a draft's six; an answer re-ranks.
+// the top label; option weights replace the category's and scale back to 100; a draft's six; an answer re-ranks; a
+// close trio scored by ratio, Budget never dearer than the best overall, a question that never moves the top.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Evidence, Fact, Need } from "../../shared/shopping.ts";
-import { type RankProduct, rank, weightsFor } from "./rank.ts";
+import { deciding, type RankProduct, rank, weightsFor } from "./rank.ts";
 
 const NEED: Need = {
   mode: "compare",
@@ -176,4 +177,58 @@ test("a draft's six finalists; an answer re-ranks; best for the need an answer n
     quiet.P5.labels.some((l) => l.text === "Best for noise"),
     true,
   );
+});
+
+test("by ratio, not by spread: a nearly-as-good cheaper product is best value, the lowest of three close ones isn't 0", () => {
+  const two = { ...NEED, criteria: NEED.criteria.slice(0, 2), questions: [] };
+  const r = byId(
+    rank(two, {}, [
+      p("X1", { a: 90, b: 90 }, 50_000),
+      p("X2", { a: 88, b: 88 }, 30_000),
+      p("X3", { a: 87, b: 87 }, 25_000),
+    ]),
+  );
+  assert.equal(r.X1.labels[0]?.key, "overall");
+  assert.ok((r.X3.score ?? 0) > 90, `X3 scored ${r.X3.score}`);
+  assert.ok(
+    [...r.X2.labels, ...r.X3.labels].some((l) => l.key === "value"),
+    JSON.stringify([r.X2.labels, r.X3.labels]),
+  );
+});
+
+test("Budget never goes to a product dearer than the best overall", () => {
+  const two = { ...NEED, criteria: NEED.criteria.slice(0, 2), questions: [] };
+  const r = byId(
+    rank(two, {}, [
+      p("LEAD", { a: 90, b: 90 }, 30_000),
+      p("X", { a: 89, b: 89 }, 45_000),
+      p("Y", { a: 70, b: 70 }, 60_000),
+    ]),
+  );
+  assert.equal(r.LEAD.labels[0]?.key, "overall");
+  assert.ok(!r.X.labels.some((l) => l.key === "budget"), JSON.stringify(r.X.labels));
+  assert.ok(!r.Y.labels.some((l) => l.key === "budget"), JSON.stringify(r.Y.labels));
+});
+
+test("a question whose every option keeps the same top pick doesn't decide; one that moves it does", () => {
+  const need: Need = {
+    ...NEED,
+    questions: [
+      ...NEED.questions,
+      {
+        key: "mop",
+        q: "Mop too?",
+        options: [
+          { label: "Yes", weights: { mop: 25 } },
+          { label: "No", weights: { mop: 15 } },
+        ],
+        default: 0,
+      },
+    ],
+  };
+  const products = [
+    p("A", { a: 95, b: 90, noise: 70, mop: true }, 50_000),
+    p("B", { a: 80, b: 80, noise: 45, mop: true }, 40_000),
+  ];
+  assert.deepEqual([...deciding(need, {}, products)], ["quiet"]);
 });

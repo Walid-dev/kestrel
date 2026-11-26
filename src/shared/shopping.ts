@@ -220,7 +220,7 @@ export type WantSummary = {
   updated: string;
   ran: string | null;
   error: string;
-  budgetSet: boolean;
+  budgetSet: boolean; // a budget counts: set, or stated in my words
   currency: string;
   best: { product: string; name: string; price: number | null; store: string; verdict: VerdictWord | null } | null;
   picks: { label: string; name: string }[];
@@ -232,10 +232,12 @@ export type WantSummary = {
 
 export type WantView = WantSummary & {
   budget: number | null; // whole units of the currency
+  budgetWords: number | null; // with none set, the budget my words state ("under $500"), which the ranking uses
   note: string;
   need: Need | null;
   kind: ListKind; // the compared list's kind: its fields are this want's criteria
-  questions: (Question & { picked: number | null })[]; // picked: my answer; null takes the default
+  // picked: my answer (null takes the default); changes: an answer moves the top pick (true before there is a list)
+  questions: (Question & { picked: number | null; changes: boolean })[];
   products: ProductView[]; // the finalists, in place order
   also: ProductView[]; // also considered, each with its reason
   deleted: { id: string; name: string; at: string }[];

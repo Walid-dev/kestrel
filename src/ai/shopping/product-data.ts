@@ -34,6 +34,7 @@ export type StoreRead = {
   pickup: boolean | null;
   validUntil: string | null;
   gtin: string | null;
+  codes?: string[]; // the maker's codes the page's data gives for the product (mpn, model), for a product kestrel has none for
   words: string; // a price read from the page's words: those words
   why: string; // a read with no price: why, in words
   // the page didn't open (a network failure, a time-out): no answer about the price, so a check keeps the last one
@@ -44,6 +45,7 @@ export type ReadDeps = {
   currency: string; // the region's: a price in another is refused
   storeName?: string; // a seller by another name is a marketplace offer
   modelRules?: ModelRule[];
+  region?: string; // the region's key (ca): a code tagged with it is this region's model
   net?: PublicNet;
   pacer?: Pacer;
   // the model's read of the page's words (the domain records the call); without it the last method is skipped
@@ -277,7 +279,8 @@ type Offer = {
   pickup: boolean | null;
   url: string;
 };
-type LdProduct = { names: string[]; codes: string[]; gtins: string[]; offers: Offer[] };
+// makers: the maker's own codes (mpn, model), which every store shares; a sku is often the store's own number
+type LdProduct = { names: string[]; codes: string[]; makers: string[]; gtins: string[]; offers: Offer[] };
 
 const asList = (v: unknown): unknown[] => (Array.isArray(v) ? v : v == null ? [] : [v]);
 const str = (v: unknown): string =>
@@ -354,6 +357,7 @@ export function readJsonLd(html: string): LdProduct[] {
       const base = {
         names: [str(o.name), str(o.model)].filter(Boolean),
         codes: [o.sku, o.mpn, o.productID, o.model, o.productGroupID].map(str).filter(Boolean),
+        makers: [o.mpn, o.model].map(str).filter(Boolean),
         gtins: [o.gtin, o.gtin8, o.gtin12, o.gtin13, o.gtin14].map(str).filter(Boolean),
       };
       const offers = asList(o.offers).flatMap((x) =>
@@ -477,12 +481,19 @@ const codeRe = (code: string): RegExp | null => {
 };
 const digits = (s: string) => s.replace(/\D/g, "").replace(/^0+/, "");
 
+// a code followed by a country's tag (T9-US, R7/EU): that country's model, unless it is the region's own
+const REGION_TAG = /^[-/_](us|usa|uk|eu|au|jp|cn|kr|in|de|fr|it|es|mx|br|ca|int)\b/i;
+
 // whether what the page says it is (its codes, GTINs, names and title) holds one of the product's codes: a GTIN
-// that matches is enough; another region's code (by the region's rules) or a longer model ("R7 Plus") is a mismatch
+// that matches is enough; another region's code (by the region's rules, or a country's tag after the code) is a
+// mismatch. Every name and code is read, not only the first that matches: a longer model ("R7 Plus") in a name is a
+// mismatch unless another name shows the code plainly (a related product beside the page's own), and a bare SKU
+// ("T9") never outweighs a name that says "T9 Plus". here: the region's key (ca), whose own tag is no mismatch
 export function identity(
   wanted: Wanted,
   page: { codes: string[]; gtins: string[]; names: string[] },
   rules: ModelRule[] = [],
+  here = "",
 ): { ok: true } | { ok: false; why: string } {
   if (wanted.gtin && page.gtins.some((g) => digits(g) === digits(wanted.gtin ?? ""))) return { ok: true };
   const said = [...page.codes, ...page.names];
@@ -495,23 +506,33 @@ export function identity(
         if (re && said.some((s) => re.test(s))) return { ok: false, why: `another region's model (${base}${other})` };
       }
     }
-  const codes = [...wanted.codes].sort((a, b) => b.length - a.length);
-  for (const code of codes) {
-    const re = codeRe(code);
-    if (!re) continue;
-    for (const s of said) {
-      const m = re.exec(s);
-      if (!m) continue;
-      const after = s.slice((m.index ?? 0) + m[0].length);
-      const longer = VARIANT.exec(after);
-      if (longer && !new RegExp(`\\b${longer[1].replace("+", "\\+")}\\b`, "i").test(wanted.name))
-        return {
-          ok: false,
-          why: `the page is another model (${s.slice(m.index, (m.index ?? 0) + m[0].length + longer[0].length).trim()})`,
-        };
-      return { ok: true };
+  const codes = [...wanted.codes].sort((a, b) => b.length - a.length).flatMap((c) => codeRe(c) ?? []);
+  // each string read: plain (the code alone), longer (the code and a model word the product lacks), or silent
+  let plainCode = false;
+  let plainName = false;
+  let longer = "";
+  const names = new Set(page.names);
+  for (const s of said) {
+    // the longest code that matches this string decides it (R7-C before R7)
+    const m = codes.map((re) => re.exec(s)).find((x) => x !== null);
+    if (!m) continue;
+    const after = s.slice((m.index ?? 0) + m[0].length);
+    const tag = REGION_TAG.exec(after);
+    if (tag && tag[1].toLowerCase() !== here.toLowerCase())
+      return {
+        ok: false,
+        why: `another region's model (${s.slice(m.index, (m.index ?? 0) + m[0].length + tag[0].length).trim()})`,
+      };
+    const v = VARIANT.exec(after);
+    if (v && !new RegExp(`\\b${v[1].replace("+", "\\+")}\\b`, "i").test(wanted.name)) {
+      longer ||= s.slice(m.index, (m.index ?? 0) + m[0].length + v[0].length).trim();
+      continue;
     }
+    if (names.has(s)) plainName = true;
+    else plainCode = true;
   }
+  if (longer && !plainName) return { ok: false, why: `the page is another model (${longer})` };
+  if (plainName || plainCode) return { ok: true };
   return { ok: false, why: "the page names another product" };
 }
 
@@ -732,9 +753,14 @@ export async function readStorePage(url: string, wanted: Wanted, deps: ReadDeps)
     gtins: [...ld.flatMap((p) => p.gtins), ...micro.gtins],
     names: [titleOf(html), h1, ...ld.flatMap((p) => p.names), ...meta.names, ...micro.names].filter(Boolean),
   };
-  const who = identity(wanted, said, deps.modelRules);
+  const who = identity(wanted, said, deps.modelRules, deps.region);
   if (!who.ok) return none("mismatch", who.why);
   const gtin = said.gtins[0] ?? null;
+  // the product the page is (a "related" one beside it never gives the price or its codes); any, when none names a code
+  const mine = ld.filter(
+    (p) => identity(wanted, { codes: p.codes, gtins: p.gtins, names: p.names }, deps.modelRules, deps.region).ok,
+  );
+  const codes = [...new Set(mine.flatMap((p) => p.makers))].slice(0, 3);
   const pageCurrency = (
     ld.flatMap((p) => p.offers).find((o) => o.currency)?.currency ||
     meta.offer?.currency ||
@@ -759,6 +785,7 @@ export async function readStorePage(url: string, wanted: Wanted, deps: ReadDeps)
       pickup: o.pickup,
       validUntil: o.validUntil,
       gtin,
+      codes,
       ...extra,
     };
   };
@@ -771,6 +798,7 @@ export async function readStorePage(url: string, wanted: Wanted, deps: ReadDeps)
         wanted,
         { codes: s.codes, gtins: s.gtin ? [s.gtin] : [], names: s.names },
         deps.modelRules,
+        deps.region,
       );
       const currency = pageCurrency || (await shopifyCurrency(url, deps, pacer));
       if (!currency) return none("unreadable", "the store doesn't say its currency: refused");
@@ -798,10 +826,6 @@ export async function readStorePage(url: string, wanted: Wanted, deps: ReadDeps)
   // currency, in stock first
   if (ld.length) {
     const variantId = new URL(url).searchParams.get("variant");
-    // the product the page is (a "related" one beside it never gives the price); any, when none names a code
-    const mine = ld.filter(
-      (p) => identity(wanted, { codes: p.codes, gtins: p.gtins, names: p.names }, deps.modelRules).ok,
-    );
     const offers = (mine.length ? mine : ld).flatMap((p) => p.offers).filter((o) => o.price !== null);
     const pick =
       (variantId ? offers.find((o) => o.url.includes(`variant=${variantId}`)) : undefined) ??
@@ -842,6 +866,7 @@ export async function readStorePage(url: string, wanted: Wanted, deps: ReadDeps)
     regular: regular && regular.cents > price.cents ? regular.cents : null,
     currency: deps.currency,
     gtin,
+    codes,
     words: price.words,
   };
 }

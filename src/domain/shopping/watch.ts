@@ -4,7 +4,8 @@
 // "new low" stays the verdict's word, so the ping and the sheet never disagree), or comes back in stock. One ping per
 // want per check, its title naming the best price. Only the offers that read well from a page's data are re-read, and a
 // blocked store after it rested a day; a price read from a page's words and a link store never (no model in a check). A
-// page that no longer matches becomes a mismatch. A watch ends on its date with one line in the want's log, no ping.
+// page that no longer matches becomes a mismatch. With store reading off (shopping.read) no page is re-read and the
+// last readings stand. A watch ends on its date with one line in the want's log, no ping.
 import type { DatabaseSync } from "node:sqlite";
 import type { StoreRead, Wanted } from "../../ai/shopping/product-data.ts";
 import { record } from "../../platform/activity.ts";
@@ -20,6 +21,8 @@ const HOUR = 3_600_000;
 
 export type WatchDeps = {
   region: Region;
+  // shopping.read: false re-reads no page (a made-up folder never reads the web by itself); the last readings stand
+  read?: boolean;
   // a store page read without the model: the page's own data only
   readPage: (url: string, wanted: Wanted, store: Store) => Promise<StoreRead>;
   ping: (a: Alert) => Promise<{ sent: boolean; why: string }>;
@@ -57,7 +60,7 @@ const WORDS: Record<Reason, string> = {
 async function checkOne(db: DatabaseSync, p: ProductRow, w: Watch, deps: WatchDeps): Promise<Reason[]> {
   const now = deps.now();
   const wanted = wantedOf(p);
-  for (const o of offersOf(db, p.id)) {
+  for (const o of deps.read === false ? [] : offersOf(db, p.id)) {
     const fromData = o.read === "ok" && DATA_METHODS.includes(o.method);
     const rested = o.read === "blocked" && now.getTime() - Date.parse(o.seen) >= 24 * HOUR;
     if (!fromData && !rested) continue;

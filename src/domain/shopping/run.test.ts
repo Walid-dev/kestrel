@@ -1,7 +1,8 @@
 // The run on a stand-in model and a stand-in web: a want end to end; a second one queued and started by the first's
 // end; an offers job for two products; a restart (the running want failed, a queued offers job kept and started); a
 // failure keeps the last result; a run again keeps my marks and logs a change; one mode finds its offers before it
-// reads a review; a reader out of room is logged and the run goes on. Made-up pages, stores and products only.
+// reads a review, its card leads with the named product and its log counts those offers; a reader out of room is
+// logged and the run goes on; with store reading off a price check reads no page. Made-up pages, stores and products only.
 import assert from "node:assert/strict";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -226,7 +227,15 @@ test("a want end to end: understood, compared, written, checked, its offers foun
   assert.ok(products.some((p) => p.labels.some((l) => l.key === "overall")));
   const r7 = products.find((p) => p.name === "Brisk R7");
   assert.equal(r7?.evidence.sources, 2);
-  assert.ok(products.some((p) => offersOf(db, p.id).some((o) => o.read === "ok")));
+  // no review page states a price: every finalist's offers are read, so the rerank can name best value by price
+  assert.ok(
+    products.every((p) => offersOf(db, p.id).some((o) => o.read === "ok")),
+    JSON.stringify(products.map((p) => [p.name, offersOf(db, p.id).map((o) => o.read)])),
+  );
+  assert.ok(
+    products.some((p) => p.labels.some((l) => l.key === "value")),
+    JSON.stringify(products.map((p) => [p.name, p.score, p.labels])),
+  );
   assert.ok(products.some((p) => offersOf(db, p.id).some((o) => o.read === "link" && o.store === "store-d.example")));
   // nothing of mine in a search: no budget, no note word
   assert.ok(
@@ -314,7 +323,7 @@ test("a failure keeps the last result; a run again keeps my marks and logs a cha
 });
 
 test("one mode finds the named product's offers before any review; a reader out of room is logged", async (t) => {
-  const { db, deps, settings, calls, state } = await setup(t);
+  const { db, deps, settings, calls, state, searched } = await setup(t);
   state.room = "bench.example";
   const id = addWant(db, { words: "the Brisk R7 robot vacuum" });
   startNext(db, settings, deps);
@@ -326,8 +335,49 @@ test("one mode finds the named product's offers before any review; a reader out 
   assert.ok(w?.result?.notes.includes("the reader ran out of room on bench.example"), JSON.stringify(w?.result?.notes));
   const named = productsOf(db, id).find((p) => p.name === "Brisk R7");
   assert.ok(named && offersOf(db, named.id).some((o) => o.read === "ok"));
-  // the named product leads its list, the alternatives after it
-  assert.equal(wantView(db, id)?.products[0]?.name, "Brisk R7");
+  // the named product leads its list, the alternatives after it; its card shows its price, and the log counts its offers
+  const view = wantView(db, id);
+  assert.equal(view?.products[0]?.name, "Brisk R7");
+  assert.deepEqual([view?.best?.name, view?.best?.price], ["Brisk R7", 44_900]);
+  const line = w?.log.find((l) => l.kind === "run")?.text ?? "";
+  assert.match(line, /^Compared \d+ products? from \d+ pages?; [1-9]\d* offers? read/);
+  // searched by its whole name, never a bare "R7"
+  assert.ok(
+    searched.some((q) => q.startsWith('"Brisk R7" site:')),
+    searched.join(" | "),
+  );
+});
+
+test("with store reading off, a due price check reads no page and the last reading stands", async (t) => {
+  const { db, deps, settings, calls } = await setup(t);
+  const id = addWant(db, { words: "a robot vacuum" });
+  startNext(db, settings, deps);
+  await idle();
+  const [p] = productsOf(db, id);
+  const before = offersOf(db, p.id).map((o) => [o.id, o.price]);
+  setWatch(db, p.id, {
+    until: "2026-12-31T00:00:00Z",
+    everyHours: 24,
+    stock: true,
+    began: "2026-11-25T00:00:00Z",
+    last: null,
+    low: null,
+    pinged: null,
+    wasOut: false,
+  });
+  calls.length = 0;
+  const off = { ...settings, shopping: { read: false } } as Settings;
+  assert.equal(
+    shoppingTick(db, off, new Date(), true, { ...deps, ping: async () => ({ sent: true, why: "" }) }),
+    "watch",
+  );
+  await checked();
+  assert.deepEqual(calls, []);
+  assert.ok(getProduct(db, p.id)?.watch?.last);
+  assert.deepEqual(
+    offersOf(db, p.id).map((o) => [o.id, o.price]),
+    before,
+  );
 });
 
 test("the tick's hook starts a queued want and the due price checks; an application at work holds the run", async (t) => {

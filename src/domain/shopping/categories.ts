@@ -148,6 +148,11 @@ export function saveDraft(raw: unknown, known: Category[], dir: string = draftsD
     .filter((c) => c.key)
     .sort((a, b) => b.weight - a.weight)
     .slice(0, 7);
+  // more than seven: the seven that weigh most, scaled back to 100 below; fewer than four can't rank a list
+  if (criteria.length < 4)
+    throw new Refused(
+      `the kind of product it drafted has ${criteria.length} usable ${criteria.length === 1 ? "criterion" : "criteria"}, too few to compare (4 at least)`,
+    );
   const parsed = Category.safeParse({
     ...given,
     key,
