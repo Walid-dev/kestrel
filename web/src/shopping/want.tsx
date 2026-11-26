@@ -430,8 +430,9 @@ function Working({ v }: { v: WantView }) {
   );
 }
 
-// the open questions, each a row of pills: my answer, or the default marked assumed; a tap re-ranks at once. My budget
-// and note under them, changed in a box
+// the open questions, each a row of pills: my answer, or the default marked assumed; a tap re-ranks at once. Only the
+// questions whose answer moves the top pick show, and any I answered; the others say how many hid. My budget (or the
+// one my words state) and note under them, changed in a box
 function WorthKnowing({
   v,
   onAnswer,
@@ -443,15 +444,17 @@ function WorthKnowing({
   busy?: { key: string; option: number };
   onEdit: () => void;
 }) {
+  const shown = v.questions.filter((q) => q.changes || q.picked !== null);
+  const hidden = v.questions.length - shown.length;
   return (
     <section className="grid gap-3" aria-labelledby="shop-worth">
       <SectionHead
         id="shop-worth"
         title="Worth knowing"
-        hint={v.questions.length ? "Each answer re-ranks the list at once; an unanswered one is assumed." : undefined}
+        hint={shown.length ? "Each answer re-ranks the list at once; an unanswered one is assumed." : undefined}
       />
       <div className="card card-stack">
-        {v.questions.map((q) => {
+        {shown.map((q) => {
           const picked = q.picked ?? q.default;
           return (
             <Pills
@@ -475,10 +478,22 @@ function WorthKnowing({
             />
           );
         })}
+        {hidden > 0 && (
+          <p className="m-0 text-small text-muted">
+            {hidden === 1 ? "One question is" : `${hidden} questions are`} left out: no answer changes the top pick.
+          </p>
+        )}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-detail">
           <span className="text-muted">
             Budget{" "}
-            <b className="font-mono text-ink">{v.budget === null ? "none" : formatMoney(v.budget * 100, v.currency)}</b>
+            <b className="font-mono text-ink">
+              {v.budget !== null
+                ? formatMoney(v.budget * 100, v.currency)
+                : v.budgetWords !== null
+                  ? formatMoney(v.budgetWords * 100, v.currency)
+                  : "none"}
+            </b>
+            {v.budget === null && v.budgetWords !== null && <span className="text-small"> (from my words)</span>}
             {v.note && (
               <>
                 {" "}
@@ -539,7 +554,7 @@ function BudgetBox({ v, open, onClose }: { v: WantView; open: boolean; onClose: 
           <input
             className="input font-mono"
             inputMode="numeric"
-            placeholder="none"
+            placeholder={v.budgetWords === null ? "none" : `${v.budgetWords} (from my words)`}
             data-autofocus=""
             value={budget}
             onChange={(e) => setBudget(e.target.value.replace(/[^\d]/g, "").slice(0, 7))}
@@ -778,7 +793,9 @@ export function Offers({
           </div>
         );
       })}
-      {(!v.read || products.some((p) => links(p).length > 0)) && (
+      {(v.read
+        ? products.some((p) => links(p).length > 0)
+        : !products.some((p) => p.offers.some((o) => o.read === "ok"))) && (
         <p className="m-0 text-small text-muted">
           {v.read
             ? "The stores in Also check turn automated readers away; a later version reads them in the agent's Chrome."
@@ -1118,10 +1135,8 @@ function Notes({ v }: { v: WantView }) {
         ))}
       </div>
     );
-  const couldnt = [
-    ...r.notes.map(sentence),
-    ...(r.checked ? [] : ["The second check didn't run: code checked the reasons."]),
-  ];
+  // a second check that failed is in the notes already; one that had nothing to check says nothing
+  const couldnt = r.notes.map(sentence);
   const any = r.assumptions.length + r.changeIf.length + r.conflicts.length + r.before.length + couldnt.length > 0;
   if (!any) return null;
   return (

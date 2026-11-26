@@ -196,7 +196,7 @@ export function ProductSheet({ id, v, onClose }: { id: string; v: WantView; onCl
               className={cx("btn shop-sheet-store", gone && "btn-quiet mr-auto")}
               title={`Open ${p.best.storeName}`}
             >
-              <span className="truncate">{p.best.storeName}</span> ↗
+              <span className="truncate">{shortStore(p.best.storeName)}</span> ↗
             </a>
           )}
           {gone ? (
@@ -798,4 +798,11 @@ function Readings({ readings, currency }: { readings: Reading[]; currency: strin
       )}
     </details>
   );
+}
+
+// a store's name short enough for the sheet's foot: "Tidal (its own store)" reads Tidal, a bare domain its first part
+// (store-a.example reads store-a); the full name stays in the button's title
+function shortStore(name: string): string {
+  const bare = name.replace(/\s*\(.*\)\s*$/, "").trim();
+  return !/\s/.test(bare) && bare.includes(".") ? (bare.replace(/^www\./, "").split(".")[0] ?? bare) : bare;
 }
