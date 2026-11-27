@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Evidence, Fact, Need } from "../../shared/shopping.ts";
-import { deciding, type RankProduct, rank, weightsFor } from "./rank.ts";
+import { deciding, hardsOf, type RankProduct, rank, unmeasured, weightsFor } from "./rank.ts";
 
 const NEED: Need = {
   mode: "compare",
@@ -282,4 +282,45 @@ test("US list prices name Best value by their currency and never Budget; region 
     JSON.stringify(labels),
   );
   assert.ok(!labels.some((l) => l.key === "budget" || l.key === "premium" || l.text === "Best value"));
+});
+
+test("the second live run: a must-have code can't check flags nothing, and a label needs half the kind's weight", () => {
+  const byId = (r: ReturnType<typeof rank>) => Object.fromEntries(r.map((x) => [x.id, x]));
+  // a score has no shared scale and a number with no limit tests nothing: "noise-cancelling" on a lab's score flagged
+  // all eight pairs "no source says"
+  const musts: Need = {
+    ...NEED,
+    hard: [
+      { criterion: "a", says: "great on carpet", min: 1 },
+      { criterion: "noise", says: "quiet" },
+      { criterion: "mop", says: "must mop" },
+      { criterion: "noise", says: "under 70 dB", max: 70 },
+    ],
+  };
+  assert.deepEqual(
+    hardsOf(musts, {}).map((h) => h.says),
+    ["must mop", "under 70 dB"],
+  );
+  const checked = byId(
+    rank(musts, {}, [p("Q", { a: 90, b: 90, mop: true }, null), p("L", { a: 80, b: 85, noise: 75, mop: true }, null)]),
+  );
+  assert.deepEqual(checked.Q.flags, ["under 70 dB: no source says"]);
+  assert.equal(checked.L.out, "noise over 70 dB");
+  // known on hard floors and noise alone (40 of 100): the list keeps its order and earns no label
+  const thin = byId(rank(NEED, {}, [p("X", { b: 90, noise: 60 }, 30_000), p("Y", { b: 80, noise: 70 }, 20_000)]));
+  assert.deepEqual([thin.X.place, thin.Y.place], [1, 2]);
+  assert.deepEqual([...thin.X.labels, ...thin.Y.labels], []);
+  assert.deepEqual(unmeasured(NEED, {}, [p("X", { b: 90, noise: 60 }, null)]), {
+    share: 0.4,
+    missing: [NEED.criteria[0], NEED.criteria[3]],
+  });
+  // the mop known too (60 of 100): the best overall is earned; the cheaper one, still at 40, earns no Budget
+  const known = byId(
+    rank(NEED, {}, [p("X", { b: 90, noise: 60, mop: true }, 30_000), p("Y", { b: 80, noise: 70 }, 20_000)], 400),
+  );
+  assert.deepEqual(
+    known.X.labels.map((l) => l.key),
+    ["overall"],
+  );
+  assert.deepEqual(known.Y.labels, []);
 });

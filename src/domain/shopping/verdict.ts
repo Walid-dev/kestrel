@@ -135,12 +135,35 @@ export function policyLine(stores: Store[]): string {
     .join(" · ");
 }
 
-// the region's stores for a kind of product: those in its groups
-export const storesFor = (region: Pick<Region, "stores">, groups: string[]): Store[] =>
-  region.stores.filter((s) => !groups.length || s.groups.some((g) => groups.includes(g)));
+// a group's words, each without a plural s: a drafted kind's "kitchen-appliances" or "computer" meets the region's
+// "kitchen", "appliances" and "computers" (the second live run's stand mixer named three groups no store had)
+const groupWords = (groups: string[]): Set<string> =>
+  new Set(
+    groups
+      .flatMap((g) =>
+        g
+          .toLowerCase()
+          .split(/[^a-z]+/)
+          .filter(Boolean),
+      )
+      .map((w) => w.replace(/s$/, "")),
+  );
+const meets = (have: string[], asked: Set<string>) => [...groupWords(have)].some((w) => asked.has(w));
+
+// the region's stores for a kind of product: those in its groups; every store when no group meets one, so a want is
+// never left with nowhere to look
+export const storesFor = (region: Pick<Region, "stores">, groups: string[]): Store[] => {
+  const asked = groupWords(groups);
+  const sell = region.stores.filter((s) => meets(s.groups, asked));
+  return sell.length ? sell : region.stores;
+};
+
+// the groups the region's stores sell in, for a drafted kind to pick from
+export const groupsOf = (region: Pick<Region, "stores">): string[] =>
+  [...new Set(region.stores.flatMap((s) => s.groups))].sort();
 
 // the outside price histories for a product, by its words
 export const historyLinks = (region: Pick<Region, "linkTools">, groups: string[], words: string) =>
   region.linkTools
-    .filter((t) => !t.groups.length || t.groups.some((g) => groups.includes(g)))
+    .filter((t) => !t.groups.length || meets(t.groups, groupWords(groups)))
     .map((t) => ({ label: t.name, url: t.url.replace("{q}", encodeURIComponent(words)) }));

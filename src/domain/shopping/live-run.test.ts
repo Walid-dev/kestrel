@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { Pacer, readStorePage, type Wanted } from "../../ai/shopping/product-data.ts";
+import { understandPrompt } from "../../ai/shopping/prompt.ts";
 import { type ReadAnswer, WriteAnswer } from "../../ai/shopping/shape.ts";
 import { startStandIn } from "../../ai/stand-in.ts";
 import { migrate } from "../../db/migrate.ts";
@@ -33,6 +34,7 @@ import { loadHosts, loadRegion, placeOf } from "./region.ts";
 import { scrubContext } from "./scrub.ts";
 import { addWant, NO_WORDS, offersOf, productsOf, saveOffer, saveProduct, updateWant } from "./store.ts";
 import { onceEach } from "./understand.ts";
+import { groupsOf, storesFor } from "./verdict.ts";
 import { rerank, wantView } from "./view.ts";
 
 const cats = loadCategories(mkdtempSync(join(tmpdir(), "kestrel-live-")));
@@ -1016,6 +1018,33 @@ test("8. stores by kind: a winter jacket is looked for where outdoor clothing se
   assert.ok(
     vac.includes("Narwal (its own store)") && vac.includes("Best Buy") && !vac.includes("Newegg"),
     vac.join(", "),
+  );
+});
+
+test("8. a drafted kind's store groups meet the region's by their words; none met means every store", () => {
+  const region = loadRegion();
+  // the second live run's stand mixer: three groups no store had, so no store at all
+  const mixer = storesOf(region, { storeGroups: ["kitchen-appliances", "home-kitchen", "department-store"] }, "").map(
+    (s) => s.name,
+  );
+  for (const s of ["Costco", "IKEA", "Best Buy", "Canadian Tire"])
+    assert.ok(mixer.includes(s), `${s} missing: ${mixer.join(", ")}`);
+  for (const s of ["Altitude Sports", "MEC"])
+    assert.ok(!mixer.includes(s), `${s} sells no mixers: ${mixer.join(", ")}`);
+  const monitor = storesFor(region, ["computer"]).map((s) => s.name);
+  assert.ok(monitor.includes("Memory Express") && monitor.includes("Canada Computers"), monitor.join(", "));
+  assert.equal(storesFor(region, ["department-store"]).length, region.stores.length);
+  // a drafted kind picks from the region's groups
+  const prompt = understandPrompt(
+    { words: "a stand mixer", budget: null, note: "" },
+    [],
+    null,
+    "CAD",
+    groupsOf(region),
+  );
+  assert.match(
+    prompt,
+    /storeGroups: the kinds of store that sell it, from these only: appliances, clothing, computers, /,
   );
 });
 

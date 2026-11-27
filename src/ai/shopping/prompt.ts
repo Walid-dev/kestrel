@@ -57,6 +57,7 @@ export function understandPrompt(
   known: KnownKind[],
   match: KindDetail | null,
   currency: string,
+  groups: string[] = [],
 ): string {
   const kind = match
     ? [
@@ -98,9 +99,14 @@ export function understandPrompt(
     "- category: a known key when one fits. Otherwise a new key and newCategory: {key, name, words, criteria, storeGroups},",
     "  with four to seven criteria (key, label, type number|score|bool|enum, unit, better higher|lower, weight, how it is",
     "  measured), the weights summing to 100.",
+    ...(groups.length
+      ? [`  storeGroups: the kinds of store that sell it, from these only: ${groups.join(", ")}.`]
+      : []),
     '- mode: "one" when my words name one product (a brand and a model), with product its name; else "compare".',
     "- use: one of the kind's uses when my words say it; else empty.",
-    "- hard: the must-haves my words state, each on a criterion key when one fits (min, max, or is), with says in words.",
+    "- hard: the must-haves my words state, each on a criterion key when one fits, with says in words: a yes-or-no",
+    "  criterion with is; a number with min, max or both, giving the slack a buyer allows (27-inch: min 26.5, max 28).",
+    "  Never on a score: the kind of product itself (noise-cancelling headphones) is no must-have.",
     "- implied: the needs my words imply.",
     "- questions: none to three, only those whose answer would change the top pick, never one my words already answer.",
     "  Two to four options each; each option names the weights it sets (criterion keys) and any must-have it adds; default",
