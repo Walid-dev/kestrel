@@ -1502,14 +1502,18 @@ span.filter-row-name {
    ✕ at the end), the title in the heading voice, what it holds under it, 4 apart, and its action row 12 under that.
    A card that opens is opened by its title, stretched over the whole card; any other link or button in it sits above
    that */
+/* one column that may shrink below its content: a truncated line ends in an ellipsis inside the card, never pushes the
+   card past its edge (a Shopping card's picks ran into the next column) */
 .card-stack {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
   gap: 12px;
 }
 .card-titled {
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
   gap: 4px;
 }
