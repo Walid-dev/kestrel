@@ -5,6 +5,16 @@ technical; the plan and the runbook carry the detail.
 
 ## Decided
 
+- **2026-11-26 · Shopping's second live run: labels need half the kind's weight; must-haves code can check; store
+  groups by their words.** Five made-up wants on the Mac's models. The headphones' must-have "noise-cancelling" sat on
+  the ANC score, which no source gave: all eight pairs were flagged "no source says", and the best overall rested on
+  battery and weight (29% of the kind's weight). `hardsOf` now keeps a must-have only when code can check it (a
+  yes-or-no, a named choice, a number with a limit); a label needs half the kind's whole weight known, not half of
+  the measured criteria; under half measured by any source, the page names what went unmeasured. The stand mixer's
+  drafted kind named groups no store had ("kitchen-appliances"), so it had no store at all: `storesFor` matches by
+  words and falls back to every store, and the prompt lists the region's groups. Rejected: reading the products' own
+  review pages for the missing scores in this fix (a larger change; the next quality step).
+
 - **2026-11-26 · Shopping's first fix, reviewed: a search result's price is shown, never ranked.**
   `snippetPrice` took the first dollar amount in a result: "Save $100 … Now $449.99" gave $100, an ear pad's result
   gave $29.99, and `rerank` passed that price to `rank()`, where it failed the budget and named Budget. Now

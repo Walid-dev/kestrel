@@ -40,6 +40,7 @@ export async function understand(
   ask: { models: ModelSettings; model: string; record: (a: ModelAnswer<unknown>) => void },
   cats: { list: Category[]; save: (draft: unknown) => Category },
   currency: string,
+  groups: string[] = [],
 ): Promise<Understood> {
   const match = matchCategory(want.words, cats.list);
   const got = await callModel(
@@ -52,6 +53,7 @@ export async function understand(
         cats.list.map((c) => ({ key: c.key, name: c.name, words: c.words })),
         match,
         currency,
+        groups,
       ),
       maxTokens: 4000,
       thinking: true,

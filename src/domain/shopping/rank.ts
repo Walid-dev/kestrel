@@ -14,8 +14,8 @@
 //   an unknown is a flag, never a pass. Over the budget is a failed must-have; an unknown price is a flag.
 // - The finalists are the top scores that pass, up to the list's size, coverage breaking ties; the rest are also
 //   considered, each with why.
-// - Labels: best overall (the top finalist with half its weight known or more), best value, budget, premium and best
-//   for a need, two at most a product, and none for a product with under half its weight known. Best value and budget
+// - Labels: best overall (the top finalist with half the kind's whole weight known or more), best value, budget, premium
+//   and best for a need, two at most a product, and none for a product with under half the kind's weight known. Best value and budget
 //   sit above a quality floor of 70% of the top score. Budget and premium need prices in the region's currency; best
 //   value by another currency's list prices says so on its label.
 import type { Criterion, Evidence, Fact, Hard, Label, Need } from "../../shared/shopping.ts";
@@ -104,10 +104,20 @@ function check(h: Hard, c: Criterion | undefined, f: Fact | undefined): { fail?:
   return {};
 }
 
-// the must-haves: my words' and those my answers add
+// a must-have code can check: a yes-or-no, a named choice, or a number with a limit. A score has no scale two sources
+// share, and a number with no limit tests nothing: either only flagged every product "no source says" (the second live
+// run's "noise-cancelling" on the ANC score, on all eight pairs; "27-inch" with no limit let a 31.5-inch screen pass)
+const testable = (h: Hard, c: Criterion | undefined): boolean =>
+  !c ||
+  c.type === "bool" ||
+  (c.type === "enum" && h.is !== undefined) ||
+  (c.type === "number" && (h.min !== undefined || h.max !== undefined));
+
+// the must-haves: my words' and those my answers add, the ones code can check
 export function hardsOf(need: Need, answers: Record<string, number>): Hard[] {
   const fromAnswers = need.questions.flatMap((q) => q.options[answers[q.key] ?? q.default]?.hard ?? []);
-  return [...need.hard, ...fromAnswers];
+  const byKey = new Map(need.criteria.map((c) => [c.key, c]));
+  return [...need.hard, ...fromAnswers].filter((h) => testable(h, byKey.get(h.criterion)));
 }
 
 // the criteria a need names: an implied need's words, or the option I picked (its biggest weight)
@@ -146,6 +156,7 @@ export function rank(
   // the criteria some product has a value for: the others measure nothing here and weigh nothing
   const counted = need.criteria.filter((c) => (scales.get(c.key)?.size ?? 0) > 0);
   const room = counted.reduce((n, c) => n + (weights[c.key] ?? 0), 0);
+  const whole = need.criteria.reduce((n, c) => n + (weights[c.key] ?? 0), 0);
   const hards = hardsOf(need, answers);
   const byKey = new Map(need.criteria.map((c) => [c.key, c]));
   const rows = products.map((p) => {
@@ -177,6 +188,7 @@ export function rank(
       p,
       score: known > 0 && room > 0 ? (total / room) * 100 : null,
       coverage: room > 0 ? known / room : 0,
+      share: whole > 0 ? known / whole : 0,
       measured,
       fails,
       flags,
@@ -192,16 +204,17 @@ export function rank(
   const sparse = enough.length === 0;
   const thin = new Set((sparse ? [] : scored.filter((r) => r.coverage < COVERAGE - 1e-9)).map((r) => r.p.id));
   // the best overall leads the list: a product scored above it on less than half its weight known would sit above the
-  // label, so it is only also considered, and the places follow the scores
+  // label, so it is only also considered, and the places follow the scores. Half of the kind's whole weight: the second
+  // live run named a pair best overall on battery and weight alone, when no source measured noise cancelling or sound
   const listed = sparse ? scored : enough;
-  const lead = listed.find((r) => r.coverage >= LABELLED - 1e-9);
+  const lead = listed.find((r) => r.share >= LABELLED - 1e-9);
   const above = new Set(lead ? listed.slice(0, listed.indexOf(lead)).map((r) => r.p.id) : []);
   const finalists = listed.filter((r) => !above.has(r.p.id)).slice(0, need.listSize);
   if (sparse)
     for (const r of finalists) r.flags.push(`too little measured: ${r.measured} of ${counted.length} criteria`);
   const labels = new Map<string, Label[]>(finalists.map((r) => [r.p.id, []]));
-  // a label needs half the weight known at least: a product judged on one criterion is labelled for nothing
-  const sure = new Set(finalists.filter((r) => r.coverage >= LABELLED - 1e-9).map((r) => r.p.id));
+  // a label needs half the kind's weight known at least: a product judged on one criterion is labelled for nothing
+  const sure = new Set(finalists.filter((r) => r.share >= LABELLED - 1e-9).map((r) => r.p.id));
   const give = (id: string | undefined, label: Label) => {
     const held = id && sure.has(id) ? labels.get(id) : undefined;
     if (held && held.length < 2 && !held.some((l) => l.key === label.key && l.text === label.text)) held.push(label);
@@ -298,6 +311,20 @@ export function rank(
     flags: r.flags,
     coverage: r.coverage,
   }));
+}
+
+// the criteria no product has a value for, and the share of the kind's weight the others hold: under half, no label is
+// earned, and the want page says what went unmeasured
+export function unmeasured(
+  need: Need,
+  answers: Record<string, number>,
+  products: Pick<RankProduct, "facts">[],
+): { share: number; missing: Criterion[] } {
+  const weights = weightsFor(need, answers);
+  const missing = need.criteria.filter((c) => !products.some((p) => usable(p.facts[c.key]) !== null));
+  const sum = (cs: Criterion[]) => cs.reduce((n, c) => n + (weights[c.key] ?? 0), 0);
+  const whole = sum(need.criteria);
+  return { share: whole > 0 ? (whole - sum(missing)) / whole : 0, missing };
 }
 
 // the top pick of a ranking: the best overall, else the first finalist

@@ -117,7 +117,9 @@ test("the three wants of the first live run, replayed: each failure looked for o
   assert.equal(xm6.offers.find((o) => o.store === "costco.ca")?.stock, "unknown");
   const bestbuy = xm6.offers.find((o) => o.store === "bestbuy.ca");
   assert.deepEqual([bestbuy?.read, bestbuy?.price], ["link", 49_999]);
-  assert.ok(phones.products.some((p) => p.labels.some((l) => l.key === "value" || l.key === "budget")));
+  // a label needs half the kind's weight measured: the XM4C, known on battery, weight and multipoint alone (30 of 100),
+  // carries none, though it is the cheaper (the second live run labelled a pair on battery alone)
+  assert.deepEqual(named(phones, "Sony WH-1000XM4C").labels, []);
   const heritage = named(jacket, "Canada Goose Expedition Parka Heritage");
   assert.equal(heritage.evidence.list?.currency, "USD");
   assert.equal(

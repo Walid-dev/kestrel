@@ -14,7 +14,7 @@ import { CheckAnswer, WriteAnswer } from "../../ai/shopping/shape.ts";
 import type { Evidence, Fact, Need, ProductWords, Said, SourceRef } from "../../shared/shopping.ts";
 import { holds, numbersIn } from "../grounding.ts";
 import type { Found } from "./compare.ts";
-import { type Ranked, rank, weightsFor } from "./rank.ts";
+import { type Ranked, rank, unmeasured, weightsFor } from "./rank.ts";
 import type { Region } from "./region.ts";
 import type { ProductInput } from "./store.ts";
 import { NO_WORDS } from "./store.ts";
@@ -376,6 +376,13 @@ export async function composeList(
   const byKey = new Map(merged.map((m) => [m.key, m]));
   const finalists = ranked.filter((r) => r.place !== null).sort((a, b) => (a.place ?? 0) - (b.place ?? 0));
   const notes: string[] = [];
+  // under half the kind's weight measured by any source: no label is earned, and the page says what went unmeasured
+  const gap = unmeasured(need, answers, merged);
+  if (finalists.length && gap.share < 0.5 - 1e-9) {
+    const names = gap.missing.map((c) => c.label.toLowerCase());
+    const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} or ${names.at(-1)}` : names[0];
+    notes.push(`measure ${list}: no source gave a value, so the list is ranked on the rest and earns no label`);
+  }
   const assumptions: Said[] = need.questions
     .filter((q) => answers[q.key] === undefined)
     .map((q) => ({ text: `${q.q} Taken as "${q.options[q.default]?.label ?? ""}" until I answer.`, refs: [] }));

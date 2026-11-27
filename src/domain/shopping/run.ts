@@ -48,6 +48,7 @@ import {
   type WantRow,
 } from "./store.ts";
 import { understand } from "./understand.ts";
+import { groupsOf } from "./verdict.ts";
 import { budgetOf, DROPPED, namedProduct, priceOf, rankingPrice, rerank } from "./view.ts";
 import { checkWatches, isDue, watched } from "./watch.ts";
 
@@ -179,6 +180,7 @@ export async function runWant(db: DatabaseSync, settings: Settings, w: WantRow, 
           { models: settings.models, model, record: record("understand") },
           { list, save: (d) => saveDraft(d, list, drafts) },
           region.currency,
+          groupsOf(region),
         );
         if (!got.ok) return fail(words(got.why));
         need = got.need;
